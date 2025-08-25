@@ -118,6 +118,7 @@ Route::middleware(['guest'])->group(function () {
     Route::resource('tasks', App\Http\Controllers\API\TaskAPIController::class)
         ->except(['create', 'edit']);
 
+    // GET /seasons?filterActive=true returns only active seasons
     Route::resource('seasons', App\Http\Controllers\API\SeasonAPIController::class)
         ->except(['create', 'edit']);
 
