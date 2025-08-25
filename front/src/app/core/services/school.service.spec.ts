@@ -1,12 +1,12 @@
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import { SchoolService, SchoolsResponse, GetSchoolsParams } from './school.service';
-import { ApiHttpService } from './api-http.service';
+import { ApiService } from './api.service';
 import { School } from './context.service';
 
 describe('SchoolService', () => {
   let service: SchoolService;
-  let mockApiHttp: jasmine.SpyObj<ApiHttpService>;
+  let mockApiHttp: jest.Mocked<ApiService>;
 
   const mockSchool: School = {
     id: 1,
@@ -30,17 +30,19 @@ describe('SchoolService', () => {
   };
 
   beforeEach(() => {
-    const apiHttpSpy = jasmine.createSpyObj('ApiHttpService', ['get']);
+    const apiHttpSpy: jest.Mocked<ApiService> = {
+      get: jest.fn()
+    } as any;
 
     TestBed.configureTestingModule({
       providers: [
         SchoolService,
-        { provide: ApiHttpService, useValue: apiHttpSpy }
+        { provide: ApiService, useValue: apiHttpSpy }
       ]
     });
 
     service = TestBed.inject(SchoolService);
-    mockApiHttp = TestBed.inject(ApiHttpService) as jasmine.SpyObj<ApiHttpService>;
+    mockApiHttp = TestBed.inject(ApiService) as jest.Mocked<ApiService>;
   });
 
   describe('Service Creation', () => {
@@ -51,15 +53,19 @@ describe('SchoolService', () => {
 
   describe('getMySchools', () => {
     beforeEach(() => {
-      mockApiHttp.get.and.returnValue(of(mockSchoolsResponse));
+      mockApiHttp.get.mockResolvedValue(mockSchoolsResponse as any);
     });
 
     it('should call API with default parameters', () => {
       service.getMySchools().subscribe();
 
-      expect(mockApiHttp.get).toHaveBeenCalledWith(
-        '/me/schools?page=1&perPage=20&active=true&orderBy=name&orderDirection=asc'
-      );
+      expect(mockApiHttp.get).toHaveBeenCalledWith('/me/schools', {
+        page: 1,
+        perPage: 20,
+        active: true,
+        orderBy: 'name',
+        orderDirection: 'asc'
+      });
     });
 
     it('should call API with custom parameters', () => {
@@ -74,9 +80,14 @@ describe('SchoolService', () => {
 
       service.getMySchools(params).subscribe();
 
-      expect(mockApiHttp.get).toHaveBeenCalledWith(
-        '/me/schools?page=2&perPage=10&search=test&active=false&orderBy=createdAt&orderDirection=desc'
-      );
+      expect(mockApiHttp.get).toHaveBeenCalledWith('/me/schools', {
+        page: 2,
+        perPage: 10,
+        search: 'test',
+        active: false,
+        orderBy: 'createdAt',
+        orderDirection: 'desc'
+      });
     });
 
     it('should omit empty search parameter', () => {
@@ -87,9 +98,13 @@ describe('SchoolService', () => {
 
       service.getMySchools(params).subscribe();
 
-      expect(mockApiHttp.get).toHaveBeenCalledWith(
-        '/me/schools?page=1&perPage=20&active=true&orderBy=name&orderDirection=asc'
-      );
+      expect(mockApiHttp.get).toHaveBeenCalledWith('/me/schools', {
+        page: 1,
+        perPage: 20,
+        active: true,
+        orderBy: 'name',
+        orderDirection: 'asc'
+      });
     });
 
     it('should handle partial parameters', () => {
@@ -100,9 +115,14 @@ describe('SchoolService', () => {
 
       service.getMySchools(params).subscribe();
 
-      expect(mockApiHttp.get).toHaveBeenCalledWith(
-        '/me/schools?page=1&perPage=5&search=swimming&active=true&orderBy=name&orderDirection=asc'
-      );
+      expect(mockApiHttp.get).toHaveBeenCalledWith('/me/schools', {
+        page: 1,
+        perPage: 5,
+        search: 'swimming',
+        active: true,
+        orderBy: 'name',
+        orderDirection: 'asc'
+      });
     });
 
     it('should return schools response', (done) => {
@@ -120,15 +140,18 @@ describe('SchoolService', () => {
 
       service.getMySchools(params).subscribe();
 
-      expect(mockApiHttp.get).toHaveBeenCalledWith(
-        '/me/schools?page=1&perPage=20&active=true&orderBy=name&orderDirection=asc'
-      );
+      expect(mockApiHttp.get).toHaveBeenCalledWith('/me/schools', {
+        perPage: 20,
+        active: true,
+        orderBy: 'name',
+        orderDirection: 'asc'
+      });
     });
   });
 
   describe('getSchoolById', () => {
     beforeEach(() => {
-      mockApiHttp.get.and.returnValue(of(mockSchool));
+      mockApiHttp.get.mockResolvedValue(mockSchool as any);
     });
 
     it('should fetch a school via /schools/{id}', () => {
@@ -148,7 +171,7 @@ describe('SchoolService', () => {
 
   describe('getAllMySchools', () => {
     beforeEach(() => {
-      mockApiHttp.get.and.returnValue(of({ data: [mockSchool] }));
+      mockApiHttp.get.mockResolvedValue({ data: [mockSchool] } as any);
     });
 
     it('should call API with all flag', () => {
@@ -165,25 +188,73 @@ describe('SchoolService', () => {
     });
   });
 
+  describe('listAll', () => {
+    beforeEach(() => {
+      mockApiHttp.get.mockResolvedValue(mockSchoolsResponse as any);
+    });
+
+    it('should call API with high perPage by default', () => {
+      service.listAll().subscribe();
+
+      expect(mockApiHttp.get).toHaveBeenCalledWith('/schools', {
+        page: 1,
+        perPage: 1000,
+        active: true,
+        orderBy: 'name',
+        orderDirection: 'asc'
+      });
+    });
+
+    it('should call API with custom parameters', () => {
+      const params: GetSchoolsParams = {
+        search: 'test',
+        perPage: 50,
+        active: false
+      };
+
+      service.listAll(params).subscribe();
+
+      expect(mockApiHttp.get).toHaveBeenCalledWith('/schools', {
+        page: 1,
+        perPage: 50,
+        search: 'test',
+        active: false,
+        orderBy: 'name',
+        orderDirection: 'asc'
+      });
+    });
+
+    it('should return schools array', (done) => {
+      service.listAll().subscribe(schools => {
+        expect(schools).toEqual([mockSchool]);
+        done();
+      });
+    });
+  });
+
   describe('searchSchools', () => {
     beforeEach(() => {
-      mockApiHttp.get.and.returnValue(of([mockSchool]));
+      mockApiHttp.get.mockResolvedValue([mockSchool] as any);
     });
 
     it('should call API with search query and default limit', () => {
       service.searchSchools('swimming').subscribe();
 
-      expect(mockApiHttp.get).toHaveBeenCalledWith(
-        '/schools/search?search=swimming&perPage=10&active=true'
-      );
+      expect(mockApiHttp.get).toHaveBeenCalledWith('/schools/search', {
+        search: 'swimming',
+        perPage: 10,
+        active: true
+      });
     });
 
     it('should call API with custom limit', () => {
       service.searchSchools('tennis', 5).subscribe();
 
-      expect(mockApiHttp.get).toHaveBeenCalledWith(
-        '/schools/search?search=tennis&perPage=5&active=true'
-      );
+      expect(mockApiHttp.get).toHaveBeenCalledWith('/schools/search', {
+        search: 'tennis',
+        perPage: 5,
+        active: true
+      });
     });
 
     it('should return schools array', (done) => {
@@ -196,16 +267,18 @@ describe('SchoolService', () => {
     it('should handle empty search query', () => {
       service.searchSchools('').subscribe();
 
-      expect(mockApiHttp.get).toHaveBeenCalledWith(
-        '/schools/search?search=&perPage=10&active=true'
-      );
+      expect(mockApiHttp.get).toHaveBeenCalledWith('/schools/search', {
+        search: '',
+        perPage: 10,
+        active: true
+      });
     });
   });
 
   describe('Error Handling', () => {
     it('should propagate API errors from getMySchools', (done) => {
       const error = new Error('Network error');
-      mockApiHttp.get.and.throwError(error);
+      mockApiHttp.get.mockRejectedValue(error);
 
       service.getMySchools().subscribe({
         error: (err) => {
@@ -217,7 +290,7 @@ describe('SchoolService', () => {
 
     it('should propagate API errors from getSchoolById', (done) => {
       const error = new Error('School not found');
-      mockApiHttp.get.and.throwError(error);
+      mockApiHttp.get.mockRejectedValue(error);
 
       service.getSchoolById(999).subscribe({
         error: (err) => {
@@ -229,7 +302,7 @@ describe('SchoolService', () => {
 
     it('should propagate API errors from getAllMySchools', (done) => {
       const error = new Error('Unauthorized');
-      mockApiHttp.get.and.throwError(error);
+      mockApiHttp.get.mockRejectedValue(error);
 
       service.getAllMySchools().subscribe({
         error: (err) => {
@@ -241,7 +314,7 @@ describe('SchoolService', () => {
 
     it('should propagate API errors from searchSchools', (done) => {
       const error = new Error('Search failed');
-      mockApiHttp.get.and.throwError(error);
+      mockApiHttp.get.mockRejectedValue(error);
 
       service.searchSchools('test').subscribe({
         error: (err) => {
@@ -253,6 +326,9 @@ describe('SchoolService', () => {
   });
 
   describe('URL Building', () => {
+    beforeEach(() => {
+      mockApiHttp.get.mockResolvedValue(mockSchoolsResponse as any);
+    });
     it('should build correct URLs with special characters in search', () => {
       const params: GetSchoolsParams = {
         search: 'test & school',
@@ -261,9 +337,14 @@ describe('SchoolService', () => {
 
       service.getMySchools(params).subscribe();
 
-      expect(mockApiHttp.get).toHaveBeenCalledWith(
-        '/me/schools?page=1&perPage=20&search=test%20%26%20school&active=true&orderBy=name&orderDirection=asc'
-      );
+      expect(mockApiHttp.get).toHaveBeenCalledWith('/me/schools', {
+        page: 1,
+        perPage: 20,
+        search: 'test & school',
+        active: true,
+        orderBy: 'name',
+        orderDirection: 'asc'
+      });
     });
 
     it('should handle boolean parameters correctly', () => {
@@ -273,8 +354,13 @@ describe('SchoolService', () => {
 
       service.getMySchools(params).subscribe();
 
-      const calledUrl = mockApiHttp.get.calls.mostRecent().args[0];
-      expect(calledUrl).toContain('active=false');
+      expect(mockApiHttp.get).toHaveBeenCalledWith('/me/schools', {
+        page: 1,
+        perPage: 20,
+        active: false,
+        orderBy: 'name',
+        orderDirection: 'asc'
+      });
     });
   });
 });
