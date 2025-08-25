@@ -28,6 +28,7 @@ export class AuthV5Service {
   // Reactive state using signals
   readonly tokenSignal = signal<string | null>(null);
   readonly userSignal = signal<User | null>(null);
+  readonly roleSignal = signal<string | null>(null);
   readonly schoolsSignal = signal<School[]>([]);
   readonly currentSchoolIdSignal = signal<number | null>(null);
   readonly currentSeasonIdSignal = signal<number | null>(null);
@@ -36,6 +37,8 @@ export class AuthV5Service {
   // Computed properties
   readonly isAuthenticated = computed(() => !!this.tokenSignal());
   readonly user = computed(() => this.userSignal());
+  readonly currentRole = computed(() => this.roleSignal());
+  readonly isSuperAdmin = computed(() => this.currentRole() === 'super_admin');
   readonly schools = computed(() => this.schoolsSignal());
   readonly permissions = computed(() => this.permissionsSignal());
   readonly currentSchool = computed(() => {
@@ -441,13 +444,24 @@ export class AuthV5Service {
 
     this.tokenSignal.set(token);
     this.userSignal.set(data.user);
-    
+
+    // Extract user role from roles array or type property
+    let role: string | null = null;
+    if (data.user?.type) {
+      role = data.user.type;
+    } else if (Array.isArray(data.user?.roles) && data.user.roles.length > 0) {
+      const firstRole = data.user.roles[0];
+      role = firstRole?.role?.slug || firstRole?.role || firstRole;
+    }
+    this.roleSignal.set(role);
+
     // Handle both 'schools' (array) and 'school' (single object) cases
     const schools = data.schools || (data.school ? [data.school] : []);
     this.schoolsSignal.set(schools);
 
     this.storeToken(token);
     this.storeUser(data.user);
+    this.storeRole(role);
     this.storeSchools(schools);
 
     // Set current school and season if provided
@@ -502,6 +516,7 @@ export class AuthV5Service {
   private clearState(): void {
     this.tokenSignal.set(null);
     this.userSignal.set(null);
+    this.roleSignal.set(null);
     this.schoolsSignal.set([]);
     this.currentSchoolIdSignal.set(null);
     this.currentSeasonIdSignal.set(null);
@@ -516,11 +531,13 @@ export class AuthV5Service {
       const user = localStorage.getItem('boukii_user');
       const schools = localStorage.getItem('boukii_schools');
       const permissions = localStorage.getItem('boukii_permissions');
+      const role = localStorage.getItem('boukii_role');
       const schoolId = this.contextService.getSelectedSchoolId();
       const seasonId = this.contextService.getSelectedSeasonId();
 
       if (token) this.tokenSignal.set(token);
       if (user) this.userSignal.set(JSON.parse(user));
+      if (role) this.roleSignal.set(role);
       if (schools) this.schoolsSignal.set(JSON.parse(schools));
       if (schoolId !== null) this.currentSchoolIdSignal.set(schoolId);
       if (seasonId !== null) this.currentSeasonIdSignal.set(seasonId);
@@ -547,6 +564,18 @@ export class AuthV5Service {
     }
   }
 
+  private storeRole(role: string | null): void {
+    try {
+      if (role) {
+        localStorage.setItem('boukii_role', role);
+      } else {
+        localStorage.removeItem('boukii_role');
+      }
+    } catch (error) {
+      this.logger.logError('AuthV5Service: Failed to store role', error as any, {});
+    }
+  }
+
   private storeSchools(schools: School[]): void {
     try {
       localStorage.setItem('boukii_schools', JSON.stringify(schools));
@@ -559,6 +588,7 @@ export class AuthV5Service {
     try {
       localStorage.removeItem('boukii_auth_token');
       localStorage.removeItem('boukii_user');
+      localStorage.removeItem('boukii_role');
       localStorage.removeItem('boukii_schools');
       localStorage.removeItem('boukii_permissions');
       this.contextService.clearContext();
