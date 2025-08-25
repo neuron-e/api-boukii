@@ -78,11 +78,27 @@ export class SchoolService {
   /**
    * List all schools (super admin only)
    */
-  listAll(params: { perPage?: number } = {}): Observable<School[]> {
-    const queryParams: Record<string, string | number> = {};
-    if (params.perPage !== undefined) {
-      queryParams['perPage'] = params.perPage;
-    }
+  listAll(params: GetSchoolsParams = {}): Observable<School[]> {
+    // Set default parameters with high perPage
+    const defaultParams: Required<GetSchoolsParams> = {
+      page: 1,
+      perPage: 1000,
+      search: '',
+      active: true,
+      orderBy: 'name',
+      orderDirection: 'asc'
+    };
+
+    const finalParams = { ...defaultParams, ...params };
+
+    // Build query parameters
+    const queryParams: Record<string, string | number | boolean> = {};
+    Object.entries(finalParams).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        queryParams[key] = value;
+      }
+    });
+
     return from(
       this.apiHttp.get<SchoolsResponse>('/schools', queryParams)
     ).pipe(map(response => response.data));
