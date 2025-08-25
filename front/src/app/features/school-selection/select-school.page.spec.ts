@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { SelectSchoolPageComponent } from './select-school.page';
 import { AuthV5Service } from '@core/services/auth-v5.service';
-import { ContextService } from '@core/services/context.service';
+import { SessionService } from '@core/services/session.service';
 import { ToastService } from '@core/services/toast.service';
 import { TranslationService } from '@core/services/translation.service';
 import { Router } from '@angular/router';
@@ -13,7 +13,7 @@ describe('SelectSchoolPageComponent', () => {
   let component: SelectSchoolPageComponent;
   let fixture: ComponentFixture<SelectSchoolPageComponent>;
   let authV5: AuthV5Service;
-  let context: ContextService;
+  let session: SessionService;
   let router: Router;
 
   const mockSchools = [
@@ -28,7 +28,7 @@ describe('SelectSchoolPageComponent', () => {
       tokenSignal: signal('temp-token')
     } as unknown as AuthV5Service;
 
-    const contextSpy = { setSelectedSchool: jest.fn() } as unknown as ContextService;
+    const sessionSpy = { selectSchool: jest.fn() } as unknown as SessionService;
     const routerSpy = { navigate: jest.fn() } as unknown as Router;
     const toastSpy = { success: jest.fn(), error: jest.fn() } as unknown as ToastService;
     const translationSpy = {
@@ -40,7 +40,7 @@ describe('SelectSchoolPageComponent', () => {
       imports: [SelectSchoolPageComponent],
       providers: [
         { provide: AuthV5Service, useValue: authV5Spy },
-        { provide: ContextService, useValue: contextSpy },
+        { provide: SessionService, useValue: sessionSpy },
         { provide: Router, useValue: routerSpy },
         { provide: ToastService, useValue: toastSpy },
         { provide: TranslationService, useValue: translationSpy }
@@ -50,7 +50,7 @@ describe('SelectSchoolPageComponent', () => {
     fixture = TestBed.createComponent(SelectSchoolPageComponent);
     component = fixture.componentInstance;
     authV5 = TestBed.inject(AuthV5Service);
-    context = TestBed.inject(ContextService);
+    session = TestBed.inject(SessionService);
     router = TestBed.inject(Router);
 
     fixture.detectChanges();
@@ -61,12 +61,9 @@ describe('SelectSchoolPageComponent', () => {
   });
 
   it('should persist school id on selection', () => {
-    const setItemSpy = jest.spyOn(Storage.prototype, 'setItem');
-
     component.selectSchool(mockSchools[0] as any);
 
-    expect(context.setSelectedSchool).toHaveBeenCalledWith(mockSchools[0] as any);
-    expect(setItemSpy).toHaveBeenCalledWith('boukiiSchoolId', mockSchools[0].id.toString());
+    expect(session.selectSchool).toHaveBeenCalledWith(mockSchools[0] as any);
     expect(router.navigate).toHaveBeenCalledWith(['/select-season']);
   });
 });

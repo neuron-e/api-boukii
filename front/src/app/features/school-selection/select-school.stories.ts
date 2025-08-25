@@ -2,12 +2,13 @@ import type { Meta, StoryObj } from '@storybook/angular';
 import { moduleMetadata, applicationConfig } from '@storybook/angular';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, throwError, BehaviorSubject } from 'rxjs';
 import { signal } from '@angular/core';
 
 import { SelectSchoolPageComponent } from './select-school.page';
 import { SchoolService, SchoolsResponse } from '@core/services/school.service';
-import { ContextService, School } from '@core/services/context.service';
+import { School } from '@core/services/context.service';
+import { SessionService } from '@core/services/session.service';
 import { TranslationService } from '@core/services/translation.service';
 
 // Mock data
@@ -116,19 +117,13 @@ class MockTranslationService {
   }
 }
 
-class MockContextService {
-  private schoolId = signal<number | null>(null);
-  
-  hasSchoolSelected = this.schoolId.asReadonly();
-
-  async setSchool(schoolId: number): Promise<void> {
-    this.schoolId.set(schoolId);
-    console.log('Mock: School selected:', schoolId);
+class MockSessionService {
+  selectSchool(school: School): void {
+    console.log('Mock: School selected:', school.id);
   }
 
-  clearContext(): void {
-    this.schoolId.set(null);
-  }
+  // Simple BehaviorSubject for compatibility if needed
+  currentSchool$ = new BehaviorSubject<School | null>(null);
 }
 
 class MockSchoolService {
@@ -191,7 +186,7 @@ const meta: Meta<SelectSchoolPageComponent> = {
         provideAnimations(),
         provideRouter([]),
         { provide: SchoolService, useClass: MockSchoolService },
-        { provide: ContextService, useClass: MockContextService },
+        { provide: SessionService, useClass: MockSessionService },
         { provide: TranslationService, useClass: MockTranslationService },
       ],
     }),
@@ -257,7 +252,7 @@ export const Empty: Story = {
             return service;
           }
         },
-        { provide: ContextService, useClass: MockContextService },
+        { provide: SessionService, useClass: MockSessionService },
         { provide: TranslationService, useClass: MockTranslationService },
       ],
     }),
@@ -287,7 +282,7 @@ export const Error: Story = {
             return service;
           }
         },
-        { provide: ContextService, useClass: MockContextService },
+        { provide: SessionService, useClass: MockSessionService },
         { provide: TranslationService, useClass: MockTranslationService },
       ],
     }),
@@ -317,7 +312,7 @@ export const Paginated: Story = {
             return service;
           }
         },
-        { provide: ContextService, useClass: MockContextService },
+        { provide: SessionService, useClass: MockSessionService },
         { provide: TranslationService, useClass: MockTranslationService },
       ],
     }),
