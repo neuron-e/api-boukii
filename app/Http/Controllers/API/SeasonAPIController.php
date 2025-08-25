@@ -55,8 +55,14 @@ class SeasonAPIController extends AppBaseController
      */
     public function index(Request $request): JsonResponse
     {
+        $filters = $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with']);
+
+        if ($request->boolean('filterActive')) {
+            $filters['is_active'] = true;
+        }
+
         $seasons = $this->seasonRepository->all(
-            $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with']),
+            $filters,
             $request->get('search'),
             $request->get('skip'),
             $request->get('limit'),
