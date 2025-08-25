@@ -209,7 +209,19 @@ export class LoginPage implements OnInit {
           return;
         }
 
-        const { schools, temp_token } = response.data;
+        const { user, schools, temp_token } = response.data;
+
+        if (user?.type === 'monitor') {
+          this.handleLoginError('Please use the teacher app');
+          this.router.navigate(['/teach']);
+          return;
+        }
+
+        if (user?.type === 'client') {
+          this.handleLoginError('Please use the client app');
+          this.router.navigate(['/client']);
+          return;
+        }
 
         if (schools.length === 0) {
           this.handleLoginError('No schools available for this user');
