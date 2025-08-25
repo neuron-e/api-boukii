@@ -79,6 +79,22 @@ class SeasonRepository extends BaseRepository
         return $result;
     }
 
+    public function unsetActiveForSchool(int $schoolId, ?int $excludeId = null): void
+    {
+        $query = $this->model->newQuery()
+            ->where('school_id', $schoolId)
+            ->where('is_active', true);
+
+        if ($excludeId) {
+            $query->where('id', '!=', $excludeId);
+        }
+
+        $query->update(['is_active' => false]);
+
+        $this->clearCacheForSchool($schoolId);
+        Cache::forget('seasons:all');
+    }
+
     public function findBySeason(int $id): ?Season
     {
         return $this->find($id);

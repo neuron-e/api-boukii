@@ -38,6 +38,10 @@ class SeasonService extends BaseService
         /** @var SeasonRepository $repo */
         $repo = $this->repository;
 
+        if ($data['is_active'] ?? false) {
+            $repo->unsetActiveForSchool($data['school_id']);
+        }
+
         return $repo->create($data);
     }
 
@@ -102,6 +106,7 @@ class SeasonService extends BaseService
         if (! $season) {
             return null;
         }
+        $repo->unsetActiveForSchool($season->school_id, $season->id);
         $repo->update($season, ['is_active' => true]);
 
         return $season->fresh();
@@ -112,15 +117,15 @@ class SeasonService extends BaseService
         /** @var SeasonRepository $repo */
         $repo = $this->repository;
         $season = $repo->getCurrentSeason($schoolId);
-        
+
         // If no season exists, create a dummy season
-        if (!$season) {
+        if (! $season) {
             $season = $this->createDummySeasonIfNeeded($schoolId);
         }
 
         return $season;
     }
-    
+
     /**
      * Create a dummy season if none exists for the school
      */
@@ -129,7 +134,7 @@ class SeasonService extends BaseService
         try {
             $currentYear = date('Y');
             $nextYear = $currentYear + 1;
-            
+
             // Create a default season for this school
             return $this->createSeason([
                 'name' => "Temporada {$currentYear}-{$nextYear}",
@@ -141,14 +146,15 @@ class SeasonService extends BaseService
                     'default_booking_duration' => 180, // 3 hours
                     'max_advance_booking_days' => 30,
                     'cancellation_policy' => 'flexible',
-                    'created_by_system' => true
-                ]
+                    'created_by_system' => true,
+                ],
             ]);
         } catch (\Exception $e) {
             \Log::error('Failed to create dummy season', [
                 'school_id' => $schoolId,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
