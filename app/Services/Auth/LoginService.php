@@ -46,7 +46,8 @@ class LoginService
             switch ($user->type) {
                 case 'superadmin':
                 case '4':
-                    $user->load('schools');
+                    $schools = School::where('active', 1)->get();
+                    $user->setRelation('schools', $schools);
                     $token = $user->createToken('Boukii', ['permissions:all'])->plainTextToken;
                     break;
                 case 'admin':
