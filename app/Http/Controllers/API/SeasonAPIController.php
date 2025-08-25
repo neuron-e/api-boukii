@@ -109,6 +109,9 @@ class SeasonAPIController extends AppBaseController
     public function store(CreateSeasonAPIRequest $request): JsonResponse
     {
         $input = $request->all();
+        if (!empty($input['is_active'])) {
+            $this->seasonRepository->unsetActiveForSchool($input['school_id']);
+        }
 
         $season = $this->seasonRepository->create($input);
 
@@ -212,6 +215,10 @@ class SeasonAPIController extends AppBaseController
 
         if (empty($season)) {
             return $this->sendError('Season not found');
+        }
+
+        if (!empty($input['is_active'])) {
+            $this->seasonRepository->unsetActiveForSchool($season->school_id, $season->id);
         }
 
         $season = $this->seasonRepository->update($input, $id);
