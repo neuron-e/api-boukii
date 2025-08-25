@@ -2,11 +2,11 @@
 
 namespace Tests\Unit;
 
-use App\V5\Modules\Season\Services\SeasonService;
-use App\V5\Modules\Season\Repositories\SeasonRepository;
 use App\V5\Models\Season;
-use Illuminate\Support\Facades\Schema;
+use App\V5\Modules\Season\Repositories\SeasonRepository;
+use App\V5\Modules\Season\Services\SeasonService;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class SeasonServiceTest extends TestCase
@@ -14,8 +14,10 @@ class SeasonServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-
+        Schema::disableForeignKeyConstraints();
         Schema::dropIfExists('seasons');
+        Schema::enableForeignKeyConstraints();
+
         Schema::create('seasons', function (Blueprint $table) {
             $table->id();
             $table->string('name')->nullable();
@@ -35,7 +37,9 @@ class SeasonServiceTest extends TestCase
 
     protected function tearDown(): void
     {
+        Schema::disableForeignKeyConstraints();
         Schema::dropIfExists('seasons');
+        Schema::enableForeignKeyConstraints();
         parent::tearDown();
     }
 
@@ -74,6 +78,57 @@ class SeasonServiceTest extends TestCase
 
         $updated = $service->activateSeason($season->id);
 
+        $this->assertTrue($updated->is_active);
+    }
+
+    public function test_create_active_season_unsets_previous_active_seasons(): void
+    {
+        $service = $this->getService();
+        $old = Season::create([
+            'name' => 'Old',
+            'start_date' => '2024-01-01',
+            'end_date' => '2024-02-01',
+            'is_active' => true,
+            'school_id' => 1,
+        ]);
+
+        $season = $service->createSeason([
+            'name' => 'New',
+            'start_date' => '2024-03-01',
+            'end_date' => '2024-04-01',
+            'is_active' => true,
+            'school_id' => 1,
+        ]);
+
+        $old->refresh();
+
+        $this->assertFalse($old->is_active);
+        $this->assertTrue($season->is_active);
+    }
+
+    public function test_activate_season_unsets_other_active_seasons(): void
+    {
+        $service = $this->getService();
+        $old = Season::create([
+            'name' => 'Old',
+            'start_date' => '2024-01-01',
+            'end_date' => '2024-02-01',
+            'is_active' => true,
+            'school_id' => 1,
+        ]);
+        $season = Season::create([
+            'name' => 'New',
+            'start_date' => '2024-03-01',
+            'end_date' => '2024-04-01',
+            'is_active' => false,
+            'school_id' => 1,
+        ]);
+
+        $updated = $service->activateSeason($season->id);
+
+        $old->refresh();
+
+        $this->assertFalse($old->is_active);
         $this->assertTrue($updated->is_active);
     }
 
