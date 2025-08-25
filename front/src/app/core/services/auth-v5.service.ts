@@ -6,6 +6,7 @@ import { tap, catchError, switchMap } from 'rxjs/operators';
 import { ApiService, ApiResponse } from './api.service';
 import { LoggingService } from './logging.service';
 import { ContextService } from './context.service';
+import { SessionService } from './session.service';
 import {
   LoginRequest,
   RegisterRequest,
@@ -22,6 +23,7 @@ export class AuthV5Service {
   private readonly logger = inject(LoggingService);
   private readonly router = inject(Router);
   private readonly contextService = inject(ContextService);
+  private readonly sessionService = inject(SessionService);
 
   // Reactive state using signals
   readonly tokenSignal = signal<string | null>(null);
@@ -389,6 +391,7 @@ export class AuthV5Service {
 
     this.currentSchoolIdSignal.set(schoolId);
     this.contextService.setSelectedSchool(school);
+    this.sessionService.selectSchool(school);
 
     // Auto-select season if only one active (check if seasons exists)
     const seasons = school.seasons || [];
@@ -452,6 +455,7 @@ export class AuthV5Service {
       console.log('🏫 Setting current school:', data.school);
       this.currentSchoolIdSignal.set(data.school.id);
       this.contextService.setSelectedSchool(data.school);
+      this.sessionService.selectSchool(data.school);
     } else {
       console.log('❌ No school data in response');
     }

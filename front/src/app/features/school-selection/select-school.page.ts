@@ -8,7 +8,7 @@ import { TranslatePipe } from '@shared/pipes/translate.pipe';
 import { AuthV5Service } from '@core/services/auth-v5.service';
 import { ToastService } from '@core/services/toast.service';
 import { TranslationService } from '@core/services/translation.service';
-import { ContextService } from '@core/services/context.service';
+import { SessionService } from '@core/services/session.service';
 
 interface School {
   id: number;
@@ -154,7 +154,7 @@ export class SelectSchoolPageComponent implements OnInit, OnDestroy {
   private readonly toast = inject(ToastService);
   private readonly translationService = inject(TranslationService);
   private readonly router = inject(Router);
-  private readonly contextService = inject(ContextService);
+  private readonly sessionService = inject(SessionService);
 
   // Component state
   private readonly _isLoading = signal(false);
@@ -252,9 +252,8 @@ export class SelectSchoolPageComponent implements OnInit, OnDestroy {
 
         console.log('✅ School selection successful:', response.data);
 
-        // Persist selected school
-        this.contextService.setSelectedSchool(school);
-        localStorage.setItem('boukiiSchoolId', school.id.toString());
+        // Persist selected school using session service
+        this.sessionService.selectSchool(school);
 
         // Show success message
         this.toast.success(this.translationService.get('auth.login.success'));
