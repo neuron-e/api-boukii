@@ -9,6 +9,8 @@ use App\Models\Season;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class LoginTest extends TestCase
 {
@@ -93,7 +95,7 @@ class LoginTest extends TestCase
                 ->assertJsonStructure([
                     'success',
                     'data' => [
-                        'user' => ['id', 'name', 'email'],
+                        'user' => ['id', 'name', 'email', 'role'],
                         'schools' => [
                             '*' => ['id', 'name', 'slug', 'logo', 'user_role', 'can_administer']
                         ],
@@ -104,7 +106,8 @@ class LoginTest extends TestCase
                     'success' => true,
                     'data' => [
                         'user' => [
-                            'email' => 'test@boukii.com'
+                            'email' => 'test@boukii.com',
+                            'role' => 'admin'
                         ],
                         'requires_school_selection' => false // Single school = no selection needed
                     ]
@@ -132,7 +135,7 @@ class LoginTest extends TestCase
                 ->assertJsonStructure([
                     'success',
                     'data' => [
-                        'user' => ['id', 'name', 'email'],
+                        'user' => ['id', 'name', 'email', 'role'],
                         'schools' => [
                             '*' => ['id', 'name', 'slug', 'logo', 'user_role', 'can_administer']
                         ],
@@ -144,7 +147,8 @@ class LoginTest extends TestCase
                     'success' => true,
                     'data' => [
                         'user' => [
-                            'email' => 'test@boukii.com'
+                            'email' => 'test@boukii.com',
+                            'role' => 'admin'
                         ],
                         'requires_school_selection' => true // Multiple schools = selection needed
                     ]
@@ -204,6 +208,34 @@ class LoginTest extends TestCase
                     'success' => false,
                     'message' => 'Usuario sin escuelas asignadas.'
                 ]);
+    }
+
+    /** @test */
+    public function test_superadmin_without_school_assignments_gets_all_active_schools()
+    {
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
+
+        $role = Role::create(['name' => 'superadmin']);
+
+        $superAdmin = User::create([
+            'name' => 'Super Admin',
+            'email' => 'super@boukii.com',
+            'password' => Hash::make('password123'),
+            'active' => 1,
+            'type' => 'admin'
+        ]);
+
+        $superAdmin->assignRole($role);
+
+        $response = $this->postJson('/api/v5/auth/check-user', [
+            'email' => 'super@boukii.com',
+            'password' => 'password123'
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.user.role', 'superadmin');
+
+        $this->assertCount(3, $response->json('data.schools'));
     }
 
     /** @test */

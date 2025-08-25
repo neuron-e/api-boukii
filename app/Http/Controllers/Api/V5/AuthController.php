@@ -61,8 +61,14 @@ class AuthController extends Controller
             }
 
             // Get user's available schools
-            $schools = $user->schools()
-                ->select(['schools.id', 'schools.name', 'schools.slug', 'schools.logo'])
+            $schoolsQuery = $user->hasRole('superadmin')
+                ? School::query()
+                    ->select(['id', 'name', 'slug', 'logo'])
+                    ->where('active', 1)
+                    ->whereNull('deleted_at')
+                : $user->schools()->select(['schools.id', 'schools.name', 'schools.slug', 'schools.logo']);
+
+            $schools = $schoolsQuery
                 ->get()
                 ->map(function ($school) use ($user) {
                     return [
@@ -107,7 +113,8 @@ class AuthController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
-                    'email_verified_at' => $user->email_verified_at
+                    'email_verified_at' => $user->email_verified_at,
+                    'role' => $this->getUserPrimaryRole($user)
                 ],
                 'schools' => $schools->values()->all(),
                 'requires_school_selection' => $requiresSchoolSelection,
@@ -636,6 +643,10 @@ class AuthController extends Controller
      */
     private function userCanAdministerSchool(User $user, School $school): bool
     {
+        if ($user->hasRole('superadmin')) {
+            return true;
+        }
+
         if (!$this->userHasAccessToSchool($user, $school)) {
             return false;
         }
@@ -657,6 +668,10 @@ class AuthController extends Controller
      */
     private function getUserRoleInSchool(User $user, School $school): string
     {
+        if ($user->hasRole('superadmin')) {
+            return 'superadmin';
+        }
+
         if ($school->owner_id === $user->id) {
             return 'owner';
         }

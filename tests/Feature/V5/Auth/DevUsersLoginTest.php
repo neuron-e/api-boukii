@@ -50,7 +50,7 @@ class DevUsersLoginTest extends TestCase
                     'success',
                     'message',
                     'data' => [
-                        'user' => ['id', 'name', 'email'],
+                        'user' => ['id', 'name', 'email', 'role'],
                         'schools' => [
                             '*' => ['id', 'name', 'slug', 'logo', 'user_role', 'can_administer']
                         ],
@@ -62,7 +62,8 @@ class DevUsersLoginTest extends TestCase
                     'success' => true,
                     'data' => [
                         'user' => [
-                            'email' => 'admin@boukii-v5.com'
+                            'email' => 'admin@boukii-v5.com',
+                            'role' => 'admin'
                         ],
                         'requires_school_selection' => true
                     ]
@@ -93,7 +94,8 @@ class DevUsersLoginTest extends TestCase
                     'success' => true,
                     'data' => [
                         'user' => [
-                            'email' => 'multi@boukii-v5.com'
+                            'email' => 'multi@boukii-v5.com',
+                            'role' => 'admin'
                         ],
                         'requires_school_selection' => false // Single school = no selection needed
                     ]
