@@ -27,4 +27,12 @@ class SeasonRepository extends BaseRepository
     {
         return Season::class;
     }
+
+    public function unsetActiveForSchool(int $schoolId, ?int $excludeId = null): void {
+        $query = $this->model->newQuery()
+            ->where('school_id', $schoolId)
+            ->where('is_active', true);
+        if ($excludeId) $query->where('id', '!=', $excludeId);
+        $query->update(['is_active' => false]);
+    }
 }
