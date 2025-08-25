@@ -76,6 +76,19 @@ export class SchoolService {
   }
 
   /**
+   * List all schools (super admin only)
+   */
+  listAll(params: { perPage?: number } = {}): Observable<School[]> {
+    const queryParams: Record<string, string | number> = {};
+    if (params.perPage !== undefined) {
+      queryParams['perPage'] = params.perPage;
+    }
+    return from(
+      this.apiHttp.get<SchoolsResponse>('/schools', queryParams)
+    ).pipe(map(response => response.data));
+  }
+
+  /**
    * Search schools by name
    */
   searchSchools(query: string, limit: number = 10): Observable<School[]> {

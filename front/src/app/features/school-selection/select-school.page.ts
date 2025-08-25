@@ -9,6 +9,7 @@ import { AuthV5Service } from '@core/services/auth-v5.service';
 import { ToastService } from '@core/services/toast.service';
 import { TranslationService } from '@core/services/translation.service';
 import { SessionService } from '@core/services/session.service';
+import { SchoolService } from '@core/services/school.service';
 
 interface School {
   id: number;
@@ -155,6 +156,7 @@ export class SelectSchoolPageComponent implements OnInit, OnDestroy {
   private readonly translationService = inject(TranslationService);
   private readonly router = inject(Router);
   private readonly sessionService = inject(SessionService);
+  private readonly schoolService = inject(SchoolService);
 
   // Component state
   private readonly _isLoading = signal(false);
@@ -217,13 +219,38 @@ export class SelectSchoolPageComponent implements OnInit, OnDestroy {
   }
 
   loadSchools(): void {
+    this._isLoading.set(true);
+    this._hasError.set(false);
+    this._errorMessage.set(null);
+
+    this.tempToken = this.authV5.tokenSignal() || '';
+
+    if (this.authV5.isSuperAdmin()) {
+      this.schoolService
+        .listAll({ perPage: 1000 })
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (schools) => {
+            this._schools.set(schools);
+            this._isLoading.set(false);
+          },
+          error: (error) => {
+            console.error('Error loading schools from API:', error);
+            this._hasError.set(true);
+            this._errorMessage.set('Error loading schools data');
+            this._isLoading.set(false);
+          }
+        });
+      return;
+    }
+
     try {
-      this.tempToken = this.authV5.tokenSignal() || '';
       const user: any = this.authV5.user();
       const schools = user?.schools || [];
       if (schools.length === 0) {
         this._hasError.set(true);
         this._errorMessage.set('No schools found. Please login again.');
+        this._isLoading.set(false);
         return;
       }
       this._schools.set(schools);
@@ -232,6 +259,8 @@ export class SelectSchoolPageComponent implements OnInit, OnDestroy {
       this._hasError.set(true);
       this._errorMessage.set('Error loading schools data');
       this.router.navigate(['/auth/login']);
+    } finally {
+      this._isLoading.set(false);
     }
   }
 

@@ -8,6 +8,7 @@ import { Router } from '@angular/router';
 import { signal } from '@angular/core';
 import { of } from 'rxjs';
 import { expect } from '@jest/globals';
+import { SchoolService } from '@core/services/school.service';
 
 describe('SelectSchoolPageComponent', () => {
   let component: SelectSchoolPageComponent;
@@ -25,7 +26,8 @@ describe('SelectSchoolPageComponent', () => {
     const authV5Spy = {
       selectSchool: jest.fn().mockReturnValue(of({ success: true, data: { school: mockSchools[0] } })),
       user: signal({ schools: mockSchools } as any),
-      tokenSignal: signal('temp-token')
+      tokenSignal: signal('temp-token'),
+      isSuperAdmin: signal(false)
     } as unknown as AuthV5Service;
 
     const sessionSpy = { selectSchool: jest.fn() } as unknown as SessionService;
@@ -35,6 +37,7 @@ describe('SelectSchoolPageComponent', () => {
       get: jest.fn((k: string) => k),
       currentLanguage: jest.fn(() => 'en')
     } as unknown as TranslationService;
+    const schoolServiceSpy = { listAll: jest.fn().mockReturnValue(of(mockSchools)) } as unknown as SchoolService;
 
     await TestBed.configureTestingModule({
       imports: [SelectSchoolPageComponent],
@@ -43,7 +46,8 @@ describe('SelectSchoolPageComponent', () => {
         { provide: SessionService, useValue: sessionSpy },
         { provide: Router, useValue: routerSpy },
         { provide: ToastService, useValue: toastSpy },
-        { provide: TranslationService, useValue: translationSpy }
+        { provide: TranslationService, useValue: translationSpy },
+        { provide: SchoolService, useValue: schoolServiceSpy }
       ]
     }).compileComponents();
 
