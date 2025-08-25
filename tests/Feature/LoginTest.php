@@ -140,7 +140,7 @@ class LoginTest extends TestCase
         $response->assertJsonPath('data.user.schools.0.id', $school->id);
     }
 
-    public function test_superadmin_login()
+    public function test_superadmin_login_returns_all_active_schools_without_associations()
     {
         $user = User::create([
             'id' => 2,
@@ -150,17 +150,25 @@ class LoginTest extends TestCase
             'active' => 1,
         ]);
 
-        $school = School::create([
+        $school1 = School::create([
             'name' => 'Super School',
             'description' => 'desc',
             'slug' => 'super-school',
             'active' => 1,
         ]);
 
-        DB::table('school_users')->insert([
-            'id' => 1,
-            'school_id' => $school->id,
-            'user_id' => $user->id,
+        $school2 = School::create([
+            'name' => 'Another School',
+            'description' => 'desc',
+            'slug' => 'another-school',
+            'active' => 1,
+        ]);
+
+        School::create([
+            'name' => 'Inactive School',
+            'description' => 'desc',
+            'slug' => 'inactive-school',
+            'active' => 0,
         ]);
 
         $response = $this->postJson('/api/admin/login', [
@@ -170,7 +178,9 @@ class LoginTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertJsonPath('data.user.id', $user->id);
-        $response->assertJsonPath('data.user.schools.0.id', $school->id);
+        $response->assertJsonCount(2, 'data.user.schools');
+        $schoolIds = array_column($response->json('data.user.schools'), 'id');
+        $this->assertEqualsCanonicalizing([$school1->id, $school2->id], $schoolIds);
     }
 
     public function test_teach_login()
