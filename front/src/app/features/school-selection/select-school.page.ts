@@ -2,12 +2,13 @@ import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { Subject, takeUntil, debounceTime, distinctUntilChanged, catchError, of } from 'rxjs';
+import { Subject, takeUntil, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { TranslatePipe } from '@shared/pipes/translate.pipe';
 import { AuthV5Service } from '@core/services/auth-v5.service';
 import { ToastService } from '@core/services/toast.service';
 import { TranslationService } from '@core/services/translation.service';
+import { ContextService } from '@core/services/context.service';
 
 interface School {
   id: number;
@@ -79,7 +80,7 @@ interface School {
             </svg>
             <h2 class="error-title">{{ 'schools.selectSchool.errorLoading' | translate }}</h2>
             <p class="error-message">{{ errorMessage() || ('common.error' | translate) }}</p>
-            <button class="retry-button" (click)="loadStoredSchools()" [disabled]="isLoading()">
+            <button class="retry-button" (click)="loadSchools()" [disabled]="isLoading()">
               {{ 'common.retry' | translate }}
             </button>
           </div>
@@ -153,6 +154,7 @@ export class SelectSchoolPageComponent implements OnInit, OnDestroy {
   private readonly toast = inject(ToastService);
   private readonly translationService = inject(TranslationService);
   private readonly router = inject(Router);
+  private readonly contextService = inject(ContextService);
 
   // Component state
   private readonly _isLoading = signal(false);
@@ -188,7 +190,7 @@ export class SelectSchoolPageComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.setupSearch();
-    this.loadStoredSchools();
+    this.loadSchools();
   }
 
   ngOnDestroy(): void {
@@ -214,32 +216,19 @@ export class SelectSchoolPageComponent implements OnInit, OnDestroy {
     this.searchSubject.next(this.searchQuery);
   }
 
-  loadStoredSchools(): void {
+  loadSchools(): void {
     try {
-      // Get temporary token and schools from localStorage
-      this.tempToken = localStorage.getItem('boukii_temp_token') || '';
-      const schoolsData = localStorage.getItem('boukii_temp_schools');
-      
-      if (!this.tempToken) {
-        console.error('No temporary token found - redirecting to login');
-        this._hasError.set(true);
-        this._errorMessage.set('Session expired. Please login again.');
-        this.router.navigate(['/auth/login']);
-        return;
-      }
-      
-      if (schoolsData) {
-        const schools = JSON.parse(schoolsData);
-        this._schools.set(schools);
-        console.log('📚 Schools loaded from storage:', schools);
-      } else {
-        console.error('No schools data found - redirecting to login');
+      this.tempToken = this.authV5.tokenSignal() || '';
+      const user: any = this.authV5.user();
+      const schools = user?.schools || [];
+      if (schools.length === 0) {
         this._hasError.set(true);
         this._errorMessage.set('No schools found. Please login again.');
-        this.router.navigate(['/auth/login']);
+        return;
       }
+      this._schools.set(schools);
     } catch (error) {
-      console.error('Error loading stored schools:', error);
+      console.error('Error loading schools from auth service:', error);
       this._hasError.set(true);
       this._errorMessage.set('Error loading schools data');
       this.router.navigate(['/auth/login']);
@@ -263,18 +252,15 @@ export class SelectSchoolPageComponent implements OnInit, OnDestroy {
 
         console.log('✅ School selection successful:', response.data);
 
-        // Process the login success using the auth service
-        this.authV5.handleLoginSuccess(response.data);
-
-        // Clean up temporary storage
-        localStorage.removeItem('boukii_temp_token');
-        localStorage.removeItem('boukii_temp_schools');
+        // Persist selected school
+        this.contextService.setSelectedSchool(school);
+        localStorage.setItem('boukiiSchoolId', school.id.toString());
 
         // Show success message
         this.toast.success(this.translationService.get('auth.login.success'));
-        
-        // Navigate to dashboard
-        this.router.navigate(['/dashboard']);
+
+        // Navigate to select season
+        this.router.navigate(['/select-season']);
       },
       error: (error) => {
         console.error('❌ School selection failed:', error);
