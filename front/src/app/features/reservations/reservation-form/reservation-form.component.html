@@ -1,0 +1,126 @@
+<ng-container *ngIf="!finalReservation; else summary">
+  <mat-horizontal-stepper linear>
+    <mat-step [stepControl]="clientGroup">
+      <form [formGroup]="clientGroup" class="step-content">
+        <ng-template matStepLabel>Selección de cliente</ng-template>
+        <mat-form-field appearance="fill">
+          <mat-label>Cliente</mat-label>
+          <mat-select formControlName="client">
+            <mat-option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <div>
+          <button mat-button matStepperNext [disabled]="clientGroup.invalid">Siguiente</button>
+        </div>
+      </form>
+    </mat-step>
+
+    <mat-step [stepControl]="participantsGroup">
+      <form [formGroup]="participantsGroup" class="step-content">
+        <ng-template matStepLabel>Participantes</ng-template>
+        <div formArrayName="participants">
+          <div *ngFor="let p of participants.controls; let i = index" class="participant-row">
+            <mat-form-field appearance="fill">
+              <mat-label>Participante {{ i + 1 }}</mat-label>
+              <input matInput [formControlName]="i" />
+            </mat-form-field>
+            <button mat-icon-button color="warn" type="button" (click)="removeParticipant(i)">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        </div>
+        <button mat-button type="button" (click)="addParticipant()">Añadir participante</button>
+        <div>
+          <button mat-button matStepperPrevious>Anterior</button>
+          <button mat-button matStepperNext>Siguiente</button>
+        </div>
+      </form>
+    </mat-step>
+
+    <mat-step [stepControl]="courseGroup">
+      <form [formGroup]="courseGroup" class="step-content">
+        <ng-template matStepLabel>Deporte y curso</ng-template>
+        <mat-form-field appearance="fill">
+          <mat-label>Deporte</mat-label>
+          <mat-select formControlName="sport">
+            <mat-option *ngFor="let sport of sports" [value]="sport">{{ sport }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="fill">
+          <mat-label>Curso</mat-label>
+          <mat-select formControlName="course">
+            <mat-option *ngFor="let course of filteredCourses" [value]="course.id">{{ course.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <div>
+          <button mat-button matStepperPrevious>Anterior</button>
+          <button mat-button matStepperNext [disabled]="courseGroup.invalid">Siguiente</button>
+        </div>
+      </form>
+    </mat-step>
+
+    <mat-step [stepControl]="dateExtrasGroup">
+      <form [formGroup]="dateExtrasGroup" class="step-content">
+        <ng-template matStepLabel>Fechas y extras</ng-template>
+        <mat-form-field appearance="fill">
+          <mat-label>Fecha</mat-label>
+          <input matInput [matDatepicker]="picker" formControlName="date" />
+          <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+          <mat-datepicker #picker></mat-datepicker>
+        </mat-form-field>
+        <mat-form-field appearance="fill">
+          <mat-label>Extras</mat-label>
+          <mat-select formControlName="extras" multiple>
+            <mat-option *ngFor="let extra of extras" [value]="extra.id">
+              {{ extra.name }} ({{ extra.price | currency:'EUR' }})
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+        <div>
+          <button mat-button matStepperPrevious>Anterior</button>
+          <button mat-button matStepperNext [disabled]="dateExtrasGroup.invalid">Siguiente</button>
+        </div>
+      </form>
+    </mat-step>
+
+    <mat-step [stepControl]="priceGroup">
+      <form [formGroup]="priceGroup" class="step-content">
+        <ng-template matStepLabel>Resumen de precios</ng-template>
+        <p>Curso: {{ selectedCourse?.name }} - {{ selectedCourse?.price | currency:'EUR' }}</p>
+        <p>Extras:</p>
+        <ul>
+          <li *ngFor="let extra of selectedExtras">{{ extra.name }} - {{ extra.price | currency:'EUR' }}</li>
+        </ul>
+        <p><strong>Total: {{ totalPrice | currency:'EUR' }}</strong></p>
+        <div>
+          <button mat-button matStepperPrevious>Anterior</button>
+          <button mat-button matStepperNext>Siguiente</button>
+        </div>
+      </form>
+    </mat-step>
+
+    <mat-step [stepControl]="confirmGroup">
+      <form [formGroup]="confirmGroup" class="step-content">
+        <ng-template matStepLabel>Confirmación</ng-template>
+        <p>Revise los datos y confirme la reserva.</p>
+        <div>
+          <button mat-button matStepperPrevious>Anterior</button>
+          <button mat-button type="button" (click)="confirm()">Confirmar</button>
+        </div>
+      </form>
+    </mat-step>
+  </mat-horizontal-stepper>
+</ng-container>
+
+<ng-template #summary>
+  <div class="summary">
+    <h2>Resumen de la reserva</h2>
+    <p>Cliente: {{ finalReservation.client }}</p>
+    <p>Participantes: {{ finalReservation.participants.join(', ') }}</p>
+    <p>Deporte: {{ finalReservation.sport }}</p>
+    <p>Curso: {{ finalReservation.course }}</p>
+    <p>Fecha: {{ finalReservation.date | date }}</p>
+    <p>Extras: {{ finalReservation.extras.join(', ') || 'Ninguno' }}</p>
+    <p>Total: {{ finalReservation.total | currency:'EUR' }}</p>
+  </div>
+</ng-template>
