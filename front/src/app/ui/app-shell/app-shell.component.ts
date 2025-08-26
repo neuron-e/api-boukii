@@ -397,7 +397,13 @@ interface Notification {
           </a>
 
           <!-- Bonos -->
-          <a href="#" class="nav-item item" role="menuitem" [title]="ui.sidebarCollapsed() ? translationService.instant('nav.bonos') : null">
+          <a
+            routerLink="/vouchers"
+            routerLinkActive="active"
+            class="nav-item item"
+            role="menuitem"
+            [title]="ui.sidebarCollapsed() ? translationService.instant('nav.bonos') : null"
+          >
             <div class="nav-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M4 4h16v2H4zm0 5h16v6H4zm0 11h16v-2H4z"/>
