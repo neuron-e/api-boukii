@@ -101,6 +101,11 @@ export const routes: Routes = [
         loadChildren: () => import('./features/scheduling/scheduling.module').then(m => m.SchedulingModule)
       },
       {
+        path: 'reservations',
+        canActivate: [requireCompleteAuthGuard],
+        loadChildren: () => import('./features/reservations/reservations.module').then(m => m.ReservationsModule)
+      },
+      {
         path: 'renting',
         loadComponent: () =>
           import('./features/renting/renting.component').then(c => c.RentingComponent),
