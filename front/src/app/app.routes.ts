@@ -61,7 +61,17 @@ export const routes: Routes = [
           {
             path: 'new',
             loadComponent: () =>
-              import('./features/clients/client-form.page').then(c => c.ClientFormPageComponent)
+              import('./features/clients/client-form.page').then(c => c.ClientFormPage)
+          },
+          {
+            path: 'create',
+            loadComponent: () =>
+              import('./features/clients/client-form.page').then(c => c.ClientFormPage)
+          },
+          {
+            path: ':id/edit',
+            loadComponent: () =>
+              import('./features/clients/client-form.page').then(c => c.ClientFormPage)
           },
           {
             path: ':id',

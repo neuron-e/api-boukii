@@ -11,7 +11,7 @@ import { TranslatePipe } from '@shared/pipes/translate.pipe';
   templateUrl: './client-form.page.html',
   styleUrls: ['./client-form.page.scss']
 })
-export class ClientFormPageComponent {
+export class ClientFormPage {
   private readonly fb = inject(FormBuilder);
 
   submitted = false;
