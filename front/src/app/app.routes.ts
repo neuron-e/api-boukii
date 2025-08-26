@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authV5Guard } from './core/guards/auth-v5.guard';
+import { authGuard } from './core/guards/auth.guard';
 import { schoolSelectionGuard, requireCompleteContextGuard } from './core/guards/school-selection.guard';
 import { seasonSelectionGuard, requireCompleteAuthGuard } from './core/guards/season-selection.guard';
 
@@ -29,13 +29,13 @@ export const routes: Routes = [
     path: 'select-school',
     loadComponent: () =>
       import('./features/school-selection/select-school.page').then(c => c.SelectSchoolPageComponent),
-    canActivate: [authV5Guard, schoolSelectionGuard]
+    canActivate: [authGuard, schoolSelectionGuard]
   },
   {
     path: 'select-season',
     loadComponent: () => 
       import('./features/seasons/select-season.page').then(c => c.SelectSeasonPageComponent),
-    canActivate: [authV5Guard, seasonSelectionGuard]
+    canActivate: [authGuard, seasonSelectionGuard]
   },
   
   // Admin routes - wrapped in AppShell

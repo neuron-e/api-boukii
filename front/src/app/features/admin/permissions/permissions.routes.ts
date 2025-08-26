@@ -1,11 +1,11 @@
 import { Routes } from '@angular/router';
-import { authV5Guard } from '../../../core/guards/auth-v5.guard';
+import { authGuard } from '../../../core/guards/auth.guard';
 import { schoolSelectionGuard } from '../../../core/guards/school-selection.guard';
 
 export const permissionsRoutes: Routes = [
   {
     path: '',
-    canActivate: [authV5Guard, schoolSelectionGuard],
+    canActivate: [authGuard, schoolSelectionGuard],
     children: [
       {
         path: '',
