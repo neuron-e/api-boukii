@@ -10,7 +10,8 @@
     "search": "Cerca",
     "noResults": "Nessun risultato trovato",
     "error": "Errore",
-    "retry": "Riprova"
+    "retry": "Riprova",
+    "all": "Tutti"
   },
   "schools": {
     "selectSchool": {
@@ -66,6 +67,21 @@
     "endDate": "Data di fine",
     "courses": "Corsi",
     "bookings": "Prenotazioni"
+  },
+  "clients": {
+    "title": "Clienti",
+    "fullName": "Nome completo",
+    "email": "Email",
+    "phone": "Telefono",
+    "utilizadores": "Utenti",
+    "sportsSummary": "Sport",
+    "status": "Stato",
+    "signupDate": "Data di iscrizione",
+    "filtersAria": "Filtri clienti",
+    "tableAria": "Tabella clienti",
+    "viewClient": "Vedi cliente",
+    "editClient": "Modifica cliente",
+    "deleteClient": "Elimina cliente"
   },
   "auth": {
     "login": {

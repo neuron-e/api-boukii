@@ -10,7 +10,8 @@
     "search": "Rechercher",
     "noResults": "Aucun résultat trouvé",
     "error": "Erreur",
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "all": "Tous"
   },
   "schools": {
     "selectSchool": {
@@ -66,6 +67,21 @@
     "endDate": "Date de fin",
     "courses": "Cours",
     "bookings": "Réservations"
+  },
+  "clients": {
+    "title": "Clients",
+    "fullName": "Nom complet",
+    "email": "Email",
+    "phone": "Téléphone",
+    "utilizadores": "Utilisateurs",
+    "sportsSummary": "Sports",
+    "status": "Statut",
+    "signupDate": "Date d'inscription",
+    "filtersAria": "Filtres des clients",
+    "tableAria": "Tableau des clients",
+    "viewClient": "Voir le client",
+    "editClient": "Éditer le client",
+    "deleteClient": "Supprimer le client"
   },
   "auth": {
     "brandLine": "All-in-one sports management (FR)",

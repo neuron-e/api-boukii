@@ -17,7 +17,8 @@
     "view": "Ver",
     "reset": "Restablecer",
     "saving": "Guardando...",
-    "more": "más"
+    "more": "más",
+    "all": "Todos"
   },
   "schools": {
     "selectSchool": {
@@ -73,6 +74,21 @@
     "endDate": "Fecha fin",
     "courses": "Cursos",
     "bookings": "Reservas"
+  },
+  "clients": {
+    "title": "Clientes",
+    "fullName": "Nombre completo",
+    "email": "Correo electrónico",
+    "phone": "Teléfono",
+    "utilizadores": "Usuarios",
+    "sportsSummary": "Deportes",
+    "status": "Estado",
+    "signupDate": "Fecha de alta",
+    "filtersAria": "Filtros de clientes",
+    "tableAria": "Tabla de clientes",
+    "viewClient": "Ver cliente",
+    "editClient": "Editar cliente",
+    "deleteClient": "Eliminar cliente"
   },
   "auth": {
     "brandLine": "Gestión deportiva integral",

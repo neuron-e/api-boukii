@@ -1,0 +1,33 @@
+@import '../../../styles/tokens.css';
+
+.page {
+  padding: var(--space-4);
+}
+
+.page-header {
+  margin-bottom: var(--space-4);
+}
+
+.filters {
+  margin-bottom: var(--space-4);
+}
+
+table {
+  width: 100%;
+}
+
+th,
+td {
+  padding: var(--space-2);
+  text-align: left;
+}
+
+.empty-state {
+  text-align: center;
+  padding: var(--space-4);
+  color: var(--text-2);
+}
+
+.pagination {
+  margin-top: var(--space-4);
+}

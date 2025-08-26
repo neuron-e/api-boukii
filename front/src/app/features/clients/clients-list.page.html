@@ -1,0 +1,144 @@
+<div class="page">
+  <div class="page-header">
+    <h1>{{ 'clients.title' | translate }}</h1>
+  </div>
+
+  <form
+    [formGroup]="filtersForm"
+    class="filters row gap"
+    [attr.aria-label]="'clients.filtersAria' | translate"
+  >
+    <input
+      type="text"
+      formControlName="search"
+      placeholder="Search"
+      [attr.aria-label]="'common.search' | translate"
+    />
+    <input
+      type="number"
+      formControlName="sport_id"
+      placeholder="Sport ID"
+      [attr.aria-label]="'Sport ID'"
+    />
+    <select
+      formControlName="active"
+      [attr.aria-label]="'clients.status' | translate"
+    >
+      <option value="">{{ 'common.all' | translate }}</option>
+      <option value="true">{{ 'schools.status.active' | translate }}</option>
+      <option value="false">{{ 'schools.status.inactive' | translate }}</option>
+    </select>
+  </form>
+
+  <table [attr.aria-label]="'clients.tableAria' | translate">
+    <thead>
+      <tr>
+        <th>{{ 'clients.fullName' | translate }}</th>
+        <th>{{ 'clients.email' | translate }}</th>
+        <th>{{ 'clients.phone' | translate }}</th>
+        <th>{{ 'clients.utilizadores' | translate }}</th>
+        <th>{{ 'clients.sportsSummary' | translate }}</th>
+        <th>{{ 'clients.status' | translate }}</th>
+        <th>{{ 'clients.signupDate' | translate }}</th>
+        <th>{{ 'common.actions' | translate }}</th>
+      </tr>
+    </thead>
+    <tbody *ngIf="!loading && clients.length > 0">
+      <tr
+        *ngFor="let client of clients"
+        (click)="openPreview(client)"
+        tabindex="0"
+      >
+        <td>{{ client.fullName }}</td>
+        <td>{{ client.email }}</td>
+        <td>{{ client.phone }}</td>
+        <td>{{ client.utilizadores }}</td>
+        <td>{{ client.sportsSummary }}</td>
+        <td>{{ client.status }}</td>
+        <td>{{ client.signupDate }}</td>
+        <td>
+          <button
+            type="button"
+            class="btn"
+            (click)="openPreview(client); $event.stopPropagation()"
+            [attr.aria-label]="('clients.viewClient' | translate) + ': ' + client.fullName"
+          >
+            {{ 'common.view' | translate }}
+          </button>
+          <button
+            type="button"
+            class="btn"
+            (click)="editClient(client); $event.stopPropagation()"
+            [attr.aria-label]="('clients.editClient' | translate) + ': ' + client.fullName"
+          >
+            {{ 'common.edit' | translate }}
+          </button>
+          <button
+            type="button"
+            class="btn"
+            (click)="deleteClient(client); $event.stopPropagation()"
+            [attr.aria-label]="('clients.deleteClient' | translate) + ': ' + client.fullName"
+          >
+            {{ 'common.delete' | translate }}
+          </button>
+        </td>
+      </tr>
+    </tbody>
+    <tbody *ngIf="loading">
+      <tr *ngFor="let _ of skeletonRows">
+        <td colspan="8" class="skeleton-row"></td>
+      </tr>
+    </tbody>
+    <tbody *ngIf="!loading && clients.length === 0">
+      <tr>
+        <td colspan="8">
+          <div class="empty-state">No clients found</div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="pagination row gap" *ngIf="!loading && totalPages > 1">
+    <button
+      type="button"
+      class="btn"
+      (click)="goToPage(currentPage - 1)"
+      [disabled]="currentPage === 1"
+      [attr.aria-label]="('schools.pagination.previous' | translate)"
+    >
+      {{ 'schools.pagination.previous' | translate }}
+    </button>
+    <span>Page {{ currentPage }} of {{ totalPages }}</span>
+    <button
+      type="button"
+      class="btn"
+      (click)="goToPage(currentPage + 1)"
+      [disabled]="currentPage === totalPages"
+      [attr.aria-label]="('schools.pagination.next' | translate)"
+    >
+      {{ 'schools.pagination.next' | translate }}
+    </button>
+  </div>
+
+  <div class="preview-overlay" *ngIf="selectedClient" (click)="closePreview()">
+    <div class="preview-drawer" (click)="$event.stopPropagation()">
+      <h2>{{ selectedClient.fullName }}</h2>
+      <div class="contact">
+        <p>Email: {{ selectedClient.email }}</p>
+        <p>Phone: {{ selectedClient.phone }}</p>
+      </div>
+      <div class="utilizadores">
+        <h3>Utilizadores</h3>
+        <ul>
+          <li *ngFor="let u of (selectedClient?.utilizadoresDetails || [])">
+            {{ u.name }} - {{ u.age }} - {{ u.sport }}
+          </li>
+        </ul>
+      </div>
+      <div class="actions">
+        <button class="btn" type="button">Ver ficha</button>
+        <button class="btn" type="button">Nueva reserva</button>
+      </div>
+    </div>
+  </div>
+</div>
