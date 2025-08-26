@@ -1,60 +1,215 @@
-<div class="page">
-  <div class="page-header">
-    <h1>{{ 'courses.title' | translate }}</h1>
-  </div>
-
-  <div class="tabs row gap">
-    <button
-      type="button"
-      class="btn"
-      *ngFor="let tab of statusTabs"
-      [class.active]="selectedTab === tab"
-      (click)="selectTab(tab)"
-    >
-      {{ ('courses.tabs.' + tab) | translate }}
-    </button>
-  </div>
-
-  <form [formGroup]="filtersForm" class="filters row gap">
-    <input type="text" formControlName="search" [placeholder]="'courses.search' | translate" />
-    <input type="text" formControlName="sport" [placeholder]="'courses.sport' | translate" />
-    <select formControlName="type">
-      <option value="">{{ 'common.all' | translate }}</option>
-      <option value="collective">{{ 'courses.type.collective' | translate }}</option>
-      <option value="private">{{ 'courses.type.private' | translate }}</option>
-    </select>
-  </form>
-
-  <table>
-    <thead>
-      <tr>
-        <th>{{ 'courses.table.name' | translate }}</th>
-        <th>{{ 'courses.table.sport' | translate }}</th>
-        <th>{{ 'courses.table.type' | translate }}</th>
-        <th>{{ 'courses.table.level' | translate }}</th>
-        <th>{{ 'courses.table.status' | translate }}</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let course of filteredCourses" (click)="openCourse(course)" tabindex="0">
-        <td>{{ course.name }}</td>
-        <td>{{ course.sport }}</td>
-        <td>{{ course.type }}</td>
-        <td>{{ course.level }}</td>
-        <td>{{ course.status }}</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <div class="preview-overlay" *ngIf="selectedCourse" (click)="closeCourse()">
-    <div class="preview-drawer" (click)="$event.stopPropagation()">
-      <h2>{{ selectedCourse.name }}</h2>
-      <p>{{ selectedCourse.description }}</p>
-      <p><strong>{{ 'courses.table.sport' | translate }}:</strong> {{ selectedCourse.sport }}</p>
-      <p><strong>{{ 'courses.table.type' | translate }}:</strong> {{ selectedCourse.type }}</p>
-      <p><strong>{{ 'courses.table.level' | translate }}:</strong> {{ selectedCourse.level }}</p>
-      <p><strong>{{ 'courses.table.status' | translate }}:</strong> {{ selectedCourse.status }}</p>
-      <button class="btn" type="button" (click)="closeCourse()">{{ 'common.close' | translate }}</button>
+<div class="courses-page">
+  <!-- Header -->
+  <header class="page-header">
+    <div class="header-content">
+      <h1 class="page-title">
+        <svg class="title-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+          <path d="M6.5 2H20v15H6.5A2.5 2.5 0 0 0 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+        </svg>
+        Gestión de Cursos
+      </h1>
+      <p class="page-subtitle">Administra los cursos y programas de formación</p>
     </div>
-  </div>
+    <div class="header-actions">
+      <button class="action-btn action-btn--secondary" (click)="exportCourses()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14,2 14,8 20,8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+        </svg>
+        Exportar Lista
+      </button>
+      <button class="action-btn action-btn--primary" (click)="createCourse()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14"></path>
+          <path d="M5 12h14"></path>
+        </svg>
+        Nuevo Curso
+      </button>
+    </div>
+  </header>
+
+  <!-- Filters -->
+  <section class="filters-section">
+    <div class="search-box">
+      <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"></circle>
+        <path d="m21 21-4.35-4.35"></path>
+      </svg>
+      <input
+        type="text"
+        class="search-input"
+        [formControl]="searchControl"
+        placeholder="Buscar curso..."
+      />
+    </div>
+
+    <div class="filter-controls">
+      <select class="filter-select" [(ngModel)]="typeFilter" (ngModelChange)="applyFilters()">
+        <option value="">Tipo</option>
+        <option value="ski">Esquí</option>
+        <option value="snow">Snow</option>
+      </select>
+
+      <select class="filter-select" [(ngModel)]="levelFilter" (ngModelChange)="applyFilters()">
+        <option value="">Nivel</option>
+        <option value="beginner">Principiante</option>
+        <option value="intermediate">Intermedio</option>
+        <option value="advanced">Avanzado</option>
+      </select>
+
+      <select class="filter-select" [(ngModel)]="statusFilter" (ngModelChange)="applyFilters()">
+        <option value="">Estado</option>
+        <option value="active">Activo</option>
+        <option value="paused">En pausa</option>
+        <option value="inactive">Inactivo</option>
+      </select>
+
+      <div class="view-toggle">
+        <button
+          class="toggle-btn"
+          [class.active]="viewMode === 'cards'"
+          (click)="viewMode = 'cards'"
+          title="Vista en tarjetas"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+        </button>
+        <button
+          class="toggle-btn"
+          [class.active]="viewMode === 'table'"
+          (click)="viewMode = 'table'"
+          title="Vista en tabla"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Loading -->
+  <main class="loading-state" *ngIf="loading">
+    <div class="courses-grid">
+      <div class="course-card skeleton" *ngFor="let _ of skeletonCourses"></div>
+    </div>
+  </main>
+
+  <!-- Error -->
+  <main class="error-state" *ngIf="!loading && error">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="12" y1="8" x2="12" y2="12"></line>
+      <line x1="12" y1="16" x2="12" y2="16"></line>
+    </svg>
+    <p>{{ error }}</p>
+  </main>
+
+  <!-- Empty state -->
+  <main class="empty-state" *ngIf="!loading && !error && filteredCourses.length === 0">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+      <line x1="3" y1="9" x2="21" y2="9"></line>
+      <line x1="9" y1="21" x2="9" y2="9"></line>
+    </svg>
+    <p>No hay cursos disponibles</p>
+  </main>
+
+  <!-- Content -->
+  <main *ngIf="!loading && !error && filteredCourses.length > 0">
+    <!-- Cards View -->
+    <div class="courses-grid" *ngIf="viewMode === 'cards'">
+      <article class="course-card" *ngFor="let course of filteredCourses; trackBy: trackByCourseId">
+        <div class="course-visual">
+          <div class="course-icon" [attr.data-type]="course.type">
+            <svg *ngIf="course.type === 'ski'" width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2 2h2v18L2 22l1-1v-1h1v-2H3V4h1V2H2zm18 0h2v2h-1v14h1v2h-1l-2-2V2zm-8 6l-2 2v6l2-2V8zm4 0v6l2 2V8l-2-2z"/>
+            </svg>
+            <svg *ngIf="course.type === 'snow'" width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C8 2 5 5 5 9v6c0 4 3 7 7 7s7-3 7-7V9c0-4-3-7-7-7zm3 13c0 1.7-1.3 3-3 3s-3-1.3-3-3V9c0-1.7 1.3-3 3-3s3 1.3 3 3v6z"/>
+            </svg>
+          </div>
+        </div>
+        <div class="course-info">
+          <h3 class="course-name">{{ course.name }}</h3>
+          <span class="level-badge" [ngClass]="getLevelClass(course.level)">{{ getLevelLabel(course.level) }}</span>
+          <div class="course-meta">
+            <span class="course-price">{{ course.price | currency:'EUR':'symbol':'1.0-0' }}/persona</span>
+            <span class="course-duration">{{ course.duration }}</span>
+          </div>
+          <div class="course-monitor">Monitor: {{ course.instructor }}</div>
+          <div class="course-status" [ngClass]="getStatusClass(course.status)">{{ getStatusLabel(course.status) }}</div>
+        </div>
+        <div class="course-actions">
+          <button class="action-button action-button--primary" (click)="viewDetails(course)">Ver Detalles</button>
+          <button class="action-button action-button--secondary" (click)="editCourse(course)">Editar</button>
+          <button class="action-button action-button--secondary" (click)="manageReservations(course)">Reservas</button>
+        </div>
+      </article>
+    </div>
+
+    <!-- Table View -->
+    <div class="courses-table-container" *ngIf="viewMode === 'table'">
+      <div class="table-wrapper">
+        <table class="courses-table">
+          <thead>
+            <tr>
+              <th>Curso</th>
+              <th>Nivel</th>
+              <th>Precio</th>
+              <th>Monitor</th>
+              <th>Capacidad</th>
+              <th>Reservas</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let course of filteredCourses; trackBy: trackByCourseId" class="table-row">
+              <td class="course-cell">
+                <div class="course-summary">
+                  <div class="course-icon-small" [attr.data-type]="course.type">
+                    <svg *ngIf="course.type === 'ski'" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M2 2h2v18L2 22l1-1v-1h1v-2H3V4h1V2H2zm18 0h2v2h-1v14h1v2h-1l-2-2V2zm-8 6l-2 2v6l2-2V8zm4 0v6l2 2V8l-2-2z"/>
+                    </svg>
+                    <svg *ngIf="course.type === 'snow'" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C8 2 5 5 5 9v6c0 4 3 7 7 7s7-3 7-7V9c0-4-3-7-7-7zm3 13c0 1.7-1.3 3-3 3s-3-1.3-3-3V9c0-1.7 1.3-3 3-3s3 1.3 3 3v6z"/>
+                    </svg>
+                  </div>
+                  <div class="course-basic-info">
+                    <span class="course-name-table">{{ course.name }}</span>
+                    <span class="course-type-table">{{ getTypeLabel(course.type) }}</span>
+                  </div>
+                </div>
+              </td>
+              <td><span class="level-badge" [ngClass]="getLevelClass(course.level)">{{ getLevelLabel(course.level) }}</span></td>
+              <td>{{ course.price | currency:'EUR':'symbol':'1.0-0' }}</td>
+              <td>{{ course.instructor }}</td>
+              <td>{{ course.capacity }}</td>
+              <td>{{ course.reservations }}</td>
+              <td><span class="course-status" [ngClass]="getStatusClass(course.status)">{{ getStatusLabel(course.status) }}</span></td>
+              <td class="actions-cell">
+                <button class="action-button action-button--primary" (click)="viewDetails(course)">Detalles</button>
+                <button class="action-button action-button--secondary" (click)="editCourse(course)">Editar</button>
+                <button class="action-button action-button--secondary" (click)="manageReservations(course)">Reservas</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
 </div>
+

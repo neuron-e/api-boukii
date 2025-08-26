@@ -1,125 +1,196 @@
-import { Component, inject } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { TranslatePipe } from '@shared/pipes/translate.pipe';
+import { FormsModule, ReactiveFormsModule, FormControl } from '@angular/forms';
 
 interface Course {
+  id: number;
   name: string;
-  sport: string;
-  type: 'collective' | 'private';
-  level: string;
-  status: 'active' | 'finished' | 'ongoing';
-  description: string;
+  type: 'ski' | 'snow';
+  level: 'beginner' | 'intermediate' | 'advanced';
+  price: number;
+  duration: string;
+  instructor: string;
+  capacity: number;
+  reservations: number;
+  status: 'active' | 'paused' | 'inactive';
 }
 
 @Component({
   selector: 'app-courses-list',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, TranslatePipe],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule],
   templateUrl: './courses-list.component.html',
   styleUrls: ['./courses-list.component.scss'],
 })
 export class CoursesListComponent {
-  private readonly fb = inject(FormBuilder);
+  /** Controls */
+  searchControl = new FormControl('');
+  typeFilter = '';
+  levelFilter = '';
+  statusFilter = '';
+  viewMode: 'cards' | 'table' = 'cards';
 
+  /** Loading & error states */
+  loading = false;
+  error: string | null = null;
+
+  /** Sample data */
   courses: Course[] = [
     {
+      id: 1,
       name: 'Ski Basics',
-      sport: 'Ski',
-      type: 'collective',
-      level: 'Beginner',
+      type: 'ski',
+      level: 'beginner',
+      price: 120,
+      duration: '2h',
+      instructor: 'Luis Pérez',
+      capacity: 8,
+      reservations: 5,
       status: 'active',
-      description: 'Introductory group lessons for skiing',
     },
     {
-      name: 'Advanced Ski',
-      sport: 'Ski',
-      type: 'private',
-      level: 'Advanced',
-      status: 'ongoing',
-      description: 'One-on-one coaching for advanced skiers',
+      id: 2,
+      name: 'Snowboard Freestyle',
+      type: 'snow',
+      level: 'advanced',
+      price: 200,
+      duration: '3h',
+      instructor: 'Marta García',
+      capacity: 5,
+      reservations: 2,
+      status: 'paused',
     },
     {
-      name: 'Snowboard Fun',
-      sport: 'Snowboard',
-      type: 'collective',
-      level: 'Intermediate',
-      status: 'finished',
-      description: 'Group snowboarding sessions for intermediate riders',
-    },
-    {
-      name: 'Kids Ski Camp',
-      sport: 'Ski',
-      type: 'collective',
-      level: 'Beginner',
-      status: 'ongoing',
-      description: 'Ski camp tailored for kids',
-    },
-    {
-      name: 'Freestyle Snowboard',
-      sport: 'Snowboard',
-      type: 'private',
-      level: 'Advanced',
-      status: 'active',
-      description: 'Private freestyle training sessions',
-    },
-    {
-      name: 'Racing Ski',
-      sport: 'Ski',
-      type: 'collective',
-      level: 'Expert',
-      status: 'finished',
-      description: 'High-performance racing course',
+      id: 3,
+      name: 'Ski Intermedio',
+      type: 'ski',
+      level: 'intermediate',
+      price: 150,
+      duration: '4h',
+      instructor: 'Carlos Ruiz',
+      capacity: 10,
+      reservations: 10,
+      status: 'inactive',
     },
   ];
 
   filteredCourses: Course[] = [...this.courses];
-
-  statusTabs: Array<'active' | 'finished' | 'ongoing' | 'all'> = [
-    'active',
-    'finished',
-    'ongoing',
-    'all',
-  ];
-  selectedTab: 'active' | 'finished' | 'ongoing' | 'all' = 'active';
-
-  filtersForm = this.fb.group({
-    type: [''],
-    sport: [''],
-    search: [''],
-  });
-
-  selectedCourse: Course | null = null;
+  skeletonCourses = Array(6);
 
   constructor() {
-    this.filtersForm.valueChanges.subscribe(() => this.applyFilters());
+    this.searchControl.valueChanges.subscribe(() => this.applyFilters());
     this.applyFilters();
   }
 
-  selectTab(tab: 'active' | 'finished' | 'ongoing' | 'all'): void {
-    this.selectedTab = tab;
-    this.applyFilters();
-  }
-
-  openCourse(course: Course): void {
-    this.selectedCourse = course;
-  }
-
-  closeCourse(): void {
-    this.selectedCourse = null;
-  }
-
-  private applyFilters(): void {
-    const { type, sport, search } = this.filtersForm.value;
+  applyFilters(): void {
+    const term = this.searchControl.value?.toLowerCase() ?? '';
     this.filteredCourses = this.courses.filter((course) => {
-      const matchesTab = this.selectedTab === 'all' || course.status === this.selectedTab;
-      const matchesType = !type || course.type === type;
-      const matchesSport =
-        !sport || course.sport.toLowerCase().includes((sport as string).toLowerCase());
-      const matchesSearch =
-        !search || course.name.toLowerCase().includes((search as string).toLowerCase());
-      return matchesTab && matchesType && matchesSport && matchesSearch;
+      const matchesSearch = course.name.toLowerCase().includes(term);
+      const matchesType = !this.typeFilter || course.type === this.typeFilter;
+      const matchesLevel = !this.levelFilter || course.level === this.levelFilter;
+      const matchesStatus = !this.statusFilter || course.status === this.statusFilter;
+      return matchesSearch && matchesType && matchesLevel && matchesStatus;
     });
+  }
+
+  /** Actions */
+  createCourse(): void {
+    // TODO: Implement navigation to course creation
+  }
+
+  exportCourses(): void {
+    const headers = [
+      'ID',
+      'Nombre',
+      'Tipo',
+      'Nivel',
+      'Precio',
+      'Duración',
+      'Monitor',
+      'Capacidad',
+      'Reservas',
+      'Estado',
+    ];
+    const rows = this.filteredCourses.map((c) => [
+      c.id,
+      c.name,
+      this.getTypeLabel(c.type),
+      this.getLevelLabel(c.level),
+      c.price,
+      c.duration,
+      c.instructor,
+      c.capacity,
+      c.reservations,
+      this.getStatusLabel(c.status),
+    ]);
+    const csvRows = [headers, ...rows]
+      .map((row) => row.map((f) => `"${f}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csvRows], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cursos-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+
+  viewDetails(_course: Course): void {
+    // TODO: Implement navigation to details
+  }
+
+  editCourse(_course: Course): void {
+    // TODO: Implement edit course
+  }
+
+  manageReservations(_course: Course): void {
+    // TODO: Implement reservations management
+  }
+
+  trackByCourseId(index: number, course: Course): number {
+    return course.id;
+  }
+
+  getLevelLabel(level: Course['level']): string {
+    switch (level) {
+      case 'beginner':
+        return 'Principiante';
+      case 'intermediate':
+        return 'Intermedio';
+      default:
+        return 'Avanzado';
+    }
+  }
+
+  getStatusLabel(status: Course['status']): string {
+    switch (status) {
+      case 'active':
+        return 'Activo';
+      case 'paused':
+        return 'En pausa';
+      default:
+        return 'Inactivo';
+    }
+  }
+
+  getTypeLabel(type: Course['type']): string {
+    return type === 'ski' ? 'Esquí' : 'Snow';
+  }
+
+  getLevelClass(level: Course['level']): string {
+    return {
+      beginner: 'badge--beginner',
+      intermediate: 'badge--intermediate',
+      advanced: 'badge--advanced',
+    }[level];
+  }
+
+  getStatusClass(status: Course['status']): string {
+    return {
+      active: 'status--active',
+      paused: 'status--paused',
+      inactive: 'status--inactive',
+    }[status];
   }
 }
 
