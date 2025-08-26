@@ -1,0 +1,48 @@
+@import '../../../styles/tokens.css';
+
+.page {
+  padding: var(--space-4);
+}
+
+.page-header {
+  margin-bottom: var(--space-4);
+}
+
+.tabs {
+  margin-bottom: var(--space-4);
+}
+
+.filters {
+  margin-bottom: var(--space-4);
+}
+
+table {
+  width: 100%;
+}
+
+th,
+td {
+  padding: var(--space-2);
+  text-align: left;
+}
+
+.tabs .btn.active {
+  font-weight: bold;
+  text-decoration: underline;
+}
+
+.preview-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-drawer {
+  background: var(--color-background);
+  padding: var(--space-4);
+  max-width: 400px;
+  width: 100%;
+}
