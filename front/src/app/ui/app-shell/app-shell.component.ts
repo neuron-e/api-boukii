@@ -408,15 +408,18 @@ interface Notification {
           </a>
 
           <!-- Comunicación -->
-          <a href="#" class="nav-item item" role="menuitem" [title]="ui.sidebarCollapsed() ? translationService.instant('nav.comunicacion') : null">
-            <div class="nav-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4v6l4-3 4 3v-6h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-              </svg>
-            </div>
-            <span class="nav-text label">{{ translationService.instant('nav.comunicacion') }}</span>
-            <span class="badge counter counter--red">3</span>
-          </a>
+            <a routerLink="/communications"
+               routerLinkActive="active"
+               class="nav-item item"
+               [title]="ui.sidebarCollapsed() ? translationService.instant('nav.comunicacion') : null">
+              <div class="nav-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4v6l4-3 4 3v-6h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+                </svg>
+              </div>
+              <span class="nav-text label">{{ translationService.instant('nav.comunicacion') }}</span>
+              <span class="badge counter counter--red">3</span>
+            </a>
 
           <!-- Pagos -->
           <a href="#" class="nav-item item" role="menuitem" [title]="ui.sidebarCollapsed() ? translationService.instant('nav.pagos') : null">
