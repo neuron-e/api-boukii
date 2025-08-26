@@ -8,4 +8,11 @@ export const MONITORS_ROUTES: Routes = [
         (m) => m.MonitorsListComponent
       ),
   },
+  {
+    path: ':id',
+    loadComponent: () =>
+      import('./monitor-profile/monitor-profile.component').then(
+        (m) => m.MonitorProfileComponent
+      ),
+  },
 ];
