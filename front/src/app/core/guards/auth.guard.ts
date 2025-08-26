@@ -1,41 +1,28 @@
 import { CanActivateFn, Router } from '@angular/router';
 import { inject } from '@angular/core';
-import { AuthStore } from '../stores/auth.store';
+import { AuthGuardService } from '../services/auth-guard.service';
 
 /**
- * Route guard that protects authenticated routes
- * Redirects to login page if user is not authenticated
+ * Basic authentication guard that relies on lightweight services
+ * without performing HTTP requests.
  */
-export const authGuard: CanActivateFn = (route, state) => {
-  const auth = inject(AuthStore);
+export const authGuard: CanActivateFn = (_route, state) => {
+  const authHelper = inject(AuthGuardService);
   const router = inject(Router);
 
-  // Check if user is authenticated
-  if (auth.isAuthenticated()) {
-    return true;
-  }
+  const isAuthenticated = authHelper.isAuthenticated();
 
-  // If not authenticated, redirect to login with return URL
-  router.navigate(['/auth/login'], {
-    queryParams: {
-      returnUrl: state.url,
-    },
-  });
+  // Allow multi-step auth flow with temporary token
+  if (!isAuthenticated) {
+    const tempToken = localStorage.getItem('boukii_temp_token');
+    const isSchoolSelection = state.url.includes('/select-school');
+    const isSeasonSelection = state.url.includes('/select-season');
 
-  return false;
-};
+    if (tempToken && (isSchoolSelection || isSeasonSelection)) {
+      return true;
+    }
 
-/**
- * Route guard for guest-only pages (like login, register)
- * Redirects authenticated users to dashboard
- */
-export const guestGuard: CanActivateFn = () => {
-  const auth = inject(AuthStore);
-  const router = inject(Router);
-
-  // If authenticated, redirect to dashboard
-  if (auth.isAuthenticated()) {
-    router.navigate(['/dashboard']);
+    router.navigate(['/auth/login'], { queryParams: { returnUrl: state.url } });
     return false;
   }
 
@@ -43,55 +30,23 @@ export const guestGuard: CanActivateFn = () => {
 };
 
 /**
- * Role-based route guard factory
- * Creates a guard that checks for specific roles
+ * Guard factory for permission-based routes using stored permissions.
  */
-export function roleGuard(allowedRoles: string[]): CanActivateFn {
-  return () => {
-    const auth = inject(AuthStore);
+export const createPermissionGuard = (requiredPermissions: string[]): CanActivateFn =>
+  () => {
+    const authHelper = inject(AuthGuardService);
     const router = inject(Router);
 
-    // First check authentication
-    if (!auth.isAuthenticated()) {
+    if (!authHelper.isAuthenticated()) {
       router.navigate(['/auth/login']);
       return false;
     }
 
-    // Check if user has any of the required roles
-    const userRoles = auth.userRoles();
-    const hasRequiredRole = allowedRoles.some((role) => userRoles.includes(role));
-
-    if (!hasRequiredRole) {
-      // Could redirect to access denied page
-      router.navigate(['/access-denied']);
+    const hasPermission = authHelper.hasAnyPermission(requiredPermissions);
+    if (!hasPermission) {
+      router.navigate(['/unauthorized']);
       return false;
     }
 
     return true;
   };
-}
-
-/**
- * Permission-based route guard factory
- * Creates a guard that checks for specific permissions
- */
-export function permissionGuard(requiredPermission: string): CanActivateFn {
-  return () => {
-    const auth = inject(AuthStore);
-    const router = inject(Router);
-
-    // First check authentication
-    if (!auth.isAuthenticated()) {
-      router.navigate(['/auth/login']);
-      return false;
-    }
-
-    // Check permission
-    if (!auth.hasPermission(requiredPermission)) {
-      router.navigate(['/access-denied']);
-      return false;
-    }
-
-    return true;
-  };
-}

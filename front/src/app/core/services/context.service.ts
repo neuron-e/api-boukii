@@ -1,5 +1,4 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
-import { ApiService } from './api.service';
+import { Injectable, signal, computed } from '@angular/core';
 
 export interface School {
   id: number;
@@ -39,7 +38,6 @@ export interface ContextData {
   providedIn: 'root'
 })
 export class ContextService {
-  private readonly apiHttp = inject(ApiService);
   
   // Private signals for state management
   private readonly _schoolId = signal<number | null>(this.getStoredSchoolId());
@@ -78,26 +76,18 @@ export class ContextService {
    * Set the current school context
    */
   async setSchool(schoolId: number): Promise<void> {
-    try {
-      // Call API to set school context
-      await this.apiHttp.post('/context/school', { schoolId });
+    // Update local state
+    this._schoolId.set(schoolId);
+    this._seasonId.set(null); // Reset season when school changes
+    this._season.set(null);
 
-      // Update local state
-      this._schoolId.set(schoolId);
-      this._seasonId.set(null); // Reset season when school changes
-      this._season.set(null);
+    // Store in localStorage
+    localStorage.setItem('context_schoolId', schoolId.toString());
+    localStorage.removeItem('context_seasonId');
 
-      // Store in localStorage
-      localStorage.setItem('context_schoolId', schoolId.toString());
-      localStorage.removeItem('context_seasonId');
-
-      // Load school details if not already loaded
-      if (!this._school() || this._school()?.id !== schoolId) {
-        await this.loadSchoolDetails(schoolId);
-      }
-    } catch (error) {
-      console.error('Failed to set school context:', error);
-      throw error;
+    // Basic school info
+    if (!this._school() || this._school()?.id !== schoolId) {
+      this._school.set({ id: schoolId } as School);
     }
   }
 
@@ -105,23 +95,15 @@ export class ContextService {
    * Set the current season context
    */
   async setSeason(seasonId: number): Promise<void> {
-    try {
-      // Call API to set season context
-      await this.apiHttp.post('/context/season', { seasonId });
+    // Update local state
+    this._seasonId.set(seasonId);
 
-      // Update local state
-      this._seasonId.set(seasonId);
+    // Store in localStorage
+    localStorage.setItem('context_seasonId', seasonId.toString());
 
-      // Store in localStorage
-      localStorage.setItem('context_seasonId', seasonId.toString());
-
-      // Load season details if not already loaded
-      if (!this._season() || this._season()?.id !== seasonId) {
-        await this.loadSeasonDetails(seasonId);
-      }
-    } catch (error) {
-      console.error('Failed to set season context:', error);
-      throw error;
+    // Basic season info
+    if (!this._season() || this._season()?.id !== seasonId) {
+      this._season.set({ id: seasonId } as Season);
     }
   }
 
@@ -138,28 +120,12 @@ export class ContextService {
     localStorage.removeItem('context_seasonId');
   }
 
-  /**
-   * Load school details by ID
-   */
-  private async loadSchoolDetails(schoolId: number): Promise<void> {
-    try {
-      const school = await this.apiHttp.get<School>(`/schools/${schoolId}`);
-      this._school.set(school);
-    } catch (error) {
-      console.error('Failed to load school details:', error);
-    }
+  private async loadSchoolDetails(_schoolId: number): Promise<void> {
+    // Placeholder for API-based implementation
   }
 
-  /**
-   * Load season details by ID
-   */
-  private async loadSeasonDetails(seasonId: number): Promise<void> {
-    try {
-      const season = await this.apiHttp.get<Season>(`/seasons/${seasonId}`);
-      this._season.set(season);
-    } catch (error) {
-      console.error('Failed to load season details:', error);
-    }
+  private async loadSeasonDetails(_seasonId: number): Promise<void> {
+    // Placeholder for API-based implementation
   }
 
   /**
@@ -186,11 +152,11 @@ export class ContextService {
     const seasonId = this._seasonId();
 
     if (schoolId) {
-      await this.loadSchoolDetails(schoolId);
+      this._school.set({ id: schoolId } as School);
     }
 
     if (seasonId) {
-      await this.loadSeasonDetails(seasonId);
+      this._season.set({ id: seasonId } as Season);
     }
   }
 
@@ -252,17 +218,8 @@ export class ContextService {
       if (!this.hasCompleteContext()) {
         return false;
       }
-
-      const response = await this.apiHttp.get<{ valid: boolean }>('/context/validate');
-
-      if (!response.valid) {
-        this.clearContext();
-        return false;
-      }
-
       return true;
-    } catch (error) {
-      console.error('Failed to validate context:', error);
+    } catch {
       this.clearContext();
       return false;
     }
