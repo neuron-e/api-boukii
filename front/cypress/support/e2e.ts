@@ -42,7 +42,8 @@ beforeEach(() => {
 
   // 3) tema por defecto coherente con la app
   window.localStorage.setItem('theme', 'light');
-  document.body.dataset['theme'] = 'light';
+  document.documentElement.classList.remove('dark');
+  document.body.classList.remove('dark');
 
   // 4) Basic auth endpoints with deterministic timing for CI
   cy.intercept('GET', '**/me', { fixture: 'auth/me.json', delay: 0 }).as('me');

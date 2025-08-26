@@ -206,7 +206,7 @@ import { FeatureFlagDirective } from '@shared/directives/feature-flag.directive'
         border-color: var(--color-border-subtle);
       }
 
-      [data-theme='dark'] .feature-item.enabled {
+      .dark .feature-item.enabled {
         background: var(--color-success-900);
         border-color: var(--color-success-700);
       }

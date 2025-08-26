@@ -15,20 +15,20 @@ class MockTranslationService {
 }
 
 const lightDecorator = componentWrapperDecorator((story) => {
-  document.body.dataset['theme'] = 'light';
+  document.body.classList.remove('dark');
   localStorage.setItem('theme', 'light');
   return `
-    <div data-theme="light" style="min-height:100vh;background:var(--bg);padding:1rem;">
+    <div style="min-height:100vh;background:var(--bg);padding:1rem;">
       ${story}
     </div>
   `;
 });
 
 const darkDecorator = componentWrapperDecorator((story) => {
-  document.body.dataset['theme'] = 'dark';
+  document.body.classList.add('dark');
   localStorage.setItem('theme', 'dark');
   return `
-    <div data-theme="dark" style="min-height:100vh;background:var(--bg);padding:1rem;">
+    <div class="dark" style="min-height:100vh;background:var(--bg);padding:1rem;">
       ${story}
     </div>
   `;

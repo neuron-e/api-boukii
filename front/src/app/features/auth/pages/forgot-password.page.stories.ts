@@ -61,7 +61,7 @@ const mockToastService = {
 const themeDecorator = (theme: 'light' | 'dark') =>
   componentWrapperDecorator(
     (story) => `
-      <div data-theme="${theme}" style="min-height: 100vh; background: var(--bg);">
+      <div class="${theme === 'dark' ? 'dark' : ''}" style="min-height: 100vh; background: var(--bg);">
         ${story}
       </div>
     `

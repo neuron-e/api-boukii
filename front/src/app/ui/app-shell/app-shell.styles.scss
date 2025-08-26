@@ -586,7 +586,7 @@
 .app-sidebar .collapse:focus-visible { outline: 2px solid var(--ski-accent); outline-offset: 2px; }
 
 /* dark: evita que se “pierda” */
-:root[data-theme="dark"] .app-sidebar .collapse{
+.dark .app-sidebar .collapse{
   background: var(--surface-2);
   border-color: var(--border);
 }

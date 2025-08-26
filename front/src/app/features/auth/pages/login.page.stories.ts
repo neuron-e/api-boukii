@@ -70,7 +70,7 @@ const mockToastService = {
 const themeDecorator = (theme: 'light' | 'dark') =>
   componentWrapperDecorator(
     (story) => `
-      <div data-theme="${theme}" style="min-height: 100vh; background: var(--bg);">
+      <div class="${theme === 'dark' ? 'dark' : ''}" style="min-height: 100vh; background: var(--bg);">
         ${story}
       </div>
     `
@@ -248,7 +248,7 @@ export const HighContrast: Story = {
   decorators: [
     componentWrapperDecorator(
       (story) => `
-        <div data-theme="light" style="min-height: 100vh; background: var(--bg); filter: contrast(1.5);">
+        <div style="min-height: 100vh; background: var(--bg); filter: contrast(1.5);">
           ${story}
         </div>
       `

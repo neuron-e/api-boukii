@@ -69,7 +69,7 @@ export const Default: Story = {
 export const LightTheme: Story = {
   render: () => ({
     template: `
-      <div class="story-container" data-theme="light">
+      <div class="story-container">
         <div class="component-showcase">
           <h3>Light Theme</h3>
           <p>Theme toggle in light mode</p>
@@ -91,7 +91,7 @@ export const LightTheme: Story = {
 export const DarkTheme: Story = {
   render: () => ({
     template: `
-      <div class="story-container" data-theme="dark">
+      <div class="story-container dark">
         <div class="component-showcase">
           <h3>Dark Theme</h3>
           <p>Theme toggle in dark mode</p>
