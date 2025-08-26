@@ -45,6 +45,7 @@ Route::prefix('v5')
         require base_path('routes/api_v5/auth.php');
         require base_path('routes/api_v5/schools.php');
         require base_path('routes/api_v5/seasons.php');
+        require base_path('routes/api_v5/clients.php');
         require base_path('routes/api_v5/logs.php');
         require base_path('routes/api_v5/me.php');
         require base_path('routes/api_v5/context.php');
