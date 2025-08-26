@@ -181,9 +181,14 @@ export class SelectSchoolPageComponent implements OnInit, OnDestroy {
   
   // Computed filtered schools based on search
   readonly filteredSchools = computed(() => {
+    // For super admins, filtering is handled server-side
+    if (this.authV5.isSuperAdmin()) {
+      return this.schools();
+    }
+
     const query = this.searchQuery.toLowerCase().trim();
     if (!query) return this.schools();
-    
+
     return this.schools().filter(school =>
       school.name.toLowerCase().includes(query) ||
       (school.slug && school.slug.toLowerCase().includes(query))
@@ -208,8 +213,13 @@ export class SelectSchoolPageComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$)
       )
       .subscribe(() => {
-        // For stored schools, we just filter on the client side
-        this._isSearching.set(false);
+        if (this.authV5.isSuperAdmin()) {
+          // Trigger API search for super admins
+          this.loadSchools(1);
+        } else {
+          // For stored schools, we just filter on the client side
+          this._isSearching.set(false);
+        }
       });
   }
 
@@ -218,7 +228,11 @@ export class SelectSchoolPageComponent implements OnInit, OnDestroy {
     this.searchSubject.next(this.searchQuery);
   }
 
-  loadSchools(): void {
+  private currentPage = 1;
+  private lastPage = 1;
+  private readonly perPage = 20;
+
+  loadSchools(page: number = 1, append: boolean = false): void {
     this._isLoading.set(true);
     this._hasError.set(false);
     this._errorMessage.set(null);
@@ -227,18 +241,30 @@ export class SelectSchoolPageComponent implements OnInit, OnDestroy {
 
     if (this.authV5.isSuperAdmin()) {
       this.schoolService
-        .listAll({ perPage: 1000 })
+        .listAll({
+          page,
+          perPage: this.perPage,
+          search: this.searchQuery
+        })
         .pipe(takeUntil(this.destroy$))
         .subscribe({
-          next: (schools) => {
-            this._schools.set(schools);
+          next: (response) => {
+            this.currentPage = response.meta.page;
+            this.lastPage = response.meta.lastPage;
+            if (append) {
+              this._schools.update(prev => [...prev, ...response.data]);
+            } else {
+              this._schools.set(response.data);
+            }
             this._isLoading.set(false);
+            this._isSearching.set(false);
           },
           error: (error) => {
             console.error('Error loading schools from API:', error);
             this._hasError.set(true);
             this._errorMessage.set('Error loading schools data');
             this._isLoading.set(false);
+            this._isSearching.set(false);
           }
         });
       return;
@@ -253,7 +279,11 @@ export class SelectSchoolPageComponent implements OnInit, OnDestroy {
         this._isLoading.set(false);
         return;
       }
-      this._schools.set(schools);
+      if (append) {
+        this._schools.update(prev => [...prev, ...schools]);
+      } else {
+        this._schools.set(schools);
+      }
     } catch (error) {
       console.error('Error loading schools from auth service:', error);
       this._hasError.set(true);
@@ -261,6 +291,13 @@ export class SelectSchoolPageComponent implements OnInit, OnDestroy {
       this.router.navigate(['/auth/login']);
     } finally {
       this._isLoading.set(false);
+      this._isSearching.set(false);
+    }
+  }
+
+  loadMore(): void {
+    if (this.currentPage < this.lastPage) {
+      this.loadSchools(this.currentPage + 1, true);
     }
   }
 

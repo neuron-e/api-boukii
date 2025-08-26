@@ -193,12 +193,12 @@ describe('SchoolService', () => {
       mockApiHttp.get.mockResolvedValue(mockSchoolsResponse as any);
     });
 
-    it('should call API with high perPage by default', () => {
+    it('should call API with default pagination', () => {
       service.listAll().subscribe();
 
       expect(mockApiHttp.get).toHaveBeenCalledWith('/schools', {
         page: 1,
-        perPage: 1000,
+        perPage: 20,
         active: true,
         orderBy: 'name',
         orderDirection: 'asc'
@@ -224,9 +224,9 @@ describe('SchoolService', () => {
       });
     });
 
-    it('should return schools array', (done) => {
-      service.listAll().subscribe(schools => {
-        expect(schools).toEqual([mockSchool]);
+    it('should return schools response', (done) => {
+      service.listAll().subscribe(res => {
+        expect(res).toEqual(mockSchoolsResponse);
         done();
       });
     });
