@@ -43,7 +43,7 @@ describe('LoginPage', () => {
   });
 
   it('redirects monitor users to the teach app', () => {
-    authService.checkUser.mockReturnValue(of({ success: true, data: { user: { type: 'monitor' }, schools: [], temp_token: 't' } }));
+    authService.checkUser.mockReturnValue(of({ success: true, data: { user: { role: 'monitor' }, schools: [], temp_token: 't' } }));
     const fixture = TestBed.createComponent(LoginPage);
     const component = fixture.componentInstance;
     fixture.detectChanges();
@@ -53,7 +53,7 @@ describe('LoginPage', () => {
   });
 
   it('redirects client users to the client app', () => {
-    authService.checkUser.mockReturnValue(of({ success: true, data: { user: { type: 'client' }, schools: [], temp_token: 't' } }));
+    authService.checkUser.mockReturnValue(of({ success: true, data: { user: { role: 'client' }, schools: [], temp_token: 't' } }));
     const fixture = TestBed.createComponent(LoginPage);
     const component = fixture.componentInstance;
     fixture.detectChanges();
