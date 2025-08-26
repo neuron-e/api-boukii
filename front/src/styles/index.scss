@@ -1,6 +1,9 @@
 /* Main Styles Entry Point */
 
-/* Global base styles - tokens and themes imported from main styles.scss */
+/* Import design tokens */
+@import './tokens.css';
+
+/* Global base styles */
 *,
 *::before,
 *::after {

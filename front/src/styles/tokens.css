@@ -1,327 +1,100 @@
-/* Design Tokens - Boukii V5 */
+/* Design Tokens - Boukii V5 (simplified) */
 :root {
-  /* === BOUKII BRAND COLORS === */
-  /* Primary - Turquoise/Cyan */
-  --color-turquoise-50: #ecfeff;
-  --color-turquoise-100: #cffafe;
-  --color-turquoise-200: #a5f3fc;
-  --color-turquoise-300: #67e8f9;
-  --color-turquoise-400: #22d3ee;
-  --color-turquoise-500: #00d4aa;
-  --color-turquoise-600: #0891b2;
-  --color-turquoise-700: #0e7490;
-  --color-turquoise-800: #155e75;
-  --color-turquoise-900: #164e63;
+  /* Base colors */
+  --background: #ffffff;
+  --foreground: #0f172a;
 
-  /* Primary - Blue */
-  --color-blue-50: #eff6ff;
-  --color-blue-100: #dbeafe;
-  --color-blue-200: #bfdbfe;
-  --color-blue-300: #93c5fd;
-  --color-blue-400: #60a5fa;
-  --color-blue-500: #3b82f6;
-  --color-blue-600: #2563eb;
-  --color-blue-700: #1d4ed8;
-  --color-blue-800: #1e40af;
-  --color-blue-900: #1e3a8a;
+  /* Brand and functional colors */
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --primary-focus: #60a5fa;
 
-  /* Gradients - Boukii Style */
-  --gradient-primary: linear-gradient(135deg, #1e3a8a 0%, #00d4aa 100%);
-  --gradient-dashboard: linear-gradient(135deg, #1e40af 0%, #0891b2 50%, #00d4aa 100%);
-  --gradient-card: linear-gradient(145deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+  /* Text colors */
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-tertiary: #64748b;
 
-  /* Secondary - Gray Scale */
-  --color-gray-50: #f9fafb;
-  --color-gray-100: #f3f4f6;
-  --color-gray-200: #e5e7eb;
-  --color-gray-300: #d1d5db;
-  --color-gray-400: #9ca3af;
-  --color-gray-500: #6b7280;
-  --color-gray-600: #4b5563;
-  --color-gray-700: #374151;
-  --color-gray-800: #1f2937;
-  --color-gray-900: #111827;
+  /* Ski palette */
+  --ski-blue: #3b82f6;
+  --ski-green: #10b981;
+  --ski-yellow: #fbbf24;
+  --ski-red: #ef4444;
 
-  /* Status Colors - Boukii Style */
-  --color-success-50: #ecfdf5;
-  --color-success-100: #d1fae5;
-  --color-success-200: #a7f3d0;
-  --color-success-500: #10b981;
-  --color-success-600: #059669;
-  --color-success-700: #047857;
-  --color-success-900: #064e3b;
+  /* Semantic aliases */
+  --success: var(--ski-green);
+  --warning: var(--ski-yellow);
+  --error: var(--ski-red);
 
-  --color-warning-50: #fffbeb;
-  --color-warning-100: #fef3c7;
-  --color-warning-200: #fde68a;
-  --color-warning-500: #f59e0b;
-  --color-warning-600: #d97706;
-  --color-warning-700: #b45309;
-  --color-warning-900: #78350f;
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
 
-  --color-error-50: #fef2f2;
-  --color-error-100: #fee2e2;
-  --color-error-200: #fecaca;
-  --color-error-500: #ef4444;
-  --color-error-600: #dc2626;
-  --color-error-700: #b91c1c;
-  --color-error-900: #7f1d1d;
+  /* Timing & easing */
+  --duration-normal: 200ms;
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
 
-  --color-info-50: #eff6ff;
-  --color-info-100: #dbeafe;
-  --color-info-500: #3b82f6;
-  --color-info-600: #2563eb;
-  --color-info-700: #1d4ed8;
-  --color-info-900: #1e3a8a;
-
-  /* VIP Status Colors */
-  --color-vip: #8b5cf6;
-  --color-vip-50: #f5f3ff;
-  --color-vip-100: #ede9fe;
-  --color-vip-500: #8b5cf6;
-  --color-vip-600: #7c3aed;
-  --color-vip-700: #6d28d9;
-
-  /* Client Type Colors */
-  --color-nuevo: #00d4aa;
-  --color-nuevo-bg: #ecfeff;
-  --color-habitual: #3b82f6;
-  --color-habitual-bg: #eff6ff;
-
-  /* Neutral Base */
-  --color-white: #ffffff;
-  --color-black: #000000;
-  --color-transparent: transparent;
-
-  /* === SEMANTIC COLORS - BOUKII === */
-  /* Background & Surfaces */
-  --bg: var(--color-white);
-  --surface: var(--color-white);
-  --surface-2: var(--color-gray-50);
-  --border: var(--color-gray-200);
-  --text-1: var(--color-gray-900);
-  --text-2: var(--color-gray-600);
-  --muted: var(--color-gray-400);
-  --brand-500: var(--color-turquoise-500);
-  --brand-600: var(--color-turquoise-600);
-  --active: var(--color-turquoise-500);
-  --active-contrast: var(--color-white);
-  --red: var(--color-error-500);
-  --yellow: var(--color-warning-500);
-  
-  /* Extended semantic colors */
-  --color-background: var(--color-white);
-  --color-background-dashboard: var(--gradient-dashboard);
-  --color-surface: var(--color-white);
-  --color-surface-elevated: var(--color-gray-50);
-  --color-surface-glass: rgba(255, 255, 255, 0.1);
-  --color-surface-blur: rgba(255, 255, 255, 0.8);
-
-  /* Sidebar Colors */
-  --color-sidebar-bg: var(--color-white);
-  --color-sidebar-item: var(--color-gray-700);
-  --color-sidebar-item-hover: var(--color-gray-100);
-  --color-sidebar-item-active: var(--color-turquoise-500);
-  --color-sidebar-icon: var(--color-gray-500);
-
-  /* Navbar Colors */
-  --color-navbar-bg: var(--color-white);
-  --color-navbar-shadow: rgba(0, 0, 0, 0.1);
-
-  /* Border Colors */
-  --color-border: var(--color-gray-200);
-  --color-border-subtle: var(--color-gray-100);
-  --color-border-light: var(--color-gray-100);
-  --color-border-strong: var(--color-gray-300);
-
-  /* Text Colors */
-  --color-text-primary: var(--color-gray-900);
-  --color-text-secondary: var(--color-gray-600);
-  --color-text-tertiary: var(--color-gray-500);
-  --color-text-muted: var(--color-gray-400);
-  --color-text-inverse: var(--color-white);
-  --color-text-on-primary: var(--color-white);
-
-  /* Interactive Colors */
-  --color-primary: var(--color-turquoise-500);
-  --color-primary-hover: var(--color-turquoise-600);
-  --color-primary-focus: var(--color-turquoise-400);
-  --color-primary-disabled: var(--color-gray-300);
-
-  /* Status Semantic */
-  --color-success: var(--color-success-500);
-  --color-warning: var(--color-warning-500);
-  --color-error: var(--color-error-500);
-  --color-info: var(--color-info-500);
-
-  /* Component-specific - Boukii Style */
-  /* Form Elements */
-  --input-background: var(--color-white);
-  --input-border: var(--color-gray-300);
-  --input-border-focus: var(--color-turquoise-500);
-  --input-placeholder: var(--color-gray-400);
-
-  /* Buttons */
-  --button-primary-bg: var(--color-turquoise-500);
-  --button-primary-hover: var(--color-turquoise-600);
-  --button-primary-text: var(--color-white);
-  --button-primary-shadow: 0 4px 14px 0 rgba(0, 212, 170, 0.39);
-
-  --button-secondary-bg: var(--color-gray-100);
-  --button-secondary-hover: var(--color-gray-200);
-  --button-secondary-text: var(--color-gray-700);
-
-  --button-danger-bg: var(--color-error-500);
-  --button-danger-hover: var(--color-error-600);
-  --button-danger-text: var(--color-white);
-
-  /* Cards */
-  --card-bg: var(--color-white);
-  --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  --card-shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  --card-border: var(--color-gray-200);
-
-  /* Modal */
-  --modal-backdrop: rgba(17, 24, 39, 0.5);
-  --modal-bg: var(--color-white);
-  --modal-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-
-  /* === SPACING === */
-  --space-0: 0rem;
-  --space-1: 0.25rem; /* 4px */
-  --space-2: 0.5rem; /* 8px */
-  --space-3: 0.75rem; /* 12px */
-  --space-4: 1rem; /* 16px */
-  --space-5: 1.25rem; /* 20px */
-  --space-6: 1.5rem; /* 24px */
-  --space-8: 2rem; /* 32px */
-  --space-10: 2.5rem; /* 40px */
-  --space-12: 3rem; /* 48px */
-  --space-16: 4rem; /* 64px */
-  --space-20: 5rem; /* 80px */
-  --space-24: 6rem; /* 96px */
-  --space-32: 8rem; /* 128px */
-
-  /* === TYPOGRAPHY === */
-  /* Font Families */
+  /* Typography */
   --font-family-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-family-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
-
-  /* Font Sizes */
-  --font-size-xs: 0.75rem; /* 12px */
-  --font-size-sm: 0.875rem; /* 14px */
-  --font-size-base: 1rem; /* 16px */
-  --font-size-lg: 1.125rem; /* 18px */
-  --font-size-xl: 1.25rem; /* 20px */
-  --font-size-2xl: 1.5rem; /* 24px */
-  --font-size-3xl: 1.875rem; /* 30px */
-  --font-size-4xl: 2.25rem; /* 36px */
-  --font-size-5xl: 3rem; /* 48px */
-
-  /* Font Weights */
-  --font-weight-thin: 100;
-  --font-weight-light: 300;
-  --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
-  --font-weight-extrabold: 800;
-
-  /* Line Heights */
-  --line-height-none: 1;
-  --line-height-tight: 1.25;
   --line-height-normal: 1.5;
-  --line-height-relaxed: 1.625;
-  --line-height-loose: 2;
+  --line-height-tight: 1.25;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  --font-size-4xl: 2.25rem;
+}
 
-  /* === RADIUS === */
-  --radius-none: 0;
-  --radius-sm: 0.125rem; /* 2px */
-  --radius-base: 0.25rem; /* 4px */
-  --radius-md: 0.375rem; /* 6px */
-  --radius-lg: 0.5rem; /* 8px */
-  --radius-xl: 0.75rem; /* 12px */
-  --radius-2xl: 1rem; /* 16px */
-  --radius-3xl: 1.5rem; /* 24px */
-  --radius-full: 9999px;
+/* Dark theme variant */
+.dark {
+  --background: #0b1220;
+  --foreground: #e7ecf5;
 
-  /* === SHADOWS - BOUKII STYLE === */
-  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
-  --shadow-base: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
-  
-  /* Boukii Specific Shadows */
-  --shadow-navbar: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  --shadow-sidebar: 2px 0 4px 0 rgba(0, 0, 0, 0.05);
-  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  --shadow-card-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  --shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  --shadow-glass: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-  --shadow-turquoise: 0 4px 14px 0 rgba(0, 212, 170, 0.39);
+  --primary: #7cb3ff;
+  --primary-hover: #6270ff;
+  --primary-focus: #7cb3ff;
 
-  /* === Z-INDEX === */
-  --z-base: 0;
-  --z-docked: 10;
-  --z-dropdown: 1000;
-  --z-sticky: 1020;
-  --z-banner: 1030;
-  --z-overlay: 1040;
-  --z-modal: 1050;
-  --z-popover: 1060;
-  --z-skiplink: 1070;
-  --z-toast: 1080;
-  --z-tooltip: 1090;
+  --text-primary: #e7ecf5;
+  --text-secondary: #a3b1c7;
+  --text-tertiary: #8a99b2;
 
-  /* === ANIMATION === */
-  --duration-fast: 150ms;
-  --duration-normal: 200ms;
-  --duration-slow: 300ms;
-  --duration-slower: 500ms;
+  --ski-blue: #7cb3ff;
+  --ski-green: #34d399;
+  --ski-yellow: #f6c453;
+  --ski-red: #ff7070;
 
-  --ease-linear: linear;
-  --ease-in: cubic-bezier(0.4, 0, 1, 1);
-  --ease-out: cubic-bezier(0, 0, 0.2, 1);
-  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --success: var(--ski-green);
+  --warning: var(--ski-yellow);
+  --error: var(--ski-red);
+}
 
-  /* === BREAKPOINTS === */
-  --breakpoint-xs: 480px;
-  --breakpoint-sm: 640px;
-  --breakpoint-md: 768px;
-  --breakpoint-lg: 1024px;
-  --breakpoint-xl: 1280px;
-  --breakpoint-2xl: 1536px;
+/* Map variables to standardized prefixes */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
 
-  /* === BOUKII SPECIFIC TOKENS === */
-  /* Layout Dimensions */
-  --sidebar-w: 264px;
-  --sidebar-w-collapsed: 72px;
-  --navbar-h: 56px;
-  --content-max-width: 1400px;
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-focus: var(--primary-focus);
 
-  /* Glassmorphism Effects */
-  --glass-backdrop: blur(16px) saturate(180%);
-  --glass-border: 1px solid rgba(255, 255, 255, 0.125);
-  
-  /* Status Badge Colors */
-  --badge-activo: var(--color-success-500);
-  --badge-activo-bg: var(--color-success-100);
-  --badge-inactivo: var(--color-warning-500);
-  --badge-inactivo-bg: var(--color-warning-100);
-  --badge-bloqueado: var(--color-error-500);
-  --badge-bloqueado-bg: var(--color-error-100);
-  
-  /* Notification Badge */
-  --notification-badge: #ef4444;
-  --notification-badge-text: var(--color-white);
-  
-  /* Avatar Sizes */
-  --avatar-xs: 24px;
-  --avatar-sm: 32px;
-  --avatar-base: 40px;
-  --avatar-lg: 48px;
-  --avatar-xl: 64px;
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+
+  --color-ski-blue: var(--ski-blue);
+  --color-ski-green: var(--ski-green);
+  --color-ski-yellow: var(--ski-yellow);
+  --color-ski-red: var(--ski-red);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
 }
