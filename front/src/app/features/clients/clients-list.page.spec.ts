@@ -32,7 +32,7 @@ describe('ClientsListPageComponent', () => {
 
     const activatedRouteStub = {
       snapshot: {
-        queryParamMap: convertToParamMap({ q: 'john', sport_id: '2', active: 'true' })
+        queryParamMap: convertToParamMap({ search: 'john', sport_id: '2', active: 'true' })
       }
     } as ActivatedRoute;
 
@@ -64,10 +64,10 @@ describe('ClientsListPageComponent', () => {
   });
 
   it('should restore filters from query params on init', () => {
-    expect(component.filtersForm.value).toEqual({ q: 'john', sport_id: '2', active: 'true' });
+    expect(component.filtersForm.value).toEqual({ search: 'john', sport_id: '2', active: 'true' });
     expect(clientsService.getClients).toHaveBeenCalledWith({
       school_id: 1,
-      q: 'john',
+      search: 'john',
       sport_id: 2,
       active: true,
       page: 1
@@ -78,15 +78,15 @@ describe('ClientsListPageComponent', () => {
     clientsService.getClients.mockClear();
     router.navigate.mockClear();
 
-    component.filtersForm.setValue({ q: 'jane', sport_id: '3', active: 'false' });
+    component.filtersForm.setValue({ search: 'jane', sport_id: '3', active: 'false' });
 
     expect(router.navigate).toHaveBeenCalledWith([], {
-      queryParams: { q: 'jane', sport_id: '3', active: 'false', page: 1 },
+      queryParams: { search: 'jane', sport_id: '3', active: 'false', page: 1 },
       queryParamsHandling: 'merge'
     });
     expect(clientsService.getClients).toHaveBeenCalledWith({
       school_id: 1,
-      q: 'jane',
+      search: 'jane',
       sport_id: 3,
       active: false,
       page: 1
