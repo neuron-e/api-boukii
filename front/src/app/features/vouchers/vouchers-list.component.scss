@@ -1,0 +1,17 @@
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-4);
+}
+
+.vouchers-table {
+  width: 100%;
+  background: var(--surface);
+  color: var(--text-1);
+}
+
+.vouchers-table th {
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+

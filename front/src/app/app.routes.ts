@@ -135,6 +135,12 @@ export const routes: Routes = [
         canActivate: [requireCompleteAuthGuard],
       },
       {
+        path: 'vouchers',
+        canActivate: [requireCompleteAuthGuard],
+        loadChildren: () =>
+          import('./features/vouchers/vouchers.module').then((m) => m.VouchersModule),
+      },
+      {
         path: 'chat',
         loadComponent: () => import('./features/chat/chat.component').then((c) => c.ChatComponent),
         canActivate: [requireCompleteAuthGuard],
