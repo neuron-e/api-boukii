@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { SCHOOL_SETTINGS, SchoolSetting } from './data/school-settings';
-import { SEASONS, Season } from './data/seasons';
+import { MOCK_SEASONS, Season } from './data/seasons';
 import { SPORTS_DEGREES, SportsDegree } from './data/sports-degrees';
 import { STATION_SETTINGS, StationSetting } from './data/station-settings';
 
@@ -27,8 +27,8 @@ export class SettingsService {
     return of(SCHOOL_SETTINGS);
   }
 
-  getSeasons(): Observable<Season[]> {
-    return of(SEASONS);
+  getMockSeasons(): Observable<Season[]> {
+    return of(MOCK_SEASONS);
   }
 
   getSportsDegrees(): Observable<SportsDegree[]> {
