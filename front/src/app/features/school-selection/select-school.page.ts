@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ScrollingModule } from '@angular/cdk/scrolling';
 import { Router } from '@angular/router';
 import { Subject, takeUntil, debounceTime, distinctUntilChanged } from 'rxjs';
 
@@ -15,7 +16,7 @@ import { School } from '@core/services/context.service';
 @Component({
   selector: 'app-select-school',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslatePipe],
+  imports: [CommonModule, FormsModule, TranslatePipe, ScrollingModule],
   template: `
     <div class="select-school-page" data-cy="school-selection">
       <!-- Breadcrumb -->
@@ -92,48 +93,57 @@ import { School } from '@core/services/context.service';
             </p>
           </div>
         } @else {
-          <!-- Schools Grid -->
-          <div class="schools-grid">
-            @for (school of filteredSchools(); track school.id) {
-              <article class="school-card" data-testid="school-card" data-cy="school-item" [class.selecting]="isSelecting() === school.id">
-                <div class="school-header">
-                  <h3 class="school-name">{{ school.name }}</h3>
-                  @if (school.slug) {
-                    <span class="school-slug">{{ school.slug }}</span>
+          <!-- Schools Virtual Scroll -->
+          <cdk-virtual-scroll-viewport
+            itemSize="200"
+            class="schools-grid schools-viewport"
+            data-cy="schools-viewport"
+            (scrolledIndexChange)="onIndexChange($event)"
+          >
+            <article
+              *cdkVirtualFor="let school of filteredSchools(); trackBy: trackById"
+              class="school-card"
+              data-testid="school-card"
+              data-cy="school-item"
+              [class.selecting]="isSelecting() === school.id"
+            >
+              <div class="school-header">
+                <h3 class="school-name">{{ school.name }}</h3>
+                @if (school.slug) {
+                  <span class="school-slug">{{ school.slug }}</span>
+                }
+              </div>
+
+              <div class="school-status">
+                <span
+                  class="status-badge"
+                  [class.active]="school.active"
+                  [class.inactive]="!school.active"
+                >
+                  {{ school.active ? ('schools.status.active' | translate) : ('schools.status.inactive' | translate) }}
+                </span>
+              </div>
+
+              <div class="school-actions">
+                <button
+                  class="select-school-button"
+                  [class.primary]="school.active"
+                  [class.secondary]="!school.active"
+                  [disabled]="isSelecting() !== null || !school.active"
+                  (click)="selectSchool(school)"
+                >
+                  @if (isSelecting() === school.id) {
+                    <div class="button-spinner">
+                      <div class="spinner small"></div>
+                    </div>
                   }
-                </div>
-
-                <div class="school-status">
-                  <span 
-                    class="status-badge" 
-                    [class.active]="school.active"
-                    [class.inactive]="!school.active"
-                  >
-                    {{ school.active ? ('schools.status.active' | translate) : ('schools.status.inactive' | translate) }}
+                  <span [class.hidden]="isSelecting() === school.id">
+                    {{ 'schools.selectSchool.useThisSchool' | translate }}
                   </span>
-                </div>
-
-                <div class="school-actions">
-                  <button
-                    class="select-school-button"
-                    [class.primary]="school.active"
-                    [class.secondary]="!school.active"
-                    [disabled]="isSelecting() !== null || !school.active"
-                    (click)="selectSchool(school)"
-                  >
-                    @if (isSelecting() === school.id) {
-                      <div class="button-spinner">
-                        <div class="spinner small"></div>
-                      </div>
-                    }
-                    <span [class.hidden]="isSelecting() === school.id">
-                      {{ 'schools.selectSchool.useThisSchool' | translate }}
-                    </span>
-                  </button>
-                </div>
-              </article>
-            }
-          </div>
+                </button>
+              </div>
+            </article>
+          </cdk-virtual-scroll-viewport>
         }
       </main>
     </div>
@@ -222,6 +232,17 @@ export class SelectSchoolPageComponent implements OnInit, OnDestroy {
   private currentPage = 1;
   private lastPage = 1;
   private readonly perPage = 20;
+
+  trackById(index: number, item: School): number {
+    return item.id;
+  }
+
+  onIndexChange(index: number): void {
+    const total = this.filteredSchools().length;
+    if (index + 5 >= total && !this.isLoading() && this.currentPage < this.lastPage) {
+      this.loadMore();
+    }
+  }
 
   loadSchools(page: number = 1, append: boolean = false): void {
     this._isLoading.set(true);

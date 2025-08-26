@@ -30,7 +30,7 @@ describe('School Selection Flow', () => {
             { id: 1, name: 'Test School 1', active: true },
             { id: 2, name: 'Test School 2', active: true }
           ],
-          meta: { page: 1, total: 2 }
+          meta: { page: 1, lastPage: 1 }
         }
       }).as('getSchools');
 
@@ -51,7 +51,7 @@ describe('School Selection Flow', () => {
         statusCode: 200,
         body: {
           data: [],
-          meta: { page: 1, total: 0 }
+          meta: { page: 1, lastPage: 1 }
         }
       }).as('getEmptySchools');
 
@@ -59,6 +59,45 @@ describe('School Selection Flow', () => {
       
       // Should handle empty state gracefully
       cy.get('body').should('exist');
+    });
+
+    it('should virtualize school cards and load more on scroll', () => {
+      cy.window().then((win) => {
+        win.localStorage.setItem('access_token', 'test-token');
+      });
+
+      const makeSchools = (page: number) =>
+        Array.from({ length: 20 }, (_, i) => ({
+          id: (page - 1) * 20 + i + 1,
+          name: `Test School ${(page - 1) * 20 + i + 1}`,
+          active: true
+        }));
+
+      cy.intercept('GET', '**/schools*page=1*', {
+        statusCode: 200,
+        body: {
+          data: makeSchools(1),
+          meta: { page: 1, lastPage: 2 }
+        }
+      }).as('getSchoolsPage1');
+
+      cy.intercept('GET', '**/schools*page=2*', {
+        statusCode: 200,
+        body: {
+          data: makeSchools(2),
+          meta: { page: 2, lastPage: 2 }
+        }
+      }).as('getSchoolsPage2');
+
+      cy.visit('/select-school');
+      cy.wait('@getSchoolsPage1');
+
+      cy.get('[data-cy=school-item]').its('length').should('be.lessThan', 30);
+
+      cy.get('[data-cy=schools-viewport]').scrollTo('bottom');
+      cy.wait('@getSchoolsPage2');
+
+      cy.get('[data-cy=school-item]').its('length').should('be.lessThan', 40);
     });
   });
 
