@@ -8,9 +8,6 @@ interface SentEmail {
   subject: string;
   date: string;
 }
-import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
-
 
 @Component({
   selector: 'app-communications',
@@ -27,45 +24,48 @@ import { CommonModule } from '@angular/common';
           <div class="row">
             <label>
               <input type="checkbox" formControlName="sendToClients" />
-              {{ 'communications.sendToClients' | translate }}
+              {{ 'communications.clients' | translate }}
             </label>
             <label>
               <input type="checkbox" formControlName="sendToMonitors" />
-              {{ 'communications.sendToMonitors' | translate }}
+              {{ 'communications.monitors' | translate }}
             </label>
           </div>
 
           <label class="field">
             <span>{{ 'communications.subject' | translate }}</span>
-            <input type="text" formControlName="subject" />
+            <input
+              type="text"
+              formControlName="subject"
+              [placeholder]="'communications.subject' | translate"
+            />
           </label>
 
-          <div
-            class="body-editor"
-            contenteditable="true"
-            (input)="onBodyInput($event)"
-            [innerText]="emailForm.get('body')?.value"
-          ></div>
+          <label class="field">
+            <span>{{ 'communications.body' | translate }}</span>
+            <textarea
+              formControlName="body"
+              class="body-editor"
+              [placeholder]="'communications.body' | translate"
+            ></textarea>
+          </label>
 
           <div class="row">
             <button type="button" class="btn btn--primary" (click)="sendEmail()">
               {{ 'communications.send' | translate }}
-            </button>
-            <button type="button" class="btn" (click)="clearForm()">
-              {{ 'communications.clear' | translate }}
             </button>
           </div>
         </form>
       </div>
 
       <div class="card">
-        <h2>{{ 'communications.sent' | translate }}</h2>
+        <h2>{{ 'communications.sentList' | translate }}</h2>
         <table>
           <thead>
             <tr>
               <th>{{ 'communications.recipients' | translate }}</th>
               <th>{{ 'communications.subject' | translate }}</th>
-              <th>{{ 'communications.date' | translate }}</th>
+              <th>{{ 'communications.sentAt' | translate }}</th>
             </tr>
           </thead>
           <tbody>
@@ -101,16 +101,16 @@ import { CommonModule } from '@angular/common';
         gap: 4px;
       }
 
-      input[type='text'] {
+      input[type='text'],
+      textarea {
         padding: 6px 8px;
         font-size: var(--fs-14);
       }
 
-      .body-editor {
+      textarea {
         min-height: 120px;
         border: 1px solid var(--border);
-        padding: 8px;
-        font-size: var(--fs-14);
+        font-family: inherit;
         color: var(--text-1);
       }
 
@@ -151,11 +151,6 @@ export class CommunicationsComponent {
     { recipients: 'Monitores', subject: 'Reunión de equipo', date: '2024-06-02' },
   ];
 
-  onBodyInput(event: Event): void {
-    const value = (event.target as HTMLElement).innerText;
-    this.emailForm.get('body')?.setValue(value);
-  }
-
   sendEmail(): void {
     const { sendToClients, sendToMonitors, subject } = this.emailForm.value;
     const recipients = [
@@ -177,14 +172,3 @@ export class CommunicationsComponent {
   }
 }
 
-  imports: [CommonModule],
-  template: `
-    <div class="page">
-      <div class="page-header">
-        <h1>Comunicación</h1>
-      </div>
-      <p>Página de comunicaciones</p>
-    </div>
-  `,
-})
-export class CommunicationsComponent {}

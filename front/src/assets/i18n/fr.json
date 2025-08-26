@@ -440,5 +440,16 @@
         "description": "Seguimiento del rendimiento del sistema"
       }
     }
+  },
+  "communications": {
+    "title": "Communications",
+    "recipients": "Destinataires",
+    "clients": "Clients",
+    "monitors": "Moniteurs",
+    "subject": "Objet",
+    "body": "Message",
+    "send": "Envoyer",
+    "sentList": "Emails envoyés",
+    "sentAt": "Envoyé"
   }
 }
