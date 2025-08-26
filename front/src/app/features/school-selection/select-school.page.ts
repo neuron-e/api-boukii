@@ -10,16 +10,7 @@ import { ToastService } from '@core/services/toast.service';
 import { TranslationService } from '@core/services/translation.service';
 import { SessionService } from '@core/services/session.service';
 import { SchoolService } from '@core/services/school.service';
-
-interface School {
-  id: number;
-  name: string;
-  slug?: string;
-  logo?: string;
-  active?: boolean;
-  user_role?: string;
-  can_administer?: boolean;
-}
+import { School } from '@core/services/context.service';
 
 @Component({
   selector: 'app-select-school',
