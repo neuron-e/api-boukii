@@ -112,6 +112,12 @@ export const routes: Routes = [
         canActivate: [requireCompleteAuthGuard]
       },
       {
+        path: 'courses',
+        canActivate: [requireCompleteAuthGuard],
+        loadComponent: () =>
+          import('./features/courses/courses-list.page').then(c => c.CoursesListPageComponent)
+      },
+      {
         path: 'settings',
         loadChildren: () => import('./features/settings').then(m => m.routes)
       }
