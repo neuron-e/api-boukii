@@ -2,8 +2,9 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { of } from 'rxjs';
 
-import { ClientsListPageComponent } from './clients-list.page';
-import { ClientsV5Service, ClientsResponse, Client } from '@core/services/clients-v5.service';
+import { expect } from '@jest/globals';
+import { ClientsListPageComponent, ClientListItem } from './clients-list.page';
+import { ClientsV5Service, ClientsResponse } from '@core/services/clients-v5.service';
 import { ContextService } from '@core/services/context.service';
 import { TranslationService } from '@core/services/translation.service';
 
@@ -93,7 +94,7 @@ describe('ClientsListPageComponent', () => {
   });
 
   it('should open and close preview', () => {
-    const c = { id: 1, fullName: 'John', email: 'j@d.com', phone: '123' } as Client;
+    const c = { id: 1 } as ClientListItem;
     component.openPreview(c);
     expect(component.selectedClient).toBe(c);
     component.closePreview();
@@ -101,10 +102,24 @@ describe('ClientsListPageComponent', () => {
   });
 
   it('should close preview on escape key', () => {
-    const c = { id: 2 } as Client;
+    const c = { id: 2 } as ClientListItem;
     component.openPreview(c);
     component.handleEscape(new KeyboardEvent('keydown', { key: 'Escape' }));
     expect(component.selectedClient).toBeNull();
+  });
+
+  it('should navigate to edit page', () => {
+    const c = { id: 5 } as ClientListItem;
+    component.editClient(c);
+    expect(router.navigate).toHaveBeenCalledWith(['/clients', 5, 'edit']);
+  });
+
+  it('should show confirmation dialog on delete', () => {
+    const c = { id: 6 } as ClientListItem;
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
+    component.deleteClient(c);
+    expect(confirmSpy).toHaveBeenCalled();
+    confirmSpy.mockRestore();
   });
 });
 
