@@ -1,15 +1,17 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { animate, style, transition, trigger } from '@angular/animations';
 import { SchedulingSession } from './session-detail-modal.component';
 
 @Component({
   selector: 'app-create-session-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MatButtonModule],
   template: `
-    <div class="modal-overlay" (click)="cancel.emit()">
-      <div class="modal-container" (click)="$event.stopPropagation()">
+    <div class="modal-overlay" (click)="cancel.emit()" [@fade]>
+      <div class="modal-container" (click)="$event.stopPropagation()" [@scale]>
         <h2>Create Session</h2>
         <form (ngSubmit)="onSubmit()" #form="ngForm">
           <label>
@@ -29,8 +31,8 @@ import { SchedulingSession } from './session-detail-modal.component';
             <input name="endTime" type="time" [(ngModel)]="session.endTime" required />
           </label>
           <div class="actions">
-            <button type="button" (click)="cancel.emit()">Cancel</button>
-            <button type="submit" [disabled]="form.invalid">Create</button>
+            <button mat-stroked-button type="button" (click)="cancel.emit()">Cancel</button>
+            <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid">Create</button>
           </div>
         </form>
       </div>
@@ -64,6 +66,26 @@ import { SchedulingSession } from './session-detail-modal.component';
         margin-top: var(--space-4);
       }
     `,
+  ],
+  animations: [
+    trigger('fade', [
+      transition(':enter', [
+        style({ opacity: 0 }),
+        animate('200ms ease-out', style({ opacity: 1 })),
+      ]),
+      transition(':leave', [
+        animate('200ms ease-in', style({ opacity: 0 })),
+      ]),
+    ]),
+    trigger('scale', [
+      transition(':enter', [
+        style({ transform: 'scale(0.95)', opacity: 0 }),
+        animate('200ms ease-out', style({ transform: 'scale(1)', opacity: 1 })),
+      ]),
+      transition(':leave', [
+        animate('200ms ease-in', style({ transform: 'scale(0.95)', opacity: 0 })),
+      ]),
+    ]),
   ],
 })
 export class CreateSessionModalComponent implements OnChanges {

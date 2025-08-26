@@ -50,6 +50,7 @@ import { Instructor } from '../services/instructor-availability.service';
         border-radius: var(--radius-2);
         color: var(--text-inverse);
         font-size: var(--font-size-sm);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
       }
 
       .session-block.confirmed {
