@@ -14,7 +14,7 @@ import { SportsDegree } from '../data/sports-degrees';
         <input
           type="checkbox"
           [checked]="selectedSportsIds.includes(sport.id)"
-          (change)="onToggleSport(sport.id, $event.target.checked)"
+          (change)="onToggleSport(sport.id, ($event.target as HTMLInputElement).checked)"
         />
         {{ sport.name }}
       </label>
