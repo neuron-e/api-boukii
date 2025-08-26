@@ -246,12 +246,20 @@
       "manageCourses": "Gestisci corsi",
       "viewReports": "Visualizza report"
     },
-    "status": {
-      "operational": "Sistema operativo",
-      "pending": "Notifiche in sospeso",
-      "available": "Aggiornamento disponibile"
-    }
-  },
+      "status": {
+        "operational": "Sistema operativo",
+        "pending": "Notifiche in sospeso",
+        "available": "Aggiornamento disponibile"
+      },
+      "charts": {
+        "dailyAttendance": "Presenze giornaliere",
+        "hourlyBookings": "Prenotazioni per ora",
+        "legend": {
+          "attendance": "Presenze",
+          "bookings": "Prenotazioni"
+        }
+      }
+    },
     "nav": {
       "searchPlaceholder": "Cerca...",
       "notifications": "Notifiche",
