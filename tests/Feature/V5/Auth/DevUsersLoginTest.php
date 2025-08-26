@@ -207,6 +207,27 @@ class DevUsersLoginTest extends TestCase
     }
 
     /** @test */
+    public function select_school_response_includes_user_role()
+    {
+        $checkUserResponse = $this->postJson('/api/v5/auth/check-user', [
+            'email' => 'admin@boukii-v5.com',
+            'password' => 'password123'
+        ]);
+
+        $tempToken = $checkUserResponse->json('data.temp_token');
+
+        $response = $this->postJson('/api/v5/auth/select-school', [
+            'school_id' => 2,
+            'remember_me' => false
+        ], [
+            'Authorization' => "Bearer {$tempToken}"
+        ]);
+
+        $response->assertStatus(200)
+                ->assertJsonPath('data.user.role', 'admin');
+    }
+
+    /** @test */
     public function invalid_credentials_are_rejected()
     {
         $response = $this->postJson('/api/v5/auth/check-user', [

@@ -447,9 +447,11 @@ export class AuthV5Service {
     this.tokenSignal.set(token);
     this.userSignal.set(data.user);
 
-    // Extract user role from roles array or type property
-    let role: string | null = null;
-    if (data.user?.type) {
+    // Extract user role from response or preserve existing role
+    let role: string | null = this.roleSignal();
+    if (data.user?.role) {
+      role = data.user.role;
+    } else if (data.user?.type) {
       role = data.user.type;
     } else if (Array.isArray(data.user?.roles) && data.user.roles.length > 0) {
       const firstRole = data.user.roles[0];
