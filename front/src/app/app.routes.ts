@@ -163,6 +163,22 @@ export const routes: Routes = [
         canActivate: [requireCompleteAuthGuard],
       },
       {
+        path: 'courses/new',
+        loadComponent: () =>
+          import('./features/courses/course-form.component').then(
+            (c) => c.CourseFormComponent
+          ),
+        canActivate: [requireCompleteAuthGuard],
+      },
+      {
+        path: 'courses/:id/edit',
+        loadComponent: () =>
+          import('./features/courses/course-form.component').then(
+            (c) => c.CourseFormComponent
+          ),
+        canActivate: [requireCompleteAuthGuard],
+      },
+      {
         path: 'statistics',
         loadComponent: () =>
           import('./features/statistics/statistics.component').then(
