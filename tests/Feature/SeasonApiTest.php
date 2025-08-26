@@ -123,6 +123,7 @@ class SeasonApiTest extends TestCase
             ->assertJsonPath('data.0.id', $season2['id']);
     }
 
+
     public function test_database_prevents_multiple_active_seasons(): void
     {
         $school = School::create([
@@ -149,5 +150,56 @@ class SeasonApiTest extends TestCase
         $this->assertFalse($first->fresh()->is_active);
         $this->assertTrue($second->fresh()->is_active);
         $this->assertEquals(1, Season::where('school_id', $school->id)->where('is_active', true)->count());
+
+    public function test_only_one_active_season_per_school(): void
+    {
+        $school = School::create([
+            'name' => 'Test School',
+            'slug' => 'test-school',
+        ]);
+
+        $season1 = $this->postJson('/api/seasons', [
+            'name' => 'S1',
+            'start_date' => '2024-01-01',
+            'end_date' => '2024-02-01',
+            'is_active' => false,
+            'school_id' => $school->id,
+        ])->assertStatus(200)->json('data');
+
+        $season2 = $this->postJson('/api/seasons', [
+            'name' => 'S2',
+            'start_date' => '2024-03-01',
+            'end_date' => '2024-04-01',
+            'is_active' => false,
+            'school_id' => $school->id,
+        ])->assertStatus(200)->json('data');
+
+        $this->putJson('/api/seasons/' . $season1['id'], [
+            'name' => 'S1',
+            'start_date' => '2024-01-01',
+            'end_date' => '2024-02-01',
+            'school_id' => $school->id,
+            'is_active' => true,
+        ])->assertStatus(200)
+            ->assertJsonPath('data.is_active', true);
+
+        $this->putJson('/api/seasons/' . $season2['id'], [
+            'name' => 'S2',
+            'start_date' => '2024-03-01',
+            'end_date' => '2024-04-01',
+            'school_id' => $school->id,
+            'is_active' => true,
+        ])->assertStatus(200)
+            ->assertJsonPath('data.is_active', true);
+
+        $this->getJson('/api/seasons/' . $season1['id'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.is_active', false);
+
+        $this->getJson('/api/seasons?school_id=' . $school->id . '&filterActive=1')
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $season2['id']);
+
     }
 }
