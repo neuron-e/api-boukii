@@ -1,0 +1,86 @@
+<div class="dashboard-page" data-cy="dashboard">
+  <header class="dashboard-header">
+    <div class="header-content">
+      <i class="i-chart-bar header-icon" aria-hidden="true"></i>
+      <div class="header-text">
+        <h1>Panel de Control</h1>
+        <p>Resumen general de la escuela</p>
+      </div>
+    </div>
+  </header>
+
+  <section class="metrics">
+    @if (loadingMetrics()) {
+      <div class="metric-card">Cargando métricas...</div>
+    } @else if (!metrics().length) {
+      <div class="metric-card">Sin métricas</div>
+    } @else {
+      @for (m of metrics(); track trackMetric) {
+        <div class="metric-card">
+          <i class="{{ m.icon }} metric-icon" aria-hidden="true"></i>
+          <div class="metric-info">
+            <div class="metric-value">{{ m.value }}</div>
+            <div class="metric-label">{{ m.label }}</div>
+          </div>
+        </div>
+      }
+    }
+  </section>
+
+  <section class="charts">
+    <div class="chart-card">
+      <h2>Reservas por semana</h2>
+      <div class="chart-box">
+        <canvas baseChart [data]="reservationsData" [options]="reservationsOptions" type="line"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h2>Distribución por tipo de curso</h2>
+      <div class="chart-box">
+        <canvas baseChart [data]="courseDistributionData" [options]="courseDistributionOptions" type="doughnut"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section class="activity">
+    <h2>Actividad reciente</h2>
+    @if (loadingActivities()) {
+      <p>Cargando...</p>
+    } @else if (!activities().length) {
+      <p>No hay actividad reciente</p>
+    } @else {
+      @for (a of activities(); track trackActivity) {
+        <div class="activity-item">
+          <div class="activity-info">
+            <div class="activity-title">{{ a.title }}</div>
+            <div class="activity-desc">{{ a.description }}</div>
+            <div class="activity-time">{{ a.time }}</div>
+          </div>
+          <span class="activity-status {{ a.status }}">{{ a.status }}</span>
+        </div>
+      }
+    }
+  </section>
+
+  <section class="quick-links">
+    <h2>Accesos rápidos</h2>
+    <div class="quick-links-grid">
+      @for (q of quickLinks(); track trackQuickLink) {
+        <a class="quick-link" [routerLink]="q.route">
+          <i class="{{ q.icon }} quick-link-icon" aria-hidden="true"></i>
+          <span>{{ q.label }}</span>
+        </a>
+      }
+    </div>
+  </section>
+
+  @if (weather()) {
+    <section class="weather">
+      <i class="i-cloud" aria-hidden="true"></i>
+      <div class="weather-info">
+        <div class="weather-temp">{{ weather()!.temp }}</div>
+        <div class="weather-condition">{{ weather()!.condition }}</div>
+      </div>
+    </section>
+  }
+</div>
