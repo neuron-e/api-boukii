@@ -115,11 +115,23 @@ export const routes: Routes = [
         path: 'chat',
         loadComponent: () =>
           import('./features/chat/chat.component').then(c => c.ChatComponent),
+       canActivate: [requireCompleteAuthGuard],
+      }
+        path: 'courses',
+        canActivate: [requireCompleteAuthGuard],
+        loadComponent: () =>
+          import('./features/courses/courses-list.page').then(c => c.CoursesListPageComponent),
+           canActivate: [requireCompleteAuthGuard]
+      },
+        path: 'statistics',
+        loadComponent: () =>
+          import('./features/statistics/statistics.component').then(c => c.StatisticsComponent),
         canActivate: [requireCompleteAuthGuard]
       },
       {
         path: 'settings',
-        loadChildren: () => import('./features/settings').then(m => m.routes)
+        loadChildren: () => import('./features/settings').then(m => m.routes),
+           canActivate: [requireCompleteAuthGuard]
       }
     ]
   },
