@@ -14,7 +14,8 @@
     "view": "View",
     "reset": "Reset",
     "saving": "Saving...",
-    "more": "more"
+    "more": "more",
+    "all": "All"
   },
   "schools": {
     "selectSchool": {
@@ -70,6 +71,21 @@
     "endDate": "End date",
     "courses": "Courses",
     "bookings": "Bookings"
+  },
+  "clients": {
+    "title": "Clients",
+    "fullName": "Full name",
+    "email": "Email",
+    "phone": "Phone",
+    "utilizadores": "Users",
+    "sportsSummary": "Sports",
+    "status": "Status",
+    "signupDate": "Signup date",
+    "filtersAria": "Client filters",
+    "tableAria": "Clients table",
+    "viewClient": "View client",
+    "editClient": "Edit client",
+    "deleteClient": "Delete client"
   },
   "auth": {
     "brandLine": "All-in-one sports management",
