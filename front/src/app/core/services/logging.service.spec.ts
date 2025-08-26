@@ -1,18 +1,15 @@
 import { TestBed } from '@angular/core/testing';
 import { LoggingService, LogPayload } from './logging.service';
 import { ApiService } from './api.service';
-import { EnvironmentService } from './environment.service';
 import { ConfigService } from './config.service';
 
 describe('LoggingService', () => {
   let service: LoggingService;
   let api: { postWithHeaders: jest.Mock };
-  let env: { isProduction: jest.Mock; envName: jest.Mock };
   let config: { getRuntimeConfig: jest.Mock; getAppVersion: jest.Mock };
 
   beforeEach(() => {
     api = { postWithHeaders: jest.fn().mockResolvedValue(undefined) };
-    env = { isProduction: jest.fn(), envName: jest.fn() };
     config = { getRuntimeConfig: jest.fn(), getAppVersion: jest.fn() };
 
     (global as any).location = { href: 'http://test.local' };
@@ -22,7 +19,6 @@ describe('LoggingService', () => {
       providers: [
         LoggingService,
         { provide: ApiService, useValue: api },
-        { provide: EnvironmentService, useValue: env },
         { provide: ConfigService, useValue: config },
       ],
     });
@@ -35,8 +31,7 @@ describe('LoggingService', () => {
   });
 
   it('logs to console in dev without network', () => {
-    env.isProduction.mockReturnValue(false);
-    env.envName.mockReturnValue('development');
+    service.configureEnvironment('development', false);
     config.getRuntimeConfig.mockReturnValue({ logging: { enabled: true } });
     config.getAppVersion.mockReturnValue('1.0.0');
 
@@ -55,8 +50,7 @@ describe('LoggingService', () => {
   });
 
   it('sends logs to API in production with headers', () => {
-    env.isProduction.mockReturnValue(true);
-    env.envName.mockReturnValue('production');
+    service.configureEnvironment('production', true);
     config.getRuntimeConfig.mockReturnValue({ logging: { enabled: true } });
     config.getAppVersion.mockReturnValue('2.3.4');
 
@@ -74,8 +68,7 @@ describe('LoggingService', () => {
   });
 
   it('can force network logging in dev', () => {
-    env.isProduction.mockReturnValue(false);
-    env.envName.mockReturnValue('development');
+    service.configureEnvironment('development', false);
     config.getRuntimeConfig.mockReturnValue({
       logging: { enabled: true, forceNetworkInDev: true },
     });
@@ -88,8 +81,7 @@ describe('LoggingService', () => {
   });
 
   it('respects logging.enabled === false', () => {
-    env.isProduction.mockReturnValue(true);
-    env.envName.mockReturnValue('production');
+    service.configureEnvironment('production', true);
     config.getRuntimeConfig.mockReturnValue({ logging: { enabled: false } });
 
     service.error('ignored');
@@ -98,8 +90,7 @@ describe('LoggingService', () => {
   });
 
   it('swallows network errors', async () => {
-    env.isProduction.mockReturnValue(true);
-    env.envName.mockReturnValue('production');
+    service.configureEnvironment('production', true);
     config.getRuntimeConfig.mockReturnValue({ logging: { enabled: true } });
     api.postWithHeaders.mockRejectedValueOnce(new Error('fail'));
 

@@ -9,8 +9,8 @@ import {
   ConfigurationOverride,
   ConfigurationChangeEvent,
 } from '../models/environment.models';
-import { LoggingService } from './logging.service';
-import { ErrorSeverity } from '../models/error.models';
+import { LoggingService, LogContext } from './logging.service';
+import { ErrorSeverity, ErrorResponse, ErrorContext } from '../models/error.models';
 import { environment } from '@environments/environment';
 
 export type EnvName = 'development' | 'staging' | 'test' | 'production';
@@ -22,7 +22,7 @@ export type EnvName = 'development' | 'staging' | 'test' | 'production';
 @Injectable({ providedIn: 'root' })
 export class EnvironmentService {
   private readonly http = inject(HttpClient);
-  private readonly logger = inject(LoggingService);
+  private logger: LoggingService | null = null;
 
   private readonly _envName: EnvName = (environment as any).envName ?? 'development';
 
@@ -61,6 +61,8 @@ export class EnvironmentService {
   private readonly CONFIG_CACHE_KEY = 'boukii_runtime_config';
   private readonly CONFIG_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+  private initialized = false;
+
   constructor() {
     this.initializeEnvironment();
   }
@@ -83,6 +85,46 @@ export class EnvironmentService {
 
   isProduction(): boolean {
     return this._envName === 'production';
+  }
+
+  private ensureLogger(): LoggingService | null {
+    if (!this.logger && this.initialized && this.isLoaded()) {
+      this.logger = inject(LoggingService);
+      this.logger.configureEnvironment?.(this.envName(), this.isProduction());
+    }
+    return this.logger;
+  }
+
+  private logInfo(message: string, context?: LogContext): void {
+    const logger = this.ensureLogger();
+    if (logger) {
+      logger.logInfo(message, context);
+    } else {
+      console.info(message, context);
+    }
+  }
+
+  private logWarning(message: string, context?: LogContext): void {
+    const logger = this.ensureLogger();
+    if (logger) {
+      logger.logWarning(message, context);
+    } else {
+      console.warn(message, context);
+    }
+  }
+
+  private logError(
+    message: string,
+    error?: ErrorResponse,
+    context?: Partial<ErrorContext>,
+    userFriendlyMessage?: string
+  ): void {
+    const logger = this.ensureLogger();
+    if (logger) {
+      logger.logError(message, error, context, userFriendlyMessage);
+    } else {
+      console.error(message, { error, ...(context || {}) });
+    }
   }
 
   /**
@@ -110,7 +152,7 @@ export class EnvironmentService {
           source: 'cache',
         });
 
-        this.logger.logInfo('Environment loaded from cache', {
+        this.logInfo('Environment loaded from cache', {
           url: 'environment-service',
           method: 'initializeEnvironment',
           severity: ErrorSeverity.LOW,
@@ -139,12 +181,14 @@ export class EnvironmentService {
         source: 'fallback',
       });
 
-      this.logger.logWarning('Using fallback environment configuration', {
+      this.logWarning('Using fallback environment configuration', {
         url: 'environment-service',
         method: 'initializeEnvironment',
         severity: ErrorSeverity.MEDIUM,
         error: _error instanceof Error ? _error.message : 'Unknown error',
       });
+    } finally {
+      this.initialized = true;
     }
   }
 
@@ -168,7 +212,7 @@ export class EnvironmentService {
         source: 'remote',
       });
 
-      this.logger.logInfo('Environment loaded from remote', {
+      this.logInfo('Environment loaded from remote', {
         url: 'environment-service',
         method: 'loadFromRemote',
         severity: ErrorSeverity.LOW,
@@ -188,7 +232,7 @@ export class EnvironmentService {
     const staticConfig = this.getStaticConfiguration();
     this._environment.set(staticConfig);
 
-    this.logger.logInfo('Environment loaded from static configuration', {
+    this.logInfo('Environment loaded from static configuration', {
       url: 'environment-service',
       method: 'loadStaticConfiguration',
       severity: ErrorSeverity.LOW,
@@ -434,7 +478,7 @@ export class EnvironmentService {
       timestamp: new Date(),
     });
 
-    this.logger.logInfo(`Feature flag ${feature} toggled`, {
+    this.logInfo(`Feature flag ${feature} toggled`, {
       url: 'environment-service',
       method: 'toggleFeature',
       severity: ErrorSeverity.LOW,
@@ -482,7 +526,7 @@ export class EnvironmentService {
     this._overrides.set(updatedOverrides);
     this.saveOverridesToCache(updatedOverrides);
 
-    this.logger.logInfo('Configuration override set', {
+    this.logInfo('Configuration override set', {
       url: 'environment-service',
       method: 'setConfigurationOverride',
       severity: ErrorSeverity.LOW,
@@ -501,7 +545,7 @@ export class EnvironmentService {
     this._overrides.set(updatedOverrides);
     this.saveOverridesToCache(updatedOverrides);
 
-    this.logger.logInfo('Configuration override removed', {
+    this.logInfo('Configuration override removed', {
       url: 'environment-service',
       method: 'removeConfigurationOverride',
       severity: ErrorSeverity.LOW,
@@ -536,7 +580,7 @@ export class EnvironmentService {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
 
-      this.logger.logError(
+      this.logError(
         'Failed to reload configuration',
         {
           type: 'configuration_error',
@@ -615,7 +659,7 @@ export class EnvironmentService {
       };
       localStorage.setItem(this.CONFIG_CACHE_KEY, JSON.stringify(cacheData));
     } catch (error) {
-      this.logger.logWarning('Failed to save configuration to cache', {
+      this.logWarning('Failed to save configuration to cache', {
         url: 'environment-service',
         method: 'saveToCache',
         severity: ErrorSeverity.LOW,
@@ -658,7 +702,7 @@ export class EnvironmentService {
     try {
       localStorage.setItem(`${this.CONFIG_CACHE_KEY}_overrides`, JSON.stringify(overrides));
     } catch (error) {
-      this.logger.logWarning('Failed to save overrides to cache', {
+      this.logWarning('Failed to save overrides to cache', {
         url: 'environment-service',
         method: 'saveOverridesToCache',
         severity: ErrorSeverity.LOW,
