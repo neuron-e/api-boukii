@@ -1,0 +1,36 @@
+<mat-tab-group (selectedIndexChange)="onTabChange($event)">
+  <mat-tab label="Active"></mat-tab>
+  <mat-tab label="Inactive"></mat-tab>
+  <mat-tab label="All"></mat-tab>
+</mat-tab-group>
+
+<mat-select [(ngModel)]="selectedSport" placeholder="Filter by sport">
+  <mat-option value="">All Sports</mat-option>
+  <mat-option *ngFor="let sport of sports" [value]="sport">{{ sport }}</mat-option>
+</mat-select>
+
+<table mat-table [dataSource]="filteredMonitors" class="monitors-table mat-elevation-z8">
+  <ng-container matColumnDef="name">
+    <th mat-header-cell *matHeaderCellDef>Name</th>
+    <td mat-cell *matCellDef="let monitor">{{ monitor.name }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="sports">
+    <th mat-header-cell *matHeaderCellDef>Sports</th>
+    <td mat-cell *matCellDef="let monitor">{{ monitor.sports.join(', ') }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="levels">
+    <th mat-header-cell *matHeaderCellDef>Levels</th>
+    <td mat-cell *matCellDef="let monitor">{{ monitor.levels.join(', ') }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="status">
+    <th mat-header-cell *matHeaderCellDef>Status</th>
+    <td mat-cell *matCellDef="let monitor">{{ monitor.status }}</td>
+  </ng-container>
+
+  <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+  <tr mat-row *matRowDef="let row; columns: displayedColumns" (click)="openMonitor(row)"></tr>
+</table>
+

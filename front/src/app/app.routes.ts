@@ -171,6 +171,14 @@ export const routes: Routes = [
         canActivate: [requireCompleteAuthGuard],
       },
       {
+        path: 'monitors',
+        canActivate: [requireCompleteAuthGuard],
+        loadChildren: () =>
+          import('./features/monitors/monitors.routes').then(
+            (m) => m.MONITORS_ROUTES
+          ),
+      },
+      {
         path: 'settings',
         loadChildren: () => import('./features/settings').then((m) => m.routes),
         canActivate: [requireCompleteAuthGuard],
