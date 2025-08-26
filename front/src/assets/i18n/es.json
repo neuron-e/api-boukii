@@ -743,12 +743,22 @@
         "invalid": "{{count}} registros con errores",
         "duplicates": "{{count}} registros duplicados"
       },
-      "errors": {
-        "invalidFormat": "Formato de archivo no válido",
-        "emptyFile": "El archivo está vacío",
-        "missingColumns": "Faltan columnas requeridas",
-        "invalidData": "Datos inválidos en la fila {{row}}"
+        "errors": {
+          "invalidFormat": "Formato de archivo no válido",
+          "emptyFile": "El archivo está vacío",
+          "missingColumns": "Faltan columnas requeridas",
+          "invalidData": "Datos inválidos en la fila {{row}}"
+        }
+      }
+    },
+    "settings": {
+      "school": {
+        "title": "Configuración de la Escuela",
+        "name": "Nombre",
+        "email": "Correo electrónico",
+        "contact_phone": "Teléfono de contacto",
+        "address": "Dirección",
+        "logo": "Logo"
       }
     }
   }
-}
