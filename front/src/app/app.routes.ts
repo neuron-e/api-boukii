@@ -84,6 +84,13 @@ export const routes: Routes = [
               import('./features/clients/client-form.page').then((c) => c.ClientFormPage),
           },
           {
+            path: ':id/profile',
+            loadComponent: () =>
+              import('./features/clients/client-profile/client-profile.component').then(
+                (c) => c.ClientProfileComponent
+              ),
+          },
+          {
             path: ':id/edit',
             loadComponent: () =>
               import('./features/clients/client-form.page').then((c) => c.ClientFormPage),
@@ -147,12 +154,6 @@ export const routes: Routes = [
         canActivate: [requireCompleteAuthGuard],
       },
       {
-        path: 'courses',
-        loadComponent: () =>
-          import('./features/chat/chat.component').then(c => c.ChatComponent),
-        canActivate: [requireCompleteAuthGuard],
-      },
-      {
         path: 'communications',
         loadComponent: () =>
           import('./features/communications/communications.component').then(
@@ -163,7 +164,24 @@ export const routes: Routes = [
       {
         path: 'courses',
         loadComponent: () =>
-          import('./features/courses/courses-list.page').then((c) => c.CoursesListPageComponent),
+          import('./features/courses/courses-list.component').then(
+            (c) => c.CoursesListComponent
+          ),
+        canActivate: [requireCompleteAuthGuard],
+      },
+      {
+        path: 'courses/new',
+        loadComponent: () =>
+          import('./features/courses/course-form.component').then(
+            (c) => c.CourseFormComponent
+          ),
+        canActivate: [requireCompleteAuthGuard],
+      },
+      {
+        path: 'courses/:id/edit',
+        loadComponent: () =>
+          import('./features/courses/course-form.component').then(
+            (c) => c.CourseFormComponent
           ),
         canActivate: [requireCompleteAuthGuard],
       },
@@ -171,8 +189,17 @@ export const routes: Routes = [
         path: 'statistics',
         loadComponent: () =>
           import('./features/statistics/statistics.component').then(
-            c => c.StatisticsComponent,
+            (c) => c.StatisticsComponent
+          ),
         canActivate: [requireCompleteAuthGuard],
+      },
+      {
+        path: 'monitors',
+        canActivate: [requireCompleteAuthGuard],
+        loadChildren: () =>
+          import('./features/monitors/monitors.routes').then(
+            (m) => m.MONITORS_ROUTES
+          ),
       },
       {
         path: 'settings',

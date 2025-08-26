@@ -1,0 +1,15 @@
+.step-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.participant-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.summary {
+  margin-top: 24px;
+}
