@@ -14,7 +14,7 @@ import { Station } from '../data/stations';
         <input
           type="checkbox"
           [checked]="selectedStationIds.includes(station.id)"
-          (change)="onToggleStation(station.id, $event.target.checked)"
+          (change)="onToggleStation(station.id, ($event.target as HTMLInputElement).checked)"
         />
         {{ station.name }}
       </label>
