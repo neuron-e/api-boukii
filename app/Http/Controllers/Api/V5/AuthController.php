@@ -63,10 +63,10 @@ class AuthController extends Controller
             // Get user's available schools
             $schoolsQuery = $user->hasRole('superadmin')
                 ? School::query()
-                    ->select(['id', 'name', 'slug', 'logo'])
+                    ->select(['id', 'name', 'slug', 'logo', 'active'])
                     ->where('active', 1)
                     ->whereNull('deleted_at')
-                : $user->schools()->select(['schools.id', 'schools.name', 'schools.slug', 'schools.logo']);
+                : $user->schools()->select(['schools.id', 'schools.name', 'schools.slug', 'schools.logo', 'schools.active']);
 
             $schools = $schoolsQuery
                 ->get()
@@ -76,6 +76,7 @@ class AuthController extends Controller
                         'name' => $school->name,
                         'slug' => $school->slug,
                         'logo' => $school->logo,
+                        'active' => (bool) $school->active,
                         'user_role' => $this->getUserRoleInSchool($user, $school),
                         'can_administer' => $this->userCanAdministerSchool($user, $school)
                     ];
