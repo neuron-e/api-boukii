@@ -1,6 +1,11 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { CdkDrag, CdkDragEnd } from '@angular/cdk/drag-drop';
+import {
+  CdkDrag,
+  CdkDragEnd,
+  CdkDropList,
+  CdkDragDrop,
+} from '@angular/cdk/drag-drop';
 import {
   AnimationBuilder,
   animate,
@@ -10,20 +15,23 @@ import {
   trigger,
 } from '@angular/animations';
 import { SessionValidationService } from '../services/session-validation.service';
+import { Instructor } from '../services/instructor-availability.service';
 
 @Component({
   selector: 'app-session-block',
   standalone: true,
-  imports: [CommonModule, CdkDrag],
+  imports: [CommonModule, CdkDrag, CdkDropList],
   template: `
     <div
       cdkDrag
+      cdkDropList
       [attr.title]="tooltip"
       class="session-block"
       [ngClass]="status"
       [@dragAnimation]="dragging ? 'dragging' : 'dropped'"
       (cdkDragStarted)="dragging = true"
       (cdkDragEnded)="onDrop($event)"
+      (cdkDropListDropped)="onInstructorDrop($event)"
       (click)="sessionClick.emit()"
     >
       <img class="avatar" [src]="instructorAvatar" alt="Instructor" />
@@ -86,6 +94,7 @@ import { SessionValidationService } from '../services/session-validation.service
 export class SessionBlockComponent {
   @Input() courseName = '';
   @Input() instructorAvatar = '';
+  @Input() instructor = '';
   @Input() startTime = '';
   @Input() endTime = '';
   @Input() status: 'confirmed' | 'pending' | 'conflict' = 'pending';
@@ -96,6 +105,7 @@ export class SessionBlockComponent {
     status: 'confirmed' | 'conflict';
   }>();
   @Output() sessionClick = new EventEmitter<void>();
+  @Output() instructorAssigned = new EventEmitter<Instructor>();
 
   dragging = false;
 
@@ -133,6 +143,15 @@ export class SessionBlockComponent {
       .create(event.source.element.nativeElement);
     player.onDone(() => event.source.reset());
     player.play();
+  }
+
+  onInstructorDrop(event: CdkDragDrop<any>) {
+    const data: Instructor | undefined = event.item.data;
+    if (data && data.name) {
+      this.instructorAvatar = data.avatar;
+      this.instructor = data.name;
+      this.instructorAssigned.emit(data);
+    }
   }
 
   private parseTime(time: string): Date {

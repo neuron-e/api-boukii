@@ -3,17 +3,26 @@ import { CommonModule } from '@angular/common';
 import { SessionBlockComponent } from './components/session-block.component';
 import { SessionDetailModalComponent, SchedulingSession } from './components/session-detail-modal.component';
 import { CreateSessionModalComponent } from './components/create-session-modal.component';
+import { InstructorSidebarComponent } from './components/instructor-sidebar.component';
+import { Instructor } from './services/instructor-availability.service';
 
 @Component({
   selector: 'app-scheduling-calendar',
   standalone: true,
-  imports: [CommonModule, SessionBlockComponent, SessionDetailModalComponent, CreateSessionModalComponent],
+  imports: [
+    CommonModule,
+    SessionBlockComponent,
+    SessionDetailModalComponent,
+    CreateSessionModalComponent,
+    InstructorSidebarComponent,
+  ],
   template: `
     <div class="page" data-cy="scheduling-calendar">
       <div class="page-header">
         <h1>Scheduling Calendar</h1>
       </div>
       <div class="page-content">
+        <app-instructor-sidebar></app-instructor-sidebar>
         <div class="calendar">
           <div class="day-header" *ngFor="let day of days">{{ day }}</div>
           <ng-container *ngFor="let hour of hours">
@@ -26,10 +35,12 @@ import { CreateSessionModalComponent } from './components/create-session-modal.c
                 <app-session-block
                   [courseName]="session.course"
                   [instructorAvatar]="session.instructorAvatar"
+                  [instructor]="session.instructor"
                   [startTime]="session.startTime"
                   [endTime]="session.endTime"
                   [status]="session.status"
                   (sessionClick)="openSessionDetail(session)"
+                  (instructorAssigned)="assignInstructor(session, $event)"
                 ></app-session-block>
               </ng-container>
             </div>
@@ -51,7 +62,12 @@ import { CreateSessionModalComponent } from './components/create-session-modal.c
   `,
   styles: [
     `
+      .page-content {
+        display: flex;
+      }
+
       .calendar {
+        flex: 1;
         display: grid;
         grid-template-columns: repeat(7, 1fr);
         background: var(--surface);
@@ -134,9 +150,15 @@ export class SchedulingCalendarComponent {
         ...session,
         day: this.creatingSlot.day,
         instructorAvatar: '',
+        instructor: '',
         status: 'pending',
       });
       this.creatingSlot = null;
     }
+  }
+
+  assignInstructor(session: any, instructor: Instructor) {
+    session.instructor = instructor.name;
+    session.instructorAvatar = instructor.avatar;
   }
 }
