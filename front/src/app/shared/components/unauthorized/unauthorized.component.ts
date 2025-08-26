@@ -10,7 +10,7 @@ import { RouterLink } from '@angular/router';
     <div class="unauthorized-page">
       <div class="unauthorized-container">
         <div class="unauthorized-card">
-          <div class="error-icon">
+          <div class="error-icon icon-active">
             🚫
           </div>
           <h1 class="error-title">Unauthorized Access</h1>
@@ -20,14 +20,14 @@ import { RouterLink } from '@angular/router';
           <p class="error-description">
             Please contact your administrator if you believe this is an error.
           </p>
-          <div class="error-actions">
-            <button routerLink="/dashboard" class="action-button primary">
-              Go to Dashboard
-            </button>
-            <button routerLink="/auth/login" class="action-button secondary">
-              Login Again
-            </button>
-          </div>
+            <div class="error-actions">
+              <button routerLink="/dashboard" class="action-button btn-accent">
+                Go to Dashboard
+              </button>
+              <button routerLink="/auth/login" class="action-button btn-accent-outline">
+                Login Again
+              </button>
+            </div>
         </div>
       </div>
     </div>
@@ -98,24 +98,6 @@ import { RouterLink } from '@angular/router';
       text-align: center;
     }
 
-    .action-button.primary {
-      background: #3b82f6;
-      color: white;
-    }
-
-    .action-button.primary:hover {
-      background: #2563eb;
-    }
-
-    .action-button.secondary {
-      background: #f3f4f6;
-      color: #374151;
-      border: 1px solid #d1d5db;
-    }
-
-    .action-button.secondary:hover {
-      background: #e5e7eb;
-    }
 
     @media (min-width: 480px) {
       .error-actions {

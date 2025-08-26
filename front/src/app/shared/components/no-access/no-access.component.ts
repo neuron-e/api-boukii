@@ -10,7 +10,7 @@ import { RouterLink } from '@angular/router';
     <div class="no-access-page">
       <div class="no-access-container">
         <div class="no-access-card">
-          <div class="error-icon">
+          <div class="error-icon icon-active">
             🔒
           </div>
           <h1 class="error-title">Access Denied</h1>
@@ -20,14 +20,14 @@ import { RouterLink } from '@angular/router';
           <p class="error-description">
             Your account may need additional permissions or you may need to select a different school/season context.
           </p>
-          <div class="error-actions">
-            <button routerLink="/dashboard" class="action-button primary">
-              Return to Dashboard
-            </button>
-            <button routerLink="/select-school" class="action-button secondary">
-              Change School
-            </button>
-          </div>
+            <div class="error-actions">
+              <button routerLink="/dashboard" class="action-button btn-accent">
+                Return to Dashboard
+              </button>
+              <button routerLink="/select-school" class="action-button btn-accent-outline">
+                Change School
+              </button>
+            </div>
         </div>
       </div>
     </div>
@@ -99,24 +99,6 @@ import { RouterLink } from '@angular/router';
       text-align: center;
     }
 
-    .action-button.primary {
-      background: #3b82f6;
-      color: white;
-    }
-
-    .action-button.primary:hover {
-      background: #2563eb;
-    }
-
-    .action-button.secondary {
-      background: #f3f4f6;
-      color: #374151;
-      border: 1px solid #d1d5db;
-    }
-
-    .action-button.secondary:hover {
-      background: #e5e7eb;
-    }
 
     @media (min-width: 480px) {
       .error-actions {
