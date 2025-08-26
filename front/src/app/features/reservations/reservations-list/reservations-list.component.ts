@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatTableModule } from '@angular/material/table';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -16,6 +17,7 @@ import { ReservationDetailComponent } from '../reservation-detail.component';
   standalone: true,
   imports: [
     CommonModule,
+    RouterModule,
     FormsModule,
     MatTabsModule,
     MatTableModule,
