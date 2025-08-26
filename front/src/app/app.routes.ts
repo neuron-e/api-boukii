@@ -171,8 +171,17 @@ export const routes: Routes = [
         path: 'statistics',
         loadComponent: () =>
           import('./features/statistics/statistics.component').then(
-            c => c.StatisticsComponent,
+            (c) => c.StatisticsComponent
+          ),
         canActivate: [requireCompleteAuthGuard],
+      },
+      {
+        path: 'monitors',
+        canActivate: [requireCompleteAuthGuard],
+        loadChildren: () =>
+          import('./features/monitors/monitors.routes').then(
+            (m) => m.MONITORS_ROUTES
+          ),
       },
       {
         path: 'settings',
