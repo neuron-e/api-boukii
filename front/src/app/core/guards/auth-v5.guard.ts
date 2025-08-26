@@ -14,7 +14,20 @@ export const authV5Guard: CanActivateFn = (route, state) => {
 
   const isAuthenticated = authV5.isAuthenticated();
   
+  // Special case: Allow access to school/season selection during multi-step auth flow
   if (!isAuthenticated) {
+    const tempToken = localStorage.getItem('boukii_temp_token');
+    const isSchoolSelection = state.url.includes('/select-school');
+    const isSeasonSelection = state.url.includes('/select-season');
+    
+    if (tempToken && (isSchoolSelection || isSeasonSelection)) {
+      logger.logInfo('AuthV5Guard: Access granted for selection flow with temp token', {
+        route: state.url,
+        hasTemp: !!tempToken
+      });
+      return true;
+    }
+    
     logger.logInfo('AuthV5Guard: Access denied - not authenticated', {
       route: state.url
     });

@@ -204,32 +204,51 @@ export class LoginPage implements OnInit {
     // Step 1: Check user credentials
     this.authV5.checkUser({ email, password }).subscribe({
       next: (response) => {
+        console.log('🔍 Login response received:', response);
+        
         if (!response.success || !response.data) {
+          console.error('❌ Invalid response:', response);
           this.handleLoginError('Invalid response from server');
           return;
         }
 
         const { user, schools, temp_token } = response.data;
+        console.log('📊 Response data:', { user, schools: schools?.length, temp_token: temp_token?.substring(0, 20) + '...' });
 
-        if (user?.role === 'monitor') {
+        if (user?.type === 'monitor') {
+          console.log('👨‍🏫 Monitor user detected, redirecting to teacher app');
           this.handleLoginError('Please use the teacher app');
           this.router.navigate(['/teach']);
           return;
         }
 
-        if (user?.role === 'client') {
+        if (user?.type === 'client') {
+          console.log('👤 Client user detected, redirecting to client app');
           this.handleLoginError('Please use the client app');
           this.router.navigate(['/client']);
           return;
         }
 
+        // Check if schools exists and is an array
+        if (!schools || !Array.isArray(schools)) {
+          console.error('❌ Schools is not an array:', schools);
+          this.handleLoginError('Invalid school data received from server');
+          return;
+        }
+
+        console.log('🏫 Schools array length:', schools.length);
+
         if (schools.length === 0) {
+          console.log('❌ No schools available');
           this.handleLoginError('No schools available for this user');
         } else if (schools.length === 1) {
+          console.log('🎯 Single school user, auto-selecting:', schools[0].name);
           this.handleSingleSchoolUser(schools[0], temp_token);
         } else if (schools.length > 1) {
+          console.log('🏫 Multi-school user, showing selection page. Schools:', schools.map(s => s.name));
           this.handleMultiSchoolUser(schools, temp_token);
         } else {
+          console.error('❌ Unexpected schools length logic error');
           this.handleLoginError('Invalid school data received');
         }
       },
@@ -271,11 +290,26 @@ export class LoginPage implements OnInit {
   }
 
   private handleMultiSchoolUser(schools: any[], tempToken: string): void {
+    console.log('🎭 handleMultiSchoolUser called with:', { schoolCount: schools.length, hasToken: !!tempToken });
+    
+    // Store temporary token and schools for the selection process
     localStorage.setItem('boukii_temp_token', tempToken);
     localStorage.setItem('boukii_temp_schools', JSON.stringify(schools));
+    console.log('💾 Stored in localStorage:', { token: tempToken?.substring(0, 20) + '...', schoolsStored: schools.length });
 
+    // Set schools in auth service to make them available
+    this.authV5.schoolsSignal.set(schools);
+    console.log('🔄 Set schools in auth service signal');
+    
     this.isSubmitting.set(false);
-    this.router.navigate(['/select-school']);
+    this.statusMessage.set(this.translationService.get('auth.login.redirectingToSchools'));
+    console.log('📝 Updated status message and cleared submitting state');
+    
+    // Navigate to school selection
+    console.log('🧭 Attempting navigation to /select-school');
+    this.router.navigate(['/select-school']).then(success => {
+      console.log('🧭 Navigation result:', success ? '✅ SUCCESS' : '❌ FAILED');
+    });
   }
 
 

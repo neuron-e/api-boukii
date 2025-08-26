@@ -26,8 +26,25 @@ import { School } from '@core/services/context.service';
 
       <!-- Page Header -->
       <header class="page-header">
-        <h1 class="page-title">{{ 'schools.selectSchool.title' | translate }}</h1>
-        <p class="page-subtitle">{{ 'schools.selectSchool.subtitle' | translate }}</p>
+        <div class="header-content">
+          <h1 class="page-title">{{ 'schools.selectSchool.title' | translate }}</h1>
+          <p class="page-subtitle">{{ 'schools.selectSchool.subtitle' | translate }}</p>
+        </div>
+        <div class="header-actions">
+          <button 
+            type="button" 
+            class="logout-button"
+            (click)="onLogout()"
+            [attr.aria-label]="'auth.logout.title' | translate"
+          >
+            <svg class="logout-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16,17 21,12 16,7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            {{ 'auth.logout.title' | translate }}
+          </button>
+        </div>
       </header>
 
       <!-- Search Bar -->
@@ -249,7 +266,7 @@ export class SelectSchoolPageComponent implements OnInit, OnDestroy {
     this._hasError.set(false);
     this._errorMessage.set(null);
 
-    this.tempToken = this.authV5.tokenSignal() || '';
+    this.tempToken = localStorage.getItem('boukii_temp_token') || '';
 
     if (this.authV5.isSuperAdmin()) {
       this.schoolService
@@ -283,21 +300,46 @@ export class SelectSchoolPageComponent implements OnInit, OnDestroy {
     }
 
     try {
-      const user: any = this.authV5.user();
-      const schools = user?.schools || [];
+      // Try to get schools from localStorage (multi-school flow) first
+      const tempSchoolsJson = localStorage.getItem('boukii_temp_schools');
+      let schools = [];
+      
+      if (tempSchoolsJson) {
+        schools = JSON.parse(tempSchoolsJson);
+        console.log('📚 Loaded schools from localStorage:', schools.length);
+        console.log('📊 Schools data from localStorage:', schools.map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          active: s.active,
+          status: s.status
+        })));
+      } else {
+        // Fallback to auth service
+        const user: any = this.authV5.user();
+        schools = user?.schools || this.authV5.schools() || [];
+        console.log('📚 Loaded schools from auth service:', schools.length);
+        console.log('📊 Schools data from auth service:', schools.map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          active: s.active,
+          status: s.status
+        })));
+      }
+      
       if (schools.length === 0) {
         this._hasError.set(true);
         this._errorMessage.set('No schools found. Please login again.');
         this._isLoading.set(false);
         return;
       }
+      
       if (append) {
         this._schools.update(prev => [...prev, ...schools]);
       } else {
         this._schools.set(schools);
       }
     } catch (error) {
-      console.error('Error loading schools from auth service:', error);
+      console.error('Error loading schools:', error);
       this._hasError.set(true);
       this._errorMessage.set('Error loading schools data');
       this.router.navigate(['/auth/login']);
@@ -351,6 +393,15 @@ export class SelectSchoolPageComponent implements OnInit, OnDestroy {
     this._hasError.set(true);
     this._errorMessage.set(message);
     this.toast.error(message);
+  }
+
+  onLogout(): void {
+    console.log('🚪 Logout button clicked, clearing temp data');
+    
+    localStorage.removeItem('boukii_temp_token');
+    localStorage.removeItem('boukii_temp_schools');
+    
+    this.authV5.logout();
   }
 
 }

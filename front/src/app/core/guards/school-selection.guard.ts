@@ -18,10 +18,20 @@ export const schoolSelectionGuard: CanActivateFn = () => {
   const schoolService = inject(SchoolService);
   const contextService = inject(ContextService);
 
-  // First check if user is authenticated
-  if (!auth.isAuthenticated()) {
+  // Check if user is authenticated OR has temp token for school selection
+  const tempToken = localStorage.getItem('boukii_temp_token');
+  const tempSchools = localStorage.getItem('boukii_temp_schools');
+  
+  if (!auth.isAuthenticated() && !tempToken) {
+    console.log('🔒 SchoolSelectionGuard: No auth and no temp token, redirecting to login');
     router.navigate(['/auth/login']);
     return false;
+  }
+
+  // If we have temp token and schools, we're in multi-school selection flow
+  if (tempToken && tempSchools) {
+    console.log('🎭 SchoolSelectionGuard: Multi-school flow detected, allowing access');
+    return true;
   }
 
   // Check if user already has a school selected

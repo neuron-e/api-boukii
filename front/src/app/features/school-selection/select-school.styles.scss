@@ -28,8 +28,20 @@
    PAGE HEADER
    ============================================= */
 .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   margin-bottom: var(--space-8, 32px);
-  text-align: center;
+  gap: var(--space-4, 16px);
+}
+
+.header-content {
+  flex: 1;
+  text-align: left;
+}
+
+.header-actions {
+  flex-shrink: 0;
 }
 
 .page-title {
@@ -45,6 +57,31 @@
   color: var(--text-2);
   margin: 0;
   line-height: 1.5;
+}
+
+.logout-button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: 12px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-1);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 150ms ease;
+
+  &:hover {
+    background: var(--surface-2);
+    border-color: var(--brand-500);
+    color: var(--brand-500);
+  }
+
+  .logout-icon {
+    flex-shrink: 0;
+  }
 }
 
 /* =============================================
@@ -442,6 +479,21 @@
 @media (max-width: 768px) {
   .select-school-page {
     padding: var(--space-4, 16px);
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-6, 24px);
+  }
+
+  .header-content {
+    text-align: center;
+  }
+
+  .header-actions {
+    display: flex;
+    justify-content: center;
   }
 
   .page-title {
