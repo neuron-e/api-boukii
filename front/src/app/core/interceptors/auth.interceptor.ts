@@ -1,14 +1,14 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { AuthV5Service } from '../services/auth-v5.service';
+import { TokenContextService } from '../services/token-context.service';
 
 /**
  * HTTP Interceptor V5 that adds Authorization header and context headers
  * (X-School-ID, X-Season-ID) to authenticated requests
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  const authV5 = inject(AuthV5Service);
-  const token = authV5.getToken();
+  const tokenContext = inject(TokenContextService);
+  const token = tokenContext.getToken();
 
   // Skip auth header for certain URLs
   const skipAuthUrls = [
@@ -33,7 +33,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     };
 
     // Add school/season context headers if available
-    const context = authV5.getAuthContext();
+    const context = tokenContext.getAuthContext();
     if (context) {
       headers['X-School-ID'] = context.school_id.toString();
       headers['X-Season-ID'] = context.season_id.toString();
