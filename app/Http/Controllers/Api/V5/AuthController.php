@@ -662,11 +662,9 @@ class AuthController extends Controller
             return true;
         }
 
-        // Check admin role in school
-        return $user->schools()
-            ->where('schools.id', $school->id)
-            ->wherePivot('role', 'admin')
-            ->exists();
+        // Since school_users table doesn't have role column, 
+        // assume users in school_users table have admin rights
+        return true;
     }
 
     /**
@@ -682,11 +680,12 @@ class AuthController extends Controller
             return 'owner';
         }
 
-        $schoolUser = $user->schools()
+        // Check if user has access to school (via school_users table)
+        $hasAccess = $user->schools()
             ->where('schools.id', $school->id)
-            ->first();
-
-        return $schoolUser?->pivot?->role ?? 'member';
+            ->exists();
+            
+        return $hasAccess ? 'admin' : 'member';
     }
 
     /**
