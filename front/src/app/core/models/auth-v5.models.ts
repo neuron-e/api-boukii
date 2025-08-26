@@ -46,6 +46,8 @@ export interface User {
   id: number;
   name: string;
   email: string;
+  type?: string;
+  role?: string;
   email_verified_at?: string;
   is_active: boolean;
   last_login_at?: string;
@@ -59,7 +61,10 @@ export interface School {
   name: string;
   slug: string;
   description?: string;
-  status: 'active' | 'inactive';
+  logo?: string;
+  active: boolean;
+  user_role?: string;
+  can_administer?: boolean;
   created_at: string;
   updated_at: string;
   seasons: Season[];

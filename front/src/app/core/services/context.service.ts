@@ -5,7 +5,10 @@ export interface School {
   id: number;
   name: string;
   slug?: string;
+  logo?: string;
   active: boolean;
+  user_role?: string;
+  can_administer?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
