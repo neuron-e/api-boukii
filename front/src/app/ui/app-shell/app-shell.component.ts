@@ -12,6 +12,7 @@ import { TranslationService, SupportedLanguage, SUPPORTED_LANGUAGES } from '@cor
 import { EnvironmentService } from '@core/services/environment.service';
 import { AuthV5Service } from '@core/services/auth-v5.service';
 import { LANGUAGE_STORAGE_KEY, getLanguageConfig } from '@core/config/languages.config';
+import { ROLE_SUPERADMIN } from '@core/constants/roles';
 
 interface Notification {
   id: string;
@@ -443,6 +444,25 @@ interface Notification {
             </div>
             <span class="nav-text label">{{ translationService.instant('nav.notifications') }}</span>
           </a>
+
+          @if (showSettings()) {
+            <a
+              routerLink="/settings"
+              routerLinkActive="active"
+              class="nav-item item"
+              role="menuitem"
+              [title]="ui.sidebarCollapsed() ? translationService.instant('nav.config') : null"
+            >
+              <div class="nav-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M19.14 12.94a7 7 0 0 0 0-1.88l2.11-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.61-.23l-2.49 1a7 7 0 0 0-1.6-.93l-.38-2.65a.5.5 0 0 0-.5-.43h-4a.5.5 0 0 0-.5.43L8.83 5a7 7 0 0 0-1.6.93l-2.49-1a.5.5 0 0 0-.61.23l-2 3.46a.5.5 0 0 0 .12.64L4.86 11a7 7 0 0 0 0 1.88L2.75 14.5a.5.5 0 0 0-.12.64l2 3.46a.5.5 0 0 0 .61.23l2.49-1a7 7 0 0 0 1.6.93l.38 2.65a.5.5 0 0 0 .5.43h4a.5.5 0 0 0 .5-.43l.38-2.65a7 7 0 0 0 1.6-.93l2.49 1a.5.5 0 0 0 .61-.23l2-3.46a.5.5 0 0 0-.12-.64ZM12 15.5A3.5 3.5 0 1 1 15.5 12 3.5 3.5 0 0 1 12 15.5Z"
+                  />
+                </svg>
+              </div>
+              <span class="nav-text label">{{ translationService.instant('nav.config') }}</span>
+            </a>
+          }
         </nav>
 
         <!-- Support Section -->
@@ -563,6 +583,15 @@ export class AppShellComponent implements OnInit {
   // Computed for notification count
   readonly unreadNotificationsCount = computed(() => {
     return this._notifications().filter(notification => !notification.read).length;
+  });
+
+  readonly showSettings = computed(() => {
+    const permissions = this.authV5.permissions();
+    return (
+      permissions.includes('admin') ||
+      permissions.includes(ROLE_SUPERADMIN) ||
+      permissions.includes('super-admin')
+    );
   });
 
 
