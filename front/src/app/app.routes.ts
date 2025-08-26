@@ -101,6 +101,12 @@ export const routes: Routes = [
         loadChildren: () => import('./features/scheduling/scheduling.module').then(m => m.SchedulingModule)
       },
       {
+        path: 'renting',
+        loadComponent: () =>
+          import('./features/renting/renting.component').then(c => c.RentingComponent),
+        canActivate: [requireCompleteAuthGuard]
+      },
+      {
         path: 'settings',
         loadChildren: () => import('./features/settings').then(m => m.routes)
       }

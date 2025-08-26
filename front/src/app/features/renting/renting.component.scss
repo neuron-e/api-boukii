@@ -1,0 +1,26 @@
+.page {
+  padding: var(--space-4);
+}
+
+.filter {
+  margin-bottom: var(--space-4);
+}
+
+.item-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.reserva-form {
+  margin-top: var(--space-3);
+}
+
+.reserva-form .row {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
