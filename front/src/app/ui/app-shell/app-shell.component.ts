@@ -310,7 +310,7 @@ interface Notification {
           <a 
             routerLink="/dashboard" 
             routerLinkActive="active" 
-            class="nav-item item" 
+            class="nav-item" 
             role="menuitem" 
             [title]="ui.sidebarCollapsed() ? translationService.instant('nav.dashboard') : null"
           >
@@ -327,7 +327,7 @@ interface Notification {
           <a 
             routerLink="/reservations" 
             routerLinkActive="active" 
-            class="nav-item item" 
+            class="nav-item" 
             role="menuitem" 
             [title]="ui.sidebarCollapsed() ? translationService.instant('nav.reservas') : null"
           >
@@ -345,7 +345,7 @@ interface Notification {
           <a
             routerLink="/clients"
             routerLinkActive="active"
-            class="nav-item item"
+            class="nav-item"
             role="menuitem"
             [title]="ui.sidebarCollapsed() ? ('nav.clientes' | translate) : null"
           >
@@ -362,7 +362,7 @@ interface Notification {
           <a 
             routerLink="/scheduling" 
             routerLinkActive="active" 
-            class="nav-item item" 
+            class="nav-item" 
             role="menuitem" 
             [title]="ui.sidebarCollapsed() ? translationService.instant('nav.planificador') : null"
           >
@@ -379,7 +379,7 @@ interface Notification {
           <a 
             routerLink="/monitors" 
             routerLinkActive="active" 
-            class="nav-item item" 
+            class="nav-item" 
             role="menuitem" 
             [title]="ui.sidebarCollapsed() ? translationService.instant('nav.instructores') : null"
           >
@@ -396,7 +396,7 @@ interface Notification {
           <a 
             routerLink="/courses" 
             routerLinkActive="active" 
-            class="nav-item item" 
+            class="nav-item" 
             role="menuitem" 
             [title]="ui.sidebarCollapsed() ? translationService.instant('nav.cursos') : null"
           >
@@ -413,7 +413,7 @@ interface Notification {
           <a
             routerLink="/renting"
             routerLinkActive="active"
-            class="nav-item item"
+            class="nav-item"
             role="menuitem"
             [title]="ui.sidebarCollapsed() ? translationService.instant('nav.material') : null"
           >
@@ -430,7 +430,7 @@ interface Notification {
           <a
             routerLink="/vouchers"
             routerLinkActive="active"
-            class="nav-item item"
+            class="nav-item"
             role="menuitem"
             [title]="ui.sidebarCollapsed() ? translationService.instant('nav.bonos') : null"
           >
@@ -446,7 +446,7 @@ interface Notification {
           <!-- Comunicación -->
             <a routerLink="/communications"
                routerLinkActive="active"
-               class="nav-item item"
+               class="nav-item"
                [title]="ui.sidebarCollapsed() ? translationService.instant('nav.comunicacion') : null">
               <div class="nav-icon">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -461,7 +461,7 @@ interface Notification {
           <a 
             routerLink="/chat" 
             routerLinkActive="active" 
-            class="nav-item item" 
+            class="nav-item" 
             role="menuitem" 
             [title]="ui.sidebarCollapsed() ? translationService.instant('nav.chat') : null"
           >
@@ -477,7 +477,7 @@ interface Notification {
           <!-- Pagos -->
           <a 
             href="#" 
-            class="nav-item item disabled" 
+            class="nav-item disabled" 
             role="menuitem" 
             [title]="ui.sidebarCollapsed() ? (translationService.instant('nav.pagos') + ' (Próximamente)') : null"
           >
@@ -494,7 +494,7 @@ interface Notification {
           <a 
             routerLink="/statistics" 
             routerLinkActive="active" 
-            class="nav-item item" 
+            class="nav-item" 
             role="menuitem" 
             [title]="ui.sidebarCollapsed() ? translationService.instant('nav.reportes') : null"
           >
@@ -510,7 +510,7 @@ interface Notification {
           <!-- Notificaciones -->
           <a 
             href="#" 
-            class="nav-item item disabled" 
+            class="nav-item disabled" 
             role="menuitem" 
             [title]="ui.sidebarCollapsed() ? (translationService.instant('nav.notifications') + ' (Próximamente)') : null"
           >
@@ -527,7 +527,7 @@ interface Notification {
             <a
               routerLink="/settings"
               routerLinkActive="active"
-              class="nav-item item"
+              class="nav-item"
               role="menuitem"
               [title]="ui.sidebarCollapsed() ? translationService.instant('nav.config') : null"
             >
