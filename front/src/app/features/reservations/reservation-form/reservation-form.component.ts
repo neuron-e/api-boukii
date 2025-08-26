@@ -110,7 +110,12 @@ export class ReservationFormComponent {
   }
 
   get selectedCourse(): Course | undefined {
-    return this.courses.find(c => c.id === this.courseGroup.value.course);
+    const courseId = this.courseGroup.value.course;
+    if (courseId === null || courseId === undefined) return undefined;
+    if (typeof courseId === 'string') {
+      return this.courses.find(c => c.id === parseInt(courseId, 10));
+    }
+    return this.courses.find(c => c.id === courseId);
   }
 
   get selectedExtras(): Extra[] {
@@ -125,12 +130,28 @@ export class ReservationFormComponent {
   }
 
   confirm(): void {
+    const clientId = this.clientGroup.value.client;
+    if (clientId === null || clientId === undefined) {
+      console.error('Client is required');
+      return;
+    }
+    
+    const selectedClient = typeof clientId === 'string' 
+      ? this.clients.find(c => c.id === parseInt(clientId, 10))
+      : this.clients.find(c => c.id === clientId);
+
+    const selectedDate = this.dateExtrasGroup.value.date;
+    if (!selectedDate) {
+      console.error('Date is required');
+      return;
+    }
+
     this.finalReservation = {
-      client: this.clients.find(c => c.id === this.clientGroup.value.client)?.name,
-      participants: this.participants.value,
-      sport: this.selectedCourse?.sport,
-      course: this.selectedCourse?.name,
-      date: this.dateExtrasGroup.value.date,
+      client: selectedClient?.name || 'Unknown',
+      participants: this.participants.value || [],
+      sport: this.selectedCourse?.sport || 'Unknown',
+      course: this.selectedCourse?.name || 'Unknown', 
+      date: selectedDate,
       extras: this.selectedExtras.map(e => e.name),
       total: this.totalPrice
     };

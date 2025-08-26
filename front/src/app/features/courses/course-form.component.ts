@@ -41,7 +41,8 @@ export class CourseFormComponent {
   constructor() {
     this.courseForm
       .get('type')!
-      .valueChanges.subscribe((t: 'collective' | 'private') => {
+      .valueChanges.subscribe((t: string | null) => {
+        if (!t || (t !== 'collective' && t !== 'private')) return;
         const groupSize = this.courseForm.get('groupSize')!;
         const level = this.courseForm.get('level')!;
         if (t === 'collective') {

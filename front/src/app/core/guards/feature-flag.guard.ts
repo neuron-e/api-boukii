@@ -80,17 +80,13 @@ export const maintenanceGuard: CanActivateFn = () => {
   const featureFlagService = inject(FeatureFlagService);
   const router = inject(Router);
   
-  return featureFlagService.flags().pipe(
-    first(),
-    map(flags => {
-      if (flags.maintenanceMode) {
-        console.log('[MaintenanceGuard] Maintenance mode active, redirecting');
-        router.navigate(['/maintenance']);
-        return false;
-      }
-      return true;
-    })
-  );
+  const flags = featureFlagService.flags();
+  if (flags.maintenanceMode) {
+    console.log('[MaintenanceGuard] Maintenance mode active, redirecting');
+    router.navigate(['/maintenance']);
+    return false;
+  }
+  return true;
 };
 
 /**
@@ -100,17 +96,13 @@ export const betaFeatureGuard: CanActivateFn = () => {
   const featureFlagService = inject(FeatureFlagService);
   const router = inject(Router);
   
-  return featureFlagService.flags().pipe(
-    first(),
-    map(flags => {
-      if (!flags.enableBetaFeatures) {
-        console.log('[BetaFeatureGuard] Beta features disabled, access denied');
-        router.navigate(['/dashboard']);
-        return false;
-      }
-      return true;
-    })
-  );
+  const flags = featureFlagService.flags();
+  if (!flags.enableBetaFeatures) {
+    console.log('[BetaFeatureGuard] Beta features disabled, access denied');
+    router.navigate(['/dashboard']);
+    return false;
+  }
+  return true;
 };
 
 /**
@@ -124,16 +116,12 @@ export function createFeatureFlagGuard(
     const featureFlagService = inject(FeatureFlagService);
     const router = inject(Router);
     
-    return featureFlagService.flags().pipe(
-      first(),
-      map(flags => {
-        if (!flags[requiredFlag]) {
-          console.log(`[CustomFeatureFlagGuard] ${requiredFlag} disabled, redirecting to ${redirectPath}`);
-          router.navigate([redirectPath]);
-          return false;
-        }
-        return true;
-      })
-    );
+    const flags = featureFlagService.flags();
+    if (!flags[requiredFlag]) {
+      console.log(`[CustomFeatureFlagGuard] ${requiredFlag} disabled, redirecting to ${redirectPath}`);
+      router.navigate([redirectPath]);
+      return false;
+    }
+    return true;
   };
 }

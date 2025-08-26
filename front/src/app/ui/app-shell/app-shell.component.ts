@@ -307,7 +307,13 @@ interface Notification {
         <!-- Navigation Menu -->
         <nav class="sidebar-nav">
           <!-- Dashboard -->
-          <a href="#" class="nav-item item active" role="menuitem" aria-current="page" [title]="ui.sidebarCollapsed() ? translationService.instant('nav.dashboard') : null">
+          <a 
+            routerLink="/dashboard" 
+            routerLinkActive="active" 
+            class="nav-item item" 
+            role="menuitem" 
+            [title]="ui.sidebarCollapsed() ? translationService.instant('nav.dashboard') : null"
+          >
             <div class="nav-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
@@ -318,7 +324,13 @@ interface Notification {
           </a>
 
           <!-- Reservas -->
-          <a href="#" class="nav-item item" role="menuitem" [title]="ui.sidebarCollapsed() ? translationService.instant('nav.reservas') : null">
+          <a 
+            routerLink="/reservations" 
+            routerLinkActive="active" 
+            class="nav-item item" 
+            role="menuitem" 
+            [title]="ui.sidebarCollapsed() ? translationService.instant('nav.reservas') : null"
+          >
             <div class="nav-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
@@ -347,7 +359,13 @@ interface Notification {
           </a>
 
           <!-- Planificador -->
-          <a href="#" class="nav-item item" role="menuitem" [title]="ui.sidebarCollapsed() ? translationService.instant('nav.planificador') : null">
+          <a 
+            routerLink="/scheduling" 
+            routerLinkActive="active" 
+            class="nav-item item" 
+            role="menuitem" 
+            [title]="ui.sidebarCollapsed() ? translationService.instant('nav.planificador') : null"
+          >
             <div class="nav-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
@@ -358,7 +376,13 @@ interface Notification {
           </a>
 
           <!-- Instructores -->
-          <a href="#" class="nav-item item" role="menuitem" [title]="ui.sidebarCollapsed() ? translationService.instant('nav.instructores') : null">
+          <a 
+            routerLink="/monitors" 
+            routerLinkActive="active" 
+            class="nav-item item" 
+            role="menuitem" 
+            [title]="ui.sidebarCollapsed() ? translationService.instant('nav.instructores') : null"
+          >
             <div class="nav-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
@@ -369,7 +393,13 @@ interface Notification {
           </a>
 
           <!-- Cursos -->
-          <a href="#" class="nav-item item" role="menuitem" [title]="ui.sidebarCollapsed() ? translationService.instant('nav.cursos') : null">
+          <a 
+            routerLink="/courses" 
+            routerLinkActive="active" 
+            class="nav-item item" 
+            role="menuitem" 
+            [title]="ui.sidebarCollapsed() ? translationService.instant('nav.cursos') : null"
+          >
             <div class="nav-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82zM12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/>
@@ -427,8 +457,30 @@ interface Notification {
               <span class="badge counter counter--red">3</span>
             </a>
 
+          <!-- Chat -->
+          <a 
+            routerLink="/chat" 
+            routerLinkActive="active" 
+            class="nav-item item" 
+            role="menuitem" 
+            [title]="ui.sidebarCollapsed() ? translationService.instant('nav.chat') : null"
+          >
+            <div class="nav-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4v6l4-3 4 3v-6h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+              </svg>
+            </div>
+            <span class="nav-text label">{{ translationService.instant('nav.chat') }}</span>
+            <span class="badge counter counter--blue">1</span>
+          </a>
+
           <!-- Pagos -->
-          <a href="#" class="nav-item item" role="menuitem" [title]="ui.sidebarCollapsed() ? translationService.instant('nav.pagos') : null">
+          <a 
+            href="#" 
+            class="nav-item item disabled" 
+            role="menuitem" 
+            [title]="ui.sidebarCollapsed() ? (translationService.instant('nav.pagos') + ' (Próximamente)') : null"
+          >
             <div class="nav-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
@@ -439,7 +491,13 @@ interface Notification {
           </a>
 
           <!-- Reportes -->
-          <a href="#" class="nav-item item" role="menuitem" [title]="ui.sidebarCollapsed() ? translationService.instant('nav.reportes') : null">
+          <a 
+            routerLink="/statistics" 
+            routerLinkActive="active" 
+            class="nav-item item" 
+            role="menuitem" 
+            [title]="ui.sidebarCollapsed() ? translationService.instant('nav.reportes') : null"
+          >
             <div class="nav-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/>
@@ -450,7 +508,12 @@ interface Notification {
           </a>
 
           <!-- Notificaciones -->
-          <a href="#" class="nav-item item" role="menuitem" [title]="ui.sidebarCollapsed() ? translationService.instant('nav.notifications') : null">
+          <a 
+            href="#" 
+            class="nav-item item disabled" 
+            role="menuitem" 
+            [title]="ui.sidebarCollapsed() ? (translationService.instant('nav.notifications') + ' (Próximamente)') : null"
+          >
             <div class="nav-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>

@@ -115,12 +115,12 @@
 <ng-template #summary>
   <div class="summary">
     <h2>Resumen de la reserva</h2>
-    <p>Cliente: {{ finalReservation.client }}</p>
-    <p>Participantes: {{ finalReservation.participants.join(', ') }}</p>
-    <p>Deporte: {{ finalReservation.sport }}</p>
-    <p>Curso: {{ finalReservation.course }}</p>
-    <p>Fecha: {{ finalReservation.date | date }}</p>
-    <p>Extras: {{ finalReservation.extras.join(', ') || 'Ninguno' }}</p>
-    <p>Total: {{ finalReservation.total | currency:'EUR' }}</p>
+    <p>Cliente: {{ finalReservation?.client }}</p>
+    <p>Participantes: {{ finalReservation?.participants?.join(', ') }}</p>
+    <p>Deporte: {{ finalReservation?.sport }}</p>
+    <p>Curso: {{ finalReservation?.course }}</p>
+    <p>Fecha: {{ finalReservation?.date | date }}</p>
+    <p>Extras: {{ finalReservation?.extras?.join(', ') || 'Ninguno' }}</p>
+    <p>Total: {{ finalReservation?.total | currency:'EUR' }}</p>
   </div>
 </ng-template>

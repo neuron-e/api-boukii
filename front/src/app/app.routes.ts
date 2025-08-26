@@ -189,7 +189,7 @@ export const routes: Routes = [
         path: 'statistics',
         loadComponent: () =>
           import('./features/statistics/statistics.component').then(
-            (c) => c.StatisticsComponent
+            (c) => c.StatisticsComponent,
           ),
         canActivate: [requireCompleteAuthGuard],
       },

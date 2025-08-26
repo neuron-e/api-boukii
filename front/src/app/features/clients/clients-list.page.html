@@ -1,33 +1,265 @@
-<div class="page">
-  <div class="page-header">
-    <h1>Clients</h1>
-  </div>
+<div class="clients-page">
+  <!-- Header Section -->
+  <header class="page-header">
+    <div class="header-content">
+      <h1 class="page-title">
+        <svg class="title-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        Gestión de Clientes
+      </h1>
+      <p class="page-subtitle">Administra la base de datos de clientes y su información</p>
+    </div>
+    <div class="header-actions">
+      <button class="action-btn action-btn--secondary" (click)="exportClients()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14,2 14,8 20,8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10,9 9,9 8,9"></polyline>
+        </svg>
+        Exportar Lista
+      </button>
+      <button class="action-btn action-btn--primary" (click)="createClient()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <line x1="19" y1="8" x2="19" y2="14"></line>
+          <line x1="22" y1="11" x2="16" y2="11"></line>
+        </svg>
+        Nuevo Cliente
+      </button>
+    </div>
+  </header>
 
-  <div class="filters">
-    <input
-      type="text"
-      [formControl]="searchControl"
-      placeholder="Search by name or email"
-    />
-  </div>
+  <!-- Filters and Search -->
+  <section class="filters-section">
+    <div class="search-box">
+      <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"></circle>
+        <path d="m21 21-4.35-4.35"></path>
+      </svg>
+      <input 
+        type="text" 
+        class="search-input" 
+        [formControl]="searchControl"
+        placeholder="Buscar por nombre, email o teléfono..."
+      >
+    </div>
+    
+    <div class="filter-controls">
+      <select class="filter-select" [(ngModel)]="sortBy" (ngModelChange)="onSortChange()">
+        <option value="name">Ordenar por nombre</option>
+        <option value="bookings">Ordenar por reservas</option>
+        <option value="recent">Más recientes</option>
+      </select>
+      
+      <div class="view-toggle">
+        <button 
+          class="toggle-btn" 
+          [class.active]="viewMode === 'cards'"
+          (click)="viewMode = 'cards'"
+          title="Vista en tarjetas"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+        </button>
+        <button 
+          class="toggle-btn" 
+          [class.active]="viewMode === 'table'"
+          (click)="viewMode = 'table'"
+          title="Vista en tabla"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </section>
 
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Email</th>
-        <th>Phone</th>
-        <th>Total bookings</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let client of filteredClients" (click)="navigateToProfile(client)">
-        <td>{{ client.name }}</td>
-        <td>{{ client.email }}</td>
-        <td>{{ client.phone }}</td>
-        <td>{{ client.totalBookings }}</td>
-      </tr>
-    </tbody>
-  </table>
+  <!-- Clients Grid View -->
+  <main class="clients-container" *ngIf="viewMode === 'cards'">
+    <div class="clients-grid">
+      <article 
+        class="client-card" 
+        *ngFor="let client of filteredClients; trackBy: trackByClientId"
+        (click)="navigateToProfile(client)"
+      >
+        <!-- Client Avatar -->
+        <div class="client-avatar">
+          <div class="avatar-circle">
+            <span class="avatar-initials">{{ getClientInitials(client.name) }}</span>
+          </div>
+          <div class="client-status" [class.active]="client.isActive" [class.inactive]="!client.isActive">
+            <span class="status-dot"></span>
+            <span class="status-label">{{ client.isActive ? 'Activo' : 'Inactivo' }}</span>
+          </div>
+        </div>
+
+        <!-- Client Info -->
+        <div class="client-info">
+          <h3 class="client-name">{{ client.name }}</h3>
+          <div class="client-meta">
+            <div class="meta-item">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                <polyline points="22,6 12,13 2,6"></polyline>
+              </svg>
+              <span class="meta-text">{{ client.email }}</span>
+            </div>
+            <div class="meta-item">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+              </svg>
+              <span class="meta-text">{{ client.phone }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Client Stats -->
+        <div class="client-stats">
+          <div class="stat-item">
+            <span class="stat-number">{{ client.totalBookings }}</span>
+            <span class="stat-label">Reservas</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number">{{ client.completedCourses || 0 }}</span>
+            <span class="stat-label">Cursos</span>
+          </div>
+        </div>
+
+        <!-- Client Actions -->
+        <div class="client-actions" (click)="$event.stopPropagation()">
+          <button class="action-button action-button--primary" (click)="navigateToProfile(client)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            Ver Perfil
+          </button>
+          <button class="action-button action-button--secondary" (click)="editClient(client)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </button>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <!-- Clients Table View -->
+  <main class="clients-table-container" *ngIf="viewMode === 'table'">
+    <div class="table-wrapper">
+      <table class="clients-table">
+        <thead>
+          <tr>
+            <th class="sortable" (click)="sort('name')">
+              <span>Cliente</span>
+              <svg *ngIf="sortBy === 'name'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6,9 12,15 18,9" *ngIf="sortOrder === 'asc'"></polyline>
+                <polyline points="18,15 12,9 6,15" *ngIf="sortOrder === 'desc'"></polyline>
+              </svg>
+            </th>
+            <th>Contacto</th>
+            <th class="sortable" (click)="sort('bookings')">
+              <span>Reservas</span>
+              <svg *ngIf="sortBy === 'bookings'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6,9 12,15 18,9" *ngIf="sortOrder === 'asc'"></polyline>
+                <polyline points="18,15 12,9 6,15" *ngIf="sortOrder === 'desc'"></polyline>
+              </svg>
+            </th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let client of filteredClients; trackBy: trackByClientId" class="table-row">
+            <td class="client-cell">
+              <div class="client-summary">
+                <div class="client-avatar-small">
+                  <span class="avatar-initials-small">{{ getClientInitials(client.name) }}</span>
+                </div>
+                <div class="client-basic-info">
+                  <span class="client-name-table">{{ client.name }}</span>
+                  <span class="client-id">ID: {{ client.id.toString().padStart(4, '0') }}</span>
+                </div>
+              </div>
+            </td>
+            <td class="contact-cell">
+              <div class="contact-info">
+                <span class="contact-email">{{ client.email }}</span>
+                <span class="contact-phone">{{ client.phone }}</span>
+              </div>
+            </td>
+            <td class="stats-cell">
+              <div class="stats-summary">
+                <span class="bookings-count">{{ client.totalBookings }}</span>
+                <span class="courses-count">{{ client.completedCourses || 0 }} cursos</span>
+              </div>
+            </td>
+            <td class="status-cell">
+              <span class="status-badge" [class.active]="client.isActive" [class.inactive]="!client.isActive">
+                {{ client.isActive ? 'Activo' : 'Inactivo' }}
+              </span>
+            </td>
+            <td class="actions-cell">
+              <div class="table-actions">
+                <button class="table-action-btn" (click)="navigateToProfile(client)" title="Ver perfil">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+                <button class="table-action-btn" (click)="editClient(client)" title="Editar">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- Empty State -->
+  <div class="empty-state" *ngIf="filteredClients.length === 0">
+    <div class="empty-icon">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+        <circle cx="12" cy="7" r="4"></circle>
+        <line x1="18" y1="8" x2="22" y2="12"></line>
+        <line x1="22" y1="8" x2="18" y2="12"></line>
+      </svg>
+    </div>
+    <h3 class="empty-title">No se encontraron clientes</h3>
+    <p class="empty-message">
+      {{ searchControl.value ? 'Intenta con otros términos de búsqueda' : 'Aún no tienes clientes registrados' }}
+    </p>
+    <button class="empty-action" (click)="createClient()" *ngIf="!searchControl.value">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <line x1="19" y1="8" x2="19" y2="14"></line>
+        <line x1="22" y1="11" x2="16" y2="11"></line>
+      </svg>
+      Crear primer cliente
+    </button>
+  </div>
 </div>
 

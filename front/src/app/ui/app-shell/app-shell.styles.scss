@@ -233,7 +233,13 @@
   height: 44px; padding: 0 12px; margin-bottom: 2px; border-radius: 12px;
   color: var(--text-1); text-decoration: none; font-size: 14px; font-weight: 600;
   position: relative; transition: background-color 150ms, color 150ms;
-  &:hover:not(.active) { background: var(--surface-2); }
+  &:hover:not(.active):not(.disabled) { background: var(--surface-2); }
+  
+  &.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
   &.active { background: var(--active); color: var(--active-contrast); }
 }
 .nav-icon { width: 20px; height: 20px; display: grid; place-items: center; flex-shrink: 0; }
