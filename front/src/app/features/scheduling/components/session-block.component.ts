@@ -24,6 +24,7 @@ import { SessionValidationService } from '../services/session-validation.service
       [@dragAnimation]="dragging ? 'dragging' : 'dropped'"
       (cdkDragStarted)="dragging = true"
       (cdkDragEnded)="onDrop($event)"
+      (click)="sessionClick.emit()"
     >
       <img class="avatar" [src]="instructorAvatar" alt="Instructor" />
       <div class="info">
@@ -94,6 +95,7 @@ export class SessionBlockComponent {
     endTime: string;
     status: 'confirmed' | 'conflict';
   }>();
+  @Output() sessionClick = new EventEmitter<void>();
 
   dragging = false;
 
