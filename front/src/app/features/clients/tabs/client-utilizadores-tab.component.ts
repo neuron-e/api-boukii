@@ -4,6 +4,7 @@ import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angula
 
 import { TranslatePipe } from '@shared/pipes/translate.pipe';
 import { ToastService } from '@core/services/toast.service';
+import { ClientsV5Service } from '@core/services/clients-v5.service';
 import { ClientDetail, ClientUtilizador } from '../client-detail.page';
 
 @Component({
@@ -205,6 +206,7 @@ export class ClientUtilizadoresTabComponent implements OnInit {
 
   private readonly fb = inject(FormBuilder);
   private readonly toastService = inject(ToastService);
+  private readonly clientsService = inject(ClientsV5Service);
 
   readonly utilizadores = signal<ClientUtilizador[]>([]);
   readonly showModal = signal(false);
@@ -273,19 +275,25 @@ export class ClientUtilizadoresTabComponent implements OnInit {
     if (!utilizadorToDelete) return;
 
     this.saving.set(true);
+    this.clientsService
+      .deleteUtilizador(this.client.id, utilizadorToDelete.id)
+      .subscribe({
+        next: () => {
+          const updated = this.utilizadores().filter(u => u.id !== utilizadorToDelete.id);
+          this.utilizadores.set(updated);
+          this.utilizadoresUpdated.emit(updated);
 
-    // Simulate API call - replace with actual service call
-    setTimeout(() => {
-      const updated = this.utilizadores().filter(u => u.id !== utilizadorToDelete.id);
-      this.utilizadores.set(updated);
-      this.utilizadoresUpdated.emit(updated);
-      
-      this.saving.set(false);
-      this.showDeleteModal.set(false);
-      this.utilizadorToDelete.set(null);
-      
-      this.toastService.success('clients.utilizadores.deleted');
-    }, 800);
+          this.showDeleteModal.set(false);
+          this.utilizadorToDelete.set(null);
+          this.toastService.success('clients.utilizadores.deleted');
+          this.saving.set(false);
+        },
+        error: err => {
+          console.error(err);
+          this.toastService.error('clients.utilizadores.deleteError');
+          this.saving.set(false);
+        }
+      });
   }
 
   onSubmit(): void {
@@ -297,46 +305,56 @@ export class ClientUtilizadoresTabComponent implements OnInit {
     this.saving.set(true);
     const formValue = this.utilizadorForm.value;
 
-    // Simulate API call - replace with actual service call
-    setTimeout(() => {
-      if (this.modalMode() === 'create') {
-        const newUtilizador: ClientUtilizador = {
-          id: Date.now(), // Temporary ID - should come from API
-          client_id: this.client.id,
+    if (this.modalMode() === 'create') {
+      this.clientsService
+        .createUtilizador(this.client.id, {
           first_name: formValue.first_name,
           last_name: formValue.last_name,
-          birth_date: formValue.birth_date || undefined,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        
-        const updated = [...this.utilizadores(), newUtilizador];
-        this.utilizadores.set(updated);
-        this.utilizadoresUpdated.emit(updated);
-        this.toastService.success('clients.utilizadores.created');
-      } else {
-        const editingUtilizador = this.editingUtilizador();
-        if (editingUtilizador) {
-          const updatedUtilizador: ClientUtilizador = {
-            ...editingUtilizador,
+          birth_date: formValue.birth_date || undefined
+        })
+        .subscribe({
+          next: newUtilizador => {
+            const updated = [...this.utilizadores(), newUtilizador];
+            this.utilizadores.set(updated);
+            this.utilizadoresUpdated.emit(updated);
+            this.toastService.success('clients.utilizadores.created');
+            this.saving.set(false);
+            this.closeModal();
+          },
+          error: err => {
+            console.error(err);
+            this.toastService.error('clients.utilizadores.createError');
+            this.saving.set(false);
+          }
+        });
+    } else {
+      const editingUtilizador = this.editingUtilizador();
+      if (editingUtilizador) {
+        this.clientsService
+          .updateUtilizador(this.client.id, editingUtilizador.id, {
             first_name: formValue.first_name,
             last_name: formValue.last_name,
-            birth_date: formValue.birth_date || undefined,
-            updated_at: new Date().toISOString()
-          };
-
-          const updated = this.utilizadores().map(u => 
-            u.id === editingUtilizador.id ? updatedUtilizador : u
-          );
-          this.utilizadores.set(updated);
-          this.utilizadoresUpdated.emit(updated);
-          this.toastService.success('clients.utilizadores.updated');
-        }
+            birth_date: formValue.birth_date || undefined
+          })
+          .subscribe({
+            next: updatedUtilizador => {
+              const updated = this.utilizadores().map(u =>
+                u.id === editingUtilizador.id ? updatedUtilizador : u
+              );
+              this.utilizadores.set(updated);
+              this.utilizadoresUpdated.emit(updated);
+              this.toastService.success('clients.utilizadores.updated');
+              this.saving.set(false);
+              this.closeModal();
+            },
+            error: err => {
+              console.error(err);
+              this.toastService.error('clients.utilizadores.updateError');
+              this.saving.set(false);
+            }
+          });
       }
-
-      this.saving.set(false);
-      this.closeModal();
-    }, 800);
+    }
   }
 
   isFieldInvalid(fieldName: string): boolean {
