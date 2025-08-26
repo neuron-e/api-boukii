@@ -1,20 +1,11 @@
-.reservation-card {
-  margin-bottom: 1rem;
+.events {
+  margin-top: 1rem;
 }
 
-.avatar {
-  background-color: var(--primary);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-}
-
-.status-badge {
-  padding: 2px 8px;
+.event {
+  padding: 4px 8px;
   border-radius: 4px;
-  font-size: 12px;
+  margin-bottom: 4px;
   &.confirmed {
     background-color: #4caf50;
     color: #fff;
@@ -33,7 +24,8 @@
   }
 }
 
-.price {
-  font-weight: bold;
+.no-events {
+  color: var(--text-3);
+  font-style: italic;
 }
 

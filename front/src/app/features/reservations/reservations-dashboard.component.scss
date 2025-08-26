@@ -1,0 +1,40 @@
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+
+  .subtitle {
+    color: var(--text-3);
+  }
+
+  .actions button + button {
+    margin-left: 0.5rem;
+  }
+}
+
+.stats {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+
+  .stat {
+    background: var(--surface-2);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    text-align: center;
+    flex: 1;
+  }
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+
+  mat-form-field {
+    width: 200px;
+  }
+}
+
