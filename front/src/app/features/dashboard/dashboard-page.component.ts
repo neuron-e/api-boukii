@@ -78,22 +78,26 @@ Chart.register(...registerables);
 
       <div class="grid grid--two" style="margin-top:24px">
         <div class="card">
-        <h3>{{ 'dashboard.charts.dailyAttendance' | translate }}</h3>
-          <canvas
-            baseChart
-            [data]="attendanceData"
-            [options]="attendanceOptions"
-            [type]="'line'"
-          ></canvas>
+          <h3>{{ 'dashboard.charts.dailyAttendance' | translate }}</h3>
+          <div class="chart-box">
+            <canvas
+              baseChart
+              [data]="attendanceData"
+              [options]="attendanceOptions"
+              [type]="'line'">
+            </canvas>
+          </div>
         </div>
         <div class="card">
-        <h3>{{ 'dashboard.charts.hourlyBookings' | translate }}</h3>
-          <canvas
-            baseChart
-            [data]="bookingsByHourData"
-            [options]="bookingsByHourOptions"
-            [type]="'bar'"
-          ></canvas>
+          <h3>{{ 'dashboard.charts.hourlyBookings' | translate }}</h3>
+          <div class="chart-box">
+            <canvas
+              baseChart
+              [data]="bookingsByHourData"
+              [options]="bookingsByHourOptions"
+              [type]="'bar'"
+            ></canvas>
+          </div>
         </div>
       </div>
 
@@ -165,6 +169,12 @@ Chart.register(...registerables);
         display: flex;
         align-items: center;
         gap: 8px;
+      }
+
+      .chart-box {
+        position: relative;   /* importante para Chart.js */
+        height: 260px;        /* fija una altura estable */
+        width: 100%;
       }
 
       h3 {

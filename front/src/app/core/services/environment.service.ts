@@ -9,7 +9,6 @@ import {
   ConfigurationOverride,
   ConfigurationChangeEvent,
 } from '../models/environment.models';
-import { LoggingService, LogContext } from './logging.service';
 import { ErrorSeverity, ErrorResponse, ErrorContext } from '../models/error.models';
 import { environment } from '@environments/environment';
 
@@ -22,7 +21,6 @@ export type EnvName = 'development' | 'staging' | 'test' | 'production';
 @Injectable({ providedIn: 'root' })
 export class EnvironmentService {
   private readonly http = inject(HttpClient);
-  private logger: LoggingService | null = null;
 
   private readonly _envName: EnvName = (environment as any).envName ?? 'development';
 
@@ -87,44 +85,24 @@ export class EnvironmentService {
     return this._envName === 'production';
   }
 
-  private ensureLogger(): LoggingService | null {
-    if (!this.logger && this.initialized && this.isLoaded()) {
-      this.logger = inject(LoggingService);
-      this.logger.configureEnvironment?.(this.envName(), this.isProduction());
-    }
-    return this.logger;
-  }
 
-  private logInfo(message: string, context?: LogContext): void {
-    const logger = this.ensureLogger();
-    if (logger) {
-      logger.logInfo(message, context);
-    } else {
-      console.info(message, context);
+  private logInfo(message: string, context?: any): void {
+    if (!this.isProduction()) {
+      console.log(`[EnvironmentService] ${message}`, context);
     }
   }
 
-  private logWarning(message: string, context?: LogContext): void {
-    const logger = this.ensureLogger();
-    if (logger) {
-      logger.logWarning(message, context);
-    } else {
-      console.warn(message, context);
-    }
+  private logWarning(message: string, context?: any): void {
+    console.warn(`[EnvironmentService] ${message}`, context);
   }
 
   private logError(
     message: string,
-    error?: ErrorResponse,
-    context?: Partial<ErrorContext>,
+    error?: any,
+    context?: any,
     userFriendlyMessage?: string
   ): void {
-    const logger = this.ensureLogger();
-    if (logger) {
-      logger.logError(message, error, context, userFriendlyMessage);
-    } else {
-      console.error(message, { error, ...(context || {}) });
-    }
+    console.error(`[EnvironmentService] ${message}`, { error, ...(context || {}) });
   }
 
   /**

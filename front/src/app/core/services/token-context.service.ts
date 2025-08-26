@@ -1,6 +1,5 @@
 import { Injectable, inject } from '@angular/core';
 import { SessionService } from './session.service';
-import { ContextService } from './context.service';
 
 /**
  * Lightweight service to provide authentication token and context IDs
@@ -11,7 +10,6 @@ import { ContextService } from './context.service';
 })
 export class TokenContextService {
   private readonly sessionService = inject(SessionService);
-  private readonly contextService = inject(ContextService);
 
   /**
    * Retrieve the stored authentication token.
@@ -21,18 +19,29 @@ export class TokenContextService {
   }
 
   /**
-   * Get current school and season IDs from context/session.
+   * Get current school and season IDs from localStorage.
    */
   getAuthContext(): { school_id: number; season_id: number } | null {
-    let schoolId = this.contextService.getSelectedSchoolId();
-    if (schoolId === null) {
-      const currentSchool = this.sessionService.currentSchool$.getValue();
-      schoolId = currentSchool ? currentSchool.id : null;
+    const schoolId = localStorage.getItem('context_schoolId');
+    const seasonId = localStorage.getItem('context_seasonId');
+    
+    if (schoolId && seasonId) {
+      return { 
+        school_id: parseInt(schoolId, 10), 
+        season_id: parseInt(seasonId, 10) 
+      };
     }
-    const seasonId = this.contextService.getSelectedSeasonId();
-    if (schoolId !== null && seasonId !== null) {
-      return { school_id: schoolId, season_id: seasonId };
+    
+    // Fallback to session service
+    const currentSchool = this.sessionService.currentSchool$.getValue();
+    
+    if (currentSchool) {
+      return {
+        school_id: currentSchool.id,
+        season_id: currentSchool.id // Temporary fallback
+      };
     }
+    
     return null;
   }
 }
