@@ -193,7 +193,7 @@ export interface Role {
 
 export const SYSTEM_ROLES: Record<string, Role> = {
   SUPER_ADMIN: {
-    id: 'super_admin',
+    id: 'superadmin',
     name: 'Super Administrator',
     description: 'Full system access',
     permissions: Object.values(Permission),

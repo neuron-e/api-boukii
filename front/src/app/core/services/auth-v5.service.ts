@@ -7,6 +7,7 @@ import { ApiService, ApiResponse } from './api.service';
 import { LoggingService } from './logging.service';
 import { ContextService } from './context.service';
 import { SessionService } from './session.service';
+import { ROLE_SUPERADMIN } from '../constants/roles';
 import {
   LoginRequest,
   RegisterRequest,
@@ -38,7 +39,7 @@ export class AuthV5Service {
   readonly isAuthenticated = computed(() => !!this.tokenSignal());
   readonly user = computed(() => this.userSignal());
   readonly currentRole = computed(() => this.roleSignal());
-  readonly isSuperAdmin = computed(() => this.currentRole() === 'super_admin');
+  readonly isSuperAdmin = computed(() => this.currentRole() === ROLE_SUPERADMIN);
   readonly schools = computed(() => this.schoolsSignal());
   readonly permissions = computed(() => this.permissionsSignal());
   readonly currentSchool = computed(() => {
@@ -393,8 +394,9 @@ export class AuthV5Service {
     }
 
     this.currentSchoolIdSignal.set(schoolId);
-    this.contextService.setSelectedSchool(school);
-    this.sessionService.selectSchool(school);
+      this.contextService.setSelectedSchool(school);
+      // Cast to any to align model differences between services
+      this.sessionService.selectSchool(school as any);
 
     // Auto-select season if only one active (check if seasons exists)
     const seasons = school.seasons || [];
