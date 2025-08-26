@@ -101,15 +101,51 @@ export const routes: Routes = [
         loadChildren: () => import('./features/scheduling/scheduling.module').then(m => m.SchedulingModule)
       },
       {
+        path: 'reservations',
+        canActivate: [requireCompleteAuthGuard],
+        loadChildren: () => import('./features/reservations/reservations.module').then(m => m.ReservationsModule)
+      },
+      {
         path: 'renting',
         loadComponent: () =>
           import('./features/renting/renting.component').then(c => c.RentingComponent),
-        canActivate: [requireCompleteAuthGuard]
+        canActivate: [requireCompleteAuthGuard],
+      },
+      {
+        path: 'chat',
+        loadComponent: () =>
+          import('./features/chat/chat.component').then(c => c.ChatComponent),
+        canActivate: [requireCompleteAuthGuard],
+      },
+      {
+        path: 'communications',
+        loadComponent: () =>
+          import('./features/communications/communications.component').then(
+            c => c.CommunicationsComponent,
+          ),
+        canActivate: [requireCompleteAuthGuard],
+      },
+      {
+        path: 'courses',
+        loadComponent: () =>
+          import('./features/courses/courses-list.page').then(
+            c => c.CoursesListPageComponent,
+          ),
+        canActivate: [requireCompleteAuthGuard],
+      },
+      {
+        path: 'statistics',
+        loadComponent: () =>
+          import('./features/statistics/statistics.component').then(
+            c => c.StatisticsComponent,
+          ),
+        canActivate: [requireCompleteAuthGuard],
       },
       {
         path: 'settings',
-        loadChildren: () => import('./features/settings').then(m => m.routes)
-      }
+        loadChildren: () => import('./features/settings').then(m => m.routes),
+        canActivate: [requireCompleteAuthGuard],
+      },
     ]
   },
   
