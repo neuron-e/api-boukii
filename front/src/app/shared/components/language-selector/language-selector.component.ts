@@ -229,7 +229,7 @@ import { TranslationService, SupportedLanguage } from '@core/services/translatio
         color: var(--color-primary-700);
       }
 
-      [data-theme='dark'] .language-option.active {
+      .dark .language-option.active {
         background: var(--color-primary-900);
         color: var(--color-primary-200);
       }
@@ -275,7 +275,7 @@ import { TranslationService, SupportedLanguage } from '@core/services/translatio
         white-space: nowrap;
       }
 
-      [data-theme='dark'] .error-message {
+      .dark .error-message {
         background: var(--color-error-900);
         border-color: var(--color-error-700);
         color: var(--color-error-200);

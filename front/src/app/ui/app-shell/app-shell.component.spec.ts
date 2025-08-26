@@ -59,7 +59,9 @@ class MockUiStore {
   setTheme(theme: 'light' | 'dark'): void {
     this.theme.set(theme);
     localStorage.setItem('theme', theme);
-    document.body.dataset['theme'] = theme;
+    const isDark = theme === 'dark';
+    document.documentElement.classList.toggle('dark', isDark);
+    document.body.classList.toggle('dark', isDark);
   }
 
   toggleTheme(): void {
@@ -73,7 +75,8 @@ describe('AppShellComponent interactions', () => {
 
   beforeEach(async () => {
     localStorage.clear();
-    delete document.body.dataset['theme'];
+    document.documentElement.classList.remove('dark');
+    document.body.classList.remove('dark');
     logoutSpy.mockReset();
     await TestBed.configureTestingModule({
       imports: [AppShellComponent],
@@ -124,17 +127,17 @@ describe('AppShellComponent interactions', () => {
     fixture.nativeElement.remove();
   });
 
-  it('setTheme() propagates data-theme to OverlayContainer', async () => {
+  it('setTheme() propagates class to OverlayContainer', async () => {
     const fixture = renderComponent();
     const overlay = TestBed.inject(OverlayContainer);
     const themeService = TestBed.inject(ThemeService);
     themeService.setTheme('dark');
     await Promise.resolve();
-    expect(overlay.getContainerElement().dataset['theme']).toBe('dark');
+    expect(overlay.getContainerElement().classList.contains('dark')).toBe(true);
     fixture.nativeElement.remove();
   });
 
-  it('theme toggle persists selection and updates document dataset', async () => {
+  it('theme toggle persists selection and updates document class', async () => {
     const fixture = renderComponent();
     const user = userEvent.setup();
     const button = screen.getByTitle('theme.toggle');
@@ -142,12 +145,12 @@ describe('AppShellComponent interactions', () => {
     await user.click(button); // light -> dark
     fixture.detectChanges();
     expect(localStorage.getItem('theme')).toBe('dark');
-    expect(document.body.dataset['theme']).toBe('dark');
+    expect(document.body.classList.contains('dark')).toBe(true);
 
     await user.click(button); // dark -> light
     fixture.detectChanges();
     expect(localStorage.getItem('theme')).toBe('light');
-    expect(document.body.dataset['theme']).toBe('light');
+    expect(document.body.classList.contains('dark')).toBe(false);
 
     fixture.nativeElement.remove();
   });

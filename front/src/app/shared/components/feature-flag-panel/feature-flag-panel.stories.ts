@@ -137,7 +137,7 @@ export const Expanded: Story = {
 export const DarkTheme: Story = {
   render: () => ({
     template: `
-      <div data-theme="dark" style="position: relative; height: 100vh; background: var(--color-background); padding: 1rem;">
+      <div class="dark" style="position: relative; height: 100vh; background: var(--color-background); padding: 1rem;">
         <div style="max-width: 600px; margin: 0 auto;">
           <h2>Feature Flag Panel - Dark Theme</h2>
           <p>The feature flag panel adapts to the current theme automatically.</p>

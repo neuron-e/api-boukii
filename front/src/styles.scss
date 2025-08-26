@@ -1,7 +1,8 @@
-/* ============================================= 
-   BOUKII V5 - DESIGN SYSTEM 
+/* =============================================
+   BOUKII V5 - DESIGN SYSTEM
    Sistema de tokens CSS con temas light/dark
    ============================================= */
+@custom-variant dark (&:is(.dark *));
 
 @import "./styles/utilities.css";
 /* DESIGN TOKENS */
@@ -16,8 +17,7 @@
   --z-overlay: 1000;
 }
 
-:root,
-:root[data-theme='light'] {
+:root {
   /* Background & Surfaces */
   --bg: #f6f7f9;
   --surface: #ffffff;
@@ -91,7 +91,7 @@
   --color-text-tertiary: var(--muted);
 }
 
-:root[data-theme='dark'] {
+.dark {
   /* Background & Surfaces */
   --bg: #0b1220;
   --surface: #0e1626;
@@ -415,7 +415,7 @@ html {
 }
 
 /* Dark theme specific adjustments */
-[data-theme='dark'] {
+.dark {
   .chip--yellow {
     color: #fbbf24;
   }
@@ -512,8 +512,8 @@ html {
   z-index: 1000;
 }
 
-[data-theme] .mat-mdc-menu-panel,
-[data-theme] .cdk-overlay-pane .menu-panel,
+.mat-mdc-menu-panel,
+.cdk-overlay-pane .menu-panel,
 .language-dropdown,
 .user-dropdown,
 .notifications-dropdown {

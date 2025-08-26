@@ -449,7 +449,7 @@ import { Toast, ToastPosition } from '@core/models/toast.models';
       }
 
       /* Dark theme adjustments */
-      [data-theme='dark'] .toast {
+      .dark .toast {
         box-shadow:
           var(--shadow-xl),
           0 0 0 1px rgba(255, 255, 255, 0.05);

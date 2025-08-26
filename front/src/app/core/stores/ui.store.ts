@@ -52,8 +52,9 @@ export class UiStore {
     this._theme.set(nextTheme);
     try {
       if (typeof document !== 'undefined') {
-        document.documentElement.dataset['theme'] = nextTheme;
-        document.body.dataset['theme'] = nextTheme;
+        const isDark = nextTheme === 'dark';
+        document.documentElement.classList.toggle('dark', isDark);
+        document.body.classList.toggle('dark', isDark);
       }
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('theme', nextTheme);
@@ -76,8 +77,9 @@ export class UiStore {
     this._theme.set(v);
     try {
       if (typeof document !== 'undefined') {
-        document.documentElement.dataset['theme'] = v;
-        document.body.dataset['theme'] = v;
+        const isDark = v === 'dark';
+        document.documentElement.classList.toggle('dark', isDark);
+        document.body.classList.toggle('dark', isDark);
       }
     } catch {}
   }

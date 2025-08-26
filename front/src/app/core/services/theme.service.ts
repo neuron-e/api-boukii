@@ -131,14 +131,14 @@ export class ThemeService {
     }
 
     const root = document.body;
+    const htmlEl = document.documentElement;
+    const isDark = theme === 'dark';
 
-    // Remover clases de tema anteriores
-    delete root.dataset['theme'];
+    // Aplicar clase dark a elementos raíz
+    htmlEl.classList.toggle('dark', isDark);
+    root.classList.toggle('dark', isDark);
 
-    // Aplicar nuevo tema
-    root.dataset['theme'] = theme;
-
-    // También agregar clase para compatibilidad con CSS que use clases
+    // Mantener clases auxiliares de tema
     root.classList.remove('theme-light', 'theme-dark');
     root.classList.add(`theme-${theme}`);
 
@@ -148,9 +148,9 @@ export class ThemeService {
     });
     document.dispatchEvent(event);
 
-    // Propagar data-theme al contenedor de overlays para que herede las variables
+    // Propagar clase al contenedor de overlays para que herede las variables
     const el = this.overlay.getContainerElement();
-    el.dataset['theme'] = theme;
+    el.classList.toggle('dark', isDark);
   }
 
   /**

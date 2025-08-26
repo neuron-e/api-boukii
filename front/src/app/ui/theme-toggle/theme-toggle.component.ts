@@ -219,7 +219,7 @@ import { TranslatePipe } from '@shared/pipes/translate.pipe';
         color: var(--color-primary-700);
       }
 
-      [data-theme='dark'] .dropdown-item.active {
+      .dark .dropdown-item.active {
         background: var(--color-primary-900);
         color: var(--color-primary-200);
       }
