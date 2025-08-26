@@ -109,30 +109,43 @@ export const routes: Routes = [
         path: 'renting',
         loadComponent: () =>
           import('./features/renting/renting.component').then(c => c.RentingComponent),
-        canActivate: [requireCompleteAuthGuard]
+        canActivate: [requireCompleteAuthGuard],
       },
       {
         path: 'chat',
         loadComponent: () =>
           import('./features/chat/chat.component').then(c => c.ChatComponent),
-       canActivate: [requireCompleteAuthGuard],
-      }
-        path: 'courses',
         canActivate: [requireCompleteAuthGuard],
-        loadComponent: () =>
-          import('./features/courses/courses-list.page').then(c => c.CoursesListPageComponent),
-           canActivate: [requireCompleteAuthGuard]
       },
+      {
+        path: 'communications',
+        loadComponent: () =>
+          import('./features/communications/communications.component').then(
+            c => c.CommunicationsComponent,
+          ),
+        canActivate: [requireCompleteAuthGuard],
+      },
+      {
+        path: 'courses',
+        loadComponent: () =>
+          import('./features/courses/courses-list.page').then(
+            c => c.CoursesListPageComponent,
+          ),
+        canActivate: [requireCompleteAuthGuard],
+      },
+      {
         path: 'statistics',
         loadComponent: () =>
-          import('./features/statistics/statistics.component').then(c => c.StatisticsComponent),
-        canActivate: [requireCompleteAuthGuard]
+          import('./features/statistics/statistics.component').then(
+            c => c.StatisticsComponent,
+          ),
+        canActivate: [requireCompleteAuthGuard],
       },
       {
         path: 'settings',
         loadChildren: () => import('./features/settings').then(m => m.routes),
-           canActivate: [requireCompleteAuthGuard]
-      }
+        canActivate: [requireCompleteAuthGuard],
+      },
     ]
   },
   
