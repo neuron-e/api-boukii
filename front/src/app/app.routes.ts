@@ -8,6 +8,7 @@ import {
   seasonSelectionGuard,
   requireCompleteAuthGuard,
 } from './core/guards/season-selection.guard';
+import { featureFlagGuard } from './core/guards/feature-flag.guard';
 
 export const routes: Routes = [
   {
@@ -135,6 +136,12 @@ export const routes: Routes = [
         canActivate: [requireCompleteAuthGuard],
       },
       {
+        path: 'vouchers',
+        canActivate: [requireCompleteAuthGuard],
+        loadChildren: () =>
+          import('./features/vouchers/vouchers.module').then((m) => m.VouchersModule),
+      },
+      {
         path: 'chat',
         loadComponent: () => import('./features/chat/chat.component').then((c) => c.ChatComponent),
         canActivate: [requireCompleteAuthGuard],
@@ -151,7 +158,7 @@ export const routes: Routes = [
           import('./features/communications/communications.component').then(
             c => c.CommunicationsComponent,
           ),
-        canActivate: [requireCompleteAuthGuard],
+        canActivate: [requireCompleteAuthGuard, featureFlagGuard],
       },
       {
         path: 'courses',
