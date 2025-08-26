@@ -1,0 +1,84 @@
+<header class="page-header">
+  <div>
+    <h1>Gestión de Reservas</h1>
+    <p class="subtitle">Centro de control de todas las reservas</p>
+  </div>
+  <div class="actions">
+    <button mat-raised-button color="primary" routerLink="new">Nueva Reserva</button>
+    <button mat-button (click)="toggleView()">
+      {{ view === 'list' ? 'Vista Calendario' : 'Vista Lista' }}
+    </button>
+    <button mat-button>Exportar</button>
+  </div>
+</header>
+
+<section class="stats">
+  <div class="stat">
+    <h3>{{ stats.today }}</h3>
+    <p>Reservas de hoy</p>
+  </div>
+  <div class="stat">
+    <h3>{{ stats.pending }}</h3>
+    <p>Pendientes de confirmación</p>
+  </div>
+  <div class="stat">
+    <h3>{{ stats.cancelled }}</h3>
+    <p>Cancelaciones</p>
+  </div>
+  <div class="stat">
+    <h3>{{ stats.income | currency:'EUR' }}</h3>
+    <p>Ingresos del día</p>
+  </div>
+</section>
+
+<form class="filters" [formGroup]="filters">
+  <mat-form-field>
+    <mat-label>Desde</mat-label>
+    <input matInput [matDatepicker]="fromPicker" formControlName="dateFrom" />
+    <mat-datepicker-toggle matSuffix [for]="fromPicker"></mat-datepicker-toggle>
+    <mat-datepicker #fromPicker></mat-datepicker>
+  </mat-form-field>
+
+  <mat-form-field>
+    <mat-label>Hasta</mat-label>
+    <input matInput [matDatepicker]="toPicker" formControlName="dateTo" />
+    <mat-datepicker-toggle matSuffix [for]="toPicker"></mat-datepicker-toggle>
+    <mat-datepicker #toPicker></mat-datepicker>
+  </mat-form-field>
+
+  <mat-form-field>
+    <mat-label>Estado</mat-label>
+    <mat-select formControlName="status">
+      <mat-option value="">Todos</mat-option>
+      <mat-option value="confirmed">Confirmada</mat-option>
+      <mat-option value="pending">Pendiente</mat-option>
+      <mat-option value="cancelled">Cancelada</mat-option>
+      <mat-option value="completed">Completada</mat-option>
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field>
+    <mat-label>Tipo</mat-label>
+    <mat-select formControlName="type">
+      <mat-option value="">Todos</mat-option>
+      <mat-option value="course">Curso</mat-option>
+      <mat-option value="equipment">Equipamiento</mat-option>
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field>
+    <mat-label>Cliente</mat-label>
+    <input matInput formControlName="client" />
+  </mat-form-field>
+
+  <mat-form-field>
+    <mat-label>Monitor</mat-label>
+    <input matInput formControlName="monitor" />
+  </mat-form-field>
+</form>
+
+<section class="view">
+  <app-reservations-list *ngIf="view === 'list'" [reservations]="filteredReservations"></app-reservations-list>
+  <app-reservations-calendar *ngIf="view === 'calendar'" [reservations]="filteredReservations"></app-reservations-calendar>
+</section>
+

@@ -1,21 +1,36 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { expect } from '@jest/globals';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { RouterTestingModule } from '@angular/router/testing';
+import { MatDialogModule } from '@angular/material/dialog';
 import { ReservationsListComponent } from './reservations-list.component';
-import { ReservationsMockService } from '../reservations-mock.service';
+import { Reservation } from '../reservations-mock.service';
 
 describe('ReservationsListComponent', () => {
   let component: ReservationsListComponent;
   let fixture: ComponentFixture<ReservationsListComponent>;
 
+  const mockReservations: Reservation[] = [
+    {
+      id: 1,
+      client: 'Test User',
+      course: 'Yoga',
+      date: '2025-08-20',
+      status: 'confirmed',
+      type: 'course',
+      price: 20,
+      monitor: 'Ana'
+    }
+  ];
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [ReservationsListComponent, NoopAnimationsModule],
-      providers: [ReservationsMockService]
+      imports: [ReservationsListComponent, NoopAnimationsModule, RouterTestingModule, MatDialogModule]
     }).compileComponents();
 
     fixture = TestBed.createComponent(ReservationsListComponent);
     component = fixture.componentInstance;
+    component.reservations = mockReservations;
     fixture.detectChanges();
   });
 
@@ -23,15 +38,9 @@ describe('ReservationsListComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should filter by type and payment', () => {
-    component.typeFilter = 'individual';
-    component.paidFilter = 'paid';
-    expect(component.filteredReservations.every(r => r.type === 'individual' && r.paid)).toBe(true);
-  });
-
-  it('should search by client name', () => {
-    component.search = 'alice';
-    expect(component.filteredReservations.every(r => r.client.toLowerCase().includes('alice') || r.course.toLowerCase().includes('alice'))).toBe(true);
+  it('should render reservation cards', () => {
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelectorAll('.reservation-card').length).toBe(1);
   });
 });
 

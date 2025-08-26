@@ -1,0 +1,11 @@
+<mat-calendar [(selected)]="selectedDate"></mat-calendar>
+
+<div class="events">
+  <div *ngFor="let r of eventsForSelected" class="event" [ngClass]="r.status">
+    <span class="time">{{ r.date | date: 'shortTime' }}</span>
+    <span class="course">{{ r.course }}</span>
+    <span class="client">{{ r.client }}</span>
+  </div>
+  <p *ngIf="eventsForSelected.length === 0" class="no-events">No hay reservas</p>
+</div>
+

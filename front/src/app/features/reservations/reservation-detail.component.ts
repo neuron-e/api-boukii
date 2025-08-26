@@ -15,8 +15,9 @@ import { Reservation } from './reservations-mock.service';
       <p><strong>Course:</strong> {{ data.course }}</p>
       <p><strong>Date:</strong> {{ data.date }}</p>
       <p><strong>Status:</strong> {{ data.status }}</p>
-      <p><strong>Paid:</strong> {{ data.paid ? 'Yes' : 'No' }}</p>
       <p><strong>Type:</strong> {{ data.type }}</p>
+      <p><strong>Monitor:</strong> {{ data.monitor }}</p>
+      <p><strong>Price:</strong> {{ data.price | currency:'EUR' }}</p>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>Close</button>
