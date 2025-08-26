@@ -38,7 +38,7 @@
     "format:staged": "lint-staged",
     "format:verify": "node scripts/format-check.js",
     "verify": "npm run lint && npm run typecheck && npm run test:ci && npm run build",
-    "code-quality": "npm run lint && npm run format:verify && npm run typecheck",
+    "code-quality": "npm run lint && npm run format:verify",
     "code-quality:fix": "npm run lint:fix && npm run format:write && npm run typecheck",
     "commit": "npx git-cz",
     "commit:retry": "npx git-cz --retry",
