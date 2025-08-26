@@ -141,14 +141,30 @@ export const routes: Routes = [
       },
       {
         path: 'courses',
+        loadComponent: () =>
+          import('./features/chat/chat.component').then(c => c.ChatComponent),
         canActivate: [requireCompleteAuthGuard],
+      },
+      {
+        path: 'communications',
+        loadComponent: () =>
+          import('./features/communications/communications.component').then(
+            c => c.CommunicationsComponent,
+          ),
+        canActivate: [requireCompleteAuthGuard],
+      },
+      {
+        path: 'courses',
         loadComponent: () =>
           import('./features/courses/courses-list.page').then((c) => c.CoursesListPageComponent),
+          ),
+        canActivate: [requireCompleteAuthGuard],
       },
       {
         path: 'statistics',
         loadComponent: () =>
-          import('./features/statistics/statistics.component').then((c) => c.StatisticsComponent),
+          import('./features/statistics/statistics.component').then(
+            c => c.StatisticsComponent,
         canActivate: [requireCompleteAuthGuard],
       },
       {
@@ -156,7 +172,7 @@ export const routes: Routes = [
         loadChildren: () => import('./features/settings').then((m) => m.routes),
         canActivate: [requireCompleteAuthGuard],
       },
-    ],
+    ]
   },
 
   // Utility routes - standalone
