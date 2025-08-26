@@ -112,6 +112,12 @@ export const routes: Routes = [
         canActivate: [requireCompleteAuthGuard]
       },
       {
+        path: 'statistics',
+        loadComponent: () =>
+          import('./features/statistics/statistics.component').then(c => c.StatisticsComponent),
+        canActivate: [requireCompleteAuthGuard]
+      },
+      {
         path: 'settings',
         loadChildren: () => import('./features/settings').then(m => m.routes)
       }
