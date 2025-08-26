@@ -1,0 +1,77 @@
+<div class="filters">
+  <mat-form-field>
+    <mat-label>Reservation Type</mat-label>
+    <mat-select [(ngModel)]="typeFilter">
+      <mat-option value="">All</mat-option>
+      <mat-option value="individual">Individual</mat-option>
+      <mat-option value="multiple">Multiple</mat-option>
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field>
+    <mat-label>Course</mat-label>
+    <mat-select [(ngModel)]="courseFilter">
+      <mat-option value="">All</mat-option>
+      <mat-option *ngFor="let c of courses" [value]="c">{{ c }}</mat-option>
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field>
+    <mat-label>Paid</mat-label>
+    <mat-select [(ngModel)]="paidFilter">
+      <mat-option value="">All</mat-option>
+      <mat-option value="paid">Paid</mat-option>
+      <mat-option value="unpaid">Unpaid</mat-option>
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field class="search-field">
+    <mat-label>Search</mat-label>
+    <input matInput placeholder="Client or course" [(ngModel)]="search" />
+  </mat-form-field>
+</div>
+
+<mat-tab-group (selectedIndexChange)="onTabChange($event)">
+  <mat-tab label="Active"></mat-tab>
+  <mat-tab label="Completed"></mat-tab>
+  <mat-tab label="Cancelled"></mat-tab>
+  <mat-tab label="All"></mat-tab>
+</mat-tab-group>
+
+<table mat-table [dataSource]="filteredReservations" class="reservations-table">
+  <ng-container matColumnDef="id">
+    <th mat-header-cell *matHeaderCellDef> Booking ID </th>
+    <td mat-cell *matCellDef="let r"> {{ r.id }} </td>
+  </ng-container>
+
+  <ng-container matColumnDef="client">
+    <th mat-header-cell *matHeaderCellDef> Client </th>
+    <td mat-cell *matCellDef="let r"> {{ r.client }} </td>
+  </ng-container>
+
+  <ng-container matColumnDef="course">
+    <th mat-header-cell *matHeaderCellDef> Course </th>
+    <td mat-cell *matCellDef="let r"> {{ r.course }} </td>
+  </ng-container>
+
+  <ng-container matColumnDef="date">
+    <th mat-header-cell *matHeaderCellDef> Date </th>
+    <td mat-cell *matCellDef="let r"> {{ r.date }} </td>
+  </ng-container>
+
+  <ng-container matColumnDef="status">
+    <th mat-header-cell *matHeaderCellDef> Status </th>
+    <td mat-cell *matCellDef="let r"> {{ r.status }} </td>
+  </ng-container>
+
+  <ng-container matColumnDef="actions">
+    <th mat-header-cell *matHeaderCellDef> Actions </th>
+    <td mat-cell *matCellDef="let r">
+      <button mat-button (click)="openDetail(r); $event.stopPropagation()">View</button>
+    </td>
+  </ng-container>
+
+  <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+  <tr mat-row *matRowDef="let row; columns: displayedColumns;" (click)="openDetail(row)"></tr>
+</table>
+

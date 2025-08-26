@@ -1,0 +1,31 @@
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.filters mat-form-field {
+  width: 200px;
+}
+
+.search-field {
+  flex: 1;
+  min-width: 200px;
+}
+
+.reservations-table {
+  width: 100%;
+  background: var(--surface);
+  color: var(--text-1);
+}
+
+.reservations-table th {
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.reservations-table tr {
+  cursor: pointer;
+}
+
