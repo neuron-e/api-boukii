@@ -1,7 +1,6 @@
-import { Injectable, inject, PLATFORM_ID, Injector } from '@angular/core';
+import { Injectable, inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { ApiService } from './api.service';
-import { EnvironmentService } from './environment.service';
 import { ConfigService } from './config.service';
 import type { ErrorContext, ErrorResponse } from '../models/error.models';
 
@@ -30,16 +29,19 @@ export class LoggingService {
   private readonly api = inject(ApiService);
   private readonly config = inject(ConfigService);
   private readonly platformId = inject(PLATFORM_ID);
-  private readonly injector = inject(Injector);
 
-  private get env(): EnvironmentService {
-    return this.injector.get(EnvironmentService);
-  }
+  private envName = 'unknown';
+  private production = false;
 
   private currentLogLevel: LogLevel = 'info';
 
+  configureEnvironment(envName: string, isProduction: boolean): void {
+    this.envName = envName;
+    this.production = isProduction;
+  }
+
   log(level: LogLevel, message: string, context: LogContext = {}): void {
-    const envName = this.env.envName();
+    const envName = this.envName;
     const appVersion = this.config.getAppVersion?.();
 
     const payload: LogPayload = {
@@ -66,20 +68,20 @@ export class LoggingService {
 
     const endpoint = loggingCfg.endpoint || '/logs';
     const shouldSend =
-      (this.env.isProduction() && loggingCfg.enabled !== false) ||
-      (!this.env.isProduction() && loggingCfg.forceNetworkInDev === true);
+      (this.production && loggingCfg.enabled !== false) ||
+      (!this.production && loggingCfg.forceNetworkInDev === true);
 
     if (shouldSend) {
       void this.api
         .postWithHeaders(endpoint, payload, headers)
         .catch((err) => {
-          if (!this.env.isProduction()) {
+          if (!this.production) {
             console.error('Failed to send log', err);
           }
         });
     }
 
-    if (!this.env.isProduction() || loggingCfg.enabled === false) {
+    if (!this.production || loggingCfg.enabled === false) {
       const fn = (console as any)[level] || console.log;
       fn(payload);
     }
