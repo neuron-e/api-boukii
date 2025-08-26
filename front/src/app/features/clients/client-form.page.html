@@ -1,0 +1,56 @@
+<div class="client-form-page">
+  <h1>{{ 'clients.form.title' | translate }}</h1>
+
+  <form [formGroup]="clientForm" (ngSubmit)="submit()" novalidate>
+    <div class="form-field">
+      <label for="first_name">{{ 'clients.fields.firstName' | translate }}</label>
+      <input
+        id="first_name"
+        type="text"
+        formControlName="first_name"
+        [class.is-invalid]="submitted && clientForm.get('first_name')?.invalid"
+      />
+      <div class="field-error" *ngIf="submitted && clientForm.get('first_name')?.invalid">
+        {{ 'clients.validation.firstNameRequired' | translate }}
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label for="last_name">{{ 'clients.fields.lastName' | translate }}</label>
+      <input
+        id="last_name"
+        type="text"
+        formControlName="last_name"
+        [class.is-invalid]="submitted && clientForm.get('last_name')?.invalid"
+      />
+      <div class="field-error" *ngIf="submitted && clientForm.get('last_name')?.invalid">
+        {{ 'clients.validation.lastNameRequired' | translate }}
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label for="email">{{ 'clients.fields.email' | translate }}</label>
+      <input
+        id="email"
+        type="email"
+        formControlName="email"
+        [class.is-invalid]="submitted && clientForm.get('email')?.invalid"
+      />
+      <div class="field-error" *ngIf="submitted && clientForm.get('email')?.errors?.['required']">
+        {{ 'clients.validation.emailRequired' | translate }}
+      </div>
+      <div class="field-error" *ngIf="submitted && clientForm.get('email')?.errors?.['email']">
+        {{ 'clients.validation.emailInvalid' | translate }}
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label for="phone">{{ 'clients.fields.phone' | translate }}</label>
+      <input id="phone" type="tel" formControlName="phone" />
+    </div>
+
+    <button type="submit" class="btn btn--primary">
+      {{ 'common.save' | translate }}
+    </button>
+  </form>
+</div>
