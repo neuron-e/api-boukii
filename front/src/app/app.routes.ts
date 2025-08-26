@@ -79,6 +79,10 @@ export const routes: Routes = [
         path: 'admin/permissions',
         canActivate: [requireCompleteAuthGuard],
         loadChildren: () => import('./features/admin/permissions/permissions.routes').then(m => m.permissionsRoutes)
+      },
+      {
+        path: 'settings',
+        loadChildren: () => import('./features/settings').then(m => m.routes)
       }
     ]
   },
