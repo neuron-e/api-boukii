@@ -1,0 +1,48 @@
+.profile-container {
+  padding: var(--space-4);
+  display: block;
+  color: var(--text-1);
+}
+
+section {
+  margin-bottom: var(--space-6);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-8);
+  padding: var(--space-4);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4);
+}
+
+.salary-table,
+.availability-table {
+  width: 100%;
+}
+
+.stats-grid {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.stat {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-8);
+  padding: var(--space-4);
+  text-align: center;
+
+  strong {
+    display: block;
+    font-size: var(--fs-24);
+    color: var(--text-1);
+  }
+
+  span {
+    color: var(--text-2);
+  }
+}

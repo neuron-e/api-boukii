@@ -7,7 +7,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MonitorsMockService, Monitor } from '../monitors-mock.service';
-import { MonitorProfileComponent } from '../monitor-profile.component';
+import { MonitorProfileComponent } from '../monitor-profile/monitor-profile.component';
 
 @Component({
   selector: 'app-monitors-list',
