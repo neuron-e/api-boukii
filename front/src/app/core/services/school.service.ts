@@ -78,11 +78,11 @@ export class SchoolService {
   /**
    * List all schools (super admin only)
    */
-  listAll(params: GetSchoolsParams = {}): Observable<School[]> {
-    // Set default parameters with high perPage
+  listAll(params: GetSchoolsParams = {}): Observable<SchoolsResponse> {
+    // Set default parameters
     const defaultParams: Required<GetSchoolsParams> = {
       page: 1,
-      perPage: 1000,
+      perPage: 20,
       search: '',
       active: true,
       orderBy: 'name',
@@ -101,7 +101,7 @@ export class SchoolService {
 
     return from(
       this.apiHttp.get<SchoolsResponse>('/schools', queryParams)
-    ).pipe(map(response => response.data));
+    );
   }
 
   /**
