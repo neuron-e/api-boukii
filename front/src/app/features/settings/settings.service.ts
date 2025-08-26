@@ -5,6 +5,19 @@ import { MOCK_SEASONS, Season } from './data/seasons';
 import { SPORTS_DEGREES, SportsDegree } from './data/sports-degrees';
 import { STATION_SETTINGS, StationSetting } from './data/station-settings';
 
+export interface Sport {
+  id: number;
+  name: string;
+}
+
+const MOCK_SPORTS: Sport[] = [
+  { id: 1, name: 'Surf' },
+  { id: 2, name: 'Kitesurf' },
+  { id: 3, name: 'Windsurf' }
+];
+
+const MOCK_SELECTED_SPORT_IDS: number[] = [1, 3];
+
 interface School {
   name: string;
   email: string;
@@ -23,6 +36,21 @@ const MOCK_SCHOOL: School = {
 
 @Injectable({ providedIn: 'root' })
 export class SettingsService {
+  private selectedSportsIds = [...MOCK_SELECTED_SPORT_IDS];
+
+  getAllSports(): Observable<Sport[]> {
+    return of(MOCK_SPORTS);
+  }
+
+  getSelectedSportsIds(): Observable<number[]> {
+    return of(this.selectedSportsIds);
+  }
+
+  saveSelectedSports(ids: number[]): void {
+    this.selectedSportsIds = ids;
+    console.log('Selected sports saved', ids);
+  }
+
   getSchoolSettings(): Observable<SchoolSetting[]> {
     return of(SCHOOL_SETTINGS);
   }
@@ -31,7 +59,7 @@ export class SettingsService {
     return of(MOCK_SEASONS);
   }
 
-  getSportsDegrees(): Observable<SportsDegree[]> {
+  getMockDegrees(): Observable<SportsDegree[]> {
     return of(SPORTS_DEGREES);
   }
 
