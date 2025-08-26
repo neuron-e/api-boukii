@@ -4,6 +4,11 @@ import { SCHOOL_SETTINGS, SchoolSetting } from './data/school-settings';
 import { MOCK_SEASONS, Season } from './data/seasons';
 import { SPORTS_DEGREES, SportsDegree } from './data/sports-degrees';
 import { STATION_SETTINGS, StationSetting } from './data/station-settings';
+import {
+  MOCK_SELECTED_STATION_IDS,
+  MOCK_STATIONS,
+  Station
+} from './data/stations';
 
 export interface Sport {
   id: number;
@@ -37,6 +42,7 @@ const MOCK_SCHOOL: School = {
 @Injectable({ providedIn: 'root' })
 export class SettingsService {
   private selectedSportsIds = [...MOCK_SELECTED_SPORT_IDS];
+  private selectedStationIds = [...MOCK_SELECTED_STATION_IDS];
 
   getAllSports(): Observable<Sport[]> {
     return of(MOCK_SPORTS);
@@ -65,6 +71,22 @@ export class SettingsService {
 
   getStationSettings(): Observable<StationSetting[]> {
     return of(STATION_SETTINGS);
+  }
+
+  getMockStations(): Observable<{
+    stations: Station[];
+    selectedStationIds: number[];
+  }> {
+    // TODO: replace with calls to `/api/stations` and `/api/stations-schools`
+    return of({
+      stations: MOCK_STATIONS,
+      selectedStationIds: this.selectedStationIds
+    });
+  }
+
+  saveSelectedStations(ids: number[]): void {
+    this.selectedStationIds = ids;
+    console.log('Selected stations saved', ids);
   }
 
   getMockSchool(): Observable<School> {
