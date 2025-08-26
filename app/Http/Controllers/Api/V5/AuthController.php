@@ -114,7 +114,8 @@ class AuthController extends Controller
                     'name' => $user->name,
                     'email' => $user->email,
                     'email_verified_at' => $user->email_verified_at,
-                    'role' => $this->getUserPrimaryRole($user)
+                    'role' => $this->getUserPrimaryRole($user),
+                    'type' => $this->getUserPrimaryRole($user)
                 ],
                 'schools' => $schools->values()->all(),
                 'requires_school_selection' => $requiresSchoolSelection,
@@ -175,7 +176,8 @@ class AuthController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
-                    'role' => $this->getUserPrimaryRole($user)
+                    'role' => $this->getUserPrimaryRole($user),
+                    'type' => $this->getUserPrimaryRole($user)
                 ],
                 'school' => [
                     'id' => $school->id,
@@ -267,7 +269,9 @@ class AuthController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
-                    'email_verified_at' => $user->email_verified_at
+                    'email_verified_at' => $user->email_verified_at,
+                    'role' => $this->getUserPrimaryRole($user),
+                    'type' => $this->getUserPrimaryRole($user)
                 ],
                 'school' => [
                     'id' => $school->id,
@@ -599,6 +603,7 @@ class AuthController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $this->getUserPrimaryRole($user),
+                'type' => $this->getUserPrimaryRole($user),
                 'permissions' => $this->getUserPermissions($user, $school->id)
             ],
             'school' => [

@@ -211,13 +211,13 @@ export class LoginPage implements OnInit {
 
         const { user, schools, temp_token } = response.data;
 
-        if (user?.type === 'monitor') {
+        if (user?.role === 'monitor') {
           this.handleLoginError('Please use the teacher app');
           this.router.navigate(['/teach']);
           return;
         }
 
-        if (user?.type === 'client') {
+        if (user?.role === 'client') {
           this.handleLoginError('Please use the client app');
           this.router.navigate(['/client']);
           return;
