@@ -2,16 +2,32 @@
 
 namespace Tests\Feature;
 
+use App\Models\School;
 use App\V5\Models\Season;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Tests\TestCase;
+use Illuminate\Foundation\Testing\WithoutMiddleware;
 
 class SeasonApiTest extends TestCase
 {
+    use WithoutMiddleware;
     protected function setUp(): void
     {
         parent::setUp();
+
+        Schema::disableForeignKeyConstraints();
+        Schema::dropIfExists('seasons');
+        Schema::dropIfExists('schools');
+        Schema::enableForeignKeyConstraints();
+
+        Schema::create('schools', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('slug')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+        });
 
         Schema::create('seasons', function (Blueprint $table) {
             $table->id();
@@ -27,71 +43,43 @@ class SeasonApiTest extends TestCase
 
     protected function tearDown(): void
     {
+        Schema::disableForeignKeyConstraints();
         Schema::dropIfExists('seasons');
+        Schema::dropIfExists('schools');
+        Schema::enableForeignKeyConstraints();
         parent::tearDown();
     }
 
-    public function test_can_create_and_show_season(): void
+    public function test_filter_active_season_by_school(): void
     {
-        $payload = [
-            'name' => 'Season A',
+        $school = School::create([
+            'name' => 'Test School',
+            'slug' => 'test-school',
+        ]);
+
+        $season1 = $this->postJson('/api/seasons', [
+            'name' => 'S1',
             'start_date' => '2024-01-01',
             'end_date' => '2024-02-01',
-            'is_active' => false,
-            'school_id' => 1,
-        ];
+            'is_active' => true,
+            'school_id' => $school->id,
+        ])->assertStatus(200)->json('data');
 
-        $create = $this->postJson('/api/v5/seasons', $payload);
-        $create->assertStatus(201)
-            ->assertJsonPath('name', 'Season A');
-
-        $id = $create->json('id');
-
-        $this->getJson('/api/v5/seasons/'.$id)
-            ->assertStatus(200)
-            ->assertJsonPath('id', $id);
-    }
-
-    public function test_can_list_seasons(): void
-    {
-        Season::create([
-            'name' => 'S1',
+        $season2 = $this->postJson('/api/seasons', [
+            'name' => 'S2',
             'start_date' => '2024-03-01',
             'end_date' => '2024-04-01',
-            'is_active' => false,
-            'school_id' => 1,
-        ]);
-        Season::create([
-            'name' => 'S2',
-            'start_date' => '2024-05-01',
-            'end_date' => '2024-06-01',
-            'is_active' => false,
-            'school_id' => 1,
-        ]);
+            'is_active' => true,
+            'school_id' => $school->id,
+        ])->assertStatus(200)->json('data');
 
-        $this->getJson('/api/v5/seasons')
+        $this->getJson('/api/seasons/' . $season1['id'])
             ->assertStatus(200)
-            ->assertJsonCount(2);
-    }
+            ->assertJsonPath('data.is_active', false);
 
-    public function test_can_update_and_delete_season(): void
-    {
-        $season = Season::create([
-            'name' => 'ToUpdate',
-            'start_date' => '2024-07-01',
-            'end_date' => '2024-08-01',
-            'is_active' => false,
-            'school_id' => 1,
-        ]);
-
-        $this->putJson('/api/v5/seasons/'.$season->id, ['name' => 'Updated'])
+        $this->getJson('/api/seasons?school_id=' . $school->id . '&filterActive=1')
             ->assertStatus(200)
-            ->assertJsonPath('name', 'Updated');
-
-        $this->deleteJson('/api/v5/seasons/'.$season->id)
-            ->assertStatus(200)
-            ->assertJson(['deleted' => true]);
-
-        $this->getJson('/api/v5/seasons/'.$season->id)->assertStatus(404);
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $season2['id']);
     }
 }

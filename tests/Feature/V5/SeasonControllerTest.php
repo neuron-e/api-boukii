@@ -368,4 +368,34 @@ class SeasonControllerTest extends TestCase
                     ],
                 ]);
     }
+
+    /** @test */
+    public function test_activate_season_and_filter_active()
+    {
+        $season1 = $this->postJson($this->baseUrl, [
+            'name' => 'S1',
+            'start_date' => '2024-01-01',
+            'end_date' => '2024-06-30',
+            'is_active' => true,
+        ])->assertStatus(201)->json('data');
+
+        $season2 = $this->postJson($this->baseUrl, [
+            'name' => 'S2',
+            'start_date' => '2024-07-01',
+            'end_date' => '2024-12-31',
+            'is_active' => false,
+        ])->assertStatus(201)->json('data');
+
+        $this->postJson("{$this->baseUrl}/{$season2['id']}/activate")
+            ->assertStatus(200);
+
+        $this->getJson("{$this->baseUrl}/{$season1['id']}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.is_active', false);
+
+        $this->getJson("{$this->baseUrl}?school_id={$this->school->id}&filterActive=1")
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $season2['id']);
+    }
 }
