@@ -84,16 +84,16 @@ export const routes: Routes = [
               import('./features/clients/client-form.page').then((c) => c.ClientFormPage),
           },
           {
-            path: ':id/edit',
-            loadComponent: () =>
-              import('./features/clients/client-form.page').then((c) => c.ClientFormPage),
-          },
-          {
             path: ':id/profile',
             loadComponent: () =>
               import('./features/clients/client-profile/client-profile.component').then(
                 (c) => c.ClientProfileComponent
               ),
+          },
+          {
+            path: ':id/edit',
+            loadComponent: () =>
+              import('./features/clients/client-form.page').then((c) => c.ClientFormPage),
           },
           {
             path: ':id',
