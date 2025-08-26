@@ -1,10 +1,12 @@
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
+import { expect } from '@jest/globals';
 import { AuthV5Service } from './auth-v5.service';
 import { ApiService } from './api.service';
 import { LoggingService } from './logging.service';
+import { ROLE_SUPERADMIN } from '../constants/roles';
 
-describe.skip('AuthV5Service', () => {
+describe('AuthV5Service', () => {
   let service: AuthV5Service;
   let mockRouter: jest.Mocked<Router>;
   let mockApiService: jest.Mocked<ApiService>;
@@ -63,6 +65,13 @@ describe.skip('AuthV5Service', () => {
     it('should return true when token is present', () => {
       service.tokenSignal.set('test-token');
       expect(service.isAuthenticated()).toBe(true);
+    });
+  });
+
+  describe('isSuperAdmin', () => {
+    it('should return true when role is superadmin', () => {
+      service.roleSignal.set(ROLE_SUPERADMIN);
+      expect(service.isSuperAdmin()).toBe(true);
     });
   });
 
@@ -147,6 +156,7 @@ describe.skip('AuthV5Service', () => {
         id: 1,
         name: 'Test User',
         email: 'test@example.com',
+        is_active: true,
         created_at: '2025-01-01',
         updated_at: '2025-01-01'
       });
@@ -168,9 +178,18 @@ describe.skip('AuthV5Service', () => {
       service.currentSchoolIdSignal.set(1);
       service.currentSeasonIdSignal.set(2);
       service.permissionsSignal.set(['read', 'write']);
+      service.userSignal.set({
+        id: 1,
+        name: 'Test User',
+        email: 'test@example.com',
+        is_active: true,
+        created_at: '2025-01-01',
+        updated_at: '2025-01-01',
+        roles: []
+      });
 
       const context = service.getAuthContext();
-      
+
       expect(context).not.toBe(null);
       expect(context?.school_id).toBe(1);
       expect(context?.season_id).toBe(2);

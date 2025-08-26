@@ -1,5 +1,6 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { ApiService } from '../services/api.service';
+import { ROLE_SUPERADMIN } from '../constants/roles';
 
 export interface User {
   id: number;
@@ -229,7 +230,7 @@ export class AuthStore {
     const roles = user.roles || [];
 
     if (roles.includes('admin')) return true;
-    if (roles.includes('super_admin')) return true;
+    if (roles.includes(ROLE_SUPERADMIN)) return true;
 
     return roles.includes(permission);
   }
