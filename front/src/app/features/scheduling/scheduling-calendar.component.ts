@@ -19,15 +19,22 @@ import { Instructor } from './services/instructor-availability.service';
   template: `
     <div class="page" data-cy="scheduling-calendar">
       <div class="page-header">
-        <h1>Scheduling Calendar</h1>
+        <h1 class="text-2xl font-semibold">Scheduling Calendar</h1>
       </div>
-      <div class="page-content">
-        <app-instructor-sidebar></app-instructor-sidebar>
-        <div class="calendar">
-          <div class="day-header" *ngFor="let day of days">{{ day }}</div>
+      <div class="page-content flex flex-col lg:flex-row gap-4">
+        <app-instructor-sidebar class="lg:w-64"></app-instructor-sidebar>
+        <div
+          class="calendar flex-1 grid bg-surface border border-border"
+        >
+          <div
+            class="day-header p-2 text-center font-medium bg-surface-2 border-r border-b border-border"
+            *ngFor="let day of days"
+          >
+            {{ day }}
+          </div>
           <ng-container *ngFor="let hour of hours">
             <div
-              class="time-slot"
+              class="time-slot min-h-10 border-r border-b border-border transition-colors"
               *ngFor="let day of days"
               (dblclick)="onEmptySlotDblClick(day, hour)"
             >
@@ -62,31 +69,22 @@ import { Instructor } from './services/instructor-availability.service';
   `,
   styles: [
     `
-      .page-content {
-        display: flex;
-      }
-
       .calendar {
         flex: 1;
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        background: var(--surface);
-        border: 1px solid var(--border);
+        grid-template-columns: repeat(1, 1fr);
+        transition: grid-template-columns 0.3s ease;
       }
 
-      .day-header {
-        padding: var(--space-2);
-        text-align: center;
-        font-weight: 500;
-        background: var(--surface-2);
-        border-right: 1px solid var(--border);
-        border-bottom: 1px solid var(--border);
+      @media (min-width: 768px) {
+        .calendar {
+          grid-template-columns: repeat(4, 1fr);
+        }
       }
 
-      .time-slot {
-        min-height: 40px;
-        border-right: 1px solid var(--border);
-        border-bottom: 1px solid var(--border);
+      @media (min-width: 1024px) {
+        .calendar {
+          grid-template-columns: repeat(7, 1fr);
+        }
       }
 
       .calendar > :nth-child(7n) {
