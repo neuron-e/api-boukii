@@ -22,7 +22,7 @@ export interface ClientsResponse {
 
 export interface GetClientsParams {
   school_id: number;
-  q?: string;
+  search?: string;
   sport_id?: number;
   active?: boolean;
   page?: number;

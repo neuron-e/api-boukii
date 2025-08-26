@@ -29,7 +29,7 @@ export interface ClientListItem {
       </div>
 
       <form [formGroup]="filtersForm" class="filters">
-        <input type="text" formControlName="q" placeholder="Search" />
+        <input type="text" formControlName="search" placeholder="Search" />
         <input type="number" formControlName="sport_id" placeholder="Sport ID" />
         <select formControlName="active">
           <option value="">All</option>
@@ -186,7 +186,7 @@ export class ClientsListPageComponent implements OnInit {
   private readonly contextService = inject(ContextService);
 
   filtersForm = this.fb.group({
-    q: [''],
+    search: [''],
     sport_id: [''],
     active: [''],
   });
@@ -202,7 +202,7 @@ export class ClientsListPageComponent implements OnInit {
     const params = this.route.snapshot.queryParamMap;
     this.filtersForm.patchValue(
       {
-        q: params.get('q') || '',
+        search: params.get('search') || '',
         sport_id: params.get('sport_id') || '',
         active: params.get('active') || '',
       },
@@ -248,7 +248,7 @@ export class ClientsListPageComponent implements OnInit {
   private updateQueryParams(): void {
     const value = this.filtersForm.value;
     const queryParams: any = { page: this.currentPage };
-    if (value.q) queryParams.q = value.q;
+    if (value.search) queryParams.search = value.search;
     if (value.sport_id) queryParams.sport_id = value.sport_id;
     if (value.active) queryParams.active = value.active;
     this.router.navigate([], {
@@ -261,7 +261,7 @@ export class ClientsListPageComponent implements OnInit {
     const value = this.filtersForm.value;
     const params: GetClientsParams = {
       school_id: this.contextService.schoolId() || 0,
-      q: value.q || undefined,
+      search: value.search || undefined,
       sport_id: value.sport_id ? Number(value.sport_id) : undefined,
       active: value.active !== '' ? value.active === 'true' : undefined,
       page: this.currentPage,
