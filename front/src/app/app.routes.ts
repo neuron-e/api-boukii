@@ -115,7 +115,13 @@ export const routes: Routes = [
         path: 'courses',
         canActivate: [requireCompleteAuthGuard],
         loadComponent: () =>
-          import('./features/courses/courses-list.page').then(c => c.CoursesListPageComponent)
+          import('./features/courses/courses-list.page').then(c => c.CoursesListPageComponent),
+           canActivate: [requireCompleteAuthGuard]
+      },
+        path: 'statistics',
+        loadComponent: () =>
+          import('./features/statistics/statistics.component').then(c => c.StatisticsComponent),
+        canActivate: [requireCompleteAuthGuard]
       },
       {
         path: 'settings',
