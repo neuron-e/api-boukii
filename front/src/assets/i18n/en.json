@@ -467,6 +467,17 @@
       "message": "No roles found in the system."
     }
   },
+  "communications": {
+    "title": "Communications",
+    "recipients": "Recipients",
+    "clients": "Clients",
+    "monitors": "Monitors",
+    "subject": "Subject",
+    "body": "Message",
+    "send": "Send",
+    "sentList": "Sent emails",
+    "sentAt": "Sent"
+  },
   "pagination": {
     "showing": "Showing",
     "to": "to",

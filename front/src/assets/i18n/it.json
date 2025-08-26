@@ -448,5 +448,16 @@
         "description": "Monitoraggio delle prestazioni del sistema"
       }
     }
+  },
+  "communications": {
+    "title": "Comunicazioni",
+    "recipients": "Destinatari",
+    "clients": "Clienti",
+    "monitors": "Istruttori",
+    "subject": "Oggetto",
+    "body": "Messaggio",
+    "send": "Invia",
+    "sentList": "Email inviate",
+    "sentAt": "Inviato"
   }
 }

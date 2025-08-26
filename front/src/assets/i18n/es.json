@@ -500,6 +500,17 @@
       "message": "No se han encontrado roles en el sistema."
     }
   },
+  "communications": {
+    "title": "Comunicaciones",
+    "recipients": "Destinatarios",
+    "clients": "Clientes",
+    "monitors": "Monitores",
+    "subject": "Asunto",
+    "body": "Mensaje",
+    "send": "Enviar",
+    "sentList": "Correos enviados",
+    "sentAt": "Enviado"
+  },
   "pagination": {
     "showing": "Mostrando",
     "to": "a",
