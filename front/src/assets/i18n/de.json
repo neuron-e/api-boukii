@@ -250,6 +250,14 @@
       "operational": "System betriebsbereit",
       "pending": "Ausstehende Benachrichtigungen",
       "available": "Update verfügbar"
+    },
+    "charts": {
+      "dailyAttendance": "Tägliche Anwesenheit",
+      "hourlyBookings": "Buchungen pro Stunde",
+      "legend": {
+        "attendance": "Anwesenheit",
+        "bookings": "Buchungen"
+      }
     }
   },
     "nav": {

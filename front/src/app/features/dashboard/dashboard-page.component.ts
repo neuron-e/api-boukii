@@ -1,8 +1,9 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TranslatePipe } from '@shared/pipes/translate.pipe';
 import { NgChartsModule } from 'ng2-charts';
 import { Chart, ChartData, ChartOptions, registerables } from 'chart.js';
+import { TranslationService } from '@core/services/translation.service';
 
 Chart.register(...registerables);
 
@@ -77,7 +78,7 @@ Chart.register(...registerables);
 
       <div class="grid grid--two" style="margin-top:24px">
         <div class="card">
-          <h3>Daily Attendance</h3>
+        <h3>{{ 'dashboard.charts.dailyAttendance' | translate }}</h3>
           <canvas
             baseChart
             [data]="attendanceData"
@@ -86,7 +87,7 @@ Chart.register(...registerables);
           ></canvas>
         </div>
         <div class="card">
-          <h3>Bookings by Hour</h3>
+        <h3>{{ 'dashboard.charts.hourlyBookings' | translate }}</h3>
           <canvas
             baseChart
             [data]="bookingsByHourData"
@@ -176,12 +177,13 @@ Chart.register(...registerables);
   ],
 })
 export class DashboardPageComponent {
+  private readonly translationService = inject(TranslationService);
   attendanceData: ChartData<'line'> = {
     labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     datasets: [
       {
         data: [20, 25, 22, 30, 28, 35, 40],
-        label: 'Attendance',
+        label: this.translationService.instant('dashboard.charts.legend.attendance'),
         fill: false,
         borderColor: '#3e95cd',
         tension: 0.1,
@@ -202,7 +204,7 @@ export class DashboardPageComponent {
     datasets: [
       {
         data: [2, 4, 6, 8, 5, 3, 1],
-        label: 'Bookings',
+        label: this.translationService.instant('dashboard.charts.legend.bookings'),
         backgroundColor: '#8e5ea2',
       },
     ],

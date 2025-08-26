@@ -211,12 +211,22 @@
   "schoolSelection": {
     "title": "Select School",
     "subtitle": "Choose the school you want to work with",
-    "selectSchool": "Select School", 
+    "selectSchool": "Select School",
     "loading": "Loading schools...",
     "noSchools": "You don't have access to any schools",
     "error": "Error loading schools",
     "continue": "Continue",
     "autoRedirecting": "Automatically redirecting..."
+  },
+  "dashboard": {
+    "charts": {
+      "dailyAttendance": "Daily Attendance",
+      "hourlyBookings": "Bookings by Hour",
+      "legend": {
+        "attendance": "Attendance",
+        "bookings": "Bookings"
+      }
+    }
   },
   "nav": {
     "searchPlaceholder": "Search...",

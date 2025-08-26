@@ -249,6 +249,14 @@
       "operational": "Sistema operativo",
       "pending": "Notificaciones pendientes",
       "available": "Actualización disponible"
+    },
+    "charts": {
+      "dailyAttendance": "Asistencia diaria",
+      "hourlyBookings": "Reservas por hora",
+      "legend": {
+        "attendance": "Asistencia",
+        "bookings": "Reservas"
+      }
     }
   },
   "nav": {
