@@ -1,11 +1,15 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TranslatePipe } from '@shared/pipes/translate.pipe';
+import { NgChartsModule } from 'ng2-charts';
+import { Chart, ChartData, ChartOptions, registerables } from 'chart.js';
+
+Chart.register(...registerables);
 
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  imports: [CommonModule, TranslatePipe],
+  imports: [CommonModule, TranslatePipe, NgChartsModule],
   template: `
     <div class="page" data-cy="dashboard">
       <div class="page-header">
@@ -68,6 +72,27 @@ import { TranslatePipe } from '@shared/pipes/translate.pipe';
               <span class="chip chip--blue">{{ 'dashboard.activity.updated' | translate }}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div class="grid grid--two" style="margin-top:24px">
+        <div class="card">
+          <h3>Daily Attendance</h3>
+          <canvas
+            baseChart
+            [data]="attendanceData"
+            [options]="attendanceOptions"
+            [type]="'line'"
+          ></canvas>
+        </div>
+        <div class="card">
+          <h3>Bookings by Hour</h3>
+          <canvas
+            baseChart
+            [data]="bookingsByHourData"
+            [options]="bookingsByHourOptions"
+            [type]="'bar'"
+          ></canvas>
         </div>
       </div>
 
@@ -150,4 +175,44 @@ import { TranslatePipe } from '@shared/pipes/translate.pipe';
     `,
   ],
 })
-export class DashboardPageComponent {}
+export class DashboardPageComponent {
+  attendanceData: ChartData<'line'> = {
+    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    datasets: [
+      {
+        data: [20, 25, 22, 30, 28, 35, 40],
+        label: 'Attendance',
+        fill: false,
+        borderColor: '#3e95cd',
+        tension: 0.1,
+      },
+    ],
+  };
+
+  attendanceOptions: ChartOptions<'line'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: { beginAtZero: true },
+    },
+  };
+
+  bookingsByHourData: ChartData<'bar'> = {
+    labels: ['8h', '9h', '10h', '11h', '12h', '13h', '14h'],
+    datasets: [
+      {
+        data: [2, 4, 6, 8, 5, 3, 1],
+        label: 'Bookings',
+        backgroundColor: '#8e5ea2',
+      },
+    ],
+  };
+
+  bookingsByHourOptions: ChartOptions<'bar'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: { beginAtZero: true },
+    },
+  };
+}
