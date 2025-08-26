@@ -3,6 +3,117 @@ info:
   title: Boukii API V5
   version: '1.0'
 paths:
+  /api/v5/auth/check-user:
+    post:
+      summary: Verify user credentials and list available schools
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Credentials verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+                      schools:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/School'
+                      requires_school_selection:
+                        type: boolean
+                      temp_token:
+                        type: string
+  /api/v5/auth/select-school:
+    post:
+      summary: Select a school and obtain an access token
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [school_id]
+              properties:
+                school_id:
+                  type: integer
+      responses:
+        '200':
+          description: School selected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      access_token:
+                        type: string
+                      user:
+                        $ref: '#/components/schemas/User'
+                      school:
+                        $ref: '#/components/schemas/School'
+                      season:
+                        $ref: '#/components/schemas/Season'
+                      requires_season_selection:
+                        type: boolean
+  /api/v5/auth/select-season:
+    post:
+      summary: Select a season to complete authentication
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [season_id]
+              properties:
+                season_id:
+                  type: integer
+      responses:
+        '200':
+          description: Season selected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      access_token:
+                        type: string
+                      token_type:
+                        type: string
+                      expires_at:
+                        type: string
+                        format: date-time
+                        nullable: true
+                      user:
+                        $ref: '#/components/schemas/User'
+                      school:
+                        $ref: '#/components/schemas/School'
+                      season:
+                        $ref: '#/components/schemas/Season'
   /api/v5/me/schools:
     get:
       summary: List schools visible to the authenticated user
@@ -172,6 +283,17 @@ paths:
                   $ref: '#/components/examples/ValidationFailed'
 components:
   schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
     School:
       type: object
       properties:
@@ -179,6 +301,12 @@ components:
           type: integer
         name:
           type: string
+        slug:
+          type: string
+          nullable: true
+        logo:
+          type: string
+          nullable: true
     UserContext:
       type: object
       properties:
@@ -188,6 +316,21 @@ components:
         season_id:
           type: integer
           nullable: true
+    Season:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        is_active:
+          type: boolean
     ProblemDetails:
       type: object
       required:
