@@ -147,12 +147,6 @@ export const routes: Routes = [
         canActivate: [requireCompleteAuthGuard],
       },
       {
-        path: 'courses',
-        loadComponent: () =>
-          import('./features/chat/chat.component').then(c => c.ChatComponent),
-        canActivate: [requireCompleteAuthGuard],
-      },
-      {
         path: 'communications',
         loadComponent: () =>
           import('./features/communications/communications.component').then(
@@ -163,7 +157,8 @@ export const routes: Routes = [
       {
         path: 'courses',
         loadComponent: () =>
-          import('./features/courses/courses-list.page').then((c) => c.CoursesListPageComponent),
+          import('./features/courses/courses-list.component').then(
+            (c) => c.CoursesListComponent
           ),
         canActivate: [requireCompleteAuthGuard],
       },
@@ -171,7 +166,8 @@ export const routes: Routes = [
         path: 'statistics',
         loadComponent: () =>
           import('./features/statistics/statistics.component').then(
-            c => c.StatisticsComponent,
+            (c) => c.StatisticsComponent
+          ),
         canActivate: [requireCompleteAuthGuard],
       },
       {
