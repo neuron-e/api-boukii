@@ -448,5 +448,16 @@
         "description": "Systemleistungs-Monitoring"
       }
     }
+  },
+  "communications": {
+    "title": "Kommunikation",
+    "recipients": "Empfänger",
+    "clients": "Kunden",
+    "monitors": "Trainer",
+    "subject": "Betreff",
+    "body": "Nachricht",
+    "send": "Senden",
+    "sentList": "Gesendete E-Mails",
+    "sentAt": "Gesendet"
   }
 }
