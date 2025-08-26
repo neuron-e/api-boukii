@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 import { SchoolSettingsComponent } from './school/school-settings.component';
-import { SeasonsComponent } from './seasons.component';
+import { SeasonsComponent } from './seasons/seasons.component';
 import { SportsDegreesComponent } from './sports-degrees.component';
 import { StationSettingsComponent } from './station-settings.component';
 
