@@ -96,6 +96,11 @@ export const routes: Routes = [
         loadChildren: () => import('./features/admin/permissions/permissions.routes').then(m => m.permissionsRoutes)
       },
       {
+        path: 'scheduling',
+        canActivate: [requireCompleteAuthGuard],
+        loadChildren: () => import('./features/scheduling/scheduling.module').then(m => m.SchedulingModule)
+      },
+      {
         path: 'settings',
         loadChildren: () => import('./features/settings').then(m => m.routes)
       }
