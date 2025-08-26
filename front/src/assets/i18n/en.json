@@ -449,5 +449,15 @@
     "page": "Page",
     "previous": "Previous",
     "next": "Next"
+  },
+  "settings": {
+    "school": {
+      "title": "School Settings",
+      "name": "Name",
+      "email": "Email",
+      "contact_phone": "Contact Phone",
+      "address": "Address",
+      "logo": "Logo"
+    }
   }
 }

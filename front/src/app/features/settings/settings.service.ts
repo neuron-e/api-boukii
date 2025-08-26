@@ -5,6 +5,22 @@ import { SEASONS, Season } from './data/seasons';
 import { SPORTS_DEGREES, SportsDegree } from './data/sports-degrees';
 import { STATION_SETTINGS, StationSetting } from './data/station-settings';
 
+interface School {
+  name: string;
+  email: string;
+  contact_phone: string;
+  address: string;
+  logo: string;
+}
+
+const MOCK_SCHOOL: School = {
+  name: 'Surf School',
+  email: 'info@surfschool.com',
+  contact_phone: '+1 234 567 890',
+  address: 'Beach Avenue 123',
+  logo: 'assets/logo.png'
+};
+
 @Injectable({ providedIn: 'root' })
 export class SettingsService {
   getSchoolSettings(): Observable<SchoolSetting[]> {
@@ -21,5 +37,9 @@ export class SettingsService {
 
   getStationSettings(): Observable<StationSetting[]> {
     return of(STATION_SETTINGS);
+  }
+
+  getMockSchool(): Observable<School> {
+    return of(MOCK_SCHOOL);
   }
 }
