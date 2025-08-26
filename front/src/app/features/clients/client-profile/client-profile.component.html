@@ -1,0 +1,75 @@
+<div class="client-profile">
+  <h2>Client Profile</h2>
+
+  <div class="view-toggle">
+    <button (click)="switchMode('client')" [class.active]="viewMode() === 'client'">
+      Client
+    </button>
+    <button (click)="switchMode('utilizer')" [class.active]="viewMode() === 'utilizer'">
+      Utilizer
+    </button>
+  </div>
+
+  <form [formGroup]="personalForm" class="personal-form">
+    <label>
+      First name
+      <input type="text" formControlName="first_name" />
+    </label>
+    <label>
+      Last name
+      <input type="text" formControlName="last_name" />
+    </label>
+    <label>
+      Email
+      <input type="email" formControlName="email" />
+    </label>
+  </form>
+
+  <div class="tabs">
+    <button (click)="switchTab('sport')" [class.active]="activeTab() === 'sport'">
+      Sport progress
+    </button>
+    <button
+      (click)="switchTab('evaluations')"
+      [class.active]="activeTab() === 'evaluations'"
+    >
+      Evaluations
+    </button>
+  </div>
+
+  <div *ngIf="activeTab() === 'sport'" class="tab-content">
+    <ul>
+      <li *ngFor="let item of sportProgress">
+        {{ item.sport }} - {{ item.level }}
+      </li>
+    </ul>
+  </div>
+
+  <div *ngIf="activeTab() === 'evaluations'" class="tab-content">
+    <ul>
+      <li *ngFor="let item of evaluations">
+        {{ item.date }} - {{ item.result }}
+      </li>
+    </ul>
+  </div>
+
+  <h3>Booking history</h3>
+  <table class="booking-history">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Service</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let booking of bookingHistory">
+        <td>{{ booking.date }}</td>
+        <td>{{ booking.service }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="actions">
+    <button (click)="newBooking()">New booking</button>
+  </div>
+</div>

@@ -1,0 +1,36 @@
+.client-profile {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.view-toggle button,
+.tabs button {
+  margin-right: 0.5rem;
+}
+
+.view-toggle button.active,
+.tabs button.active {
+  font-weight: bold;
+}
+
+.personal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.booking-history {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.booking-history th,
+.booking-history td {
+  border: 1px solid #ccc;
+  padding: 0.25rem 0.5rem;
+}
+
+.actions {
+  margin-top: 1rem;
+}
