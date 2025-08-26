@@ -1,0 +1,49 @@
+/* Utility classes for ski palette and accent styling */
+:root {
+  --ski-accent: var(--color-ski-blue);
+  --ski-accent-hover: color-mix(in srgb, var(--color-ski-blue) 90%, var(--color-background));
+  --ski-accent-light: color-mix(in srgb, var(--color-ski-blue) 15%, var(--color-background));
+}
+
+.ski-primary {
+  color: var(--color-ski-blue);
+}
+
+.ski-secondary {
+  color: var(--color-ski-green);
+}
+
+.ski-accent {
+  color: var(--ski-accent);
+}
+
+.btn-accent {
+  background-color: var(--ski-accent);
+  color: var(--color-background);
+  border: 1px solid var(--ski-accent);
+}
+.btn-accent:hover {
+  background-color: var(--ski-accent-hover);
+}
+
+.btn-accent-outline {
+  background-color: transparent;
+  color: var(--ski-accent);
+  border: 1px solid var(--ski-accent);
+}
+.btn-accent-outline:hover {
+  background-color: var(--ski-accent-light);
+}
+
+.icon-active {
+  color: var(--ski-accent);
+}
+
+.link-accent {
+  color: var(--ski-accent);
+  text-decoration: none;
+}
+.link-accent:hover {
+  color: var(--ski-accent-hover);
+  text-decoration: underline;
+}
