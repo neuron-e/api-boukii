@@ -22,6 +22,7 @@ export const featureFlagGuard: CanActivateFn = (route: ActivatedRouteSnapshot) =
     'estadisticas': 'useV5Analytics',
     'settings': 'useV5Settings',
     'ajustes': 'useV5Settings',
+    'communications': 'useV5Communications',
     'comunicaciones': 'useV5Communications',
     'chat': 'useV5Chat',
     'renting': 'useV5Renting',

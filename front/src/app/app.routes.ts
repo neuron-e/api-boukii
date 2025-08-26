@@ -8,6 +8,7 @@ import {
   seasonSelectionGuard,
   requireCompleteAuthGuard,
 } from './core/guards/season-selection.guard';
+import { featureFlagGuard } from './core/guards/feature-flag.guard';
 
 export const routes: Routes = [
   {
@@ -157,7 +158,7 @@ export const routes: Routes = [
           import('./features/communications/communications.component').then(
             c => c.CommunicationsComponent,
           ),
-        canActivate: [requireCompleteAuthGuard],
+        canActivate: [requireCompleteAuthGuard, featureFlagGuard],
       },
       {
         path: 'courses',
