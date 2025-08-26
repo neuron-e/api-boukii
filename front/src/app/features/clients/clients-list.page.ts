@@ -48,6 +48,7 @@ export interface ClientListItem {
             <th>{{ 'clients.sportsSummary' | translate }}</th>
             <th>{{ 'clients.status' | translate }}</th>
             <th>{{ 'clients.signupDate' | translate }}</th>
+            <th>{{ 'common.actions' | translate }}</th>
           </tr>
         </thead>
         <tbody *ngIf="!loading && clients.length > 0">
@@ -59,16 +60,21 @@ export interface ClientListItem {
             <td>{{ client.sportsSummary }}</td>
             <td>{{ client.status }}</td>
             <td>{{ client.signupDate }}</td>
+            <td>
+              <button (click)="openPreview(client); $event.stopPropagation()">{{ 'common.view' | translate }}</button>
+              <button (click)="editClient(client); $event.stopPropagation()">{{ 'common.edit' | translate }}</button>
+              <button (click)="deleteClient(client); $event.stopPropagation()">{{ 'common.delete' | translate }}</button>
+            </td>
           </tr>
         </tbody>
         <tbody *ngIf="loading">
           <tr *ngFor="let _ of skeletonRows">
-            <td colspan="7" class="skeleton-row"></td>
+            <td colspan="8" class="skeleton-row"></td>
           </tr>
         </tbody>
         <tbody *ngIf="!loading && clients.length === 0">
           <tr>
-            <td colspan="7">
+            <td colspan="8">
               <div class="empty-state">No clients found</div>
             </td>
           </tr>
@@ -220,6 +226,16 @@ export class ClientsListPageComponent implements OnInit {
 
   closePreview(): void {
     this.selectedClient = null;
+  }
+
+  editClient(client: ClientListItem): void {
+    this.router.navigate(['/clients', client.id, 'edit']);
+  }
+
+  deleteClient(client: ClientListItem): void {
+    if (confirm('Are you sure you want to delete this client?')) {
+      // Placeholder for deletion logic
+    }
   }
 
   @HostListener('document:keydown.escape', ['$event'])
