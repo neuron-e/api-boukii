@@ -1208,9 +1208,9 @@ export class BulkAssignmentModalComponent implements OnInit, OnChanges {
   private loadSchools(): void {
     // Mock schools data - in real app, load from SchoolsService
     this.availableSchools.set([
-      { id: 1, name: 'Escuela Central', code: 'EC001', status: 'active' },
-      { id: 2, name: 'Sede Norte', code: 'SN002', status: 'active' },
-      { id: 3, name: 'Campus Sur', code: 'CS003', status: 'active' }
+      { id: 1, name: 'Escuela Central', code: 'EC001', active: true },
+      { id: 2, name: 'Sede Norte', code: 'SN002', active: true },
+      { id: 3, name: 'Campus Sur', code: 'CS003', active: true }
     ]);
   }
 

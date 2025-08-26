@@ -228,7 +228,7 @@ describe('AuthV5Service', () => {
           id: 1,
           name: 'Test School',
           slug: 'test-school',
-          status: 'active' as const,
+          active: true,
           created_at: '2025-01-01',
           updated_at: '2025-01-01',
           seasons: []
@@ -252,7 +252,7 @@ describe('AuthV5Service', () => {
           id: 1,
           name: 'Test School',
           slug: 'test-school',
-          status: 'active' as const,
+          active: true,
           created_at: '2025-01-01',
           updated_at: '2025-01-01',
           seasons: [

@@ -2,7 +2,8 @@ export interface School {
   id: number;
   name: string;
   code: string;
-  status: 'active' | 'inactive';
+  active: boolean;
+  logo?: string;
   address?: string;
   adminEmail?: string;
 }

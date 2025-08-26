@@ -21,6 +21,8 @@ login → school selection → season selection → dashboard
 3. **Select Season** – Seleccionar temporada (auto si hay una activa por fecha)
 4. **Dashboard Access** – Acceso completo con contexto establecido
 
+> Todos estos pasos retornan el campo `user.role` para indicar el rol principal del usuario.
+
 ### Endpoints de Autenticación
 
 | Endpoint | Método | Propósito | Requiere Auth |
