@@ -764,6 +764,13 @@ Route::get('payrexx/finish', function (Request $request) {
     return response()->make('Payrexx close ' . $request->status, 200);
 })->name('api.payrexx.finish');
 
+Route::post('payyoNotification', [\App\Http\Controllers\PayyoController::class, 'processNotification'])
+    ->name('api.payyo.notification');
+
+Route::get('payyo/finish', function (Request $request) {
+    return response()->make('Payyo close ' . $request->status, 200);
+})->name('api.payyo.finish');
+
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
