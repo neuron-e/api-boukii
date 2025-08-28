@@ -182,4 +182,44 @@ class Voucher extends Model
     {
          return LogOptions::defaults();
     }
+
+    // Special for field "payrexx_transaction": store encrypted
+    public function setPayrexxTransaction($value)
+    {
+        $this->payrexx_transaction = encrypt(json_encode($value));
+    }
+
+    public function getPayrexxTransaction()
+    {
+        $decrypted = null;
+        if ($this->payrexx_transaction) {
+            try {
+                $decrypted = decrypt($this->payrexx_transaction);
+            } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+                $decrypted = null; // Data seems corrupt or tampered
+            }
+        }
+
+        return $decrypted ? json_decode($decrypted, true) : [];
+    }
+
+    // Special for field "payyo_transaction": store encrypted
+    public function setPayyoTransaction($value)
+    {
+        $this->payyo_transaction = encrypt(json_encode($value));
+    }
+
+    public function getPayyoTransaction()
+    {
+        $decrypted = null;
+        if ($this->payyo_transaction) {
+            try {
+                $decrypted = decrypt($this->payyo_transaction);
+            } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+                $decrypted = null; // Data seems corrupt or tampered
+            }
+        }
+
+        return $decrypted ? json_decode($decrypted, true) : [];
+    }
 }

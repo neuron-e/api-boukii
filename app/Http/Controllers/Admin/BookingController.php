@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\AppBaseController;
 use App\Http\Controllers\PayrexxHelpers;
+use App\Http\Controllers\PayyoHelpers;
 use App\Http\Resources\API\BookingResource;
 use App\Mail\BookingCancelMailer;
 use App\Mail\BookingCreateMailer;
@@ -272,7 +273,9 @@ class BookingController extends AppBaseController
                     'status' => 'paid', // Puedes ajustar el estado según tu lógica
                     'notes' => $data['selectedPaymentOption'] ?? null,
                     'payrexx_reference' => null, // Aquí puedes integrar Payrexx si lo necesitas
-                    'payrexx_transaction' => null
+                    'payrexx_transaction' => null,
+                    'payyo_reference' => null,
+                    'payyo_transaction' => null
                 ]);
             }
 
@@ -357,7 +360,9 @@ class BookingController extends AppBaseController
                 'status' => 'paid', // Puedes ajustar el estado según tu lógica
                 'notes' => $data['selectedPaymentOption'],
                 'payrexx_reference' => null, // Aquí puedes integrar Payrexx si lo necesitas
-                'payrexx_transaction' => null
+                'payrexx_transaction' => null,
+                'payyo_reference' => null,
+                'payyo_transaction' => null
             ]);
         }
 
@@ -747,6 +752,22 @@ class BookingController extends AppBaseController
 
         if ($paymentMethod == 2) {
 
+            if ($school->payment_provider === 'payyo') {
+                $payLink = PayyoHelpers::createPayLink(
+                    $school,
+                    $booking,
+                    $request->all(),
+                    $booking->clientMain,
+                    'panel'
+                );
+
+                if ($payLink) {
+                    return $this->sendResponse($payLink, 'Link retrieved successfully');
+                }
+
+                return $this->sendError('Link could not be created');
+            }
+
             $payrexxLink = PayrexxHelpers::createGatewayLink(
                 $school,
                 $booking,
@@ -763,6 +784,51 @@ class BookingController extends AppBaseController
         }
 
         if ($paymentMethod == 3) {
+
+            if ($school->payment_provider === 'payyo') {
+                $payLink = PayyoHelpers::createPayLink(
+                    $school,
+                    $booking,
+                    $request->all(),
+                    $booking->clientMain
+                );
+
+                if (strlen($payLink) > 1) {
+                    try {
+                        $bookingData = $booking->fresh();
+                        $logData = [
+                            'booking_id' => $booking->id,
+                            'action' => 'send_pay_link',
+                            'user_id' => $booking->user_id,
+                            'description' => 'Booking pay link sent',
+                        ];
+
+                        BookingLog::create($logData);
+                        dispatch(function () use ($school, $booking, $bookingData, $payLink) {
+                            try {
+                                \Mail::to($booking->clientMain->email)
+                                    ->send(new BookingPayMailer(
+                                        $school,
+                                        $bookingData,
+                                        $booking->clientMain,
+                                        $payLink
+                                    ));
+                            } catch (\Exception $e) {
+                                Log::channel('payyo')->error('PayyoHelpers sendMailing payBooking Booking ID=' . $booking->id);
+                                Log::channel('payyo')->error($e->getMessage());
+                            }
+                        });
+                    } catch (\Exception $e) {
+                        Log::channel('payyo')->error('PayyoHelpers sendPayEmail payBooking Booking ID=' . $booking->id);
+                        Log::channel('payyo')->error($e->getMessage());
+                        return $this->sendError('Link could not be created');
+                    }
+
+                    return $this->sendResponse([], 'Mail sent correctly');
+                }
+
+                return $this->sendError('Link could not be created');
+            }
 
             $payrexxLink = PayrexxHelpers::createPayLink(
                 $school,
@@ -805,10 +871,7 @@ class BookingController extends AppBaseController
                     return $this->sendError('Link could not be created');
                 }
 
-
-
                 return $this->sendResponse([], 'Mail sent correctly');
-
             }
             return $this->sendError('Link could not be created');
 

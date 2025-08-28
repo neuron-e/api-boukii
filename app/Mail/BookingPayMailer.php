@@ -73,7 +73,7 @@ class BookingPayMailer extends Mailable
             'schoolEmail' => $this->schoolData->contact_email,
             'schoolPhone' =>  $this->schoolData->contact_phone,
             'schoolConditionsURL' => $this->schoolData->conditions_url,
-            'reference' => $this->bookingData->payrexx_reference,
+            'reference' => $this->bookingData->payrexx_reference ?? $this->bookingData->payyo_reference,
             'bookingNotes' => $this->bookingData->notes,
             'booking' => $this->bookingData,
             'courses' => $this->bookingData->parseBookedGroupedWithCourses(),
