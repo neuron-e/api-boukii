@@ -26,6 +26,8 @@ class CreateBookingsTable extends Migration
             $table->boolean('paid')->default(0);
             $table->text('payrexx_reference')->nullable();
             $table->text('payrexx_transaction')->nullable();
+            $table->text('payyo_reference')->nullable();
+            $table->text('payyo_transaction')->nullable();
             $table->boolean('attendance')->default(1);
             $table->boolean('payrexx_refund')->default(0);
             $table->string('notes', 500)->default('');

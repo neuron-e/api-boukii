@@ -48,6 +48,20 @@ use Spatie\Activitylog\Traits\LogsActivity;
  *          type="string",
  *      ),
  *      @OA\Property(
+ *          property="payyo_reference",
+ *          description="",
+ *          readOnly=false,
+ *          nullable=true,
+ *          type="string",
+ *      ),
+ *      @OA\Property(
+ *          property="payyo_transaction",
+ *          description="",
+ *          readOnly=false,
+ *          nullable=true,
+ *          type="string",
+ *      ),
+ *      @OA\Property(
  *          property="created_at",
  *          description="",
  *          readOnly=true,
@@ -85,7 +99,9 @@ class Payment extends Model
         'status',
         'notes',
         'payrexx_reference',
-        'payrexx_transaction'
+        'payrexx_transaction',
+        'payyo_reference',
+        'payyo_transaction'
     ];
 
     protected $casts = [
@@ -93,7 +109,9 @@ class Payment extends Model
         'status' => 'string',
         'notes' => 'string',
         'payrexx_reference' => 'string',
-        'payrexx_transaction' => 'string'
+        'payrexx_transaction' => 'string',
+        'payyo_reference' => 'string',
+        'payyo_transaction' => 'string'
     ];
 
     public static array $rules = [
@@ -104,6 +122,8 @@ class Payment extends Model
         'notes' => 'nullable|string|max:65535',
         'payrexx_reference' => 'nullable|string|max:65535',
         'payrexx_transaction' => 'nullable|string|max:65535',
+        'payyo_reference' => 'nullable|string|max:65535',
+        'payyo_transaction' => 'nullable|string|max:65535',
         'created_at' => 'nullable',
         'updated_at' => 'nullable',
         'deleted_at' => 'nullable'
@@ -138,6 +158,32 @@ class Payment extends Model
             try
             {
                 $decrypted = decrypt($this->payrexx_transaction);
+            }
+                // @codeCoverageIgnoreStart
+            catch (\Illuminate\Contracts\Encryption\DecryptException $e)
+            {
+                $decrypted = null;  // Data seems corrupt or tampered
+            }
+            // @codeCoverageIgnoreEnd
+        }
+
+        return $decrypted ? json_decode($decrypted, true) : [];
+    }
+
+    // Special for field "payyo_transaction": store encrypted
+    public function setPayyoTransaction($value)
+    {
+        $this->payyo_transaction = encrypt( json_encode($value) );
+    }
+
+    public function getPayyoTransaction()
+    {
+        $decrypted = null;
+        if ($this->payyo_transaction)
+        {
+            try
+            {
+                $decrypted = decrypt($this->payyo_transaction);
             }
                 // @codeCoverageIgnoreStart
             catch (\Illuminate\Contracts\Encryption\DecryptException $e)

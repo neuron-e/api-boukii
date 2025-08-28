@@ -14,7 +14,9 @@ class PaymentRepository extends BaseRepository
         'status',
         'notes',
         'payrexx_reference',
-        'payrexx_transaction'
+        'payrexx_transaction',
+        'payyo_reference',
+        'payyo_transaction'
     ];
 
     public function getFieldsSearchable(): array

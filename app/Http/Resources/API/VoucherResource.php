@@ -25,6 +25,8 @@ class VoucherResource extends JsonResource
             'school_id' => $this->school_id,
             'payrexx_reference' => $this->payrexx_reference,
             'payrexx_transaction' => $this->payrexx_transaction,
+            'payyo_reference' => $this->payyo_reference,
+            'payyo_transaction' => $this->payyo_transaction,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'deleted_at' => $this->deleted_at

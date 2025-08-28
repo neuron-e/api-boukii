@@ -24,6 +24,8 @@ class CreateVouchersTable extends Migration
             $table->bigInteger('school_id');
             $table->text('payrexx_reference')->nullable();
             $table->text('payrexx_transaction')->nullable();
+            $table->text('payyo_reference')->nullable();
+            $table->text('payyo_transaction')->nullable();
             $table->timestamps();
             $table->timestamp('deleted_at')->nullable();
 
