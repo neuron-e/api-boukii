@@ -64,3 +64,24 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+## Payyo configuration
+
+This project supports payments through **Payyo** in addition to Payrexx. To
+use Payyo you need to provide API credentials and mark the relevant school as
+using this provider.
+
+1. Add your Payyo credentials to the application environment:
+
+   ```env
+   PAYYO_INSTANCE=your-instance.payyo.com
+   PAYYO_KEY=your-payyo-api-key
+   ```
+
+2. In the `schools` table set the columns `payment_provider` to `payyo` and
+   fill `payyo_instance` and `payyo_key` with the merchant credentials for that
+   school. Other schools will continue to fall back to the default Payrexx
+   integration.
+
+With these settings the `bookings/payments` endpoint will generate Payyo links
+for the configured school while all other schools keep using Payrexx.
