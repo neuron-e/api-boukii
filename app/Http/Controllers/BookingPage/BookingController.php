@@ -4,6 +4,7 @@ namespace App\Http\Controllers\BookingPage;
 
 use App\Http\Controllers\AppBaseController;
 use App\Http\Controllers\PayrexxHelpers;
+use App\Http\Controllers\PayyoHelpers;
 use App\Http\Resources\API\BookingResource;
 use App\Mail\BookingCancelMailer;
 use App\Mail\BookingPayMailer;
@@ -466,6 +467,22 @@ class BookingController extends SlugAuthController
 
         $booking->payment_method_id = $paymentMethod;
         $booking->save();
+
+        if ($school->payment_provider === 'payyo') {
+            $payLink = PayyoHelpers::createPayLink(
+                $school,
+                $booking,
+                $request->all(),
+                $booking->clientMain,
+                $request->redirectUrl
+            );
+
+            if ($payLink) {
+                return $this->sendResponse($payLink, 'Link retrieved successfully');
+            }
+
+            return $this->sendError('Link could not be created. Booking has been removed.');
+        }
 
         $payrexxLink = PayrexxHelpers::createGatewayLink(
             $school,

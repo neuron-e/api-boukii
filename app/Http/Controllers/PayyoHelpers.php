@@ -45,7 +45,7 @@ class PayyoHelpers
             $client = new HttpClient();
 
             $payload = [
-                'referenceId' => $bookingData->getOrGeneratePayrexxReference(),
+                'referenceId' => $bookingData->getOrGeneratePayyoReference(),
                 'amount' => $bookingData->price_total * 100,
                 'currency' => $bookingData->currency,
             ];

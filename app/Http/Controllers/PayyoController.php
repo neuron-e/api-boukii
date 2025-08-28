@@ -43,7 +43,7 @@ class PayyoController
 
                 $booking = (strlen($referenceID) > 2)
                     ? Booking::withTrashed()->with(['school', 'bookingUsers'])
-                        ->where('payrexx_reference', '=', $referenceID)
+                        ->where('payyo_reference', '=', $referenceID)
                         ->first()
                     : null;
 
@@ -125,7 +125,7 @@ class PayyoController
                                 // storing some Transaction info for future refunds
                                 // fallback to $data['amount'] (which might been faked)
                                 $booking->paid = true;
-                                $booking->setPayrexxTransaction([
+                                $booking->setPayyoTransaction([
                                     'id' => $transactionID,
                                     'time' => $data2['time'] ?? time(),
                                     'totalAmount' => $data2['amount'] ?? $data['amount'],
@@ -143,8 +143,8 @@ class PayyoController
                                 $payment->amount = ($data2['amount'] ?? $data['amount']) / 100;
                                 $payment->status = 'paid';
                                 $payment->notes = 'Boukii Pay';
-                                $payment->payrexx_reference = $referenceID;
-                                $payment->payrexx_transaction = $booking->payrexx_transaction;
+                                $payment->payyo_reference = $referenceID;
+                                $payment->setPayyoTransaction($booking->getPayyoTransaction());
                                 $payment->save();
 
                                 $booking->save();
@@ -154,11 +154,11 @@ class PayyoController
 
                 } else {
                     $voucher = (strlen($referenceID) > 2)
-                        ? Voucher::with('school')->where('payrexx_reference', '=', $referenceID)->first()
+                        ? Voucher::with('school')->where('payyo_reference', '=', $referenceID)->first()
                         : null;
 
                     if (!$voucher) {
-                        throw new \Exception('No Booking or Voucher found with payrexx_reference: ' . $referenceID);
+                        throw new \Exception('No Booking or Voucher found with payyo_reference: ' . $referenceID);
                     }
 
                     if (!$voucher->payed) {
@@ -194,7 +194,7 @@ class PayyoController
                                 }
 
                                 $voucher->payed = true;
-                                $voucher->setPayrexxTransaction([
+                                $voucher->setPayyoTransaction([
                                     'id' => $transactionID,
                                     'time' => $data2['time'] ?? time(),
                                     'totalAmount' => $data2['amount'] ?? $data['amount'],

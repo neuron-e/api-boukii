@@ -918,6 +918,23 @@ class Booking extends Model
         return $this->payrexx_reference;
     }
 
+    /**
+     * Generate an unique reference for Payyo - only for bookings that want to pay this way
+     * (i.e. BoukiiPay or Online)
+     */
+    public function getOrGeneratePayyoReference()
+    {
+        if (!$this->payyo_reference &&
+            ($this->payment_method_id == 2 || $this->payment_method_id == 3))
+        {
+            $ref = 'Boukii #' . $this->id;
+            $this->payyo_reference = (env('APP_ENV') == 'production') ? $ref : 'TEST ' . $ref;
+            $this->save();
+        }
+
+        return $this->payyo_reference;
+    }
+
     // Special for field "payrexx_transaction": store encrypted
     public function setPayrexxTransaction($value)
     {
