@@ -141,6 +141,13 @@ return [
             'days' => 7
         ],
 
+        'payyo' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/payyo.log'),
+            'level' => 'debug',
+            'days' => 7
+        ],
+
         'migration' => [
             'driver' => 'daily',
             'path' => storage_path('logs/migration.log'),
