@@ -17,7 +17,9 @@ class VoucherRepository extends BaseRepository
         'client_id',
         'school_id',
         'payrexx_reference',
-        'payrexx_transaction'
+        'payrexx_transaction',
+        'payyo_reference',
+        'payyo_transaction'
     ];
 
     public function getFieldsSearchable(): array

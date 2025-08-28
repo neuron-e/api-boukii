@@ -40,6 +40,8 @@ class VoucherFactory extends Factory
             'school_id' => $this->faker->word,
             'payrexx_reference' => $this->faker->text($this->faker->numberBetween(5, 65535)),
             'payrexx_transaction' => $this->faker->text($this->faker->numberBetween(5, 65535)),
+            'payyo_reference' => $this->faker->text($this->faker->numberBetween(5, 65535)),
+            'payyo_transaction' => $this->faker->text($this->faker->numberBetween(5, 65535)),
             'created_at' => $this->faker->date('Y-m-d H:i:s'),
             'updated_at' => $this->faker->date('Y-m-d H:i:s'),
             'deleted_at' => $this->faker->date('Y-m-d H:i:s')

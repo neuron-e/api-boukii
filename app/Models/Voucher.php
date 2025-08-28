@@ -75,6 +75,20 @@ use Spatie\Activitylog\Traits\LogsActivity;
  *          type="string",
  *      ),
  *      @OA\Property(
+ *          property="payyo_reference",
+ *          description="The reference related to payment through Payyo",
+ *          readOnly=false,
+ *          nullable=true,
+ *          type="string",
+ *      ),
+ *      @OA\Property(
+ *          property="payyo_transaction",
+ *          description="The transaction related to payment through Payyo",
+ *          readOnly=false,
+ *          nullable=true,
+ *          type="string",
+ *      ),
+ *      @OA\Property(
  *          property="created_at",
  *          description="The timestamp when the voucher was created",
  *          readOnly=true,
@@ -115,6 +129,8 @@ class Voucher extends Model
         'school_id',
         'payrexx_reference',
         'payrexx_transaction',
+        'payyo_reference',
+        'payyo_transaction',
         'old_id'
     ];
 
@@ -126,6 +142,8 @@ class Voucher extends Model
         'is_gift' => 'boolean',
         'payrexx_reference' => 'string',
         'payrexx_transaction' => 'string',
+        'payyo_reference' => 'string',
+        'payyo_transaction' => 'string',
     ];
 
     public static array $rules = [
@@ -138,6 +156,8 @@ class Voucher extends Model
         'school_id' => 'numeric',
         'payrexx_reference' => 'nullable|string|max:65535',
         'payrexx_transaction' => 'nullable|string|max:65535',
+        'payyo_reference' => 'nullable|string|max:65535',
+        'payyo_transaction' => 'nullable|string|max:65535',
         'created_at' => 'nullable',
         'updated_at' => 'nullable',
         'deleted_at' => 'nullable'

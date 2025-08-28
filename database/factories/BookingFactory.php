@@ -42,6 +42,8 @@ class BookingFactory extends Factory
             'paid' => $this->faker->boolean,
             'payrexx_reference' => $this->faker->text($this->faker->numberBetween(5, 65535)),
             'payrexx_transaction' => $this->faker->text($this->faker->numberBetween(5, 65535)),
+            'payyo_reference' => $this->faker->text($this->faker->numberBetween(5, 65535)),
+            'payyo_transaction' => $this->faker->text($this->faker->numberBetween(5, 65535)),
             'attendance' => $this->faker->boolean,
             'payrexx_refund' => $this->faker->boolean,
             'notes' => $this->faker->text($this->faker->numberBetween(5, 500)),

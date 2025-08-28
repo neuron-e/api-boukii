@@ -27,6 +27,8 @@ class BookingResource extends JsonResource
             'paid' => $this->paid,
             'payrexx_reference' => $this->payrexx_reference,
             'payrexx_transaction' => $this->payrexx_transaction,
+            'payyo_reference' => $this->payyo_reference,
+            'payyo_transaction' => $this->payyo_transaction,
             'attendance' => $this->attendance,
             'payrexx_refund' => $this->payrexx_refund,
             'notes' => $this->notes,
