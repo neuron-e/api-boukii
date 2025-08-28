@@ -175,6 +175,27 @@ use Spatie\Activitylog\Traits\LogsActivity;
  *          type="string",
  *      ),
  *      @OA\Property(
+ *          property="payment_provider",
+ *          description="",
+ *          readOnly=false,
+ *          nullable=true,
+ *          type="string",
+ *      ),
+ *      @OA\Property(
+ *          property="payyo_instance",
+ *          description="",
+ *          readOnly=false,
+ *          nullable=true,
+ *          type="string",
+ *      ),
+ *      @OA\Property(
+ *          property="payyo_key",
+ *          description="",
+ *          readOnly=false,
+ *          nullable=true,
+ *          type="string",
+ *      ),
+ *      @OA\Property(
  *          property="conditions_url",
  *          description="",
  *          readOnly=false,
@@ -323,6 +344,9 @@ class School extends Model
         'cancellation_insurance_percent',
         'payrexx_instance',
         'payrexx_key',
+        'payment_provider',
+        'payyo_instance',
+        'payyo_key',
         'conditions_url',
         'bookings_comission_cash',
         'bookings_comission_boukii_pay',
@@ -362,6 +386,9 @@ class School extends Model
         'cancellation_insurance_percent' => 'decimal:2',
         'payrexx_instance' => 'string',
         'payrexx_key' => 'string',
+        'payment_provider' => 'string',
+        'payyo_instance' => 'string',
+        'payyo_key' => 'string',
         'conditions_url' => 'string',
         'bookings_comission_cash' => 'decimal:2',
         'bookings_comission_boukii_pay' => 'decimal:2',
@@ -401,6 +428,9 @@ class School extends Model
         'cancellation_insurance_percent' => 'nullable',
         'payrexx_instance' => 'nullable',
         'payrexx_key' => 'nullable',
+        'payment_provider' => 'nullable',
+        'payyo_instance' => 'nullable',
+        'payyo_key' => 'nullable',
         'conditions_url' => 'nullable',
         'bookings_comission_cash' => 'nullable',
         'bookings_comission_boukii_pay' => 'nullable',
@@ -578,6 +608,59 @@ class School extends Model
             }
         }
 
+
+        return $decrypted;
+    }
+
+    /**
+     * Payyo
+     */
+
+    // Store payyo credentials encrypted
+    public function setPayyoInstance($value)
+    {
+        $this->payyo_instance = encrypt($value);
+    }
+
+    public function getPayyoInstance()
+    {
+        $decrypted = null;
+
+        if ($this->payyo_instance)
+        {
+            try
+            {
+                $decrypted = decrypt($this->payyo_instance);
+            }
+            catch (\Illuminate\Contracts\Encryption\DecryptException $e)
+            {
+                $decrypted = null;
+            }
+        }
+
+        return $decrypted;
+    }
+
+    public function setPayyoKey($value)
+    {
+        $this->payyo_key = encrypt($value);
+    }
+
+    public function getPayyoKey()
+    {
+        $decrypted = null;
+
+        if ($this->payyo_key)
+        {
+            try
+            {
+                $decrypted = decrypt($this->payyo_key);
+            }
+            catch (\Illuminate\Contracts\Encryption\DecryptException $e)
+            {
+                $decrypted = null;
+            }
+        }
 
         return $decrypted;
     }
