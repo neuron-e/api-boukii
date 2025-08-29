@@ -127,14 +127,14 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
     }
 
     .btn-danger {
-      background-color: var(--color-error);
-      color: var(--color-text-inverse);
-      border-color: var(--color-error);
+      background-color: var(--color-error-500);
+      color: var(--color-text-inverse, #0f172a);
+      border-color: var(--color-error-500);
     }
 
     .btn-danger:hover:not(:disabled) {
-      background-color: var(--color-error-700);
-      border-color: var(--color-error-700);
+      background-color: color-mix(in srgb, var(--color-error-500) 85%, black);
+      border-color: color-mix(in srgb, var(--color-error-500) 85%, black);
     }
 
     .spinner {

@@ -1,7 +1,5 @@
 /* Main Styles Entry Point */
-
-/* Import design tokens */
-@import './tokens.css';
+/* Tokens are imported from src/styles.scss; avoid duplicate import here */
 
 /* Global base styles */
 *,

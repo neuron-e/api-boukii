@@ -73,14 +73,14 @@ export type TextFieldType = 'text' | 'email' | 'password' | 'tel' | 'url' | 'sea
     .field-label {
       font-size: 14px;
       font-weight: 500;
-      color: var(--text-1);
+      color: var(--color-text-primary);
       display: flex;
       align-items: center;
       gap: 4px;
     }
 
     .required-indicator {
-      color: var(--danger);
+      color: var(--color-error-600, #dc2626);
       font-weight: 700;
     }
 
@@ -93,10 +93,10 @@ export type TextFieldType = 'text' | 'email' | 'password' | 'tel' | 'url' | 'sea
     .input-field {
       width: 100%;
       padding: 12px 16px;
-      border: 1px solid var(--border);
+      border: 1px solid var(--color-border);
       border-radius: 8px;
-      background-color: var(--surface);
-      color: var(--text-1);
+      background-color: var(--color-surface);
+      color: var(--color-text-primary);
       font-family: inherit;
       font-size: 16px;
       transition: all 0.2s ease;
@@ -104,31 +104,31 @@ export type TextFieldType = 'text' | 'email' | 'password' | 'tel' | 'url' | 'sea
     }
 
     .input-field::placeholder {
-      color: var(--muted);
+      color: var(--color-text-tertiary);
     }
 
     .input-field:focus {
-      border-color: var(--brand-500);
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      border-color: var(--color-primary-focus);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
     }
 
     .input-field:disabled {
-      background-color: var(--surface-2);
-      color: var(--muted);
+      background-color: var(--color-surface-elevated);
+      color: var(--color-text-tertiary);
       cursor: not-allowed;
     }
 
     .input-field:readonly {
-      background-color: var(--surface-2);
+      background-color: var(--color-surface-elevated);
     }
 
     .field-error .input-field {
-      border-color: var(--danger);
+      border-color: var(--color-error-600, #dc2626);
     }
 
     .field-error .input-field:focus {
-      border-color: var(--danger);
-      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+      border-color: var(--color-error-600, #dc2626);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-error-500) 15%, transparent);
     }
 
     .input-suffix {
@@ -136,7 +136,7 @@ export type TextFieldType = 'text' | 'email' | 'password' | 'tel' | 'url' | 'sea
       right: 12px;
       display: flex;
       align-items: center;
-      color: var(--muted);
+      color: var(--color-text-tertiary);
     }
 
     .field-message {
@@ -145,11 +145,11 @@ export type TextFieldType = 'text' | 'email' | 'password' | 'tel' | 'url' | 'sea
     }
 
     .error-message {
-      color: var(--danger);
+      color: var(--color-error-600, #dc2626);
     }
 
     .hint-message {
-      color: var(--muted);
+      color: var(--color-text-tertiary);
     }
   `]
 })

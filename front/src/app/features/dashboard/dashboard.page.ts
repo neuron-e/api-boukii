@@ -36,42 +36,96 @@ export class DashboardPageComponent implements OnInit {
   activities = signal<Activity[]>([]);
   quickLinks = signal<QuickLink[]>([]);
   weather = signal<{ temp: string; condition: string } | null>(null);
+  userName = signal<string>('Carlos');
 
   loadingMetrics = signal(true);
   loadingActivities = signal(true);
 
-  reservationsData: ChartData<'line'> = {
+  // Sales by Channel Chart
+  salesChannelData: ChartData<'line'> = {
+    labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul'],
+    datasets: [
+      {
+        data: [40, 42, 35, 45, 38, 48, 50],
+        label: 'Objetivo',
+        borderColor: '#ef4444',
+        backgroundColor: 'transparent',
+        tension: 0.4,
+        borderDash: [5, 5],
+        pointRadius: 4,
+        pointBackgroundColor: '#ef4444',
+      },
+      {
+        data: [20, 25, 22, 28, 26, 32, 30],
+        label: 'Ventas Admin',
+        borderColor: '#8b5cf6',
+        backgroundColor: 'rgba(139,92,246,0.1)',
+        tension: 0.4,
+        fill: true,
+        pointRadius: 4,
+        pointBackgroundColor: '#8b5cf6',
+      },
+      {
+        data: [15, 18, 20, 22, 25, 28, 32],
+        label: 'Ventas Online',
+        borderColor: '#06b6d4',
+        backgroundColor: 'rgba(6,182,212,0.1)',
+        tension: 0.4,
+        fill: true,
+        pointRadius: 4,
+        pointBackgroundColor: '#06b6d4',
+      },
+    ],
+  };
+
+  salesChannelOptions: ChartOptions<'line'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false,
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        max: 8,
+        ticks: {
+          callback: function(value) {
+            return '€' + value + 'k';
+          }
+        }
+      }
+    }
+  };
+
+  // Daily Sessions Chart
+  dailySessionsData: ChartData<'bar'> = {
     labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
     datasets: [
       {
-        data: [10, 12, 8, 14, 9, 6, 4],
-        label: 'Reservas',
-        borderColor: '#2563eb',
-        backgroundColor: 'rgba(37,99,235,0.3)',
-        tension: 0.4,
-        fill: true,
+        data: [20, 45, 55, 65, 85, 100, 75],
+        backgroundColor: ['#06b6d4', '#06b6d4', '#06b6d4', '#06b6d4', '#06b6d4', '#06b6d4', '#06b6d4'],
+        borderRadius: 6,
+        maxBarThickness: 24,
       },
     ],
   };
 
-  reservationsOptions: ChartOptions<'line'> = {
+  dailySessionsOptions: ChartOptions<'bar'> = {
     responsive: true,
     maintainAspectRatio: false,
-  };
-
-  courseDistributionData: ChartData<'doughnut'> = {
-    labels: ['Esquí', 'Snowboard', 'Infantil'],
-    datasets: [
-      {
-        data: [45, 30, 25],
-        backgroundColor: ['#3b82f6', '#2563eb', '#93c5fd'],
+    plugins: {
+      legend: {
+        display: false,
       },
-    ],
-  };
-
-  courseDistributionOptions: ChartOptions<'doughnut'> = {
-    responsive: true,
-    maintainAspectRatio: false,
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        max: 100,
+      }
+    }
   };
 
   ngOnInit(): void {
@@ -120,6 +174,9 @@ export class DashboardPageComponent implements OnInit {
     ]);
 
     this.weather.set({ temp: '2°C', condition: 'Nublado' });
+    
+    // Set user name - in real app this would come from auth service
+    this.userName.set('Carlos');
   }
 
   trackMetric(index: number, item: Metric) {

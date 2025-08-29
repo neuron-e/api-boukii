@@ -1,228 +1,43 @@
 /* =============================================
-   BOUKII V5 - DESIGN SYSTEM
-   Sistema de tokens CSS con temas light/dark
+   Boukii V5 Global Styles
+   Unificación de tokens y componentes base
    ============================================= */
-@custom-variant dark (&:is(.dark *));
 
-@import "./styles/utilities.css";
-/* DESIGN TOKENS */
-:root {
-  /* Layout Dimensions - Exact Requirements */
-  --navbar-h: 56px;
-  --sidebar-w: 264px;
-  --sidebar-w-collapsed: 72px;
-  --container-max: 1200px;
-  --container-px: 24px;
-  --z-navbar: 100;
-  --z-overlay: 1000;
-}
+/* Fuente única de verdad: tokens y utilidades */
+@import "./styles/tokens.css";
+@import "./styles/index.scss"; /* reset y tipografía base */
+@import "./styles/utilities.css"; /* utilidades atómicas */
 
-:root {
-  /* Background & Surfaces */
-  --bg: #f6f7f9;
-  --surface: #ffffff;
-  --surface-2: #f2f3f5;
-  --background: var(--bg);
-  --foreground: var(--text-1);
+/* Standard Design System Components */
+@import "./styles/components/index.css"; /* componentes estandarizados */
 
-  /* Borders & Shadows */
-  --border: #e6e8ee;
+/* Componentes básicos estandarizados */
 
-  /* Text Colors */
-  --text-1: #0f172a;
-  --text-2: #334155;
-  --muted: #64748b;
-
-  /* Brand Colors */
-  --brand-500: #4f46e5;
-  --brand-600: #4338ca;
-
-  /* State Colors */
-  --blue: #3b82f6;
-  --yellow: #fbbf24;
-  --red: #ef4444;
-  --green: #10b981;
-
-  /* Active States */
-  --active: rgba(79, 70, 229, 0.1);
-  --active-contrast: #0f172a;
-
-  /* Shadows */
-  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.06);
-  --elev-2: 0 4px 12px rgba(0, 0, 0, 0.1);
-  --elev-3: 0 8px 24px rgba(0, 0, 0, 0.14);
-
-  /* Border Radius */
-  --radius-8: 8px;
-  --radius-12: 12px;
-  --radius-full: 999px;
-
-  /* Spacing */
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-6: 1.5rem;
-
-  /* Typography */
-  --fs-12: 12px;
-  --fs-14: 14px;
-  --fs-16: 16px;
-  --fs-18: 18px;
-  --fs-24: 24px;
-  --fs-28: 28px;
-  --font-size: var(--fs-14);
-  --font-weight-medium: 500;
-  --font-weight-semibold: 600;
-  --font-weight-bold: 700;
-
-  /* Legacy color tokens (for merged styles) */
-  --color-background: var(--bg);
-  --color-surface: var(--surface);
-  --color-surface-elevated: var(--surface-2);
-  --color-border: var(--border);
-  --color-border-subtle: var(--border);
-  --color-primary: var(--blue);
-  --color-info: var(--blue);
-  --color-success: var(--green);
-  --color-warning: var(--yellow);
-  --color-error: var(--red);
-  --color-text-primary: var(--text-1);
-  --color-text-secondary: var(--text-2);
-  --color-text-tertiary: var(--muted);
-}
-
-.dark {
-  /* Background & Surfaces */
-  --bg: #0b1220;
-  --surface: #0e1626;
-  --surface-2: #121c2f;
-  --background: var(--bg);
-  --foreground: var(--text-1);
-
-  /* Borders */
-  --border: #1f2a44;
-
-  /* Text Colors */
-  --text-1: #e7ecf5;
-  --text-2: #a3b1c7;
-  --muted: #8a99b2;
-
-  /* Brand Colors */
-  --brand-500: #7c88ff;
-  --brand-600: #6270ff;
-
-  /* State Colors */
-  --blue: #7cb3ff;
-  --yellow: #f6c453;
-  --red: #ff7070;
-  --green: #34d399;
-
-  /* Active States */
-  --active: rgba(124, 136, 255, 0.12);
-  --active-contrast: #e7ecf5;
-
-  /* Shadows */
-  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --elev-2: 0 6px 18px rgba(0, 0, 0, 0.55);
-  --elev-3: 0 8px 24px rgba(0, 0, 0, 0.7);
-}
-
-/* Base */
-@layer base {
-  html {
-    font-size: var(--font-size);
-  }
-
-  body {
-    margin: 0;
-    font-family: 'Inter', sans-serif;
-    background: var(--background);
-    color: var(--foreground);
-  }
-
-  h1 {
-    font-weight: var(--font-weight-bold);
-    color: var(--foreground);
-  }
-
-  h2 {
-    font-weight: var(--font-weight-semibold);
-    color: var(--foreground);
-  }
-
-  h3 {
-    font-weight: var(--font-weight-semibold);
-    color: var(--foreground);
-  }
-
-  h4 {
-    font-weight: var(--font-weight-medium);
-    color: var(--foreground);
-  }
-
-  p {
-    font-weight: var(--font-weight-medium);
-    color: var(--foreground);
-  }
-
-  label,
-  button,
-  input {
-    font-weight: var(--font-weight-medium);
-    color: var(--foreground);
-  }
-}
-
-a {
-  color: var(--brand-600);
-  text-decoration: none;
-}
-
-*:focus-visible {
-  outline: 2px solid var(--brand-500);
-  outline-offset: 2px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  * {
-    transition: none !important;
-  }
-}
-
-/* Layout helpers */
+/* Contenedor de página */
 .page {
-  max-width: var(--container-max);
+  max-width: 1200px;
   margin: 0 auto;
-  padding: var(--container-px);
+  padding: 0 var(--content-inline);
 }
 
-.page-header {
-  margin-bottom: var(--space-4);
-}
+.page-header { margin-bottom: var(--space-4); }
+.page-header .subtitle { color: var(--color-text-secondary); margin-top: 0.25rem; }
 
-.page-header .subtitle {
-  color: var(--text-2);
-  margin-top: 0.25rem;
-}
-
-/* Cards */
+/* Card */
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-12);
-  box-shadow: var(--elev-1);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   padding: var(--space-4);
 }
+.card--tight { padding: 0.75rem 1rem; }
 
-.card--tight {
-  padding: 0.75rem 1rem;
-}
-
-/* Surface Utility */
+/* Surface */
 .surface {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-8);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
 }
 
 /* Chips */
@@ -231,59 +46,42 @@ a {
   align-items: center;
   gap: 0.4rem;
   padding: 0.2rem 0.55rem;
-  border-radius: var(--radius-full);
-  font-size: var(--fs-12);
+  border-radius: 999px;
+  font-size: var(--font-size-xs, 12px);
   font-weight: 600;
   line-height: 1;
 }
-
-.chip--blue {
-  background: color-mix(in srgb, var(--blue) 16%, transparent);
-  color: var(--blue);
-}
-
-.chip--green {
-  background: color-mix(in srgb, var(--green) 16%, transparent);
-  color: var(--green);
-}
-
-.chip--yellow {
-  background: color-mix(in srgb, var(--yellow) 22%, transparent);
-  color: #915e00;
-}
-
-.chip--red {
-  background: color-mix(in srgb, var(--red) 16%, transparent);
-  color: var(--red);
-}
+.chip--blue { background: color-mix(in srgb, var(--color-ski-blue) 16%, transparent); color: var(--color-ski-blue); }
+.chip--green { background: color-mix(in srgb, var(--color-ski-green) 16%, transparent); color: var(--color-ski-green); }
+.chip--yellow { background: color-mix(in srgb, var(--color-ski-yellow) 22%, transparent); color: #915e00; }
+.chip--red { background: color-mix(in srgb, var(--color-ski-red) 16%, transparent); color: var(--color-ski-red); }
 
 /* KPI */
-.kpi {
-  font-size: var(--fs-28);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
+.kpi { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
 
-/* Buttons */
+/* Botones */
 .btn {
   height: 36px;
   padding: 0 0.9rem;
   border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  transition: background-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
 }
-
 .btn--primary {
-  background: var(--brand-600);
-  color: #fff;
+  background: var(--button-primary-bg);
+  color: var(--button-primary-text);
   border-color: transparent;
 }
-
-.btn:focus-visible {
-  outline: 2px solid var(--brand-400);
+.btn--secondary {
+  background: var(--button-secondary-bg);
+  color: var(--button-secondary-text);
+  border-color: var(--color-border);
 }
+.btn:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
 
-/* Accessibility */
+/* Accesibilidad */
 .visually-hidden {
   position: absolute !important;
   width: 1px !important;
@@ -296,106 +94,17 @@ a {
   border: 0 !important;
 }
 
-/* Typography Utilities */
-.text-1 {
-  color: var(--text-1);
-}
-.text-2 {
-  color: var(--text-2);
-}
-.text-3 {
-  color: var(--text-3);
-}
-.text-muted {
-  color: var(--muted);
-}
+/* Utilidades de tipografía y spacing mínimos para compatibilidad */
+.text-1 { color: var(--color-text-primary); }
+.text-2 { color: var(--color-text-secondary); }
+.text-muted { color: var(--color-text-tertiary); }
 
-.fs-12 {
-  font-size: var(--fs-12);
-}
-.fs-14 {
-  font-size: var(--fs-14);
-}
-.fs-16 {
-  font-size: var(--fs-16);
-}
-.fs-20 {
-  font-size: var(--fs-20);
-}
+.gap-2 { gap: var(--space-2); }
+.gap-3 { gap: var(--space-3); }
+.gap-4 { gap: var(--space-4); }
+.gap-6 { gap: var(--space-6); }
 
-.fw-normal {
-  font-weight: var(--fw-normal);
-}
-.fw-medium {
-  font-weight: var(--fw-medium);
-}
-.fw-semibold {
-  font-weight: var(--fw-semibold);
-}
-.fw-bold {
-  font-weight: var(--fw-bold);
-}
-
-/* Layout Utilities */
-.container {
-  width: 100%;
-  max-width: var(--container-max);
-  margin: 0 auto;
-  padding: 0 var(--space-4);
-}
-
-.flex {
-  display: flex;
-}
-
-.flex-col {
-  display: flex;
-  flex-direction: column;
-}
-
-.items-center {
-  align-items: center;
-}
-
-.justify-between {
-  justify-content: space-between;
-}
-
-.gap-2 {
-  gap: var(--space-2);
-}
-.gap-3 {
-  gap: var(--space-3);
-}
-.gap-4 {
-  gap: var(--space-4);
-}
-.gap-6 {
-  gap: var(--space-6);
-}
-
-/* Spacing Utilities */
-.p-4 {
-  padding: var(--space-4);
-}
-.p-6 {
-  padding: var(--space-6);
-}
-.px-4 {
-  padding-left: var(--space-4);
-  padding-right: var(--space-4);
-}
-.py-4 {
-  padding-top: var(--space-4);
-  padding-bottom: var(--space-4);
-}
-
-.m-0 {
-  margin: 0;
-}
-.mb-6 {
-  margin-bottom: var(--space-6);
-}
+.mb-6 { margin-bottom: var(--space-6); }
 
 /* Transitions */
 .transition {

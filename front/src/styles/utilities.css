@@ -1,44 +1,73 @@
-/* Utility classes for ski palette and accent styling */
-:root {
-  --ski-accent: var(--color-ski-blue);
-  --ski-accent-hover: color-mix(in srgb, var(--color-ski-blue) 90%, var(--color-background));
-  --ski-accent-light: color-mix(in srgb, var(--color-ski-blue) 15%, var(--color-background));
-}
+/* Utility Classes - Boukii V5 Design System */
+/* CSS utility classes for using design tokens efficiently */
 
-.ski-primary {
-  color: var(--color-ski-blue);
-}
+/* Background colors */
+.bg-ski-primary { background-color: var(--ski-primary); }
+.bg-ski-secondary { background-color: var(--ski-secondary); }
+.bg-ski-accent { background-color: var(--ski-accent); }
+.bg-ski-accent-light { background-color: var(--ski-accent-light); }
+.bg-ski-success { background-color: var(--ski-success); }
+.bg-ski-warning { background-color: var(--ski-warning); }
+.bg-ski-error { background-color: var(--ski-error); }
+.bg-ski-light-gray { background-color: var(--ski-light-gray); }
+.bg-ski-medium-gray { background-color: var(--ski-medium-gray); }
 
-.ski-secondary {
-  color: var(--color-ski-green);
-}
+/* Text colors */
+.text-ski-primary { color: var(--ski-primary); }
+.text-ski-secondary { color: var(--ski-secondary); }
+.text-ski-accent { color: var(--ski-accent); }
+.text-ski-success { color: var(--ski-success); }
+.text-ski-warning { color: var(--ski-warning); }
+.text-ski-error { color: var(--ski-error); }
+.text-ski-dark-gray { color: var(--ski-dark-gray); }
 
-.ski-accent {
-  color: var(--ski-accent);
-}
+/* Border colors */
+.border-ski-primary { border-color: var(--ski-primary); }
+.border-ski-accent { border-color: var(--ski-accent); }
+.border-ski-success { border-color: var(--ski-success); }
+.border-ski-warning { border-color: var(--ski-warning); }
+.border-ski-error { border-color: var(--ski-error); }
 
-.btn-accent {
+/* Hover states */
+.hover\:bg-ski-accent:hover { background-color: var(--ski-accent); }
+.hover\:bg-ski-accent-hover:hover { background-color: var(--ski-accent-hover); }
+.hover\:text-ski-accent:hover { color: var(--ski-accent); }
+.hover\:border-ski-accent:hover { border-color: var(--ski-accent); }
+
+/* Gradients */
+.gradient-ski { background: linear-gradient(to right, var(--ski-primary), var(--ski-accent)); }
+.gradient-ski-vertical { background: linear-gradient(to bottom, var(--ski-primary), var(--ski-accent)); }
+
+/* Button utilities */
+.btn-ski-accent {
   background-color: var(--ski-accent);
-  color: var(--color-background);
-  border: 1px solid var(--ski-accent);
-}
-.btn-accent:hover {
-  background-color: var(--ski-accent-hover);
+  color: white;
+  border-color: var(--ski-accent);
 }
 
-.btn-accent-outline {
+.btn-ski-accent:hover {
+  background-color: var(--ski-accent-hover);
+  border-color: var(--ski-accent-hover);
+}
+
+.btn-ski-outline {
   background-color: transparent;
   color: var(--ski-accent);
-  border: 1px solid var(--ski-accent);
-}
-.btn-accent-outline:hover {
-  background-color: var(--ski-accent-light);
+  border-color: var(--ski-accent);
 }
 
-.icon-active {
-  color: var(--ski-accent);
+.btn-ski-outline:hover {
+  background-color: var(--ski-accent);
+  color: white;
 }
 
+/* Legacy support - maintain existing class names */
+.ski-primary { color: var(--ski-primary); }
+.ski-secondary { color: var(--ski-secondary); }
+.ski-accent { color: var(--ski-accent); }
+.btn-accent { @extend .btn-ski-accent; }
+.btn-accent-outline { @extend .btn-ski-outline; }
+.icon-active { color: var(--ski-accent); }
 .link-accent {
   color: var(--ski-accent);
   text-decoration: none;
@@ -47,3 +76,14 @@
   color: var(--ski-accent-hover);
   text-decoration: underline;
 }
+
+/* Opacity variants */
+.bg-ski-accent\/10 { background-color: color-mix(in srgb, var(--ski-accent) 10%, transparent); }
+.bg-ski-accent\/20 { background-color: color-mix(in srgb, var(--ski-accent) 20%, transparent); }
+.bg-ski-accent\/30 { background-color: color-mix(in srgb, var(--ski-accent) 30%, transparent); }
+.text-ski-accent\/80 { color: color-mix(in srgb, var(--ski-accent) 80%, transparent); }
+.border-ski-accent\/50 { border-color: color-mix(in srgb, var(--ski-accent) 50%, transparent); }
+
+/* Shadow utilities with accent color */
+.shadow-ski-accent { box-shadow: 0 1px 3px 0 color-mix(in srgb, var(--ski-accent) 20%, transparent); }
+.shadow-ski-accent-lg { box-shadow: 0 10px 15px -3px color-mix(in srgb, var(--ski-accent) 20%, transparent); }

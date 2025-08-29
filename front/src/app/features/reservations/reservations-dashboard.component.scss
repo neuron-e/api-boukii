@@ -1,40 +1,363 @@
+// Professional Reservations Management Styles - Boukii Design System
+.reservations-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  font-family: var(--font-family-sans);
+}
+
+// Header
 .page-header {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-8) var(--space-10);
+  margin-bottom: var(--space-8);
+  box-shadow: var(--shadow-navbar);
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
+  align-items: flex-start;
 
-  .subtitle {
-    color: var(--text-3);
+  .header-content {
+    flex: 1;
+
+    .page-title {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      font-size: var(--font-size-4xl);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      margin: 0 0 var(--space-2) 0;
+
+      .title-icon {
+        color: var(--color-primary);
+        width: 32px;
+        height: 32px;
+      }
+    }
+
+    .page-subtitle {
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-lg);
+      margin: 0;
+      font-weight: var(--font-weight-normal);
+    }
   }
 
-  .actions button + button {
-    margin-left: 0.5rem;
+  .header-actions {
+    display: flex;
+    gap: var(--space-4);
+    flex-wrap: wrap;
   }
 }
 
-.stats {
+.action-btn {
   display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-lg);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  transition: all var(--duration-normal) var(--ease-out);
+  border: none;
+  cursor: pointer;
 
-  .stat {
-    background: var(--surface-2);
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    text-align: center;
+  &--primary {
+    background: var(--gradient-primary);
+    color: var(--color-text-on-primary);
+    box-shadow: var(--shadow-turquoise);
+
+    &:hover {
+      box-shadow: var(--shadow-card-hover);
+      transform: translateY(-1px);
+    }
+  }
+
+  &--secondary {
+    background: var(--button-secondary-bg);
+    color: var(--button-secondary-text);
+    border: 1px solid var(--color-border);
+
+    &:hover {
+      background: var(--button-secondary-hover);
+      border-color: var(--color-border-strong);
+      transform: translateY(-1px);
+    }
+  }
+}
+
+// Statistics Panel
+.stats-section {
+  padding: 0 var(--space-10);
+  margin-bottom: var(--space-8);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-6);
+}
+
+.stat-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  transition: all var(--duration-normal) var(--ease-out);
+
+  &:hover {
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-1px);
+  }
+
+  .stat-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-2xl);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .stat-info {
     flex: 1;
   }
-}
 
-.filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  .stat-value {
+    font-size: var(--font-size-4xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    line-height: var(--line-height-none);
+    margin-bottom: var(--space-1);
+  }
 
-  mat-form-field {
-    width: 200px;
+  .stat-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-medium);
+  }
+
+  &.today {
+    .stat-icon {
+      background: var(--gradient-primary);
+      color: var(--color-text-on-primary);
+    }
+  }
+
+  &.pending {
+    .stat-icon {
+      background: linear-gradient(135deg, var(--color-warning-500), var(--color-warning-600));
+      color: var(--color-text-on-primary);
+    }
+  }
+
+  &.cancelled {
+    .stat-icon {
+      background: linear-gradient(135deg, var(--color-error-500), var(--color-error-600));
+      color: var(--color-text-on-primary);
+    }
+  }
+
+  &.income {
+    .stat-icon {
+      background: linear-gradient(135deg, var(--color-success-500), var(--color-success-600));
+      color: var(--color-text-on-primary);
+    }
   }
 }
 
+// Filters
+.filters-section {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0 var(--space-10);
+  margin-bottom: var(--space-8);
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+
+.search-box {
+  position: relative;
+  flex: 1;
+  max-width: 400px;
+
+  .search-icon {
+    position: absolute;
+    left: var(--space-4);
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--input-placeholder);
+    pointer-events: none;
+  }
+
+  .search-input {
+    width: 100%;
+    padding: var(--space-3) var(--space-4) var(--space-3) var(--space-12);
+    border: 1px solid var(--input-border);
+    border-radius: var(--radius-lg);
+    font-size: var(--font-size-base);
+    background: var(--input-background);
+    transition: all var(--duration-normal) var(--ease-out);
+
+    &:focus {
+      outline: none;
+      border-color: var(--input-border-focus);
+      box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.1);
+    }
+
+    &::placeholder {
+      color: var(--input-placeholder);
+    }
+  }
+}
+
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.date-range-filters {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.filter-input,
+.filter-select {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-lg);
+  background: var(--input-background);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+
+  &:focus {
+    outline: none;
+    border-color: var(--input-border-focus);
+    box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.1);
+  }
+}
+
+.view-toggle {
+  display: flex;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.toggle-btn {
+  padding: var(--space-2);
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    background: var(--color-surface-elevated);
+  }
+
+  &.active {
+    background: var(--color-primary);
+    color: var(--color-text-on-primary);
+  }
+}
+
+// Content Section
+.content-section {
+  padding: 0 var(--space-10) var(--space-10);
+}
+
+// Responsive Design
+@media (max-width: 768px) {
+  .reservations-page {
+    .page-header {
+      flex-direction: column;
+      align-items: stretch;
+      gap: var(--space-6);
+
+      .header-actions {
+        justify-content: flex-start;
+      }
+    }
+
+    .filters-section {
+      flex-direction: column;
+      align-items: stretch;
+      gap: var(--space-4);
+
+      .search-box {
+        max-width: none;
+      }
+
+      .filter-controls {
+        flex-wrap: wrap;
+        gap: var(--space-3);
+      }
+    }
+
+    .stats-grid {
+      grid-template-columns: 1fr;
+      gap: var(--space-4);
+    }
+
+    .stat-card {
+      padding: var(--space-5);
+
+      .stat-value {
+        font-size: var(--font-size-3xl);
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .reservations-page {
+    .page-header {
+      padding: var(--space-6);
+
+      .page-title {
+        font-size: var(--font-size-3xl);
+
+        .title-icon {
+          width: 28px;
+          height: 28px;
+        }
+      }
+
+      .page-subtitle {
+        font-size: var(--font-size-base);
+      }
+
+      .action-btn {
+        padding: var(--space-2) var(--space-4);
+        font-size: var(--font-size-sm);
+      }
+    }
+
+    .stats-section,
+    .filters-section,
+    .content-section {
+      padding-left: var(--space-6);
+      padding-right: var(--space-6);
+    }
+
+    .date-range-filters {
+      flex-direction: column;
+      align-items: stretch;
+      gap: var(--space-2);
+    }
+  }
+}

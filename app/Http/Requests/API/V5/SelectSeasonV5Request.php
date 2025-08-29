@@ -35,8 +35,9 @@ class SelectSeasonV5Request extends FormRequest
         ]);
 
         return [
+            // school_id pasa a opcional: se obtiene del token cuando es posible
             'school_id' => [
-                'required',
+                'sometimes',
                 'integer',
                 'exists:schools,id'
             ],
@@ -93,6 +94,7 @@ class SelectSeasonV5Request extends FormRequest
         return [
             'season_id.required' => 'Please select a season.',
             'season_id.exists' => 'The selected season is invalid or not active.',
+            'school_id.exists' => 'The selected school is invalid.',
             'new_season_data.name.required_if' => 'Season name is required when creating a new season.',
             'new_season_data.start_date.required_if' => 'Start date is required when creating a new season.',
             'new_season_data.end_date.required_if' => 'End date is required when creating a new season.',

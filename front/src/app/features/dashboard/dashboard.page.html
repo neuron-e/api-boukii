@@ -1,86 +1,318 @@
 <div class="dashboard-page" data-cy="dashboard">
+  <!-- Header with blue gradient background -->
   <header class="dashboard-header">
     <div class="header-content">
-      <i class="i-chart-bar header-icon" aria-hidden="true"></i>
-      <div class="header-text">
-        <h1>Panel de Control</h1>
-        <p>Resumen general de la escuela</p>
+      <div class="header-left">
+        <div class="header-title-section">
+          <h1>¡Bienvenido de vuelta, {{ userName() }}! <span class="wave">⛷️</span></h1>
+          <p class="header-subtitle">Tienes 8 nuevas reservas hoy y 3 cursos programados para esta semana. El rendimiento de tu escuela ha mejorado un 15% este mes.</p>
+        </div>
+        <div class="header-actions-line">
+          <div class="header-buttons">
+            <button class="header-action-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+              Ver Reservas
+            </button>
+            <button class="header-action-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+              </svg>
+              Crear Curso
+            </button>
+            <button class="header-action-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+              Gestionar Clientes
+            </button>
+          </div>
+        </div>
+        <div class="status-section">
+          <div class="status-indicators">
+            <div class="status-item">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              <span>6 monitores activos</span>
+            </div>
+            <div class="status-item">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 6v6l4 2"></path>
+              </svg>
+              <span>4 disponibles</span>
+            </div>
+            <div class="status-item">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 9V5a3 3 0 0 0-6 0v4"></path>
+                <rect x="2" y="9" width="20" height="12" rx="2" ry="2"></rect>
+              </svg>
+              <span>32h disponibles</span>
+            </div>
+          </div>
+        </div>
       </div>
+      <div class="header-right">
+        <div class="weather-info">
+          <div class="weather-details">
+            <span class="weather-temp">2°C</span>
+            <span class="weather-desc">Nublado</span>
+          </div>
+        </div>
+        <div class="header-date">
+          <span class="date-text">Hoy, 23 Jul</span>
+        </div>
+      </div>
+    </div>
+    <!-- Weather conditions -->
+    <div class="weather-section">
+      <h3 class="weather-title">Condiciones Meteorológicas</h3>
+      <div class="weather-grid">
+      <div class="weather-card">
+        <svg class="weather-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/>
+          <line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <div class="weather-content">
+          <span class="weather-label">Temperatura</span>
+          <span class="weather-value">-8°C</span>
+          <span class="weather-desc">Soleado</span>
+        </div>
+      </div>
+      <div class="weather-card">
+        <svg class="weather-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17.7 7.7a2.5 2.5 0 1 1-1.8 4.3c0 0-2.7-.9-4.9 1.9"/>
+          <path d="M12 18v3"/>
+          <path d="M4.9 12a2.5 2.5 0 0 1 4.3-1.8c0 0 .9 2.7-1.9 4.9"/>
+          <path d="M12 2v3"/>
+          <path d="M6.8 15.7c-.7-.7-1.6-1.2-2.5-1.2a2.5 2.5 0 1 0 0 5c.9 0 1.8-.5 2.5-1.2"/>
+        </svg>
+        <div class="weather-content">
+          <span class="weather-label">Viento</span>
+          <span class="weather-value">15 km/h</span>
+          <span class="weather-desc">Suave</span>
+        </div>
+      </div>
+      <div class="weather-card">
+        <svg class="weather-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+        <div class="weather-content">
+          <span class="weather-label">Visibilidad</span>
+          <span class="weather-value">8 km</span>
+          <span class="weather-desc">Excelente</span>
+        </div>
+      </div>
+      <div class="weather-card">
+        <svg class="weather-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/>
+          <line x1="8" y1="16" x2="8.01" y2="16"/>
+          <line x1="8" y1="20" x2="8.01" y2="20"/>
+          <line x1="12" y1="18" x2="12.01" y2="18"/>
+          <line x1="12" y1="22" x2="12.01" y2="22"/>
+          <line x1="16" y1="16" x2="16.01" y2="16"/>
+          <line x1="16" y1="20" x2="16.01" y2="20"/>
+        </svg>
+        <div class="weather-content">
+          <span class="weather-label">Nieve</span>
+          <span class="weather-value">45 cm</span>
+          <span class="weather-desc">Polvo fresco</span>
+        </div>
+      </div>
+    </div>
     </div>
   </header>
 
-  <section class="metrics">
-    @if (loadingMetrics()) {
-      <div class="metric-card">Cargando métricas...</div>
-    } @else if (!metrics().length) {
-      <div class="metric-card">Sin métricas</div>
-    } @else {
-      @for (m of metrics(); track trackMetric) {
-        <div class="metric-card">
-          <i class="{{ m.icon }} metric-icon" aria-hidden="true"></i>
-          <div class="metric-info">
-            <div class="metric-value">{{ m.value }}</div>
-            <div class="metric-label">{{ m.label }}</div>
-          </div>
+  <!-- Metrics Grid -->
+  <section class="metrics-grid">
+    <div class="metric-card private-courses">
+      <div class="metric-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+      </div>
+      <div class="metric-info">
+        <div class="metric-label">Cursos Privados</div>
+        <div class="metric-value">24</div>
+        <div class="metric-change">
+          <span class="change-value">+2%</span>
+          <span class="change-text">vs día anterior</span>
         </div>
-      }
-    }
-  </section>
-
-  <section class="charts">
-    <div class="chart-card">
-      <h2>Reservas por semana</h2>
-      <div class="chart-box">
-        <canvas baseChart [data]="reservationsData" [options]="reservationsOptions" type="line"></canvas>
       </div>
     </div>
-    <div class="chart-card">
-      <h2>Distribución por tipo de curso</h2>
-      <div class="chart-box">
-        <canvas baseChart [data]="courseDistributionData" [options]="courseDistributionOptions" type="doughnut"></canvas>
-      </div>
-    </div>
-  </section>
 
-  <section class="activity">
-    <h2>Actividad reciente</h2>
-    @if (loadingActivities()) {
-      <p>Cargando...</p>
-    } @else if (!activities().length) {
-      <p>No hay actividad reciente</p>
-    } @else {
-      @for (a of activities(); track trackActivity) {
-        <div class="activity-item">
-          <div class="activity-info">
-            <div class="activity-title">{{ a.title }}</div>
-            <div class="activity-desc">{{ a.description }}</div>
-            <div class="activity-time">{{ a.time }}</div>
-          </div>
-          <span class="activity-status {{ a.status }}">{{ a.status }}</span>
+    <div class="metric-card group-courses">
+      <div class="metric-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+        </svg>
+      </div>
+      <div class="metric-info">
+        <div class="metric-label">Cursos Colectivos</div>
+        <div class="metric-value">156</div>
+        <div class="metric-change">
+          <span class="change-value">+18%</span>
+          <span class="change-text">vs día anterior</span>
         </div>
-      }
-    }
-  </section>
+      </div>
+    </div>
 
-  <section class="quick-links">
-    <h2>Accesos rápidos</h2>
-    <div class="quick-links-grid">
-      @for (q of quickLinks(); track trackQuickLink) {
-        <a class="quick-link" [routerLink]="q.route">
-          <i class="{{ q.icon }} quick-link-icon" aria-hidden="true"></i>
-          <span>{{ q.label }}</span>
-        </a>
-      }
+    <div class="metric-card active-reservations">
+      <div class="metric-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+        </svg>
+      </div>
+      <div class="metric-info">
+        <div class="metric-label">Reservas Activas</div>
+        <div class="metric-value">89</div>
+        <div class="metric-change">
+          <span class="change-value">+23%</span>
+          <span class="change-text">vs día anterior</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="metric-card total-sales">
+      <div class="metric-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M7 15h2c0 1.08 1.37 2 3 2s3-.92 3-2c0-1.1-1.04-1.5-3.24-2.03C9.64 12.44 7 11.78 7 9c0-1.79 1.47-3.31 3.5-3.82V3h3v2.18C15.53 5.69 17 7.21 17 9h-2c0-1.08-1.37-2-3-2s-3 .92-3 2c0 1.1 1.04 1.5 3.24 2.03C14.36 11.56 17 12.22 17 15c0 1.79-1.47 3.31-3.5 3.82V21h-3v-2.18C8.47 18.31 7 16.79 7 15z"/>
+        </svg>
+      </div>
+      <div class="metric-info">
+        <div class="metric-label">Ventas Totales del Día</div>
+        <div class="metric-value">€2,340</div>
+        <div class="metric-change">
+          <span class="change-value">+10%</span>
+          <span class="change-text">vs día anterior</span>
+        </div>
+      </div>
     </div>
   </section>
 
-  @if (weather()) {
-    <section class="weather">
-      <i class="i-cloud" aria-hidden="true"></i>
-      <div class="weather-info">
-        <div class="weather-temp">{{ weather()!.temp }}</div>
-        <div class="weather-condition">{{ weather()!.condition }}</div>
+  <!-- Charts Section -->
+  <section class="charts-section">
+    <!-- Sales by Channel Chart -->
+    <div class="chart-card sales-chart">
+      <div class="chart-header">
+        <h3>Ventas por Canal</h3>
+        <div class="chart-period">
+          <span class="period-label">Últimos 7 meses</span>
+        </div>
       </div>
-    </section>
-  }
+      <div class="chart-box">
+        <canvas baseChart [data]="salesChannelData" [options]="salesChannelOptions" type="line"></canvas>
+      </div>
+      <div class="chart-legend">
+        <div class="legend-item">
+          <span class="legend-color objective"></span>
+          <span>Objetivo</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-color admin-sales"></span>
+          <span>Ventas Admin</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-color online-sales"></span>
+          <span>Ventas Online</span>
+        </div>
+      </div>
+      <div class="chart-totals">
+        <div class="total-item">
+          <span class="total-label">Total Admin</span>
+          <span class="total-value">€22,320</span>
+          <span class="total-change">+2% del total</span>
+        </div>
+        <div class="total-item">
+          <span class="total-label">Total Online</span>
+          <span class="total-value">€14,880</span>
+          <span class="total-change">+2% del total</span>
+        </div>
+        <div class="total-item">
+          <span class="total-label">Total Ventas</span>
+          <span class="total-value">€37,200</span>
+          <span class="total-change">+13% vs mes anterior</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Daily Sessions Chart -->
+    <div class="chart-card sessions-chart">
+      <div class="chart-header">
+        <h3>Sesiones Diarias</h3>
+        <div class="chart-period">
+          <span class="period-label">Esta semana</span>
+        </div>
+      </div>
+      <div class="chart-box">
+        <canvas baseChart [data]="dailySessionsData" [options]="dailySessionsOptions" type="bar"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- Today's Reservations -->
+  <section class="reservations-today">
+    <div class="section-header">
+      <h3>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+        Reservas de Hoy
+      </h3>
+      <div class="reservation-summary">
+        <span>2 confirmadas, 3 pendientes • 31 jul 2025</span>
+      </div>
+      <button class="complete-agenda-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+        Agenda Completa
+      </button>
+    </div>
+
+    <div class="reservations-table">
+      <div class="table-header">
+        <span>ID</span>
+        <span>Tipo</span>
+        <span>Curso</span>
+        <span>Cliente</span>
+        <span>Instructor</span>
+        <span>Hora</span>
+        <span>Estado</span>
+        <span>Precio</span>
+      </div>
+      <div class="table-row">
+        <span class="reservation-id">001</span>
+        <span class="reservation-type">Privado</span>
+        <span class="reservation-course">Esquí Básico</span>
+        <span class="reservation-client">Ana García</span>
+        <span class="reservation-instructor">Carlos M.</span>
+        <span class="reservation-time">10:00</span>
+        <span class="reservation-status confirmed">Confirmada</span>
+        <span class="reservation-price">€45</span>
+      </div>
+    </div>
+  </section>
 </div>

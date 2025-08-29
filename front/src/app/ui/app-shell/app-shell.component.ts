@@ -39,7 +39,7 @@ interface Notification {
   styleUrl: './app-shell.styles.scss',
   template: `
     <!-- Admin Shell - always shows full layout with header and sidebar -->
-    <div class="app-shell">
+    <div class="app-shell" [class.sidebar-collapsed]="ui.sidebarCollapsed()">
       <!-- NAVBAR -->
       <header class="app-navbar" role="banner">
         <!-- Search (flex:1) -->
@@ -288,7 +288,11 @@ interface Notification {
       <aside class="app-sidebar" [class.collapsed]="ui.sidebarCollapsed()" role="navigation" [attr.aria-label]="translationService.instant('nav.mainNavigation')">
         <!-- Sidebar Header -->
         <div class="sidebar-header">
-          <img class="logo" src="assets/logo.svg" alt="boukii" />
+          <div class="sidebar-logo">
+            <span class="logo-text">
+              bouk<span class="logo-accent">ii</span>
+            </span>
+          </div>
           <button
             class="collapse"
             type="button"
@@ -561,8 +565,17 @@ interface Notification {
             class="support-btn"
             [title]="ui.sidebarCollapsed() ? translationService.instant('support.support') : null"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 18l6-6-6-6"/>
+            <!-- Support/Settings icon to represent help when collapsed -->
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 1v2"></path>
+              <path d="M12 21v2"></path>
+              <path d="M4.22 4.22l1.42 1.42"></path>
+              <path d="M18.36 18.36l1.42 1.42"></path>
+              <path d="M1 12h2"></path>
+              <path d="M21 12h2"></path>
+              <path d="M4.22 19.78l1.42-1.42"></path>
+              <path d="M18.36 5.64l1.42-1.42"></path>
+              <circle cx="12" cy="12" r="3"></circle>
             </svg>
           </button>
         </div>

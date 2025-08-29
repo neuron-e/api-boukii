@@ -40,12 +40,16 @@ use Payrexx\Models\Response\Transaction as TransactionResponse;
 use Payrexx\Payrexx;
 
 Route::prefix('v5')
-    ->middleware(['api', 'throttle:api'])
+    ->middleware(['api', 'throttle:api', 'v5.logging'])
     ->group(function () {
         require base_path('routes/api_v5/auth.php');
         require base_path('routes/api_v5/schools.php');
         require base_path('routes/api_v5/seasons.php');
         require base_path('routes/api_v5/clients.php');
+        require base_path('routes/api_v5/courses.php');
+        require base_path('routes/api_v5/activities.php');
+        require base_path('routes/api_v5/renting.php');
+        require base_path('routes/api_v5/monitors.php');
         require base_path('routes/api_v5/logs.php');
         require base_path('routes/api_v5/me.php');
         require base_path('routes/api_v5/context.php');
@@ -1638,4 +1642,3 @@ Route::prefix('external')
 Route::prefix('system')
     ->group(base_path('routes/api/system.php'));
 /* SYSTEM */
-

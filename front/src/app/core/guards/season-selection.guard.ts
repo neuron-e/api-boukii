@@ -71,6 +71,8 @@ export const seasonSelectionGuard: CanActivateFn = () => {
         try {
           // Use the auth service to select the season
           const season = activeSeasons[0];
+          // Ensure AuthV5Service has the same school context as ContextService
+          await auth.setCurrentSchool(schoolId).toPromise();
           await auth.selectSeason(season.id).toPromise();
           
           // Update context

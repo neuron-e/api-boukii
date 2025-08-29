@@ -15,7 +15,7 @@ class ClientController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $schoolId = (int) $request->get('school_id');
+        $schoolId = (int) $request->get('context_school_id');
         $filters = $request->except(['page', 'limit', 'school_id']);
         $page = (int) $request->get('page', 1);
         $limit = (int) $request->get('limit', 20);
@@ -26,7 +26,7 @@ class ClientController extends Controller
 
     public function show(int $clientId, Request $request): JsonResponse
     {
-        $schoolId = (int) $request->get('school_id');
+        $schoolId = (int) $request->get('context_school_id');
         $client = $this->service->findClientById($clientId, $schoolId);
 
         return response()->json(['data' => $client->toArray()]);
@@ -34,7 +34,7 @@ class ClientController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $schoolId = (int) $request->get('school_id');
+        $schoolId = (int) $request->get('context_school_id');
         $client = $this->service->createClient($request->all(), $schoolId);
 
         return response()->json(['data' => $client->toArray()], 201);
@@ -42,7 +42,7 @@ class ClientController extends Controller
 
     public function update(int $clientId, Request $request): JsonResponse
     {
-        $schoolId = (int) $request->get('school_id');
+        $schoolId = (int) $request->get('context_school_id');
         $client = $this->service->updateClient($clientId, $request->all(), $schoolId);
 
         return response()->json(['data' => $client->toArray()]);
@@ -50,7 +50,7 @@ class ClientController extends Controller
 
     public function destroy(int $clientId, Request $request): JsonResponse
     {
-        $schoolId = (int) $request->get('school_id');
+        $schoolId = (int) $request->get('context_school_id');
         $deleted = $this->service->deleteClient($clientId, $schoolId);
 
         return response()->json(['deleted' => $deleted]);

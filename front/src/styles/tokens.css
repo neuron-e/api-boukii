@@ -1,100 +1,363 @@
-/* Design Tokens - Boukii V5 (simplified) */
+/* Design Tokens - Boukii V5 Design System */
+/* Based on Figma design system with comprehensive light/dark mode support */
+
+@custom-variant dark (&:is(.dark *));
+
 :root {
-  /* Base colors */
-  --background: #ffffff;
-  --foreground: #0f172a;
+  /* Base font size - coincide con Tailwind v4.1.3 */
+  --font-size: 14px;
+  
+  /* Spacing scale basado en Tailwind v4.1.3 - --spacing: .25rem */
+  --spacing: 0.25rem; /* 4px base unit */
+  --space-1: calc(var(--spacing) * 1);   /* 4px */
+  --space-2: calc(var(--spacing) * 2);   /* 8px */
+  --space-3: calc(var(--spacing) * 3);   /* 12px */
+  --space-4: calc(var(--spacing) * 4);   /* 16px */
+  --space-5: calc(var(--spacing) * 5);   /* 20px */
+  --space-6: calc(var(--spacing) * 6);   /* 24px */
+  --space-8: calc(var(--spacing) * 8);   /* 32px */
+  --space-10: calc(var(--spacing) * 10); /* 40px */
+  --space-12: calc(var(--spacing) * 12); /* 48px */
 
-  /* Brand and functional colors */
-  --primary: #3b82f6;
-  --primary-hover: #2563eb;
-  --primary-focus: #60a5fa;
+  /* Durations & easing */
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* Text colors */
-  --text-primary: #0f172a;
-  --text-secondary: #334155;
-  --text-tertiary: #64748b;
+  /* Layers */
+  --z-navbar: 100;
+  --z-dropdown: 110;
+  --z-overlay: 120;
 
-  /* Ski palette */
-  --ski-blue: #3b82f6;
-  --ski-green: #10b981;
-  --ski-yellow: #fbbf24;
-  --ski-red: #ef4444;
+  /* Layout dims - basado en imagen de referencia */
+  --navbar-h: 56px;
+  --sidebar-w: 264px;
+  --sidebar-w-collapsed: 72px;
+  --content-inline: calc(var(--spacing) * 6); /* 24px padding horizontal base para páginas */
 
-  /* Semantic aliases */
-  --success: var(--ski-green);
-  --warning: var(--ski-yellow);
-  --error: var(--ski-red);
+  /* Light mode - Core system colors */
+  --background: #f6f7f9;
+  --foreground: #1A1A1A;
+  --card: #ffffff;
+  --card-foreground: #1A1A1A;
+  --popover: #ffffff;
+  --popover-foreground: #1A1A1A;
+  --primary: #00B7F6;
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #1A1A1A;
+  --muted: #f5f5f5;
+  --muted-foreground: #7A7A7A;
+  --accent: #f9f9f9;
+  --accent-foreground: #1A1A1A;
+  --destructive: #FF6B6B;
+  --destructive-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: transparent;
+  --input-background: #f9f9f9;
+  --switch-background: #E5E5E5;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #00B7F6;
+  --chart-1: #00B7F6;
+  --chart-2: #1A1A1A;
+  --chart-3: #4ECDC4;
+  --chart-4: #444444;
+  --chart-5: #96CEB4;
+  --radius: 0.625rem;
+  --sidebar: #f8f9fa;
+  --sidebar-foreground: #1A1A1A;
+  --sidebar-primary: #1A1A1A;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f9f9f9;
+  --sidebar-accent-foreground: #1A1A1A;
+  --sidebar-border: #E5E5E5;
+  --sidebar-ring: #00B7F6;
+
+  /* Boukii Custom Colors - Light Mode */
+  --ski-primary: #1A1A1A;           /* Negro suave para títulos y estructura */
+  --ski-secondary: #444444;         /* Gris oscuro para elementos secundarios */
+  --ski-accent: #00B7F6;           /* Azul brillante para acciones y elementos activos */
+  --ski-accent-hover: #009dcf;     /* Azul más oscuro para hover */
+  --ski-accent-light: #e6f7ff;    /* Azul muy claro para fondos */
+  --ski-success: #4ECDC4;
+  --ski-warning: #FFD93D;
+  --ski-error: #FF6B6B;
+  --ski-info: #00B7F6;            /* Usar el mismo azul para info */
+  --ski-light-gray: #f8f9fa;
+  --ski-medium-gray: #e9ecef;
+  --ski-dark-gray: #6c757d;
+
+  /* Legacy aliases for backward compatibility */
+  --text-primary: var(--ski-primary);
+  --text-secondary: var(--ski-secondary);
+  --text-tertiary: var(--ski-dark-gray);
+  --ski-blue: var(--ski-accent);
+  --ski-green: var(--ski-success);
+  --ski-yellow: var(--ski-warning);
+  --ski-red: var(--ski-error);
+  --success: var(--ski-success);
+  --warning: var(--ski-warning);
+  --error: var(--ski-error);
 
   /* Radii */
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
 
-  /* Timing & easing */
-  --duration-normal: 200ms;
-  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  /* Shadows (light theme defaults) */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.03);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+  --shadow-base: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.08);
+  --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.08);
+  --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.08);
 
-  /* Typography */
-  --font-family-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Typography - basado en Tailwind v4.1.3 */
+  --font-family-sans: Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
+  --line-height-none: 1;
+  /* Aliases for component styles */
+  --text-xs: 0.75rem;      /* 12px */
+  --text-sm: 0.875rem;     /* 14px */
+  --text-base: var(--font-size-base); /* 16px */
+  --text-lg: var(--font-size-lg);     /* 18px */
+  --text-xl: var(--font-size-xl);     /* 20px */
+  --text-2xl: var(--font-size-2xl);   /* 24px */
+  --text-3xl: var(--font-size-3xl);   /* 30px */
+  --text-4xl: var(--font-size-4xl);   /* 36px */
   --line-height-normal: 1.5;
   --line-height-tight: 1.25;
+  --text-xs: 0.75rem;     /* 12px */
+  --text-sm: 0.875rem;    /* 14px */
+  --text-base: 1rem;      /* 16px */
+  --text-lg: 1.125rem;    /* 18px */
+  --text-xl: 1.25rem;     /* 20px */
+  --text-2xl: 1.5rem;     /* 24px */
+  --text-3xl: 1.875rem;   /* 30px */
+  --text-4xl: 2.25rem;    /* 36px */
   --font-size-base: 1rem;
   --font-size-lg: 1.125rem;
   --font-size-xl: 1.25rem;
   --font-size-2xl: 1.5rem;
   --font-size-3xl: 1.875rem;
   --font-size-4xl: 2.25rem;
+
+  /* Neutral palette (grays) */
+  --color-white: #ffffff;
+  --color-gray-50: #f8fafc;
+  --color-gray-100: #f1f5f9;
+  --color-gray-200: #e2e8f0;
+  --color-gray-300: #cbd5e1;
+  --color-gray-400: #94a3b8;
+  --color-gray-500: #64748b;
+  --color-gray-600: #475569;
+  --color-gray-700: #334155;
+  --color-gray-800: #1e293b;
+  --color-gray-900: #0f172a;
+
+  /* Primary scale (Boukii blue) */
+  --color-primary-50: #e6f7ff;
+  --color-primary-100: #cceeff;
+  --color-primary-200: #99ddff;
+  --color-primary-300: #66ccff;
+  --color-primary-400: #33c6fa;
+  --color-primary-500: #00b7f6; /* base */
+  --color-primary-600: #00a6e0;
+  --color-primary-700: #009dcf;
+  --color-primary-800: #007aa3;
+  --color-primary-900: #005f7d;
+
+  /* Status scales */
+  --color-success-500: #10b981;
+  --color-warning-500: #f59e0b;
+  --color-error-500: #ef4444;
+  --color-info-500: #00b7f6;
 }
 
-/* Dark theme variant */
 .dark {
-  --background: #0b1220;
-  --foreground: #e7ecf5;
+  /* Dark mode - Core system colors */
+  --background: #0A0A0A;
+  --foreground: #ffffff;
+  --card: #111111;
+  --card-foreground: #ffffff;
+  --popover: #111111;
+  --popover-foreground: #ffffff;
+  --primary: #00B7F6;
+  --primary-foreground: #ffffff;
+  --secondary: #1A1A1A;
+  --secondary-foreground: #ffffff;
+  --muted: #1A1A1A;
+  --muted-foreground: #A0A0A0;
+  --accent: #2A2A2A;
+  --accent-foreground: #ffffff;
+  --destructive: #FF7675;
+  --destructive-foreground: #ffffff;
+  --border: #2A2A2A;
+  --input: #2A2A2A;
+  --ring: #00B7F6;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: #00B7F6;
+  --chart-2: #ffffff;
+  --chart-3: #00CEC9;
+  --chart-4: #A0A0A0;
+  --chart-5: #55A3FF;
+  --sidebar: #111111;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #111111;
+  --sidebar-accent: #1A1A1A;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #2A2A2A;
+  --sidebar-ring: #00B7F6;
 
-  --primary: #7cb3ff;
-  --primary-hover: #6270ff;
-  --primary-focus: #7cb3ff;
+  /* Boukii Custom Colors - Dark Mode with proper contrast */
+  --ski-primary: #ffffff;
+  --ski-secondary: #A0A0A0;
+  --ski-accent: #00B7F6;
+  --ski-accent-hover: #0099e6;
+  --ski-accent-light: #1a2332;
+  --ski-success: #00CEC9;
+  --ski-warning: #FDCB6E;
+  --ski-error: #FF7675;
+  --ski-info: #00B7F6;
+  --ski-light-gray: #1A1A1A;
+  --ski-medium-gray: #2A2A2A;
+  --ski-dark-gray: #8c9196;
 
-  --text-primary: #e7ecf5;
-  --text-secondary: #a3b1c7;
-  --text-tertiary: #8a99b2;
-
-  --ski-blue: #7cb3ff;
-  --ski-green: #34d399;
-  --ski-yellow: #f6c453;
-  --ski-red: #ff7070;
-
-  --success: var(--ski-green);
-  --warning: var(--ski-yellow);
-  --error: var(--ski-red);
+  /* Legacy aliases - updated for dark mode */
+  --text-primary: var(--ski-primary);
+  --text-secondary: var(--ski-secondary);
+  --text-tertiary: var(--ski-dark-gray);
+  --ski-blue: var(--ski-accent);
+  --ski-green: var(--ski-success);
+  --ski-yellow: var(--ski-warning);
+  --ski-red: var(--ski-error);
+  --success: var(--ski-success);
+  --warning: var(--ski-warning);
+  --error: var(--ski-error);
 }
 
-/* Map variables to standardized prefixes */
-@theme inline {
+/* Canonical semantic tokens (always available) */
+:root {
+  /* Surfaces */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-
+  --color-surface: var(--card);
+  --color-surface-elevated: var(--popover);
+  --color-surface-secondary: var(--secondary);
+  --color-border: var(--border);
+  /* Content surfaces */
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  /* Border variants (fallbacks; theme files may override) */
+  --color-border-subtle: var(--color-gray-100);
+  --color-border-light: var(--color-gray-100);
+  --color-border-strong: var(--color-gray-300);
+  /* Brand */
   --color-primary: var(--primary);
-  --color-primary-hover: var(--primary-hover);
-  --color-primary-focus: var(--primary-focus);
-
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--color-primary-700);
+  --color-primary-focus: var(--color-primary-400);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  /* Muted/Accents */
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  /* Destructive */
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  /* Inputs */
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --input-border: var(--color-border);
+  --input-border-focus: var(--color-primary-500, var(--color-primary));
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  /* Sidebar */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  /* Typography aliases */
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-tertiary: var(--text-tertiary);
+  /* Brand aliases */
+  --color-ski-primary: var(--ski-primary);
+  --color-ski-secondary: var(--ski-secondary);
+  --color-ski-accent: var(--ski-accent);
+  --color-ski-accent-hover: var(--ski-accent-hover);
+  --color-ski-accent-light: var(--ski-accent-light);
+  --color-ski-success: var(--ski-success);
+  --color-ski-warning: var(--ski-warning);
+  --color-ski-error: var(--ski-error);
+  --color-ski-info: var(--ski-info);
+  --color-ski-light-gray: var(--ski-light-gray);
+  --color-ski-medium-gray: var(--ski-medium-gray);
+  --color-ski-dark-gray: var(--ski-dark-gray);
+  /* Controls */
+  --ctrl-h: 40px;
+  --ctrl-radius: 8px;
+  /* Text on primary */
+  --color-text-on-primary: #ffffff;
+  /* Radii aliases */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  /* Charts */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
 
-  --color-ski-blue: var(--ski-blue);
-  --color-ski-green: var(--ski-green);
-  --color-ski-yellow: var(--ski-yellow);
-  --color-ski-red: var(--ski-red);
+  /* Turquoise scale aliases (map to primary for now) */
+  --color-turquoise-400: var(--color-primary-400);
+  --color-turquoise-500: var(--color-primary-500);
+  --color-turquoise-600: var(--color-primary-600);
+  --color-turquoise-700: var(--color-primary-700);
+}
 
-  --color-success: var(--success);
-  --color-warning: var(--warning);
-  --color-error: var(--error);
+/* Compatibility aliases for legacy names (map to canonical color-* tokens) */
+:root {
+  --surface: var(--color-surface);
+  --surface-2: var(--color-surface-elevated);
+  --border: var(--border, #e2e8f0); /* ensure base border remains */
+  --text-1: var(--color-text-primary);
+  --muted: var(--color-text-tertiary);
+  --brand-500: var(--color-primary-600);
+  --danger: var(--color-error-600, #dc2626);
+  /* Buttons */
+  --button-primary-bg: var(--color-primary);
+  --button-primary-hover: var(--color-primary-hover);
+  --button-primary-text: var(--color-text-on-primary, #ffffff);
+  --button-secondary-bg: var(--color-surface-secondary, var(--color-gray-100));
+  --button-secondary-hover: var(--color-gray-200);
+  --button-secondary-text: var(--color-text-primary);
+}
 
-  --radius-sm: var(--radius-sm);
-  --radius-md: var(--radius-md);
-  --radius-lg: var(--radius-lg);
+.dark {
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.30);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.40), 0 1px 2px -1px rgb(0 0 0 / 0.40);
+  --shadow-base: 0 4px 6px -1px rgb(0 0 0 / 0.40), 0 2px 4px -2px rgb(0 0 0 / 0.40);
+  --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.40), 0 4px 6px -4px rgb(0 0 0 / 0.40);
+  --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.40), 0 8px 10px -6px rgb(0 0 0 / 0.40);
+
+  /* Override interactive tokens for dark */
+  --color-primary-hover: var(--color-primary-400);
+  --color-primary-focus: var(--color-primary-400);
 }

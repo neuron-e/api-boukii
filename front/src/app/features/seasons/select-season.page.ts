@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject, takeUntil, debounceTime, distinctUntilChanged, catchError, of } from 'rxjs';
+import { switchMap } from 'rxjs/operators';
 
 import { TranslatePipe } from '@shared/pipes/translate.pipe';
 import { AuthV5Service } from '@core/services/auth-v5.service';
@@ -274,7 +275,7 @@ export class SelectSeasonPageComponent implements OnInit, OnDestroy {
     this.selectedSchoolId = this.context.getSelectedSchoolId();
     
     if (!this.selectedSchoolId) {
-      this.handleError('seasons.selectSeason.noSchoolSelected', '/school-selection');
+      this.handleError('seasons.selectSeason.noSchoolSelected', '/select-school');
       return;
     }
 
@@ -294,7 +295,7 @@ export class SelectSeasonPageComponent implements OnInit, OnDestroy {
 
   loadSeasons(): void {
     if (!this.selectedSchoolId) {
-      this.handleError('seasons.selectSeason.noSchoolSelected', '/school-selection');
+      this.handleError('seasons.selectSeason.noSchoolSelected', '/select-school');
       return;
     }
 
@@ -345,16 +346,24 @@ export class SelectSeasonPageComponent implements OnInit, OnDestroy {
     this._isSelecting.set(season.id);
     console.log('📅 Selecting season:', season.name, 'for school:', this.selectedSchoolId);
 
-    this.authV5.selectSeason(season.id).pipe(
-      catchError(error => {
-        console.error('❌ Season selection failed:', error);
-        this.handleSelectionError(error);
-        return of(null);
-      }),
-      takeUntil(this.destroy$)
-    ).subscribe({
-      next: (response) => {
-        if (!response) return;
+    // Ensure AuthV5Service has the current school set before selecting season
+    const ensureSchool$ = this.selectedSchoolId
+      ? this.authV5.setCurrentSchool(this.selectedSchoolId)
+      : of(null);
+
+    ensureSchool$
+      .pipe(
+        switchMap(() => this.authV5.selectSeason(season.id)),
+        catchError(error => {
+          console.error('❌ Season selection failed:', error);
+          this.handleSelectionError(error);
+          return of(null);
+        }),
+        takeUntil(this.destroy$)
+      )
+      .subscribe({
+        next: (response) => {
+          if (!response) return;
 
         console.log('✅ Season selection successful:', response);
 

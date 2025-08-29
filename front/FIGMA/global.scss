@@ -1,0 +1,465 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 14px;
+  --background: #ffffff;
+  --foreground: #1A1A1A;
+  --card: #ffffff;
+  --card-foreground: #1A1A1A;
+  --popover: #ffffff;
+  --popover-foreground: #1A1A1A;
+  --primary: #00B7F6;
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #1A1A1A;
+  --muted: #f5f5f5;
+  --muted-foreground: #7A7A7A;
+  --accent: #f9f9f9;
+  --accent-foreground: #1A1A1A;
+  --destructive: #FF6B6B;
+  --destructive-foreground: #ffffff;
+  --border: #E5E5E5;
+  --input: transparent;
+  --input-background: #f9f9f9;
+  --switch-background: #E5E5E5;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #00B7F6;
+  --chart-1: #00B7F6;
+  --chart-2: #1A1A1A;
+  --chart-3: #4ECDC4;
+  --chart-4: #444444;
+  --chart-5: #96CEB4;
+  --radius: 0.625rem;
+  --sidebar: #f8f9fa;
+  --sidebar-foreground: #1A1A1A;
+  --sidebar-primary: #1A1A1A;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f9f9f9;
+  --sidebar-accent-foreground: #1A1A1A;
+  --sidebar-border: #E5E5E5;
+  --sidebar-ring: #00B7F6;
+
+  /* Colores personalizados Boukii - Nueva paleta con azul de acento */
+  --ski-primary: #1A1A1A;           /* Negro suave para títulos y estructura */
+  --ski-secondary: #444444;         /* Gris oscuro para elementos secundarios */
+  --ski-accent: #00B7F6;           /* Azul brillante para acciones y elementos activos */
+  --ski-accent-hover: #009dcf;     /* Azul más oscuro para hover */
+  --ski-accent-light: #e6f7ff;    /* Azul muy claro para fondos */
+  --ski-success: #4ECDC4;
+  --ski-warning: #FFD93D;
+  --ski-error: #FF6B6B;
+  --ski-info: #00B7F6;            /* Usar el mismo azul para info */
+  --ski-light-gray: #f8f9fa;
+  --ski-medium-gray: #e9ecef;
+  --ski-dark-gray: #6c757d;
+}
+
+.dark {
+  --background: #0A0A0A;
+  --foreground: #ffffff;
+  --card: #111111;
+  --card-foreground: #ffffff;
+  --popover: #111111;
+  --popover-foreground: #ffffff;
+  --primary: #00B7F6;
+  --primary-foreground: #ffffff;
+  --secondary: #1A1A1A;
+  --secondary-foreground: #ffffff;
+  --muted: #1A1A1A;
+  --muted-foreground: #A0A0A0;
+  --accent: #2A2A2A;
+  --accent-foreground: #ffffff;
+  --destructive: #FF7675;
+  --destructive-foreground: #ffffff;
+  --border: #2A2A2A;
+  --input: #2A2A2A;
+  --ring: #00B7F6;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: #00B7F6;
+  --chart-2: #ffffff;
+  --chart-3: #00CEC9;
+  --chart-4: #A0A0A0;
+  --chart-5: #55A3FF;
+  --sidebar: #111111;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #111111;
+  --sidebar-accent: #1A1A1A;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #2A2A2A;
+  --sidebar-ring: #00B7F6;
+
+  /* Colores personalizados para modo oscuro */
+  --ski-primary: #ffffff;
+  --ski-secondary: #A0A0A0;
+  --ski-accent: #00B7F6;
+  --ski-accent-hover: #0099e6;
+  --ski-accent-light: #1a2332;
+  --ski-success: #00CEC9;
+  --ski-warning: #FDCB6E;
+  --ski-error: #FF7675;
+  --ski-info: #00B7F6;
+  --ski-light-gray: #1A1A1A;
+  --ski-medium-gray: #2A2A2A;
+  --ski-dark-gray: #8c9196;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Utilidades personalizadas Boukii */
+  --color-ski-primary: var(--ski-primary);
+  --color-ski-secondary: var(--ski-secondary);
+  --color-ski-accent: var(--ski-accent);
+  --color-ski-accent-hover: var(--ski-accent-hover);
+  --color-ski-accent-light: var(--ski-accent-light);
+  --color-ski-success: var(--ski-success);
+  --color-ski-warning: var(--ski-warning);
+  --color-ski-error: var(--ski-error);
+  --color-ski-info: var(--ski-info);
+  --color-ski-light-gray: var(--ski-light-gray);
+  --color-ski-medium-gray: var(--ski-medium-gray);
+  --color-ski-dark-gray: var(--ski-dark-gray);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+/**
+ * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
+ */
+@layer base {
+  :where(:not(:has([class*=" text-"]), :not(:has([class^="text-"])))) {
+    h1 {
+      font-size: var(--text-2xl);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+      color: var(--foreground);
+    }
+
+    h2 {
+      font-size: var(--text-xl);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+      color: var(--foreground);
+    }
+
+    h3 {
+      font-size: var(--text-lg);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+      color: var(--foreground);
+    }
+
+    h4 {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+      color: var(--foreground);
+    }
+
+    p {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+      color: var(--foreground);
+    }
+
+    label {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+      color: var(--foreground);
+    }
+
+    button {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    input {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+    }
+  }
+}
+
+html {
+  font-size: var(--font-size);
+}
+
+/* Utilidades personalizadas Boukii - Nueva paleta con azul de acento */
+
+/* Colores primarios y estructura */
+.ski-primary {
+  color: var(--ski-primary);
+}
+
+.bg-ski-primary {
+  background-color: var(--ski-primary);
+}
+
+.border-ski-primary {
+  border-color: var(--ski-primary);
+}
+
+.text-ski-primary {
+  color: var(--ski-primary);
+}
+
+/* Colores secundarios */
+.ski-secondary {
+  color: var(--ski-secondary);
+}
+
+.bg-ski-secondary {
+  background-color: var(--ski-secondary);
+}
+
+.text-ski-secondary {
+  color: var(--ski-secondary);
+}
+
+.border-ski-secondary {
+  border-color: var(--ski-secondary);
+}
+
+/* Color de acento azul - Para acciones principales */
+.ski-accent {
+  color: var(--ski-accent);
+}
+
+.bg-ski-accent {
+  background-color: var(--ski-accent);
+}
+
+.text-ski-accent {
+  color: var(--ski-accent);
+}
+
+.border-ski-accent {
+  border-color: var(--ski-accent);
+}
+
+.ring-ski-accent {
+  --tw-ring-color: var(--ski-accent);
+}
+
+/* Estados hover para azul de acento */
+.hover\:bg-ski-accent:hover {
+  background-color: var(--ski-accent);
+}
+
+.hover\:bg-ski-accent-hover:hover {
+  background-color: var(--ski-accent-hover);
+}
+
+.hover\:text-ski-accent:hover {
+  color: var(--ski-accent);
+}
+
+.hover\:border-ski-accent:hover {
+  border-color: var(--ski-accent);
+}
+
+/* Fondos de acento */
+.bg-ski-accent-light {
+  background-color: var(--ski-accent-light);
+}
+
+/* Estados de colores principales */
+.hover\:bg-ski-primary:hover {
+  background-color: var(--ski-primary);
+}
+
+.hover\:bg-ski-primary\/90:hover {
+  background-color: color-mix(in srgb, var(--ski-primary) 90%, transparent);
+}
+
+.hover\:text-ski-primary:hover {
+  color: var(--ski-primary);
+}
+
+.hover\:border-ski-primary:hover {
+  border-color: var(--ski-primary);
+}
+
+/* Estados adicionales */
+.hover\:bg-black:hover {
+  background-color: #000000;
+}
+
+.hover\:bg-gray-900:hover {
+  background-color: #111111;
+}
+
+/* Colores de estado */
+.ski-success {
+  color: var(--ski-success);
+}
+
+.bg-ski-success {
+  background-color: var(--ski-success);
+}
+
+.ski-warning {
+  color: var(--ski-warning);
+}
+
+.bg-ski-warning {
+  background-color: var(--ski-warning);
+}
+
+.ski-error {
+  color: var(--ski-error);
+}
+
+.bg-ski-error {
+  background-color: var(--ski-error);
+}
+
+.ski-info {
+  color: var(--ski-info);
+}
+
+.bg-ski-info {
+  background-color: var(--ski-info);
+}
+
+/* Fondos y contenedores */
+.bg-ski-light-gray {
+  background-color: var(--ski-light-gray);
+}
+
+.bg-ski-medium-gray {
+  background-color: var(--ski-medium-gray);
+}
+
+.text-ski-dark-gray {
+  color: var(--ski-dark-gray);
+}
+
+/* Utilidades para transparencias */
+.bg-ski-primary\/5 {
+  background-color: color-mix(in srgb, var(--ski-primary) 5%, transparent);
+}
+
+.bg-ski-primary\/10 {
+  background-color: color-mix(in srgb, var(--ski-primary) 10%, transparent);
+}
+
+.bg-ski-accent\/5 {
+  background-color: color-mix(in srgb, var(--ski-accent) 5%, transparent);
+}
+
+.bg-ski-accent\/10 {
+  background-color: color-mix(in srgb, var(--ski-accent) 10%, transparent);
+}
+
+.bg-ski-accent\/20 {
+  background-color: color-mix(in srgb, var(--ski-accent) 20%, transparent);
+}
+
+.text-ski-accent\/80 {
+  color: color-mix(in srgb, var(--ski-accent) 80%, transparent);
+}
+
+.border-ski-accent\/30 {
+  border-color: color-mix(in srgb, var(--ski-accent) 30%, transparent);
+}
+
+.border-ski-accent\/50 {
+  border-color: color-mix(in srgb, var(--ski-accent) 50%, transparent);
+}
+
+/* Utilidades específicas para botones con azul de acento */
+.btn-accent {
+  background-color: var(--ski-accent);
+  color: white;
+  border-color: var(--ski-accent);
+}
+
+.btn-accent:hover {
+  background-color: var(--ski-accent-hover);
+  border-color: var(--ski-accent-hover);
+}
+
+.btn-accent-outline {
+  background-color: transparent;
+  color: var(--ski-accent);
+  border-color: var(--ski-accent);
+}
+
+.btn-accent-outline:hover {
+  background-color: var(--ski-accent);
+  color: white;
+}
+
+/* Utilidades para iconos activos */
+.icon-active {
+  color: var(--ski-accent);
+}
+
+.icon-hover:hover {
+  color: var(--ski-accent);
+}
+
+/* Enlaces con estilo de acento */
+.link-accent {
+  color: var(--ski-accent);
+  text-decoration: none;
+}
+
+.link-accent:hover {
+  color: var(--ski-accent-hover);
+  text-decoration: underline;
+}

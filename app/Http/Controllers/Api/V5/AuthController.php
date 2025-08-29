@@ -321,7 +321,20 @@ class AuthController extends Controller
             if (!$user) {
                 return $this->errorResponse('Usuario no autenticado', 401);
             }
-            $school = School::find($validated['school_id']);
+
+            // Derivar school_id del contexto del token; fallback a payload
+            $token = $user->currentAccessToken();
+            $contextData = $token ? $token->context_data : null;
+            if (is_string($contextData)) {
+                $contextData = json_decode($contextData, true);
+            }
+            $contextSchoolId = is_array($contextData) ? ($contextData['school_id'] ?? null) : null;
+            $schoolId = $contextSchoolId ?: ($validated['school_id'] ?? null);
+            if (!$schoolId) {
+                return $this->errorResponse('No hay escuela seleccionada en el contexto ni en la solicitud', 422);
+            }
+
+            $school = School::find($schoolId);
 
             if (!$this->userHasAccessToSchool($user, $school)) {
                 return $this->errorResponse('Acceso denegado a esta escuela', 403);

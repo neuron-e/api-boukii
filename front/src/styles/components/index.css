@@ -1,0 +1,9 @@
+/* Boukii V5 Design System - Component Styles Index */
+
+/* Import all standard component styles */
+@import './page-layout.css';
+@import './kpi-cards.css';
+@import './table.css';
+@import './card-grid.css';
+
+/* Additional component utilities and helpers can be added here */
