@@ -11684,6 +11684,16 @@
                             "type": "string",
                             "format": "date"
                         }
+                    },
+                    {
+                        "name": "only_weekends",
+                        "in": "query",
+                        "description": "Return results for Saturdays and Sundays only",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
+                        }
                     }
                 ],
                 "responses": {
@@ -11741,6 +11751,16 @@
                         "schema": {
                             "type": "string",
                             "format": "date"
+                        }
+                    },
+                    {
+                        "name": "only_weekends",
+                        "in": "query",
+                        "description": "Return results for Saturdays and Sundays only",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
                         }
                     }
                 ],
