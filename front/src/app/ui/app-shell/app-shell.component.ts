@@ -55,14 +55,14 @@ interface Notification {
         <div class="language-menu">
           <button
             #languageButton
-            class="icon-btn language-toggle only-flag"
+            class="icon-btn language-toggle"
             (click)="toggleLanguageDropdown()"
             [attr.aria-expanded]="languageDropdownOpen() ? 'true' : 'false'"
             aria-haspopup="menu"
             [attr.aria-controls]="'language-menu'"
             [attr.title]="label(translationService.currentLanguage())"
           >
-            <img class="flag" [src]="flag(translationService.currentLanguage())" alt="" aria-hidden="true" />
+            <span class="lang-code">{{ translationService.currentLanguage() | uppercase }}</span>
           </button>
 
           @if (languageDropdownOpen()) {
@@ -76,8 +76,7 @@ interface Notification {
                   [attr.aria-checked]="isLang(lang)"
                   tabindex="-1"
                 >
-                  <img [src]="flag(lang)" alt="" aria-hidden="true" />
-                  {{ label(lang) }}
+                  <span class="lang-code">{{ lang | uppercase }}</span>
                 </button>
               }
             </div>

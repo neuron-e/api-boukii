@@ -14,7 +14,8 @@ class AuthSeasonTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-
+        // Disable FKs to allow clean drops across drivers
+        Schema::disableForeignKeyConstraints();
         Schema::dropIfExists('role_has_permissions');
         Schema::dropIfExists('permissions');
         Schema::dropIfExists('roles');
@@ -82,10 +83,12 @@ class AuthSeasonTest extends TestCase
             $table->unsignedBigInteger('permission_id');
             $table->unsignedBigInteger('role_id');
         });
+        Schema::enableForeignKeyConstraints();
     }
 
     protected function tearDown(): void
     {
+        Schema::disableForeignKeyConstraints();
         Schema::dropIfExists('role_has_permissions');
         Schema::dropIfExists('permissions');
         Schema::dropIfExists('roles');
@@ -93,6 +96,7 @@ class AuthSeasonTest extends TestCase
         Schema::dropIfExists('seasons');
         Schema::dropIfExists('users');
         Schema::dropIfExists('personal_access_tokens');
+        Schema::enableForeignKeyConstraints();
         parent::tearDown();
     }
 

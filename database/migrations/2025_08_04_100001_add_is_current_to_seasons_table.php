@@ -12,6 +12,9 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('seasons')) {
+            return;
+        }
         Schema::table('seasons', function (Blueprint $table) {
             if (!Schema::hasColumn('seasons', 'is_current')) {
                 $table->boolean('is_current')->default(false)->after('is_active');
@@ -23,7 +26,7 @@ return new class extends Migration
         });
 
         // Agregar índices para mejorar performance
-        if (!$this->indexExists('seasons', 'idx_seasons_current_active')) {
+        if (Schema::hasTable('seasons') && !$this->indexExists('seasons', 'idx_seasons_current_active')) {
             Schema::table('seasons', function (Blueprint $table) {
                 $table->index(['school_id', 'is_current', 'is_active'], 'idx_seasons_current_active');
             });
@@ -35,6 +38,9 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (!Schema::hasTable('seasons')) {
+            return;
+        }
         Schema::table('seasons', function (Blueprint $table) {
             if ($this->indexExists('seasons', 'idx_seasons_current_active')) {
                 $table->dropIndex('idx_seasons_current_active');

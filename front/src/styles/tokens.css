@@ -330,13 +330,148 @@
   --color-turquoise-500: var(--color-primary-500);
   --color-turquoise-600: var(--color-primary-600);
   --color-turquoise-700: var(--color-primary-700);
+
+  /* Additional aliases used across V5 styles */
+  /* Blue -> Primary mapping */
+  --color-blue-50: var(--color-primary-50);
+  --color-blue-200: var(--color-primary-200);
+  /* Primary variants */
+  --color-primary-dark: var(--color-primary-700);
+  --color-primary-light: var(--color-primary-100);
+  --color-primary-alpha: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  /* On primary */
+  --color-on-primary: var(--color-text-on-primary);
+  /* Surface states */
+  --color-surface-hover: var(--color-surface-elevated);
+  /* Info */
+  --color-info-light: color-mix(in srgb, var(--color-info-500) 12%, transparent);
+  /* Danger/Error mapping */
+  --color-danger: var(--color-error);
+  --color-danger-light: color-mix(in srgb, var(--color-error) 15%, transparent);
+  --color-error-bg: color-mix(in srgb, var(--color-error-500, var(--color-error)) 12%, transparent);
+  --color-error-50: color-mix(in srgb, var(--color-error-500, var(--color-error)) 10%, var(--color-white));
+  --color-error-200: color-mix(in srgb, var(--color-error-500, var(--color-error)) 25%, var(--color-white));
+  --color-error-600: color-mix(in srgb, var(--color-error-500, var(--color-error)) 90%, black);
+  --color-error-700: color-mix(in srgb, var(--color-error-500, var(--color-error)) 100%, black);
+  --color-error-900: color-mix(in srgb, var(--color-error-500, var(--color-error)) 120%, black);
+  /* Success mappings */
+  --color-success-bg: color-mix(in srgb, var(--color-success-500, var(--color-success)) 12%, transparent);
+  --color-success-50: color-mix(in srgb, var(--color-success-500, var(--color-success)) 10%, var(--color-white));
+  --color-success-200: color-mix(in srgb, var(--color-success-500, var(--color-success)) 25%, var(--color-white));
+  --color-success-600: color-mix(in srgb, var(--color-success-500, var(--color-success)) 90%, black);
+  --color-success-700: color-mix(in srgb, var(--color-success-500, var(--color-success)) 100%, black);
+  --color-success-900: color-mix(in srgb, var(--color-success-500, var(--color-success)) 120%, black);
+  --color-success-light: color-mix(in srgb, var(--color-success-500, var(--color-success)) 15%, transparent);
+  /* Warning mappings */
+  --color-warning-bg: color-mix(in srgb, var(--color-warning-500, var(--color-warning)) 12%, transparent);
+  --color-warning-light: color-mix(in srgb, var(--color-warning-500, var(--color-warning)) 15%, transparent);
+  --color-warning-dark: color-mix(in srgb, var(--color-warning-500, var(--color-warning)) 90%, black);
+  --color-warning-600: color-mix(in srgb, var(--color-warning-500, var(--color-warning)) 85%, black);
+  /* Misc */
+  --color-dark1: var(--color-gray-900);
+  /* Ski brand aliases used in legacy styles */
+  --color-ski-blue: var(--ski-blue);
+  --color-ski-green: var(--ski-green);
+  --color-ski-yellow: var(--ski-yellow);
+  --color-ski-red: var(--ski-red);
+
+  /* ===== Compatibility: non-canonical variables used in V5 ===== */
+  /* Borders */
+  --border-color: var(--color-border);
+  --border-color-hover: var(--color-border-strong);
+  --border-focus: var(--color-primary-focus);
+
+  /* Radius aliases */
+  --border-radius-sm: var(--radius-sm);
+  --border-radius-md: var(--radius-md);
+  --border-radius-lg: var(--radius-lg);
+  --radius-xs: 2px;
+  --radius-base: var(--radius-md);
+  --radius-2: 2px;
+  --radius-4: 4px;
+  --radius-6: 6px;
+  --radius-8: 8px;
+  --radius-12: 12px;
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-full: 9999px;
+
+  /* Brand/semantic shortcuts */
+  --brand-600: var(--color-primary-600);
+  --green: var(--color-success);
+  --red: var(--color-error);
+  --yellow: var(--color-warning);
+  --blue: var(--color-primary);
+  --success-500: var(--color-success-500);
+  --success-600: var(--color-success-600, var(--color-success));
+  --error-500: var(--color-error-500);
+
+  /* Cards and layout */
+  --card-bg: var(--color-surface);
+  --card-w: auto;
+  --content-max-width: 1200px;
+  --navbar-height: var(--navbar-h);
+  --z-sidebar: 40;
+
+  /* Shadows and elevation */
+  --elev-2: var(--shadow-base);
+  --shadow-navbar: var(--shadow-xs);
+  --shadow-card: var(--shadow-sm);
+  --shadow-card-hover: var(--shadow-md);
+  --shadow-xl: var(--shadow-lg);
+  --shadow-glass: 0 8px 24px rgb(0 0 0 / 0.08);
+  --shadow-turquoise: 0 8px 24px color-mix(in srgb, var(--color-primary) 20%, transparent);
+
+  /* Transitions */
+  --transition-fast: var(--duration-fast);
+  --transition-normal: var(--duration-normal);
+  --transition-default: var(--duration-normal);
+
+  /* Spacing aliases */
+  --space-xs: var(--space-1);
+  --space-sm: var(--space-2);
+  --space-md: var(--space-4);
+  --space-lg: var(--space-6);
+  --space-xl: var(--space-8);
+  --space-16: calc(var(--spacing) * 16);
+  --spacing-xs: var(--space-1);
+  --spacing-sm: var(--space-2);
+  --spacing-md: var(--space-4);
+  --spacing-lg: var(--space-6);
+  --spacing-xl: var(--space-8);
+
+  /* Typography aliases */
+  --font-family-base: var(--font-family-sans);
+  --font-family-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-size-xs: var(--text-xs);
+  --font-size-sm: var(--text-sm);
+  --fs-14: 14px;
+  --fs-18: 18px;
+  --fs-24: 24px;
+
+  /* Misc aliases */
+  --input-placeholder: var(--color-text-tertiary);
+  --overlay-bg: rgba(0,0,0,0.5);
+  --glass-backdrop: color-mix(in srgb, var(--color-background) 60%, transparent);
+  --glass-border: color-mix(in srgb, var(--color-border) 50%, transparent);
+  --gradient-primary: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-700) 100%);
+  --skeleton-animation: shimmer 1.2s linear infinite;
+  --skeleton-bg: linear-gradient(90deg, transparent, rgba(0,0,0,0.06), transparent);
+  --surface-background: var(--color-background);
+  --surface-primary: var(--color-surface);
+  --surface-secondary: var(--color-surface-secondary);
+  --surface-tertiary: var(--color-surface-elevated);
+  --surface-3: var(--color-surface-elevated);
+  --text-3: var(--color-text-tertiary);
+  --text-inverse: var(--color-text-inverse, var(--color-white));
+  --active: var(--color-primary);
+  --active-contrast: var(--color-text-on-primary);
 }
 
 /* Compatibility aliases for legacy names (map to canonical color-* tokens) */
 :root {
   --surface: var(--color-surface);
   --surface-2: var(--color-surface-elevated);
-  --border: var(--border, #e2e8f0); /* ensure base border remains */
   --text-1: var(--color-text-primary);
   --muted: var(--color-text-tertiary);
   --brand-500: var(--color-primary-600);

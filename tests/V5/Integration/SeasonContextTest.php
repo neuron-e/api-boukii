@@ -14,7 +14,7 @@ class SeasonContextTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-
+        Schema::disableForeignKeyConstraints();
         Schema::dropIfExists('role_has_permissions');
         Schema::dropIfExists('permissions');
         Schema::dropIfExists('roles');
@@ -85,14 +85,17 @@ class SeasonContextTest extends TestCase
             $table->unsignedBigInteger('permission_id');
             $table->unsignedBigInteger('role_id');
         });
+        Schema::enableForeignKeyConstraints();
     }
 
     protected function tearDown(): void
     {
+        Schema::disableForeignKeyConstraints();
         Schema::dropIfExists('user_season_roles');
         Schema::dropIfExists('seasons');
         Schema::dropIfExists('users');
         Schema::dropIfExists('personal_access_tokens');
+        Schema::enableForeignKeyConstraints();
         parent::tearDown();
     }
 

@@ -39,8 +39,12 @@ use Payrexx\Models\Request\Transaction as TransactionRequest;
 use Payrexx\Models\Response\Transaction as TransactionResponse;
 use Payrexx\Payrexx;
 
+$v5Middleware = ['api', 'throttle:api'];
+if (!app()->environment('testing')) {
+    $v5Middleware[] = 'v5.logging';
+}
 Route::prefix('v5')
-    ->middleware(['api', 'throttle:api', 'v5.logging'])
+    ->middleware($v5Middleware)
     ->group(function () {
         require base_path('routes/api_v5/auth.php');
         require base_path('routes/api_v5/schools.php');
@@ -49,10 +53,13 @@ Route::prefix('v5')
         require base_path('routes/api_v5/courses.php');
         require base_path('routes/api_v5/activities.php');
         require base_path('routes/api_v5/renting.php');
+        require base_path('routes/api_v5/renting_categories.php');
+        require base_path('routes/api_v5/renting_items.php');
         require base_path('routes/api_v5/monitors.php');
         require base_path('routes/api_v5/logs.php');
         require base_path('routes/api_v5/me.php');
         require base_path('routes/api_v5/context.php');
+        require base_path('routes/api_v5/uploads.php');
         
         // V5 Feature Flags routes
         Route::middleware('auth:sanctum')->group(function () {

@@ -41,7 +41,21 @@ class RentingRepository
 
     public function create(array $data, int $schoolId, int $seasonId): BookingEquipment
     {
-        // Requires a valid booking_id that belongs to the same school/season
+        // Ensure booking belongs to the same school/season
+        $bookingId = (int) ($data['booking_id'] ?? 0);
+        $belongs = BookingEquipment::query()
+            ->whereRaw('1=0') // placeholder to reuse whereHas below
+            ->orWhereHas('booking', function (Builder $q) use ($bookingId, $schoolId, $seasonId) {
+                $q->where('id', $bookingId)
+                  ->where('school_id', $schoolId)
+                  ->where('season_id', $seasonId);
+            })
+            ->exists();
+
+        if (! $belongs) {
+            abort(422, 'Booking does not belong to current school/season');
+        }
+
         return BookingEquipment::create($data);
     }
 

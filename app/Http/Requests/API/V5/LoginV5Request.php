@@ -5,6 +5,8 @@ namespace App\Http\Requests\API\V5;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
 
 class LoginV5Request extends FormRequest
 {
@@ -21,7 +23,7 @@ class LoginV5Request extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        $rules = [
             'email' => [
                 'required',
                 'string',
@@ -31,22 +33,30 @@ class LoginV5Request extends FormRequest
             'password' => [
                 'required',
                 'string',
-                'min:6'
+                'min:4'
             ],
+            // Allow either school_id or season_id; at least one required
             'school_id' => [
-                'required',
+                'required_without:season_id',
                 'integer',
-                'exists:schools,id'
             ],
             'season_id' => [
-                'required',
+                'required_without:school_id',
                 'integer',
-                'exists:seasons,id'
             ],
             'remember_me' => [
                 'boolean'
             ]
         ];
+
+        if (Schema::hasTable('schools')) {
+            $rules['school_id'][] = Rule::exists('schools', 'id');
+        }
+        if (Schema::hasTable('seasons')) {
+            $rules['season_id'][] = Rule::exists('seasons', 'id');
+        }
+
+        return $rules;
     }
 
     /**
@@ -100,11 +110,18 @@ class LoginV5Request extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        $this->merge([
+        $payload = [
             'email' => strtolower(trim($this->email ?? '')),
-            'school_id' => (int) $this->school_id,
-            'season_id' => (int) $this->season_id,
             'remember_me' => $this->boolean('remember_me', false)
-        ]);
+        ];
+
+        if ($this->has('school_id')) {
+            $payload['school_id'] = (int) $this->school_id;
+        }
+        if ($this->has('season_id')) {
+            $payload['season_id'] = (int) $this->season_id;
+        }
+
+        $this->merge($payload);
     }
 }

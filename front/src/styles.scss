@@ -215,11 +215,11 @@ html {
   outline-offset: 2px;
 }
 
-/* Overlay menus - z-index 1000 */
-.cdk-overlay-container,
-.cdk-overlay-pane {
-  z-index: 1000;
-}
+/* Overlay (CDK) fallback styling to ensure proper centering */
+.cdk-overlay-container { position: fixed; inset: 0; pointer-events: none; z-index: 1000; }
+.cdk-global-overlay-wrapper { height: 100%; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.cdk-overlay-pane { pointer-events: auto; z-index: 1000; }
+.cdk-overlay-backdrop { position: fixed; inset: 0; background: var(--overlay-bg); }
 
 .mat-mdc-menu-panel,
 .cdk-overlay-pane .menu-panel,

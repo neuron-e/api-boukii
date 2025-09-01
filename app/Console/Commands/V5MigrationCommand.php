@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Schema;
 use App\Services\FeatureFlagService;
 use App\Models\School;
@@ -106,11 +107,17 @@ class V5MigrationCommand extends Command
             return false;
         }
 
-        // Verificar Redis (para feature flags)
+        // Verificar Redis (para feature flags) — opcional
         try {
-            \Redis::ping();
+            if (class_exists(\Redis::class)) {
+                // Extensión PHP Redis
+                \Redis::ping();
+            } else {
+                // Facade de Laravel
+                Redis::connection()->ping();
+            }
             $this->line('✅ Redis connection: OK');
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->warn('⚠️  Redis connection failed: ' . $e->getMessage());
             $this->line('   Feature flags will use database cache instead');
         }
@@ -139,7 +146,13 @@ class V5MigrationCommand extends Command
 
     private function getSchoolsToMigrate($schoolId = null): \Illuminate\Database\Eloquent\Collection
     {
-        $query = School::where('is_active', true);
+        // Compatibilidad: algunos esquemas usan 'active' en lugar de 'is_active'
+        $query = School::query();
+        if (Schema::hasColumn('schools', 'is_active')) {
+            $query->where('is_active', 1);
+        } elseif (Schema::hasColumn('schools', 'active')) {
+            $query->where('active', 1);
+        }
         
         if ($schoolId) {
             $query->where('id', $schoolId);
@@ -312,46 +325,61 @@ class V5MigrationCommand extends Command
     {
         if (!Schema::hasTable('clients')) return;
 
-        $count = DB::table('clients')->where('school_id', $school->id)->count();
+        // Determinar cómo filtrar clientes por school según el esquema legacy
+        $count = 0;
+        $hasSchoolId = Schema::hasColumn('clients', 'school_id');
+        $hasPivot = Schema::hasTable('clients_school') || Schema::hasTable('clients_schools');
+        $pivot = Schema::hasTable('clients_school') ? 'clients_school' : (Schema::hasTable('clients_schools') ? 'clients_schools' : null);
+
+        if ($hasSchoolId) {
+            $count = DB::table('clients')->where('school_id', $school->id)->count();
+        } elseif ($pivot) {
+            $count = DB::table($pivot)->where('school_id', $school->id)->count();
+        } else {
+            $count = DB::table('clients')->count();
+        }
         
         if ($dryRun) {
             $this->line("     Would migrate {$count} clients");
             return;
         }
 
-        DB::table('clients')
-            ->where('school_id', $school->id)
-            ->chunkById(100, function ($clients) {
-                $insertData = [];
-                foreach ($clients as $client) {
-                    $insertData[] = [
-                        'id' => $client->id,
-                        'school_id' => $client->school_id,
-                        'email' => $client->email,
-                        'first_name' => $client->first_name,
-                        'last_name' => $client->last_name,
-                        'birth_date' => $client->birth_date,
-                        'phone' => $client->phone,
-                        'telephone' => $client->telephone ?? null,
-                        'address' => $client->address,
-                        'cp' => $client->cp,
-                        'city' => $client->city,
-                        'province' => $client->province,
-                        'country' => $client->country ?? 'ES',
-                        'image' => $client->image,
-                        'preferences' => null,
-                        'emergency_contacts' => null,
-                        'is_active' => $client->is_active ?? true,
-                        'last_activity_at' => $client->updated_at,
-                        'created_at' => $client->created_at,
-                        'updated_at' => $client->updated_at,
-                    ];
-                }
-                
-                if (!empty($insertData)) {
-                    DB::table('clients_v5')->insertOrIgnore($insertData);
-                }
-            });
+        if ($hasSchoolId) {
+            DB::table('clients')
+                ->where('school_id', $school->id)
+                ->chunkById(100, function ($clients) {
+                    $insertData = [];
+                    foreach ($clients as $client) {
+                        $insertData[] = [
+                            'id' => $client->id,
+                            'school_id' => $client->school_id,
+                            'email' => $client->email,
+                            'first_name' => $client->first_name,
+                            'last_name' => $client->last_name,
+                            'birth_date' => $client->birth_date,
+                            'phone' => $client->phone,
+                            'telephone' => $client->telephone ?? null,
+                            'address' => $client->address,
+                            'cp' => $client->cp,
+                            'city' => $client->city,
+                            'province' => $client->province,
+                            'country' => $client->country ?? 'ES',
+                            'image' => $client->image,
+                            'preferences' => null,
+                            'emergency_contacts' => null,
+                            'is_active' => $client->is_active ?? true,
+                            'last_activity_at' => $client->updated_at,
+                            'created_at' => $client->created_at,
+                            'updated_at' => $client->updated_at,
+                        ];
+                    }
+                    if (!empty($insertData) && Schema::hasTable('clients_v5')) {
+                        DB::table('clients_v5')->insertOrIgnore($insertData);
+                    }
+                });
+        } else {
+            $this->line('     (omitida migración detallada de clients: esquema legacy sin school_id)');
+        }
 
         $this->line("     Migrated {$count} clients");
     }

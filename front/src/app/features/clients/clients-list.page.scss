@@ -34,18 +34,22 @@
   }
   
   .client-incomplete {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 4px;
-    color: var(--color-warning-600);
+    gap: 6px;
+    color: var(--color-warning-700);
     font-size: var(--text-xs);
-    margin: 0;
-    font-weight: 500;
+    margin: 2px 0 0 0;
+    font-weight: 600;
+    background: color-mix(in srgb, var(--color-warning-500) 12%, white);
+    border: 1px solid color-mix(in srgb, var(--color-warning-500) 40%, transparent);
+    border-radius: 999px;
+    padding: 2px 8px;
     
     svg {
       flex-shrink: 0;
-      width: 12px;
-      height: 12px;
+      width: 14px;
+      height: 14px;
     }
   }
 }

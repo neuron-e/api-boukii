@@ -4,6 +4,8 @@ namespace App\V5\Modules\Client\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\V5\Modules\Client\Services\ClientService;
+use App\V5\Modules\Client\Requests\ClientCreateRequest;
+use App\V5\Modules\Client\Requests\ClientUpdateRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -32,7 +34,7 @@ class ClientController extends Controller
         return response()->json(['data' => $client->toArray()]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(ClientCreateRequest $request): JsonResponse
     {
         $schoolId = (int) $request->get('context_school_id');
         $client = $this->service->createClient($request->all(), $schoolId);
@@ -40,7 +42,7 @@ class ClientController extends Controller
         return response()->json(['data' => $client->toArray()], 201);
     }
 
-    public function update(int $clientId, Request $request): JsonResponse
+    public function update(int $clientId, ClientUpdateRequest $request): JsonResponse
     {
         $schoolId = (int) $request->get('context_school_id');
         $client = $this->service->updateClient($clientId, $request->all(), $schoolId);

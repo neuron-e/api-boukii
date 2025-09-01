@@ -15,6 +15,7 @@ import { ReactiveFormsModule, FormControl } from '@angular/forms';
         [formControl]="inputControl"
         [placeholder]="placeholder || ''"
         [attr.aria-label]="ariaLabel || label || placeholder || 'Input'"
+        [required]="required"
       />
     </label>
   `,
@@ -44,6 +45,6 @@ export class UIInputComponent implements OnInit {
   @Input() ariaLabel?: string;
   @Input() type: string = 'text';
   @Input() fullWidth = false;
+  @Input() required = false;
   ngOnInit(): void {}
 }
-

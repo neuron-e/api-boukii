@@ -426,10 +426,9 @@ class V5MonitoringService
      */
     private function getMigrationStatus(): array
     {
-        $total = \App\Models\School::where('is_active', true)->count();
-        $completed = \App\Models\School::where('is_active', true)
-            ->whereNotNull('feature_flags')
-            ->count();
+        $base = $this->activeSchoolsQuery();
+        $total = (clone $base)->count();
+        $completed = (clone $base)->whereNotNull('feature_flags')->count();
 
         return [
             'total_schools' => $total,
@@ -480,7 +479,7 @@ class V5MonitoringService
     private function getVersionDistribution(): array
     {
         // Implementación basada en feature flags activos
-        $schools = \App\Models\School::where('is_active', true)->get();
+        $schools = $this->activeSchoolsQuery()->get();
         $distribution = ['legacy' => 0, 'mixed' => 0, 'v5' => 0];
 
         foreach ($schools as $school) {
@@ -517,7 +516,11 @@ class V5MonitoringService
         
         // Check Redis
         try {
-            \Redis::ping();
+            if (class_exists(\Redis::class)) {
+                \Redis::ping();
+            } else {
+                \Illuminate\Support\Facades\Redis::connection()->ping();
+            }
             $health['checks']['redis'] = 'ok';
         } catch (\Exception $e) {
             $health['checks']['redis'] = 'warning';
@@ -536,5 +539,23 @@ class V5MonitoringService
         }
 
         return $health;
+    }
+
+    /**
+     * Query helper para filtrar schools activas en esquemas con 'is_active' o 'active'
+     */
+    private function activeSchoolsQuery()
+    {
+        $q = \App\Models\School::query();
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('schools', 'is_active')) {
+                $q->where('is_active', 1);
+            } elseif (\Illuminate\Support\Facades\Schema::hasColumn('schools', 'active')) {
+                $q->where('active', 1);
+            }
+        } catch (\Throwable $e) {
+            // Si falla el schema (p. ej., durante instalación), no aplicar filtro
+        }
+        return $q;
     }
 }

@@ -83,6 +83,12 @@ class ContextPermissionMiddleware
     const COURSE_DELETE = 'course.delete';
     const COURSE_PRICING = 'course.pricing';
 
+    // Activity-specific permissions
+    const ACTIVITY_CREATE = 'activity.create';
+    const ACTIVITY_READ = 'activity.read';
+    const ACTIVITY_UPDATE = 'activity.update';
+    const ACTIVITY_DELETE = 'activity.delete';
+
     /**
      * Handle an incoming request
      */
@@ -259,7 +265,12 @@ class ContextPermissionMiddleware
                 self::SEASON_ANALYTICS,
                 self::SEASON_EQUIPMENT,
                 // Seasons management permission
-                self::SEASONS_MANAGE
+                self::SEASONS_MANAGE,
+                // Resource-level permissions
+                self::COURSE_CREATE, self::COURSE_READ, self::COURSE_UPDATE, self::COURSE_DELETE, self::COURSE_PRICING,
+                self::ACTIVITY_CREATE, self::ACTIVITY_READ, self::ACTIVITY_UPDATE, self::ACTIVITY_DELETE,
+                self::CLIENT_CREATE, self::CLIENT_READ, self::CLIENT_UPDATE, self::CLIENT_DELETE,
+                self::MONITOR_CREATE, self::MONITOR_READ, self::MONITOR_UPDATE, self::MONITOR_DELETE, self::MONITOR_SCHEDULE,
             ],
             'manager' => [
                 self::SCHOOL_MANAGER,
@@ -273,7 +284,11 @@ class ContextPermissionMiddleware
                 self::SEASON_COURSES,
                 self::SEASON_ANALYTICS,
                 // Managers can also manage seasons
-                self::SEASONS_MANAGE
+                self::SEASONS_MANAGE,
+                self::COURSE_CREATE, self::COURSE_READ, self::COURSE_UPDATE, self::COURSE_PRICING,
+                self::ACTIVITY_CREATE, self::ACTIVITY_READ, self::ACTIVITY_UPDATE,
+                self::CLIENT_CREATE, self::CLIENT_READ, self::CLIENT_UPDATE,
+                self::MONITOR_CREATE, self::MONITOR_READ, self::MONITOR_UPDATE, self::MONITOR_SCHEDULE,
             ],
             'staff' => [
                 self::SCHOOL_STAFF,
@@ -281,7 +296,11 @@ class ContextPermissionMiddleware
                 self::SEASON_VIEW,
                 self::SEASON_BOOKINGS,
                 self::SEASON_CLIENTS,
-                self::SEASON_MONITORS
+                self::SEASON_MONITORS,
+                self::COURSE_READ,
+                self::ACTIVITY_READ,
+                self::CLIENT_READ,
+                self::MONITOR_READ
             ]
         ];
 
@@ -326,7 +345,8 @@ class ContextPermissionMiddleware
                 self::BOOKING_CREATE, self::BOOKING_READ, self::BOOKING_UPDATE, self::BOOKING_DELETE, self::BOOKING_PAYMENT,
                 self::CLIENT_CREATE, self::CLIENT_READ, self::CLIENT_UPDATE, self::CLIENT_DELETE, self::CLIENT_EXPORT,
                 self::MONITOR_CREATE, self::MONITOR_READ, self::MONITOR_UPDATE, self::MONITOR_DELETE, self::MONITOR_SCHEDULE,
-                self::COURSE_CREATE, self::COURSE_READ, self::COURSE_UPDATE, self::COURSE_DELETE, self::COURSE_PRICING
+                self::COURSE_CREATE, self::COURSE_READ, self::COURSE_UPDATE, self::COURSE_DELETE, self::COURSE_PRICING,
+                self::ACTIVITY_CREATE, self::ACTIVITY_READ, self::ACTIVITY_UPDATE, self::ACTIVITY_DELETE
             ],
             'manager' => [
                 self::SEASON_MANAGER,
@@ -340,7 +360,8 @@ class ContextPermissionMiddleware
                 self::BOOKING_CREATE, self::BOOKING_READ, self::BOOKING_UPDATE, self::BOOKING_PAYMENT,
                 self::CLIENT_CREATE, self::CLIENT_READ, self::CLIENT_UPDATE, self::CLIENT_EXPORT,
                 self::MONITOR_CREATE, self::MONITOR_READ, self::MONITOR_UPDATE, self::MONITOR_SCHEDULE,
-                self::COURSE_CREATE, self::COURSE_READ, self::COURSE_UPDATE, self::COURSE_PRICING
+                self::COURSE_CREATE, self::COURSE_READ, self::COURSE_UPDATE, self::COURSE_PRICING,
+                self::ACTIVITY_CREATE, self::ACTIVITY_READ, self::ACTIVITY_UPDATE
             ],
             'viewer' => [
                 self::SEASON_VIEW,
@@ -348,7 +369,8 @@ class ContextPermissionMiddleware
                 self::BOOKING_READ,
                 self::CLIENT_READ,
                 self::MONITOR_READ,
-                self::COURSE_READ
+                self::COURSE_READ,
+                self::ACTIVITY_READ
             ]
         ];
 
@@ -457,7 +479,8 @@ class ContextPermissionMiddleware
             self::BOOKING_CREATE, self::BOOKING_READ, self::BOOKING_UPDATE, self::BOOKING_DELETE, self::BOOKING_PAYMENT,
             self::CLIENT_CREATE, self::CLIENT_READ, self::CLIENT_UPDATE, self::CLIENT_DELETE, self::CLIENT_EXPORT,
             self::MONITOR_CREATE, self::MONITOR_READ, self::MONITOR_UPDATE, self::MONITOR_DELETE, self::MONITOR_SCHEDULE,
-            self::COURSE_CREATE, self::COURSE_READ, self::COURSE_UPDATE, self::COURSE_DELETE, self::COURSE_PRICING
+            self::COURSE_CREATE, self::COURSE_READ, self::COURSE_UPDATE, self::COURSE_DELETE, self::COURSE_PRICING,
+            self::ACTIVITY_CREATE, self::ACTIVITY_READ, self::ACTIVITY_UPDATE, self::ACTIVITY_DELETE
         ];
 
         // Check each permission

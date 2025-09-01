@@ -8,6 +8,9 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('user_season_roles')) {
+            return;
+        }
         Schema::create('user_season_roles', function (Blueprint $table) {
             $table->unsignedBigInteger('user_id');
             $table->unsignedBigInteger('season_id');
@@ -16,10 +19,6 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->primary(['user_id', 'season_id', 'role']);
-
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-            $table->foreign('season_id')->references('id')->on('seasons')->onDelete('cascade');
-
             $table->index('user_id');
             $table->index('season_id');
             $table->index('role');

@@ -24,11 +24,7 @@ return new class extends Migration
                 $table->softDeletes();
 
                 $table->primary(['user_id', 'season_id', 'role']);
-
-                $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-                $table->foreign('season_id')->references('id')->on('seasons')->onDelete('cascade');
-                $table->foreign('assigned_by')->references('id')->on('users')->onDelete('set null');
-
+                // Use indexes only to avoid FK issues across environments
                 $table->index('user_id');
                 $table->index('season_id');
                 $table->index('role');
@@ -48,7 +44,7 @@ return new class extends Migration
 
             if (!Schema::hasColumn('user_season_roles', 'assigned_by')) {
                 $table->unsignedBigInteger('assigned_by')->nullable()->after('assigned_at');
-                $table->foreign('assigned_by')->references('id')->on('users')->onDelete('set null');
+                $table->index('assigned_by');
             }
 
             if (!Schema::hasColumn('user_season_roles', 'deleted_at')) {

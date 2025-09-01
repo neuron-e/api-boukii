@@ -8,33 +8,34 @@ use Carbon\Carbon;
 
 /**
  * V5 Booking Equipment Model
- * 
- * Represents equipment rental items associated with a booking
- * including skis, boots, helmets, and other sports equipment.
- * 
- * @property int $id
- * @property int $booking_id
- * @property string $equipment_type
- * @property string $name
- * @property string|null $brand
- * @property string|null $model
- * @property string|null $size
- * @property string|null $participant_name
- * @property int|null $participant_index
- * @property float $daily_rate
- * @property int $rental_days
- * @property float $total_price
- * @property string $currency
- * @property float|null $deposit
- * @property string $condition_out
- * @property string|null $condition_in
- * @property array|null $equipment_data
- * @property string|null $serial_number
- * @property Carbon|null $rented_at
- * @property Carbon|null $returned_at
- * @property string|null $notes
- * @property Carbon $created_at
- * @property Carbon $updated_at
+ *
+ * @OA\Schema(
+ *   schema="V5BookingEquipment",
+ *   required={"booking_id","equipment_type","name","daily_rate","rental_days","currency","condition_out"},
+ *   @OA\Property(property="id", type="integer", format="int64"),
+ *   @OA\Property(property="booking_id", type="integer", format="int64"),
+ *   @OA\Property(property="equipment_type", type="string", enum={"skis","boots","poles","helmet","goggles","snowboard","bindings","clothing","protection","other"}),
+ *   @OA\Property(property="name", type="string"),
+ *   @OA\Property(property="brand", type="string", nullable=true),
+ *   @OA\Property(property="model", type="string", nullable=true),
+ *   @OA\Property(property="size", type="string", nullable=true),
+ *   @OA\Property(property="participant_name", type="string", nullable=true),
+ *   @OA\Property(property="participant_index", type="integer", nullable=true),
+ *   @OA\Property(property="daily_rate", type="number", format="float"),
+ *   @OA\Property(property="rental_days", type="integer"),
+ *   @OA\Property(property="total_price", type="number", format="float"),
+ *   @OA\Property(property="currency", type="string"),
+ *   @OA\Property(property="deposit", type="number", format="float", nullable=true),
+ *   @OA\Property(property="condition_out", type="string"),
+ *   @OA\Property(property="condition_in", type="string", nullable=true),
+ *   @OA\Property(property="equipment_data", type="object", nullable=true),
+ *   @OA\Property(property="serial_number", type="string", nullable=true),
+ *   @OA\Property(property="rented_at", type="string", format="date-time", nullable=true),
+ *   @OA\Property(property="returned_at", type="string", format="date-time", nullable=true),
+ *   @OA\Property(property="notes", type="string", nullable=true),
+ *   @OA\Property(property="created_at", type="string", format="date-time", nullable=true),
+ *   @OA\Property(property="updated_at", type="string", format="date-time", nullable=true)
+ * )
  */
 class BookingEquipment extends Model
 {

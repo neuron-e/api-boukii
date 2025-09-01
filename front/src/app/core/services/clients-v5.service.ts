@@ -51,6 +51,51 @@ export interface ClientDetail {
   booking_history?: BookingHistoryItem[];
 }
 
+// Request for creating a new client
+export interface CreateClientRequest {
+  // Identity
+  first_name: string;
+  last_name: string;
+  date_of_birth?: string; // ISO date
+  gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say';
+  nationality?: string;
+  preferred_language?: 'es' | 'en' | 'fr' | 'de' | 'it';
+
+  // Contact
+  email?: string;
+  phone?: string;
+  telephone?: string;
+  status?: 'active' | 'inactive' | 'blocked' | 'pending';
+
+  // Address
+  address?: {
+    street?: string;
+    city?: string;
+    postal_code?: string;
+    country?: string;
+  };
+
+  // Emergency contact
+  emergency_contact?: {
+    name?: string;
+    phone?: string;
+    relationship?: string;
+  };
+
+  // Preferences
+  preferences?: {
+    level?: 'Principiante' | 'Intermedio' | 'Avanzado' | 'Experto';
+    instructor_gender?: 'male' | 'female' | 'no_preference';
+    group_size?: 'private' | 'small_group' | 'large_group' | 'no_preference';
+    communication_method?: 'email' | 'sms' | 'phone' | 'whatsapp';
+  };
+
+  // Misc
+  notes?: string;
+  tags?: string[];
+  avatar?: string; // URL returned from upload
+}
+
 export interface ClientUtilizador {
   id: number;
   client_id: number;
@@ -224,6 +269,20 @@ export class ClientsV5Service {
       map(response => response.data),
       catchError(err => {
         console.error('Error fetching client:', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  /**
+   * Create client
+   * POST /api/v5/clients
+   */
+  createClient(data: CreateClientRequest): Observable<ClientDetail> {
+    return from(this.apiHttp.post<{ data: ClientDetail }>(`/clients`, data)).pipe(
+      map(response => response.data),
+      catchError(err => {
+        console.error('Error creating client:', err);
         return throwError(() => err);
       })
     );
@@ -427,4 +486,3 @@ export class ClientsV5Service {
     );
   }
 }
-

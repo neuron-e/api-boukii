@@ -153,6 +153,48 @@ Controlador: `App/Http/Controllers/V5/MonitoringController.php`.
 
 ---
 
+## Renting
+
+- GET `/api/v5/renting` — Lista de equipos alquilados (por booking) filtrable por `type` y `status` (rented/returned/outstanding).
+- POST `/api/v5/renting` — Crea un equipo asociado a una reserva (`booking_id`) en el contexto actual.
+- GET `/api/v5/renting/{id}` — Detalle de equipo.
+- PATCH `/api/v5/renting/{id}` — Actualiza equipo.
+- DELETE `/api/v5/renting/{id}` — Elimina equipo.
+
+Middleware: `auth:sanctum`, `context.middleware`, `role.permission.middleware:season.equipment`.
+
+Controlador: `App/V5/Modules/Renting/Controllers/RentingController.php`.
+
+---
+
+## Renting Categories
+
+- GET `/api/v5/renting/categories` — Lista paginada; `?tree=true` devuelve árbol completo.
+- POST `/api/v5/renting/categories` — Crea categoría/subcategoría.
+- GET `/api/v5/renting/categories/{id}` — Detalle de categoría.
+- PATCH `/api/v5/renting/categories/{id}` — Actualiza categoría.
+- DELETE `/api/v5/renting/categories/{id}` — Elimina categoría.
+
+Middleware: `auth:sanctum`, `school.context.middleware`, `role.permission.middleware:school.settings`.
+
+Controlador: `App/V5/Modules/Renting/Controllers/CategoryController.php`.
+
+---
+
+## Renting Items (Inventario)
+
+- GET `/api/v5/renting/items` — Lista de ítems de inventario (filtros: `category_id`, `active`, `search`).
+- POST `/api/v5/renting/items` — Crea ítem.
+- GET `/api/v5/renting/items/{id}` — Detalle de ítem.
+- PATCH `/api/v5/renting/items/{id}` — Actualiza ítem.
+- DELETE `/api/v5/renting/items/{id}` — Elimina ítem.
+
+Middleware: `auth:sanctum`, `school.context.middleware`, `role.permission.middleware:season.equipment`.
+
+Controlador: `App/V5/Modules/Renting/Controllers/ItemController.php`.
+
+---
+
 ## Middleware y Límites
 
 - Grupo `/api/v5`: `api`, `throttle:api`.
@@ -186,4 +228,3 @@ Controlador: `App/Http/Controllers/V5/MonitoringController.php`.
 - Controladores: `app/Http/Controllers/Api/V5/*`, `app/Http/Controllers/V5/*`
 - Servicio de feature flags: `app/Services/FeatureFlagService.php`
 - Servicio de monitoring: `app/Services/V5MonitoringService.php`
-

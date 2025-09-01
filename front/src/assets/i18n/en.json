@@ -85,7 +85,33 @@
     "tableAria": "Clients table",
     "viewClient": "View client",
     "editClient": "Edit client",
-    "deleteClient": "Delete client"
+    "deleteClient": "Delete client",
+    "form": {
+      "name": "Full name",
+      "namePlaceholder": "Name and surnames",
+      "email": "Email",
+      "emailPlaceholder": "email@example.com",
+      "phone": "Phone",
+      "phonePlaceholder": "+34 666 123 456",
+      "clientType": "Client type",
+      "clientTypeNew": "New",
+      "uploadPhoto": "Upload photo",
+      "errors": {
+        "nameRequired": "Name is required",
+        "emailRequired": "Email is required",
+        "emailInvalid": "Email is invalid",
+        "phoneRequired": "Phone is required",
+        "fieldRequired": "This field is required"
+      }
+    },
+    "wizard": {
+      "title": "New Client",
+      "step1": "Personal Information",
+      "step2": "Address and Contact",
+      "step3": "Emergency Contact",
+      "step4": "Notes and Comments",
+      "createClient": "Create Client"
+    }
   },
   "auth": {
     "brandLine": "All-in-one sports management",

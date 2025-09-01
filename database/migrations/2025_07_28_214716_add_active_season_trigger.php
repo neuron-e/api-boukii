@@ -7,6 +7,9 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (!Schema::hasTable('seasons')) {
+            return;
+        }
         if (DB::getDriverName() === 'mysql') {
             DB::unprepared('DROP TRIGGER IF EXISTS seasons_before_insert');
             DB::unprepared('DROP TRIGGER IF EXISTS seasons_before_update');

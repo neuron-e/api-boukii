@@ -11,6 +11,11 @@ import { UISelectComponent, type SelectOption } from '@shared/components/ui/sele
 import { SegmentedToggleComponent } from '@shared/components/ui/segmented-toggle/segmented-toggle.component';
 import { UIKpiCardComponent } from '@shared/components/ui/kpi-card/ui-kpi-card.component';
 import { Router } from '@angular/router';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { CreateClientWizardDialogComponent, CreateClientWizardData } from './create-client-wizard-dialog.component';
+import { DuplicatesDialogComponent } from './duplicates-dialog.component';
+import { ClientsV5Service, CreateClientRequest, ClientDetail } from '@core/services/clients-v5.service';
+import { ToastService } from '@core/services/toast.service';
 
 export interface Client {
   id: number;
@@ -32,12 +37,15 @@ export interface Client {
 @Component({
   selector: 'app-clients-list-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, UIButtonComponent, UIBadgeComponent, UISearchInputComponent, UITableComponent, UIAvatarComponent, UISelectComponent, UIKpiCardComponent, SegmentedToggleComponent],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, MatDialogModule, UIButtonComponent, UIBadgeComponent, UISearchInputComponent, UITableComponent, UIAvatarComponent, UISelectComponent, UIKpiCardComponent, SegmentedToggleComponent],
   templateUrl: './clients-list.page.html',
   styleUrls: ['./clients-list.page.scss'],
 })
 export class ClientsListPageComponent implements OnInit {
   private readonly router = inject(Router);
+  private readonly dialog = inject(MatDialog);
+  private readonly clientsService = inject(ClientsV5Service);
+  private readonly toast = inject(ToastService);
 
   searchControl = new FormControl('');
   viewMode: 'cards' | 'table' = 'table';
@@ -191,7 +199,141 @@ export class ClientsListPageComponent implements OnInit {
   }
 
   createClient(): void {
-    this.router.navigate(['/clients/new']);
+    const ref = this.dialog.open(CreateClientWizardDialogComponent, { 
+      width: '500px',
+      maxWidth: '90vw',
+      panelClass: 'create-client-dialog'
+    });
+    ref.afterClosed().subscribe((data?: CreateClientWizardData) => {
+      if (!data) return;
+      const payload: CreateClientRequest = {
+        first_name: data.first_name,
+        last_name: data.last_name,
+        date_of_birth: data.date_of_birth,
+        gender: data.gender,
+        nationality: data.nationality,
+        preferred_language: data.preferred_language as any,
+        email: data.email,
+        phone: data.phone,
+        telephone: data.telephone,
+        status: data.status ?? 'active',
+        avatar: data.avatar,
+        preferences: {
+          level: data.level as any,
+          instructor_gender: data.instructor_gender as any,
+          group_size: data.group_size as any,
+          communication_method: data.communication_method as any,
+        },
+        address: data.address,
+        emergency_contact: data.emergency_contact,
+        notes: data.notes,
+      };
+
+      const loadingId = this.toast.loading('Creando cliente...');
+      this.clientsService.createClient(payload).subscribe({
+        next: (created: ClientDetail) => {
+          this.toast.remove(loadingId);
+          this.toast.success('Cliente creado');
+          const newClient: Client = {
+            id: created.id,
+            name: `${created.first_name ?? ''} ${created.last_name ?? ''}`.trim() || `${data.first_name} ${data.last_name}`.trim(),
+            email: (created.email ?? data.email ?? ''),
+            phone: created.phone ?? data.phone ?? '',
+            totalBookings: (created as any).total_bookings ?? 0,
+            isActive: (created as any).status ? (created as any).status === 'active' : true,
+            registrationDate: created.created_at ? new Date(created.created_at) : new Date(),
+            lastActivity: created.updated_at ? new Date(created.updated_at) : new Date(),
+            status: (created as any).status ?? (data.status || 'active'),
+            profilesCount: 0,
+            linkedProfiles: 0,
+          };
+          this.clients = [newClient, ...this.clients];
+          this.filterAndSortClients(this.searchControl.value);
+        },
+        error: (err) => {
+          this.toast.remove(loadingId);
+          const duplicates = err?.error?.context?.duplicates || err?.error?.duplicates;
+          if (duplicates && Array.isArray(duplicates) && duplicates.length) {
+            const dupRef = this.dialog.open(DuplicatesDialogComponent, { width: '720px', data: { duplicates } });
+            dupRef.afterClosed().subscribe((res?: { action: 'open'|'edit', id?: number }) => {
+              if (!res) return;
+              if (res.action === 'open' && res.id) {
+                this.router.navigate(['/clients', res.id, 'profile']);
+              } else if (res.action === 'edit') {
+                // Reabrir el wizard con datos prellenados
+            this.dialog.open(CreateClientWizardDialogComponent, { 
+              width: '500px',
+              maxWidth: '90vw',
+              panelClass: 'create-client-dialog',
+              data 
+            }).afterClosed().subscribe(r => {
+                  if (r) {
+                    // Intentar nuevamente
+                    this.createClientFromData(r);
+                  }
+                });
+              }
+            });
+          } else {
+            const message = err?.error?.message || err?.message || 'No se pudo crear el cliente';
+            this.toast.error(message);
+            console.error('Create client failed', err);
+          }
+        }
+      });
+    });
+  }
+
+  private createClientFromData(data: CreateClientWizardData) {
+    const payload: CreateClientRequest = {
+      first_name: data.first_name,
+      last_name: data.last_name,
+      date_of_birth: data.date_of_birth,
+      gender: data.gender,
+      nationality: data.nationality,
+      preferred_language: data.preferred_language as any,
+      email: data.email,
+      phone: data.phone,
+      telephone: data.telephone,
+      status: data.status ?? 'active',
+      avatar: data.avatar,
+      preferences: {
+        level: data.level as any,
+        instructor_gender: data.instructor_gender as any,
+        group_size: data.group_size as any,
+        communication_method: data.communication_method as any,
+      },
+      address: data.address,
+      emergency_contact: data.emergency_contact,
+      notes: data.notes,
+    };
+    const loadingId = this.toast.loading('Creando cliente...');
+    this.clientsService.createClient(payload).subscribe({
+      next: (created: ClientDetail) => {
+        this.toast.remove(loadingId);
+        this.toast.success('Cliente creado');
+        const newClient: Client = {
+          id: created.id,
+          name: `${created.first_name ?? ''} ${created.last_name ?? ''}`.trim() || `${data.first_name} ${data.last_name}`.trim(),
+          email: (created.email ?? data.email ?? ''),
+          phone: created.phone ?? data.phone ?? '',
+          totalBookings: (created as any).total_bookings ?? 0,
+          isActive: (created as any).status ? (created as any).status === 'active' : true,
+          registrationDate: created.created_at ? new Date(created.created_at) : new Date(),
+          lastActivity: created.updated_at ? new Date(created.updated_at) : new Date(),
+          status: (created as any).status ?? (data.status || 'active'),
+          profilesCount: 0,
+          linkedProfiles: 0,
+        };
+        this.clients = [newClient, ...this.clients];
+        this.filterAndSortClients(this.searchControl.value);
+      },
+      error: (err) => {
+        this.toast.remove(loadingId);
+        const message = err?.error?.message || err?.message || 'No se pudo crear el cliente';
+        this.toast.error(message);
+      }
+    });
   }
 
   exportClients(): void {

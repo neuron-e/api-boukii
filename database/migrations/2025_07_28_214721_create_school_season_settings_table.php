@@ -8,14 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('school_season_settings')) {
+            return;
+        }
         Schema::create('school_season_settings', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('school_id')->constrained();
-            $table->foreignId('season_id')->constrained();
+            $table->unsignedBigInteger('school_id');
+            $table->unsignedBigInteger('season_id');
             $table->string('key');
             $table->json('value')->nullable();
             $table->timestamps();
             $table->unique(['school_id', 'season_id', 'key'], 'uniq_school_season_key');
+            $table->index('school_id');
+            $table->index('season_id');
         });
     }
 

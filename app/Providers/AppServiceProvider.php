@@ -31,5 +31,14 @@ class AppServiceProvider extends ServiceProvider
         
         // Configurar modelo personalizado de PersonalAccessToken
         Sanctum::usePersonalAccessTokenModel(\App\Models\PersonalAccessToken::class);
+
+        // Testing-specific lightweight configuration
+        if ($this->app->environment('testing')) {
+            // Ensure in-memory cache for rate limiter and tests
+            config([
+                'cache.default' => 'array',
+                'activitylog.enabled' => false,
+            ]);
+        }
     }
 }

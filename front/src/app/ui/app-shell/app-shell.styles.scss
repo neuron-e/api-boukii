@@ -158,11 +158,14 @@
   gap: 6px;
   padding: 0 8px;
   height: 36px;
+  min-width: 40px;
+  justify-content: center;
 }
+.language-toggle .lang-code { font-size: 13px; font-weight: 700; letter-spacing: .5px; }
 .language-text { font-size: 13px; font-weight: 600; color: var(--text-1); }
 .language-dropdown {
   position: absolute; top: calc(100% + 4px); right: 0;
-  min-width: 140px; background: var(--color-surface); border: 1px solid var(--color-border);
+  min-width: 140px; background: var(--color-surface); border: 1px solid var(--border);
   border-radius: 8px; box-shadow: var(--shadow-base); z-index: var(--z-overlay); overflow: hidden;
 }
 
@@ -171,7 +174,7 @@
 
 .notifications-dropdown {
   position: absolute; top: calc(100% + 4px); right: 0;
-  min-width: 300px; background: var(--color-surface); border: 1px solid var(--color-border);
+  min-width: 300px; background: var(--color-surface); border: 1px solid var(--border);
   border-radius: 8px; box-shadow: var(--shadow-base); z-index: var(--z-overlay); overflow: hidden;
 }
 
@@ -189,7 +192,7 @@
 .user-role { font-size: 11px; color: var(--color-text-tertiary); margin-top: 1px; }
 .user-dropdown {
   position: absolute; top: calc(100% + 4px); right: 0;
-  min-width: 180px; background: var(--color-surface); border: 1px solid var(--color-border);
+  min-width: 180px; background: var(--color-surface); border: 1px solid var(--border);
   border-radius: 8px; box-shadow: var(--shadow-base); z-index: var(--z-overlay); overflow: hidden;
 }
 .dropdown-option {
@@ -677,6 +680,7 @@
   display:flex; align-items:center; gap:.5rem;
   width:100%; padding:.45rem .75rem; border-radius:8px;
 }
+.language-dropdown .dropdown-option .lang-code { font: 700 12px/1 var(--font-family-sans); letter-spacing: .5px; }
 .language-dropdown .dropdown-option + .dropdown-option { border-top: 1px solid var(--border); }
 .language-dropdown .dropdown-option img{ width:20px; height:20px; border-radius:50%; }
 .language-dropdown .dropdown-option:hover{ background: var(--ski-accent-light); }
@@ -730,7 +734,7 @@
 
 .user-dropdown{ min-width: 320px; }
 .user-dropdown-header{ display:flex; gap:1rem; padding:1rem; }
-.user-dropdown-header { border-bottom: 1px solid var(--border); }
+.user-dropdown-header { border-bottom: 1px solid var(--color-border); }
 .user-avatar-large{ width:48px; height:48px; border-radius:12px; object-fit:cover; }
 .user-name-large{ margin:0; font-size:16px; font-weight:600; color: var(--text-1); }
 .user-email{ margin:0.25rem 0 0 0; font-size:13px; color:var(--text-2); }
@@ -743,7 +747,7 @@
   color: var(--color-text-primary);
   transition: background-color 0.2s ease;
 }
-.user-dropdown .dropdown-option + .dropdown-option { border-top: 1px solid var(--border); }
+.user-dropdown .dropdown-option + .dropdown-option { border-top: 1px solid var(--color-border); }
 .user-dropdown .dropdown-option:hover{ background: var(--surface-2); }
 .user-dropdown .dropdown-option.danger{ color:var(--red); }
 .user-dropdown .dropdown-option svg {
