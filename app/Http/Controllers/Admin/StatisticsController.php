@@ -4982,7 +4982,7 @@ class StatisticsController extends AppBaseController
         // Utiliza start_date y end_date de la request si están presentes, sino usa las fechas de la temporada
         $startDate = $request->start_date ?? $season->start_date;
         $endDate = $request->end_date ?? $season->end_date;
-        $onlyWeekends = $request->boolean('onlyWeekends', false); // default false
+        $onlyWeekends = $request->boolean('only_weekends', $request->boolean('onlyWeekends', false)); // default false
 
         // Obtener los monitores totales filtrados por escuela y deporte si se proporciona
         $totalMonitorsQuery = Monitor::whereHas('monitorsSchools', function ($query) use ($request, $schoolId) {
@@ -5178,7 +5178,7 @@ class StatisticsController extends AppBaseController
         $endDate = $request->end_date ?? $season->end_date;
         $sportId = $request->input('sport_id');
         $courseType = $request->input('course_type');
-        $onlyWeekends = $request->boolean('onlyWeekends', false);
+        $onlyWeekends = $request->boolean('only_weekends', $request->boolean('onlyWeekends', false));
 
         $bookingusersReserved = BookingUser::whereBetween('date', [$startDate, $endDate])
             ->whereHas('booking', function ($query) {
@@ -5775,7 +5775,7 @@ class StatisticsController extends AppBaseController
         // Utiliza start_date y end_date de la request si están presentes, sino usa las fechas de la temporada
         $startDate = $request->start_date ?? $season->start_date;
         $endDate = $request->end_date ?? $season->end_date;
-        $onlyWeekends = $request->boolean('onlyWeekends', false); // default false
+        $onlyWeekends = $request->boolean('only_weekends', $request->boolean('onlyWeekends', false)); // default false
 
         // Obtener monitor_id si está presente en la request
         $monitorId = $request->monitor_id;
@@ -5847,7 +5847,7 @@ class StatisticsController extends AppBaseController
         // Utiliza start_date y end_date de la request si están presentes, sino usa las fechas de la temporada
         $startDate = $request->start_date ?? $season->start_date;
         $endDate = $request->end_date ?? $season->end_date;
-        $onlyWeekends = $request->boolean('onlyWeekends', false); // default false
+        $onlyWeekends = $request->boolean('only_weekends', $request->boolean('onlyWeekends', false)); // default false
 
         $totalWorkedHours = $this->calculateTotalWorkedHours($schoolId, $startDate, $endDate, $season,
             $request->monitor_id, $request->sport_id, $onlyWeekends);
@@ -5869,7 +5869,7 @@ class StatisticsController extends AppBaseController
         // Utiliza start_date y end_date de la request si están presentes, sino usa las fechas de la temporada
         $startDate = $request->start_date ? Carbon::parse($request->start_date) : Carbon::parse($season->start_date);
         $endDate = $request->end_date ? Carbon::parse($request->end_date) : Carbon::parse($season->end_date);
-        $onlyWeekends = $request->boolean('onlyWeekends', false); // default false
+        $onlyWeekends = $request->boolean('only_weekends', $request->boolean('onlyWeekends', false)); // default false
 
         // Determinar el intervalo de agrupación
         $interval = $this->determineInterval($startDate, $endDate);
@@ -5917,7 +5917,7 @@ class StatisticsController extends AppBaseController
         // Utiliza start_date y end_date de la request si están presentes, sino usa las fechas de la temporada
         $startDate = $request->start_date ? Carbon::parse($request->start_date) : Carbon::parse($season->start_date);
         $endDate = $request->end_date ? Carbon::parse($request->end_date) : Carbon::parse($season->end_date);
-        $onlyWeekends = $request->boolean('onlyWeekends', false); // default false
+        $onlyWeekends = $request->boolean('only_weekends', $request->boolean('onlyWeekends', false)); // default false
 
         // Determinar el intervalo de agrupación
         $interval = $this->determineInterval($startDate, $endDate);
@@ -6102,7 +6102,7 @@ class StatisticsController extends AppBaseController
 
         $startDate = $request->start_date ?? $season->start_date;
         $endDate = $request->end_date ?? $season->end_date;
-        $onlyWeekends = $request->boolean('onlyWeekends', false);
+        $onlyWeekends = $request->boolean('only_weekends', $request->boolean('onlyWeekends', false));
 
         if (!$startDate || !$endDate) {
             return $this->sendError('Start date and end date are required.');
@@ -6192,7 +6192,7 @@ class StatisticsController extends AppBaseController
         // Utiliza start_date y end_date de la request si están presentes, sino usa las fechas de la temporada
         $startDate = $request->start_date ?? $season->start_date;
         $endDate = $request->end_date ?? $season->end_date;
-        $onlyWeekends = $request->boolean('onlyWeekends', false); // default false
+        $onlyWeekends = $request->boolean('only_weekends', $request->boolean('onlyWeekends', false)); // default false
 
         if (!$startDate || !$endDate) {
             return $this->sendError('Start date and end date are required.');
@@ -6398,7 +6398,7 @@ class StatisticsController extends AppBaseController
 
         $startDate = $request->start_date ?? $season->start_date;
         $endDate = $request->end_date ?? $season->end_date;
-        $onlyWeekends = $request->boolean('onlyWeekends', false); // default false
+        $onlyWeekends = $request->boolean('only_weekends', $request->boolean('onlyWeekends', false)); // default false
 
         $bookingUsersWithMonitor = BookingUser::with(['monitor.monitorSportsDegrees.salary', 'course.sport'])
             ->where('school_id', $schoolId)
@@ -6556,7 +6556,7 @@ class StatisticsController extends AppBaseController
         $startDate = $request->start_date ?? $season->start_date;
         $endDate = $request->end_date ?? $season->end_date;
 
-        $onlyWeekends = $request->boolean('onlyWeekends', false); // default false
+        $onlyWeekends = $request->boolean('only_weekends', $request->boolean('onlyWeekends', false)); // default false
 
         $bookingUsersWithMonitor = BookingUser::with(['monitor.monitorSportsDegrees.salary', 'course.sport'])
             ->where('school_id', $schoolId)
@@ -6922,7 +6922,7 @@ class StatisticsController extends AppBaseController
 
         $startDate = $request->start_date ?? $season->start_date;
         $endDate = $request->end_date ?? $season->end_date;
-        $onlyWeekends = $request->boolean('onlyWeekends', false); // default false
+        $onlyWeekends = $request->boolean('only_weekends', $request->boolean('onlyWeekends', false)); // default false
         $sportId = $request->sport_id;
 
         $bookingUsersWithMonitor = BookingUser::with(['monitor.monitorSportsDegrees.salary', 'course.sport'])
