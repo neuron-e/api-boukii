@@ -1,0 +1,26 @@
+.card {
+  display: flex;
+  box-shadow: none;
+  gap: 20px;
+  padding: 20px;
+  width: 270px;
+  flex-wrap: nowrap;
+  flex-direction: column;
+  > div {
+    display: flex;
+    gap: 8px;
+    .descripcion {
+      font-size: 12px;
+      line-height: 16px;
+    }
+  }
+}
+.cardcenter {
+  box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.16);
+  transform: scale(1.2);
+  transform-origin: top;
+  transition: transform 0.3s ease;
+  @media only screen and (max-width: 900px) {
+    transform: none;
+  }
+}

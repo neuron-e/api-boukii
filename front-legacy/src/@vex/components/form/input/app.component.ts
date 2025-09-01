@@ -19,6 +19,7 @@ export class ComponenteInputComponent implements OnInit {
   @Input() max: number = Infinity
   @Input() min: number = 0
   @Input() margin: number = 10
+  @Input() readonly: boolean = false
 
   @Input() errors: string = ""
   @Output() do = new EventEmitter()

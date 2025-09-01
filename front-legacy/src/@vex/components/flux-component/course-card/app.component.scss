@@ -115,3 +115,250 @@ button {
     }
   }
 }
+
+/* Estilos para el contenedor de fechas */
+.course-dates-container {
+  width: 100%;
+  margin-bottom: 24px;
+  background-color: #ffffff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Encabezado de la sección de fechas */
+.dates-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  background-color: #fafafa;
+}
+
+/* Botones para expandir/colapsar todos */
+.expand-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.text-button {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.text-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.text-button mat-icon {
+  font-size: 16px;
+  height: 16px;
+  width: 16px;
+  margin-right: 4px;
+}
+
+/* Grupo de intervalo */
+.interval-group {
+  margin: 0;
+  border-left: 3px solid #e5e5e5;
+  transition: all 0.3s ease;
+}
+
+.interval-group:not(:last-child) {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.interval-group:hover {
+  border-left-color: var(--color-primary);
+  background-color: #f9f9f9;
+}
+
+/* Encabezado del intervalo */
+.interval-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.interval-header:hover {
+  background-color: #f0f0f0;
+}
+
+.interval-title {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: var(--color-primary);
+  font-size: 14px;
+}
+
+.interval-title mat-icon {
+  margin-right: 8px;
+  font-size: 18px;
+  height: 18px;
+  width: 18px;
+  transition: transform 0.2s ease;
+}
+
+/* Resumen breve del intervalo (visible cuando está colapsado) */
+.interval-brief {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  color: var(--color-dark3);
+}
+
+.date-count {
+  background-color: #f0f0f0;
+  border-radius: 12px;
+  padding: 2px 8px;
+  margin-right: 8px;
+}
+
+.weekdays-brief {
+  font-style: italic;
+}
+
+/* Contenido del intervalo */
+.interval-content {
+  padding: 0 16px 16px 36px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Resumen del intervalo */
+.interval-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background-color: #f5f9ff;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+.summary-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.date-range {
+  font-size: 14px;
+  color: var(--color-dark1);
+}
+
+.weekdays {
+  font-size: 12px;
+  color: var(--color-dark3);
+  margin-top: 4px;
+}
+
+.summary-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.time-schedule {
+  font-size: 14px;
+  color: var(--color-grey1);
+}
+
+.price {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-dark1);
+  margin-top: 4px;
+}
+
+/* Botón para mostrar/ocultar fechas detalladas */
+.show-details-button {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-bottom: 10px;
+}
+
+/* Fechas detalladas */
+.detailed-dates {
+  margin-top: 8px;
+  padding: 8px;
+  background-color: #fafafa;
+  border-radius: 6px;
+  animation: fadeIn 0.3s ease;
+}
+
+/* Elementos de fecha individual */
+.date-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 14px;
+  border-bottom: 1px dotted #f0f0f0;
+}
+
+.date-item:last-child {
+  border-bottom: none;
+}
+
+.date {
+  font-weight: 500;
+  color: var(--color-dark1);
+}
+
+.time {
+  color: var(--color-grey1);
+}
+
+/* Estilos específicos para fechas previas */
+.prev-dates {
+  margin-top: 24px;
+  opacity: 0.85;
+}
+
+.prev-interval {
+  border-left-color: #d8d8d8;
+}
+
+/* Estilos responsivos */
+@media (max-width: 768px) {
+  .interval-summary, .date-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .summary-right, .price {
+    margin-top: 6px;
+    align-items: flex-start;
+  }
+
+  .interval-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .interval-brief {
+    margin-top: 6px;
+  }
+}

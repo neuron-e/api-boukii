@@ -1,4 +1,14 @@
-import { Component, ElementRef, HostListener, NgZone, OnInit, QueryList, ViewChild, ViewEncapsulation } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  HostListener,
+  NgZone,
+  OnInit,
+  QueryList,
+  ViewChild,
+  ViewEncapsulation
+} from '@angular/core';
 import { TableColumn } from 'src/@vex/interfaces/table-column.interface';
 import { SalaryCreateUpdateModalComponent } from './salary-create-update-modal/salary-create-update-modal.component';
 import { stagger20ms } from 'src/@vex/animations/stagger.animation';
@@ -113,7 +123,7 @@ export class SettingsComponent implements OnInit {
   cancellationInsurancePercent = 0;
   cancellationNoRem = 0;
   cancellationRem = 0;
-
+  loadedTabs: boolean[] = [];
   today = new Date();
 
   selectedFrom = null;
@@ -161,6 +171,16 @@ export class SettingsComponent implements OnInit {
     });
   }
 
+  Translate: { Code: string, Name: string }[] = [
+    { Code: "fr", Name: "French" },
+    { Code: "de", Name: "German" },
+    { Code: "en", Name: "English" },
+    { Code: "it", Name: "Italian" },
+    { Code: "es", Name: "Spanish" },
+  ]
+
+  selectedTabIndex = 0;
+
   createComponent = SalaryCreateUpdateModalComponent;
 
   entitySalary = '/school-salary-levels';
@@ -185,10 +205,11 @@ export class SettingsComponent implements OnInit {
   user: any;
   safeUrl: SafeResourceUrl;
 
-  constructor(private ngZone: NgZone, private fb: UntypedFormBuilder, private crudService: ApiCrudService, private snackbar: MatSnackBar,
-    private dialog: MatDialog, private schoolService: SchoolService,
-    public layoutService: LayoutService, private sanitizer: DomSanitizer,
-    private translateService: TranslateService, private dateAdapter: DateAdapter<Date>) {
+  constructor(private ngZone: NgZone, private fb: UntypedFormBuilder, private crudService: ApiCrudService,
+              private snackbar: MatSnackBar, private cdr: ChangeDetectorRef,
+              private dialog: MatDialog, private schoolService: SchoolService,
+              public layoutService: LayoutService, private sanitizer: DomSanitizer,
+              private translateService: TranslateService, private dateAdapter: DateAdapter<Date>) {
     this.filteredHours = this.hours;
     this.dateAdapter.setLocale(this.translateService.getDefaultLang());
     this.dateAdapter.getFirstDayOfWeek = () => { return 1; }
@@ -198,7 +219,9 @@ export class SettingsComponent implements OnInit {
 
   ngOnInit() {
     this.user = JSON.parse(localStorage.getItem('boukiiUser'));
-
+    this.loadedTabs = this.Translate.map(() => false);
+    // Marca la primera pestaña como cargada
+    this.loadedTabs[0] = true;
     /*this.mockLevelData.forEach(element => {
       this.crudService.create('/degrees', element)
 
@@ -249,7 +272,10 @@ export class SettingsComponent implements OnInit {
             this.getSchoolSportDegrees();
 
             this.selectedFrom = moment(this.season?.start_date).toDate();
+            this.selectedFromHour = this.season?.hour_start?.split(':').slice(0, 2).join(':'); // "18:00"
+            this.selectedToHour = this.season?.hour_end?.split(':').slice(0, 2).join(':'); // "18:00"
             this.selectedTo = moment(this.season?.end_date).toDate();
+
 
             this.seasonForm = this.fb.group({
               fromDate: [moment(this.season?.start_date).toDate()],
@@ -293,7 +319,7 @@ export class SettingsComponent implements OnInit {
               this.filteredProvinces = this._filterProvinces(country.id);
             });
 
-            const settings = JSON.parse(this.school.settings);
+            const settings = typeof this.school.settings === 'string' ? JSON.parse(this.school.settings) : this.school.settings;
             this.people = settings && settings.prices_range.people ? settings.prices_range.people : this.people;
             this.displayedColumns = ['intervalo', ...Array.from({ length: this.people }, (_, i) => `${i + 1}`)];
             this.dataSource = settings && settings.prices_range.prices && settings.prices_range.prices !== null ? settings.prices_range.prices :
@@ -327,18 +353,22 @@ export class SettingsComponent implements OnInit {
               desktopImg: [settings?.bookingPage?.banner.desktopImg],
               mobileImg: [settings?.bookingPage?.banner.mobileImg],
             })
-
-            this.PageForm.MessageInformation = this.fb.group({
-              title: [settings?.bookingPage?.messages.title],
-              desc: [settings?.bookingPage?.messages.desc],
-              type: [settings?.bookingPage?.messages.type],
-            })
-
+            this.PageForm.Conditions = this.fb.group({
+              terms: [settings?.bookingPage?.conditions?.terms || { es: '', en: '', fr: '', de: '', it: '' }],
+              privacy: [settings?.bookingPage?.conditions?.privacy || { es: '', en: '', fr: '', de: '', it: '' }],
+              contact: [settings?.bookingPage?.conditions?.contact || { es: '', en: '', fr: '', de: '', it: '' }]
+            });
+            /*            this.PageForm.MessageInformation = this.fb.group({
+                          index: [0, Validators.required],
+                          title: ["", Validators.required],
+                          desc: ["", Validators.required],
+                          color: ["#D2EFFF", Validators.required],
+                        })*/
+            this.MessageStorage = settings?.bookingPage?.messages || []
             this.SponsorImg = settings?.bookingPage?.sponsors || []
 
             setTimeout(() => {
               this.dataSourceLevels.data = this.schoolSports[0].degrees;
-
             }, 500);
 
             this.loading = false;
@@ -527,6 +557,12 @@ export class SettingsComponent implements OnInit {
     this.selectedIndex = event.index;
     this.setCurrentMailType();
   }
+
+  onTabLangsChange(index: number): void {
+    // Marca la pestaña actual como cargada
+    this.loadedTabs[index] = true;
+  }
+
 
   onFullTabChange(event: any) {
     if (event.index == 7) {
@@ -874,14 +910,12 @@ export class SettingsComponent implements OnInit {
 
 
   createExtra(product: string, isEdit: boolean, idx: number, extra: any) {
-
     const dialogRef = this.dialog.open(ExtraCreateUpdateModalComponent, {
-      width: '90vw',
-      height: '90vh',
+      width: '50vw',
+      height: '36vh',
       maxWidth: '100vw',  // Asegurarse de que no haya un ancho máximo
-      panelClass: 'full-screen-dialog',  // Si necesitas estilos adicionales
       data: isEdit ? extra : {
-        product: product,
+        product: '',
         name: '',
         price: '',
         tva: '',
@@ -891,15 +925,7 @@ export class SettingsComponent implements OnInit {
 
     dialogRef.afterClosed().subscribe((data: any) => {
       if (data) {
-        if (data.product === 'Forfait') {
-
-          this.addForfait(data, isEdit, idx);
-        } else if (data.product === 'Food') {
-          this.addFood(data, isEdit, idx);
-        } else if (data.product === 'Transport') {
-          this.addTransport(data, isEdit, idx);
-        }
-
+        this.addForfait(data, isEdit, idx);
         this.saveExtra();
       }
     });
@@ -919,7 +945,7 @@ export class SettingsComponent implements OnInit {
 
       this.dataSourceForfait.data.push({
         id: 'FOR-' + this.generateRandomNumber(),
-        product: 'Forfait',
+        product: data.product,
         name: data.name,
         price: data.price,
         tva: data.tva,
@@ -1079,9 +1105,10 @@ export class SettingsComponent implements OnInit {
       extras: { forfait: this.dataSourceForfait.data, food: this.dataSourceFood.data, transport: this.dataSourceTransport.data },
       degrees: this.dataSourceLevels.data,
       bookingPage: {
-        messages: this.PageForm.MessageInformation.value,
+        messages: this.MessageStorage,
         sponsors: this.SponsorImg,
-        banner: this.PageForm.BannerPromocional.value
+        banner: this.PageForm.BannerPromocional.value,
+        conditions: this.PageForm.Conditions.value
       }
     }
 
@@ -1095,6 +1122,21 @@ export class SettingsComponent implements OnInit {
         this.schoolService.refreshSchoolData();
         this.getData();
       })
+  }
+
+  trackLang(index: number, lang: any) {
+    return lang.Code;
+  }
+
+  updateConditions(field: string, lang: string, value: any) {
+    const currentConditions = { ...this.PageForm.Conditions.value };
+    if (!currentConditions[field]) {
+      currentConditions[field] = {};
+    }
+    currentConditions[field][lang] = value.target.innerHTML;
+
+    this.PageForm.Conditions.get(field)?.setValue(currentConditions[field], { emitEvent: false });
+    this.cdr.markForCheck();
   }
 
   updateTVAValue(event: any) {
@@ -1139,7 +1181,7 @@ export class SettingsComponent implements OnInit {
   //PAGINA DE RESERVA, MODAL
   PageModal: { BannerPromocional: boolean, MessageInformation: boolean, SponsoLink: boolean, Previum: boolean } =
     { BannerPromocional: false, MessageInformation: false, SponsoLink: false, Previum: false }
-  PageForm: { BannerPromocional: FormGroup, MessageInformation: FormGroup, SponsoLink: FormGroup } =
+  PageForm: { BannerPromocional: FormGroup, MessageInformation: FormGroup, SponsoLink: FormGroup, Conditions: FormGroup } =
     {
       BannerPromocional: this.fb.group({
         link: ["", Validators.required],
@@ -1147,20 +1189,56 @@ export class SettingsComponent implements OnInit {
         mobileImg: ["", Validators.required],
       }),
       MessageInformation: this.fb.group({
+        index: [0, Validators.required],
         title: ["", Validators.required],
         desc: ["", Validators.required],
-        type: [true, Validators.required],
+        type: [false, Validators.required],
+        color: ["#D2EFFF", Validators.required]
       }),
       SponsoLink: this.fb.group({
         index: [0, Validators.required],
         link: ["", Validators.required],
         img: ["", Validators.required],
       }),
+      Conditions: this.fb.group({
+        terms: [
+          {
+            es: '',
+            en:  '',
+            fr:  '',
+            it:  '',
+            de:  '',
+          }
+        ],
+        privacy: [
+          {
+            es: '',
+            en:  '',
+            fr:  '',
+            it:  '',
+            de:  '',
+          }
+        ],
+        contact: [
+          {
+            es: '',
+            en:  '',
+            fr:  '',
+            it:  '',
+            de:  '',
+          }
+        ],
+      })
     }
 
+
   SponsorImg: { index: number, img: string, link: string }[] = []
+  MessageStorage: { index: number, title: string, desc: string, type: boolean }[] = []
 
   removeSponsor(index: number): void {
     this.SponsorImg.splice(index, 1);
+  }
+  removeMessage(index: number): void {
+    this.MessageStorage.splice(index, 1);
   }
 }

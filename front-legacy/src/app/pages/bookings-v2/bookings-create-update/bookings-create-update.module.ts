@@ -13,24 +13,26 @@ import { MatRadioModule } from '@angular/material/radio';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { FormsModule } from '@angular/forms';
+import {MatDialogModule} from '@angular/material/dialog';
 
 @NgModule({
   declarations: [BookingsCreateUpdateV2Component],
-  imports: [
-    CommonModule,
-    TranslateModule,
-    MatCardModule,
-    BookingComponentsModule,
-    SecondaryToolbarModule,
-    BreadcrumbsModule,
-    MatIconModule,
-    MatButtonModule,
-    FluxModalModule,
-    MatRadioModule,
-    MatInputModule,
-    MatSelectModule,
-    FormsModule
-  ],
+    imports: [
+        CommonModule,
+        TranslateModule,
+        MatCardModule,
+        BookingComponentsModule,
+        SecondaryToolbarModule,
+        BreadcrumbsModule,
+        MatIconModule,
+        MatButtonModule,
+        FluxModalModule,
+        MatRadioModule,
+        MatInputModule,
+        MatSelectModule,
+        FormsModule,
+        MatDialogModule
+    ],
   exports: [BookingsCreateUpdateV2Component],
 })
 export class BookingsCreateUpdateModule { }

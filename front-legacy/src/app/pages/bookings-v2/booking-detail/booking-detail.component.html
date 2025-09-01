@@ -1,107 +1,139 @@
 <div class="barWrapper">
-	<vex-breadcrumbs [crumbs]="[
+  <vex-breadcrumbs [crumbs]="[
       { icon: 'reservas' },
       { text: 'bookings', title: true, link: '/bookings' },
-      { text: 'booking_info', subtitle: true }
+      { text: 'booking_info', subtitle: true },
+      { text: '#'+id, subtitle: true }
+
     ]"
-		class="booking-breadcrumb"></vex-breadcrumbs>
+                   class="booking-breadcrumb"></vex-breadcrumbs>
 </div>
 <div class="bookingDetailContainer">
-	<!-- <button (click)="openBookingDialog()"
-		style="margin-bottom: 0;"
-		mat-button
-		type="button"
-		class="modalButton">
-		{{ "bookings_page_descriptionModal_button" | translate }}
-	</button> -->
-	<div class="left-column">
-		<div class="activities" *ngIf="allLevels">
-			<booking-detail-description-card *ngFor="let activity of groupedActivities; let i = index"
-				[index]="i"
-				[utilizers]="activity.utilizers"
-				[sport]="activity.sport"
-				[sportLevel]="activity.sportLevel"
+  <button (click)="openDetailBookingDialog()"
+          style="margin-bottom: 0;"
+          mat-button
+          type="button"
+          class="modalButton">
+    {{ "bookings_page_descriptionModal_button" | translate }}
+  </button>
+  <div class="left-column">
+    <div class="activities" *ngIf="allLevels">
+      <booking-detail-description-card *ngFor="let activity of groupedActivities; let i = index"
+                                       [index]="i"
+                                       [utilizers]="activity.utilizers"
+                                       [sport]="activity.sport"
+                                       [sportLevel]="activity.sportLevel"
                                        [allLevels]="allLevels"
-				[course]="activity.course"
-				[dates]="activity.dates"
-				[monitors]="activity.monitors"
-				[clientObs]="activity.clientObs"
-				[schoolObs]="activity.schoolObs"
-				[total]="activity.total"
-				[isDetail]="true"
-				[status]="activity.status"
-				[groupedActivities]="groupedActivities"
-				(deleteActivity)="processDelete(i)"
-				(editActivity)="editActivity($event, i)">
-			</booking-detail-description-card>
-		</div>
-	</div>
-	<div class="right-column">
-		<booking-detail-reservation-detail *ngIf="mainClient"
-			[client]="mainClient"
-			[allLevels]="allLevels"
-			[bookingData]="bookingData$ | async"
-			[activities]="groupedActivities"
-			[activitiesChanged]="activitiesChanged$"
-      (deleteActivity)="processFullDelete()"
-			(endClick)="endModal=true"
-			(payClick)="payModal=true">
-		</booking-detail-reservation-detail>
-	</div>
+                                       [course]="activity.course"
+                                       [dates]="activity.dates"
+                                       [monitors]="activity.monitors"
+                                       [clientObs]="activity.clientObs"
+                                       [schoolObs]="activity.schoolObs"
+                                       [total]="activity.total"
+                                       [isDetail]="true"
+                                       [status]="activity.status"
+                                       [groupedActivities]="groupedActivities"
+                                       (deleteActivity)="processDelete(i)"
+                                       (editActivity)="editActivity($event, i)">
+      </booking-detail-description-card>
+    </div>
+  </div>
+  <div class="right-column">
+    <booking-detail-reservation-detail *ngIf="mainClient"
+                                       [client]="mainClient"
+                                       [allLevels]="allLevels"
+                                       [isModal]="incData?.isModal"
+                                       [bookingData]="bookingData$ | async"
+                                       [activities]="groupedActivities"
+                                       [activitiesChanged]="activitiesChanged$"
+                                       (deleteActivity)="processFullDelete()"
+                                       (endClick)="endModal=true"
+                                       (closeClick)="closeModal()"
+                                       (payClick)="bookingService.calculatePendingPrice() === 0 ? finalizeBooking() : payModal=true">
+    </booking-detail-reservation-detail>
+  </div>
 </div>
+<div class="mobileFixe">
+  {{ "bookings_page.description.total" | translate }}
+  <ng-container>
+      <span class="totalPrice">
+        {{ bookingData.price_total  | number:'0.2-2'}}
+        {{ groupedActivities[0].course.currency }}
+      </span>
+  </ng-container>
+  <ng-container >
+    <span *ngIf="!bookingData.paid && bookingData.price_total - calculateTotalVoucherPrice() > 0">{{ "to_pay" | translate }}</span>
+  </ng-container>
+  <ng-container *ngIf="!bookingData.paid && bookingData.price_total - calculateTotalVoucherPrice() > 0">
+      <span class="totalPrice" *ngIf="bookingData.price_total - calculateTotalVoucherPrice() != 0">
+        {{ bookingData.price_total - calculateTotalVoucherPrice()  | number:'0.2-2' }}
+        {{ groupedActivities[0].course.currency}}
+      </span>
+  </ng-container>
 
+  <div style="width: 100%; display: flex; gap: 10px;">
+    <button
+      style="height: 38px; width: calc(100% - 5px); border-radius: 3px; margin-top: 16px;
+           color: white; font-size: 14px; font-family: DM Sans; font-weight: 600;
+           line-height: 18px; word-wrap: break-word"
+      color="primary"
+      mat-raised-button
+      type="button"
+      class="client-button"
+      [disabled]="bookingData.paid"
+      (click)="payModal = true">
+      {{  (bookingData.paid ? "ispaid" : "to_pay") | translate }}
+    </button>
+  </div>
+</div>
 <vex-flux-modal *ngIf="deleteModal"
-	[width]="570"
-	(Close)="deleteModal=false"
-	title="delete_activity">
-	<div body>
-		<div style="margin: 10px;">
-			{{"cancel_activity" | translate}} #{{("00"+deleteIndex+1).slice(-2)}}?
-		</div>
-	</div>
-	<div footer
-		style="display: flex;">
-		<button (click)="deleteModal=false"
-			style="height: 38px; width: 85px;border-radius: 3px;margin-top: 20px; margin-left: auto;"
-			mat-raised-button
-			type="button"
-			class="client-button">
-			{{"cancel" | translate }}
-		</button>
-		<button (click)="cancelActivity(deleteIndex)"
-			style="height: 38px; width: 85px;border-radius: 3px;margin-top:20px;margin-left: 20px;"
-			color="primary"
-			mat-raised-button
-			type="button"
-			class="client-button">
-			{{ "yes_delete" | translate }}
-		</button>
-	</div>
+                [width]="570"
+                (Close)="deleteModal=false"
+                title="delete_activity">
+  <div body>
+    <div style="margin: 10px;">
+      {{"cancel_activity" | translate}} #{{("00"+deleteIndex+1).slice(-2)}}?
+    </div>
+  </div>
+  <div footer class="modal-buttons-container">
+    <button (click)="deleteModal=false"
+            class="modal-action-button secondary-button"
+            mat-raised-button
+            type="button"
+            >
+      {{"cancel" | translate }}
+    </button>
+    <button (click)="cancelActivity(deleteIndex)"
+            class="modal-action-button primary-button"
+            color="primary"
+            mat-raised-button
+            type="button">
+      {{ "yes_delete" | translate }}
+    </button>
+  </div>
 </vex-flux-modal>
 <vex-flux-modal *ngIf="deleteFullModal"
                 [width]="570"
                 (Close)="deleteFullModal=false"
-                title="delete_activity">
+                title="bookings_page.detail.full_cancel">
   <div body>
     <div style="margin: 10px;">
       {{"bookings_page.cancelations.cancel_booking" | translate}} ?
     </div>
   </div>
-  <div footer
-       style="display: flex;">
+  <div footer class="modal-buttons-container">
     <button (click)="deleteFullModal=false"
-            style="height: 38px; width: 85px;border-radius: 3px;margin-top: 20px; margin-left: auto;"
+            class="modal-action-button secondary-button"
             mat-raised-button
             type="button"
-            class="client-button">
+            >
       {{"cancel" | translate }}
     </button>
-    <button (click)="cancelFull()"
-            style="height: 38px; width: 85px;border-radius: 3px;margin-top:20px;margin-left: 20px;"
+    <button (click)="cancelFull"
+            class="modal-action-button primary-button"
             color="primary"
             mat-raised-button
-            type="button"
-            class="client-button">
+            type="button">
       {{ "yes_delete" | translate }}
     </button>
   </div>
@@ -111,7 +143,7 @@
   <div body>
     <div style="margin: 10px;" class="sectionTitle" *ngIf="step === 1">
       <ng-container *ngIf="bookingService.calculatePendingPrice() > 0; else confirmReservation">
-        {{"pending_payment" | translate}}: <span class="totalPrice">{{ bookingService.calculatePendingPrice() }}</span>
+        {{"pending_payment" | translate}}: <span class="totalPrice">{{ bookingService.calculatePendingPrice() }} {{ groupedActivities[0].course.currency }}</span>
       </ng-container>
       <ng-template #confirmReservation>
         <p>{{ "confirm_booking_message" | translate }}</p>
@@ -149,29 +181,19 @@
     </div>
 
   </div>
-
-  <div footer style="display: flex;">
-    <!-- Botón Cancelar -->
+  <div footer class="modal-buttons-container">
     <button (click)="cancelPaymentStep()"
-            style="height: 38px; width: 150px; border-radius: 3px; margin-top: 20px; margin-left: auto;"
-            mat-raised-button type="button" class="client-button">
+            class="modal-action-button secondary-button"
+            mat-raised-button
+            type="button">
       {{"cancel" | translate }}
     </button>
-
-    <!-- Botón Finalizar Pago o Finalizar Reserva -->
-    <button
-            (click)="finalizeBooking()"
-            style="height: 38px; width: 200px; border-radius: 3px; margin-top:20px; margin-left: 20px;"
-            color="primary" mat-raised-button type="button" class="client-button">
+    <button (click)="finalizeBooking()"
+            class="modal-action-button primary-button"
+            color="primary"
+            mat-raised-button
+            type="button">
       {{ paymentMethod === 3 || paymentMethod === 4 ? 'mails.type4' : 'end_reserve_pay' | translate }}
     </button>
-
-    <!--    &lt;!&ndash; Botón Cancelar (En cualquier paso) &ndash;&gt;
-        <button *ngIf="step === 2 && !isPaid"
-                (click)="cancelPaymentStep()"
-                style="height: 38px; width: 200px; border-radius: 3px; margin-top:20px; margin-left: 20px;"
-                mat-raised-button type="button" class="client-button">
-          {{"cancel" | translate }}
-        </button>-->
   </div>
 </vex-flux-modal>

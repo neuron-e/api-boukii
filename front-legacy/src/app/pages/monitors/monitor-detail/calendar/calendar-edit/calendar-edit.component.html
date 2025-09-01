@@ -119,15 +119,23 @@
           <mat-form-field appearance="outline">
             <mat-label>{{'Selecciona un grupo' | translate}}</mat-label>
             <mat-select formControlName="blockage"
-              [(ngModel)]="blockageSelected" [value]="blockageSelected"
-              [style.background]="blockageSelected?.color">
-              <mat-option *ngFor="let blockage of blockages" [value]="blockage"
-                (onSelectionChange)="defaults.color = blockage.color;defaults.description = blockage.name"
-                [style.background]="blockage.color">
+                        [(ngModel)]="blockageSelected"
+                        (selectionChange)="onBlockageChange($event.value)"
+                        [style.background]="blockageSelected?.color">
+              <mat-option *ngFor="let blockage of blockages"
+                          [value]="blockage"
+                          [style.background]="blockage.color">
                 <span style="color: #fff">{{ blockage.name }}</span>
               </mat-option>
             </mat-select>
           </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <input type="number" id="price" formControlName="price"
+                   placeholder="{{'price' | translate}}" matInput
+                   [value]="defaults.price" [(ngModel)]="defaults.price">
+          </mat-form-field>
+
 
           <mat-checkbox *ngIf="!event.block_general"
             formControlName="range_dates">{{'range_of_dates' | translate

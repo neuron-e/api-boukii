@@ -30,18 +30,33 @@ export class ApiCrudService extends ApiService {
     });
   }
 
-  get(url: string, relations: any[] = []) {
-    // Construir la parte de la URL para las relaciones
-    let relationsParams = '';
-    if (relations.length > 0) {
-      relationsParams = '?' + relations.map((relation) => `with[]=${relation}`).join('&');
-    }
+  get(url: string, relations: any[] = [], filters: any = {}) {
+    const params = new URLSearchParams();
 
-    // Construir la URL completa
-    const fullUrl = this.baseUrl + url + relationsParams;
+    // Añadir relaciones con with[]
+    relations.forEach(relation => {
+      params.append('with[]', relation);
+    });
+
+    // Añadir filtros (solo si no son null o undefined)
+    Object.entries(filters).forEach(([key, value]:any) => {
+      if (value !== null && value !== undefined) {
+        if (Array.isArray(value)) {
+          value.forEach(val => {
+            params.append(key+'[]', val); // ✅ sin []
+          });
+        } else {
+          params.append(key, value);
+        }
+      }
+    });
+
+    const queryString = params.toString();
+    const fullUrl = queryString ? `${this.baseUrl}${url}?${queryString}` : `${this.baseUrl}${url}`;
 
     return this.http.get<ApiResponse>(fullUrl, { headers: this.getHeaders() });
   }
+
 
   getAll(url: string) {
     return this.http.get<ApiResponse>(this.baseUrl + url + '/all',

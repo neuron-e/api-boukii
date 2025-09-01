@@ -31,10 +31,10 @@ export class ExtraCreateUpdateModalComponent implements OnInit {
 
     this.form = this.fb.group({
       product: [this.defaults.product, Validators.required],
-      name: ['', Validators.required],
-      price: ['', Validators.required],
-      tva: ['', Validators.required],
-      status: [false, Validators.required]
+      name: [this.defaults?.name, Validators.required],
+      price: [this.defaults?.price, Validators.required],
+      tva: [this.defaults?.tva, Validators.required],
+      status: [this.defaults?.status, Validators.required]
     })
 
     this.loading = false;

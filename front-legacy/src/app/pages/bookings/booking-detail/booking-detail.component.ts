@@ -321,7 +321,8 @@ export class BookingDetailComponent implements OnInit {
       .get("/schools/" + this.user.schools[0].id)
       .subscribe((school) => {
         this.school = school.data;
-        this.settings = JSON.parse(school.data.settings);
+        this.settings = typeof school.data.settings === 'string' ?
+          JSON.parse(school.data.settings) : school.data.settings;
         this.cancellationInsurance = parseFloat(
           this.settings?.taxes?.cancellation_insurance_percent
         );
@@ -1338,7 +1339,8 @@ export class BookingDetailComponent implements OnInit {
       .get("/schools/" + this.user.schools[0].id)
       .subscribe((school) => {
         this.school = school.data;
-        this.settings = JSON.parse(school.data.settings);
+        this.settings = typeof school.data.settings === 'string' ?
+          JSON.parse(school.data.settings) : school.data.settings;
         this.selectedForfait =
           this.settings.extras.forfait.length > 0
             ? this.settings.extras.forfait.length[0]
@@ -1612,7 +1614,8 @@ export class BookingDetailComponent implements OnInit {
   }
 
   getAvailableWeekDays(settings: any) {
-    const data = JSON.parse(settings);
+    const data = typeof settings === 'string' ?
+      JSON.parse(settings) : settings;
     let ret = null;
     if (data !== null) {
       if (data.weekDays.monday) {

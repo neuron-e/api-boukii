@@ -1,0 +1,262 @@
+<!-- =============== COURSE STATISTICS TEMPLATE =============== -->
+
+<div class="course-statistics-container" [ngClass]="{ 'compact-mode': compact }">
+
+  <!-- ==================== LOADING STATE ==================== -->
+  <div *ngIf="loading" class="loading-container">
+    <mat-card class="loading-card">
+      <mat-card-content class="loading-content">
+        <mat-spinner diameter="40"></mat-spinner>
+        <h3>{{ 'loading_course_statistics' | translate }}</h3>
+        <p>{{ 'processing_course_data' | translate }}</p>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- ==================== ERROR STATE ==================== -->
+  <div *ngIf="error && !loading" class="error-container">
+    <mat-card class="error-card">
+      <mat-card-content class="error-content">
+        <mat-icon class="error-icon">error</mat-icon>
+        <h3>{{ 'error_loading_statistics' | translate }}</h3>
+        <p>{{ error }}</p>
+        <button mat-raised-button color="primary" (click)="refreshData()">
+          <mat-icon>refresh</mat-icon>
+          {{ 'retry' | translate }}
+        </button>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- ==================== MAIN CONTENT ==================== -->
+  <div *ngIf="courseStats && !loading && !error" class="statistics-content">
+
+    <!-- ==================== COURSE HEADER ==================== -->
+    <div *ngIf="showTitle" class="course-header">
+      <div class="course-info">
+        <div class="course-title">
+          <h2>{{ courseStats.course_info.name }}</h2>
+          <span class="course-type-badge"
+                [style.background-color]="courseTypeColor">
+            {{ courseTypeName }}
+          </span>
+        </div>
+        <div class="course-meta">
+          <span class="sport-info">
+            <mat-icon>sports</mat-icon>
+            {{ courseStats.course_info.sport }}
+          </span>
+          <span class="flexible-info" *ngIf="courseStats.course_info.is_flexible">
+            <mat-icon>schedule</mat-icon>
+            {{ 'flexible_schedule' | translate }}
+          </span>
+        </div>
+      </div>
+
+      <div class="header-actions" *ngIf="!compact">
+        <button mat-icon-button (click)="refreshData()" matTooltip="{{ 'refresh_data' | translate }}">
+          <mat-icon>refresh</mat-icon>
+        </button>
+        <button mat-icon-button (click)="exportStatistics()" matTooltip="{{ 'export_statistics' | translate }}">
+          <mat-icon>download</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <!-- ==================== KPI OVERVIEW ==================== -->
+    <div class="kpis-overview">
+      <div class="kpi-cards-grid">
+
+        <!-- Total Revenue -->
+        <mat-card class="kpi-card revenue-kpi">
+          <mat-card-content>
+            <div class="kpi-content">
+              <div class="kpi-info">
+                <div class="kpi-value">{{ courseStats.financial_stats.total_revenue | currency:'CHF':'symbol':'1.0-2' }}</div>
+                <div class="kpi-label">{{ 'total_revenue' | translate }}</div>
+                <div class="kpi-change">
+                  <span>{{ courseStats.financial_stats.total_bookings }} {{ 'bookings' | translate }}</span>
+                </div>
+              </div>
+              <mat-icon class="kpi-icon" [style.color]="courseTypeColor">monetization_on</mat-icon>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <!-- Total Participants -->
+        <mat-card class="kpi-card participants-kpi">
+          <mat-card-content>
+            <div class="kpi-content">
+              <div class="kpi-info">
+                <div class="kpi-value">{{ courseStats.financial_stats.total_participants }}</div>
+                <div class="kpi-label">{{ 'total_participants' | translate }}</div>
+                <div class="kpi-change">
+                  <span>{{ courseStats.financial_stats.average_price_per_participant | currency:'CHF':'symbol':'1.0-2' }} {{ 'per_participant' | translate }}</span>
+                </div>
+              </div>
+              <mat-icon class="kpi-icon" [style.color]="courseTypeColor">group</mat-icon>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <!-- Occupancy Rate -->
+        <mat-card class="kpi-card occupancy-kpi">
+          <mat-card-content>
+            <div class="kpi-content">
+              <div class="kpi-info">
+                <div class="kpi-value">{{ courseStats.performance_stats.occupancy_rate | number:'1.0-0' }}%</div>
+                <div class="kpi-label">{{ 'occupancy_rate' | translate }}</div>
+                <div class="kpi-change" [ngClass]="performanceIndicator">
+                  <span>{{ performanceIndicator | translate }}</span>
+                </div>
+              </div>
+              <mat-icon class="kpi-icon" [style.color]="courseTypeColor">trending_up</mat-icon>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <!-- Completion Rate -->
+        <mat-card class="kpi-card completion-kpi">
+          <mat-card-content>
+            <div class="kpi-content">
+              <div class="kpi-info">
+                <div class="kpi-value">{{ courseStats.participant_stats.completion_rate | number:'1.0-0' }}%</div>
+                <div class="kpi-label">{{ 'completion_rate' | translate }}</div>
+                <div class="kpi-change">
+                  <span>{{ courseStats.performance_stats.total_sessions }} {{ 'sessions' | translate }}</span>
+                </div>
+              </div>
+              <mat-icon class="kpi-icon" [style.color]="courseTypeColor">check_circle</mat-icon>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+      </div>
+    </div>
+
+    <!-- ==================== CHARTS SECTION ==================== -->
+    <div class="charts-section">
+
+      <!-- Revenue Trend Chart -->
+      <mat-card class="chart-card" [ngClass]="{ 'full-width': compact }">
+        <mat-card-header>
+          <mat-card-title>{{ 'revenue_trend' | translate }}</mat-card-title>
+          <mat-card-subtitle>{{ 'revenue_and_bookings_over_time' | translate }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="chart-container" #revenueTrendChart></div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Payment Methods Chart -->
+      <mat-card class="chart-card" *ngIf="!compact">
+        <mat-card-header>
+          <mat-card-title>{{ 'payment_methods' | translate }}</mat-card-title>
+          <mat-card-subtitle>{{ 'payment_distribution' | translate }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="chart-container" #paymentMethodsChart></div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Participants Trend Chart -->
+      <mat-card class="chart-card" [ngClass]="{ 'full-width': compact }">
+        <mat-card-header>
+          <mat-card-title>{{ 'participants_by_date' | translate }}</mat-card-title>
+          <mat-card-subtitle>{{ 'daily_participation_pattern' | translate }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="chart-container" #participantsTrendChart></div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Booking Sources Chart -->
+      <mat-card class="chart-card" *ngIf="!compact">
+        <mat-card-header>
+          <mat-card-title>{{ 'booking_sources' | translate }}</mat-card-title>
+          <mat-card-subtitle>{{ 'source_distribution' | translate }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="chart-container" #sourcesChart></div>
+        </mat-card-content>
+      </mat-card>
+
+    </div>
+
+    <!-- ==================== DETAILED STATISTICS ==================== -->
+    <div class="detailed-stats" *ngIf="!compact">
+
+      <!-- Financial Details -->
+      <mat-card class="stats-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>attach_money</mat-icon>
+            {{ 'financial_details' | translate }}
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <span class="stat-label">{{ 'average_booking_value' | translate }}</span>
+              <span class="stat-value">{{ (courseStats.financial_stats.total_revenue / courseStats.financial_stats.total_bookings) | currency:'CHF':'symbol':'1.0-2' }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">{{ 'revenue_per_participant' | translate }}</span>
+              <span class="stat-value">{{ courseStats.financial_stats.average_price_per_participant | currency:'CHF':'symbol':'1.0-2' }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">{{ 'total_bookings' | translate }}</span>
+              <span class="stat-value">{{ courseStats.financial_stats.total_bookings }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">{{ 'active_participants' | translate }}</span>
+              <span class="stat-value">{{ courseStats.participant_stats.active_participants }}</span>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Performance Comparison -->
+      <mat-card class="stats-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>compare_arrows</mat-icon>
+            {{ 'performance_comparison' | translate }}
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="comparison-stats">
+            <div class="comparison-item">
+              <span class="comparison-label">{{ 'revenue_vs_similar_courses' | translate }}</span>
+              <div class="comparison-bar">
+                <div class="bar-fill"
+                     [style.width.%]="50 + (courseStats.performance_stats.comparison_with_similar.revenue_vs_average / 2)"
+                     [style.background-color]="courseTypeColor">
+                </div>
+                <span class="comparison-value">
+                  {{ courseStats.performance_stats.comparison_with_similar.revenue_vs_average > 0 ? '+' : '' }}{{ courseStats.performance_stats.comparison_with_similar.revenue_vs_average | number:'1.0-0' }}%
+                </span>
+              </div>
+            </div>
+
+            <div class="comparison-item">
+              <span class="comparison-label">{{ 'participants_vs_similar_courses' | translate }}</span>
+              <div class="comparison-bar">
+                <div class="bar-fill"
+                     [style.width.%]="50 + (courseStats.performance_stats.comparison_with_similar.participants_vs_average / 2)"
+                     [style.background-color]="courseTypeColor">
+                </div>
+                <span class="comparison-value">
+                  {{ courseStats.performance_stats.comparison_with_similar.participants_vs_average > 0 ? '+' : '' }}{{ courseStats.performance_stats.comparison_with_similar.participants_vs_average | number:'1.0-0' }}%
+                </span>
+              </div>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+    </div>
+
+  </div>
+
+</div>

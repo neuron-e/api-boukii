@@ -428,3 +428,80 @@ img[mat-card-image] {
   flex: 1;
   justify-content: center;
 }
+
+/* Estilos responsivos para móviles */
+@media (max-width: 767px) {
+  .wrapper {
+    width: 100%;
+    border-radius: 0;
+    border: none;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .headerWrapper {
+    border-radius: 0;
+    padding: 1rem;
+  }
+
+  .title-status {
+    flex-wrap: wrap;
+  }
+
+  .utilizersWrapper {
+    flex-wrap: wrap;
+  }
+
+  .bodyWrapper, .historyWrapper, .footerWrapper {
+    padding: 15px;
+  }
+
+  .dateRow > div {
+    flex-wrap: wrap;
+  }
+
+  .dateRow > div .price {
+    width: 100%;
+    text-align: right;
+    margin-top: 5px;
+  }
+
+  .col-right {
+    display: flex;
+    margin-top: 5px;
+    width: 100%;
+  }
+
+  /* Botón de pago adaptativo */
+  button.client-button {
+    width: 100% !important;
+    margin: 16px 0 !important;
+    height: 48px !important;
+  }
+
+  /* Arreglar iconos */
+  .utilizersWrapper__description > div {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  /* Ajuste para el botón de enviar correo */
+  .utilizersWrapper__description img[src*="send-mail-black.svg"] {
+    margin-left: auto !important;
+  }
+}
+
+/* Estilos para el diálogo en móvil */
+.mobile-dialog .mat-dialog-container {
+  padding: 0;
+  border-radius: 0;
+  overflow-x: hidden;
+}
+
+.mobile-dialog {
+  margin: 0;
+  height: 100vh;
+  width: 100vw !important;
+  max-width: 100vw !important;
+}

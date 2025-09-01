@@ -11,6 +11,7 @@ import { BookingsCreateUpdateModalComponent } from '../bookings/bookings-create-
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { TranslateService } from '@ngx-translate/core';
 import { BookingsCreateUpdateComponent } from '../bookings/bookings-create-update/bookings-create-update.component';
+import {BookingsCreateUpdateV2Component} from '../bookings-v2/bookings-create-update/bookings-create-update.component';
 
 @Component({
   selector: 'vex-clients',
@@ -67,13 +68,14 @@ export class ClientsComponent {
 
   createBooking() {
     this.detailData.client_sport = this.clientSport;
-    const dialogRef = this.dialog.open(BookingsCreateUpdateComponent, {
+    const dialogRef = this.dialog.open(BookingsCreateUpdateV2Component, {
       width: '100%',
       height: '1200px',
       maxWidth: '90vw',
       panelClass: 'full-screen-dialog',
       data: {
-        client: this.detailData
+        mainClient: this.detailData,
+        utilizers: this.mainIdSelected ? [this.detailData] : [this.utilizer]
       }
     });
 
@@ -108,31 +110,7 @@ export class ClientsComponent {
         this.utilizers = data.data.utilizers;
         this.clientSport = data.data.client_sports;
         this.showDetail = true;
-  /*      this.crudService.get('/admin/clients/' + event.item.id +'/utilizers')
-          .subscribe((uti) => {
-            this.utilizers = uti.data;
-          })
-        this.crudService.list('/client-sports', 1, 10000, 'desc', 'id', '&client_id='+event.item.id+"&school_id="+this.user.schools[0].id)
-          .subscribe((cl) => {
-            this.clientSport = cl.data;
 
-            this.clientSport.forEach(element => {
-              this.crudService.get('/sports/'+element.sport_id)
-                .subscribe((sport) => {
-                  element.name = sport.data.name;
-                  element.icon_selected = sport.data.icon_selected;
-                  element.icon_unselected = sport.data.icon_unselected;
-                });
-
-                this.crudService.get('/degrees/'+element.degree_id)
-                .subscribe((level) => {
-                  element.level = level.data;
-                });
-
-            });
-
-
-          })*/
       })
     } else {
       this.showDetail = event.showDetail;

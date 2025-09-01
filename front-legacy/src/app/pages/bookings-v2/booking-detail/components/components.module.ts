@@ -21,6 +21,7 @@ import {MatRadioModule} from '@angular/material/radio';
 import {MatDialogModule} from '@angular/material/dialog';
 import {IconComponent} from '../../../../../@vex/components/icon/app.component';
 import {ComponentsCustomModule} from '../../../../components/components-custom.module';
+import {BookingDetailDialogComponent} from './booking-dialog/booking-dialog.component';
 
 
 
@@ -31,7 +32,8 @@ import {ComponentsCustomModule} from '../../../../components/components-custom.m
     FormDetailsPrivateComponent,
     FormDetailsColectiveFlexComponent,
     FormDetailsColectiveFixComponent,
-    StepObservationsComponent
+    StepObservationsComponent,
+    BookingDetailDialogComponent
   ],
   imports: [
     CommonModule,

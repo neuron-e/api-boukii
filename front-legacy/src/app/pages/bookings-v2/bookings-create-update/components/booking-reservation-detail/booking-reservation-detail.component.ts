@@ -90,7 +90,7 @@ export class BookingReservationDetailComponent implements OnInit {
 
   calculateRem(event: any) {
     if (event.source.checked) {
-      this.bookingData.price_cancellation_insurance = this.sumActivityTotal() * this.cancellationInsurancePercent;
+      this.bookingData.price_cancellation_insurance = Number(this.sumActivityTotal()) * Number(this.cancellationInsurancePercent);
       this.bookingData.has_cancellation_insurance = event.source.checked;
     } else {
       this.bookingData.price_cancellation_insurance = 0;
@@ -134,22 +134,28 @@ export class BookingReservationDetailComponent implements OnInit {
 
 
   recalculateTva() {
-    const basePrice = this.sumActivityTotal()
-      + this.bookingData.price_cancellation_insurance
-      - this.bookingData.price_reduction
-      + this.bookingData.price_boukii_care;
+    const basePrice =
+      Number(this.sumActivityTotal()) +
+      Number(this.bookingData.price_cancellation_insurance) -
+      Number(this.bookingData.price_reduction) +
+      Number(this.bookingData.price_boukii_care);
 
-    this.bookingData.price_tva = basePrice * this.price_tva;
+    this.bookingData.price_tva = basePrice * Number(this.price_tva);
   }
 
-  calculateTotal() {
+  calculateTotal(): number {
     this.recalculateTva();
-    return this.sumActivityTotal() + this.bookingData.price_cancellation_insurance
-      - this.bookingData.price_reduction + this.bookingData.price_boukii_care + this.bookingData.price_tva;
+    return this.sumActivityTotal() +
+      (this.bookingData.price_cancellation_insurance ? Number(this.bookingData.price_cancellation_insurance) : 0) -
+      (this.bookingData.price_reduction ? Number(this.bookingData.price_reduction) : 0) +
+      (this.bookingData.price_boukii_care ? Number(this.bookingData.price_boukii_care) : 0) +
+      (this.bookingData.price_tva ? Number(this.bookingData.price_tva) : 0);
   }
 
   calculateTotalVoucherPrice(): number {
-    return this.bookingData.vouchers ? this.bookingData.vouchers.reduce( (e, i) => e + parseFloat(i.bonus.reducePrice), 0) : 0
+    return this.bookingData.vouchers
+      ? this.bookingData.vouchers.reduce((e, i) => e + (i.bonus?.reducePrice ? parseFloat(i.bonus.reducePrice) : 0), 0)
+      : 0;
   }
 
   addBonus(): void {

@@ -3,32 +3,21 @@
     {icon:'reservas-2'},
     {text:'bookings', title: true, link: '/bookings'},
     {text:'booking_info', subtitle: true}
-    ]"
-		class="flex"></vex-breadcrumbs>
+    ]" class="flex"></vex-breadcrumbs>
 </vex-secondary-toolbar>
-<mat-spinner *ngIf="loading"
-	style="margin: 0 auto"></mat-spinner>
-<div *ngIf="!loading"
-	[@stagger]="true"
-	class="p-gutter container"
-	style="max-width: none;padding: 0.5%;">
+<mat-spinner *ngIf="loading" style="margin: 0 auto"></mat-spinner>
+<div *ngIf="!loading" [@stagger]="true" class="p-gutter container" style="max-width: none;padding: 0.5%;">
 	<div class="flex flex-col sm:flex-row">
 		<div class="column-container">
 			<div class="card-container">
-				<div style="height: 100%; padding: 1px;"
-					@fadeInUp
-					class="flex-auto">
+				<div style="height: 100%; padding: 1px;" @fadeInUp class="flex-auto">
 					<div class="px-6 py-4 border-b flex items-center"
 						style="background-color: var(--is-light-theme, #ffffff) var(--is-dark-theme, var(--color-grey5));">
-						<h2 class="title m-0"
-							style="width: 80%;">
+						<h2 class="title m-0" style="width: 80%;">
 							{{ "booking_info" | translate }} - {{ booking.id }}
 						</h2>
-						<button *ngIf="bookingPendingPrice < 0 && booking.paid"
-							(click)="refundBooking()"
-							mat-raised-button
-							color="primary"
-							class="button-cancel"
+						<button *ngIf="bookingPendingPrice < 0 && booking.paid" (click)="refundBooking()"
+							mat-raised-button color="primary" class="button-cancel"
 							style="color: #fff;background: #fb9b1b;padding: 1%;width: 25%; border-radius: 0; margin: 0 2% 0 0;">
 							{{ "bookings_page.cancelations.refund" | translate }}
 						</button>
@@ -42,19 +31,13 @@
               {{ "back" | translate }}
             </button> -->
 
-						<button [disabled]="booking.status === 2"
-							[ngStyle]="{
+						<button [disabled]="booking.status === 2" [ngStyle]="{
                 background: booking.status === 2 ? 'var(--color-grey5)' : '#f53d7c'
-              }"
-							(click)="deleteBooking()"
-							color="accent"
-							class="btn-primary-accent"
-							style="min-width: 240px;">
+              }" (click)="deleteBooking()" color="accent" class="btn-primary-accent" style="min-width: 240px;">
 							{{ "bookings_page.detail.full_cancel" | translate }}
 						</button>
 					</div>
-					<mat-card *ngFor="let item of bookingsToCreate; let bI = index"
-						class="reservation-detail-card">
+					<mat-card *ngFor="let item of bookingsToCreate; let bI = index" class="reservation-detail-card">
 						<div style="padding: 2%">
 							<div style="width: 50%;float: left;">
 								<p style="padding: 5% 5% 0 5%;width: 100%;float: left;font-size: 16px;color:#868686">
@@ -67,32 +50,30 @@
 										{{ "register" | translate }}
 									</strong>
 									:
-                  {{ bookingsToCreate[0].courseDates[0].created_at | date: "dd-MM-yyyy HH:mm" }}h
+									{{ bookingsToCreate[0].courseDates[0].created_at | date: "dd-MM-yyyy HH:mm" }}h
 								</p>
 								<p style="font-size: 10px;padding: 0 5% 0 5%;width: 100%;float: left;color:#868686">
 									<strong>
 										{{ "from" | translate }}:
 									</strong>
 									: {{ booking.source
-                  }}
+									}}
 								</p>
 								<p style="font-size: 10px;padding: 0 5% 0 5%;width: 100%;float: left;color:#868686">
 									<strong>
 										{{ "by" | translate }}
 									</strong>
 									: {{
-                  getUser(booking.user_id)?.first_name }}
-                  {{ getUser(booking.user_id)?.last_name }}
+									getUser(booking.user_id)?.first_name }}
+									{{ getUser(booking.user_id)?.last_name }}
 								</p>
 							</div>
 							<div style="width: 50%;float: left;">
-								<p *ngIf="isFinishedBookingUser(item.courseDates[0])"
-									style="padding: 5% 5% 0 0;width: 60%;float: right;font-size: 13px;
+								<p *ngIf="isFinishedBookingUser(item.courseDates[0])" style="padding: 5% 5% 0 0;width: 60%;float: right;font-size: 13px;
                   text-align: center;font-weight: 500;color:#A4A3A3">
 									{{'finished' | translate | uppercase }}
 								</p>
-								<p *ngIf="isActiveBookingUser(item.courseDates[0])"
-									style="padding: 5% 5% 0 0;width: 60%;float: right;font-size: 13px;text-align:
+								<p *ngIf="isActiveBookingUser(item.courseDates[0])" style="padding: 5% 5% 0 0;width: 60%;float: right;font-size: 13px;text-align:
                   center;font-weight: 500;color:#00C32B">
 									{{ "active" | translate | uppercase }}
 								</p>
@@ -105,17 +86,10 @@
 									<qrcode [qrdata]="item?.courseDates[0]?.client_id?.toString()"
 										[allowEmptyString]="true"
 										[ariaLabel]="'QR Code image with the following content...'"
-										[cssClass]="'center'"
-										[colorDark]="'#808080'"
-										[colorLight]="'#f8f9fb'"
-										[elementType]="'canvas'"
-										[errorCorrectionLevel]="'H'"
-										[imageSrc]="'../../../../assets/img/10.png'"
-										[imageHeight]="25"
-										[imageWidth]="25"
-										[margin]="4"
-										[scale]="4"
-										[title]="'A custom title attribute'"
+										[cssClass]="'center'" [colorDark]="'#808080'" [colorLight]="'#f8f9fb'"
+										[elementType]="'canvas'" [errorCorrectionLevel]="'H'"
+										[imageSrc]="'../../../../assets/img/10.png'" [imageHeight]="25"
+										[imageWidth]="25" [margin]="4" [scale]="4" [title]="'A custom title attribute'"
 										[width]="85"></qrcode>
 								</div>
 							</div>
@@ -132,34 +106,23 @@
                   canUpdate(
                     item?.courseDates[item?.courseDates.length - 1]?.date
                   )
-                "
-								(click)="goToEdit(bI, item)"
-								mat-icon-button
-								color="success"
-								class="delete-icon"
+                " (click)="goToEdit(bI, item)" mat-icon-button color="success" class="delete-icon"
 								style="float: right;">
-								<mat-icon svgIcon="mat:sync"
-									style="color:#FF4081"></mat-icon>
+								<mat-icon svgIcon="mat:sync" style="color:#FF4081"></mat-icon>
 							</button>
-							<button *ngIf="
+							<button
+								*ngIf="
                   item?.courseDates[0]?.status === 1 &&
                   canUpdate(
                     item?.courseDates[item?.courseDates.length - 1]?.date
                   ) && !(item?.courseDates[0]?.course?.course_type === 1 && !item?.courseDates[0]?.course?.is_flexible)"
-								(click)="editDates(bI, item)"
-								mat-icon-button
-								color="success"
-								class="delete-icon"
+								(click)="editDates(bI, item)" mat-icon-button color="success" class="delete-icon"
 								style="float: right;">
-								<mat-icon svgIcon="mat:edit"
-									style="color:#FF4081"></mat-icon>
+								<mat-icon svgIcon="mat:edit" style="color:#FF4081"></mat-icon>
 							</button>
 							<button *ngIf="item?.courseDates[0]?.status === 1"
 								(click)="bookingsToCreate.length > 1 ? deletePartialBooking(bI, item) : deleteBooking()"
-								mat-icon-button
-								color="warn"
-								class="delete-icon"
-								style="float: right;">
+								mat-icon-button color="warn" class="delete-icon" style="float: right;">
 								<mat-icon svgIcon="mat:delete"></mat-icon>
 							</button>
 						</div>
@@ -171,10 +134,7 @@
                     ? collectifIcon
                     : privateIcon) +
                   ')'
-                "
-								style="margin:0"
-								mat-card-avatar
-								style="border-radius: 5px"></div>
+                " style="margin:0" mat-card-avatar style="border-radius: 5px"></div>
 							<mat-card-title class="mat-mdc-card-title">
 								<div style="float: left;width: 70%;font-size: 14px;">
 									{{ getCourse(item?.courseDates[0]?.course_id)?.name }}
@@ -182,26 +142,26 @@
 								<div class="ng-tns-c545279033-6"
 									style="float: left;font-size: 14px;width: 30%;text-align: right;color: #EA0C60;">
 									{{ item?.courseDates[0]?.course_id?.price }}
-                  {{ item?.courseDates[0]?.course_id?.currency }}
+									{{ item?.courseDates[0]?.course_id?.currency }}
 								</div>
 							</mat-card-title>
 							<mat-card-subtitle style="margin: 0;float: left;width: 100%;">
 								{{
-                getCourse(item?.courseDates[0]?.course_id)?.course_type === 1
-                ? "colective"
-                : ("private" | translate)
-                }}
-                {{ getCourse(item?.courseDates[0]?.course_id)?.sport?.name }}
+								getCourse(item?.courseDates[0]?.course_id)?.course_type === 1
+								? "colective"
+								: ("private" | translate)
+								}}
+								{{ getCourse(item?.courseDates[0]?.course_id)?.sport?.name }}
 							</mat-card-subtitle>
 							<div *ngIf="getCourse(item?.courseDates[0]?.course_id)?.is_flexible"
 								style="color: #EA0C60;">
 								{{ parseFloatValue(getTotalBook(bI, item)) }}
-                {{getCourse(item?.courseDates[0]?.course_id)?.currency}}
+								{{getCourse(item?.courseDates[0]?.course_id)?.currency}}
 							</div>
 							<div *ngIf="!getCourse(item?.courseDates[0]?.course_id)?.is_flexible"
 								style="color: #EA0C60;margin-left:auto">
 								{{ getAmountCourse(bookingUsersUnique, bI) }}
-                {{getCourse(item?.courseDates[0]?.course_id)?.currency}}
+								{{getCourse(item?.courseDates[0]?.course_id)?.currency}}
 							</div>
 						</mat-card-header>
 						<mat-card-content>
@@ -211,21 +171,20 @@
 										<mat-icon style="height: 15px;width: 20px;"
 											svgIcon="mat:calendar_today"></mat-icon>
 										{{
-                    date.date
-                    | date: "fullDate":"":translateService.currentLang
-                    }}
- {{ date.hour_start.length === 8 ? date.hour_start.slice(0, -3) : date.hour_start }}h -
-  {{ date.hour_end.length === 8 ? date.hour_end.slice(0, -3) : date.hour_end }}h
+										date.date
+										| date: "fullDate":"":translateService.currentLang
+										}}
+										{{ date.hour_start.length === 8 ? date.hour_start.slice(0, -3) : date.hour_start
+										}}h -
+										{{ date.hour_end.length === 8 ? date.hour_end.slice(0, -3) : date.hour_end }}h
 									</li>
 								</ng-container>
 							</ul>
 						</mat-card-content>
 
-						<mat-divider *ngIf="courses[bI].course_type !== 3"
-							style="float: left;width: 100%;"
+						<mat-divider *ngIf="courses[bI].course_type !== 3" style="float: left;width: 100%;"
 							class="text-border"></mat-divider>
-						<div *ngIf="courses[bI].course_type !== 3"
-							style="float:left; width: 100%">
+						<div *ngIf="courses[bI].course_type !== 3" style="float:left; width: 100%">
 							<p style="padding: 3%;width: 40%;float: left;font-size: 13px; font-weight: bold;">
 								{{ "participant" | translate }}
 							</p>
@@ -253,47 +212,39 @@
                         ))
                   ">
 									<app-level-user *ngIf="item.degrees_sport && item.degrees_sport.length"
-										[allLevels]="item.degrees_sport"
-										[selectLevel]="
+										[allLevels]="item.degrees_sport" [selectLevel]="
                       getClientDegreeByClient(bu?.client, item.sport_id)
-                    "
-										[size]="40"
-										[userImage]="
+                    " [size]="40" [userImage]="
                       bu?.client.image !== null &&
                       bu?.client.image !== ''
                         ? bu?.client.image
                         : userAvatar
-                    "
-										mat-card-avatar></app-level-user>
+                    " mat-card-avatar></app-level-user>
 									<!-- <div mat-card-avatar [style.background-image]="'url(' + (getClientAvatar(booking.client_main_id) !== null ? getClientAvatar(booking.client_main_id) : userAvatar) + ')'"></div> -->
 									<mat-card-subtitle>
 										{{
-                    bu.client?.first_name + " " + bu.client?.last_name
-                    }}
+										bu.client?.first_name + " " + bu.client?.last_name
+										}}
 									</mat-card-subtitle>
 									<mat-card-subtitle>
 										{{
-                    getLanguage(bu?.client?.language1_id) }} ·
-                    {{ getCountry(bu?.client?.country) }} ·
-                    {{ calculateAge(bu?.client?.birth_date) }}
-                    {{ "years" | translate }}
+										getLanguage(bu?.client?.language1_id) }} ·
+										{{ getCountry(bu?.client?.country) }} ·
+										{{ calculateAge(bu?.client?.birth_date) }}
+										{{ "years" | translate }}
 									</mat-card-subtitle>
 								</mat-card-header>
 
-								<p *ngIf="item.courseDates[0].course.options"
-									(click)="bu.showOptions = !bu.showOptions"
+								<p *ngIf="item.courseDates[0].course.options" (click)="bu.showOptions = !bu.showOptions"
 									style="padding: 5%;width: 40%;float: left;font-size: 13px; font-weight: bold; cursor: pointer">
 									{{ "options" | translate }}
-									<mat-icon *ngIf="!bu.showOptions"
-										style="height: 15px;width: 20px;"
+									<mat-icon *ngIf="!bu.showOptions" style="height: 15px;width: 20px;"
 										svgIcon="mat:add"></mat-icon>
-									<mat-icon *ngIf="bu.showOptions"
-										style="height: 15px;width: 20px;"
+									<mat-icon *ngIf="bu.showOptions" style="height: 15px;width: 20px;"
 										svgIcon="mat:remove"></mat-icon>
 								</p>
 
-								<div *ngIf="bu.showOptions"
-									style="width: 100%; float:left; border: 1px solid black;">
+								<div *ngIf="bu.showOptions" style="width: 100%; float:left; border: 1px solid black;">
 									<div style="width: 100%; float:left;padding: 2%; margin-bottom: 15px;">
 										<div class="flex flex-col sm:flex-row gap-2 sm:gap-6">
 											<div style="width: 65%;">
@@ -303,11 +254,11 @@
 											<div>
 												<p>
 													+{{
-                          bu.booking_user_extras[0]?.course_extra
-                          ? bu.booking_user_extras[0].course_extra.price
-                          : 0
-                          }}
-                          {{getCourse(item?.courseDates[0]?.course_id)?.currency}}
+													bu.booking_user_extras[0]?.course_extra
+													? bu.booking_user_extras[0].course_extra.price
+													: 0
+													}}
+													{{getCourse(item?.courseDates[0]?.course_id)?.currency}}
 												</p>
 											</div>
 										</div>
@@ -315,18 +266,14 @@
 										<div class="flex flex-col sm:flex-row gap-2 sm:gap-6">
 											<ul>
 												<li *ngFor="let forfait of settings?.extras?.forfait">
-													<mat-checkbox [value]="forfait"
-														[checked]="
+													<mat-checkbox [value]="forfait" [checked]="
                               bu.booking_user_extras[0]?.course_extra?.name ===
                               forfait.id
-                            "
-														[disabled]="booking.status === 2 || bu.status === 2 || !canUpdate(
+                            " [disabled]="booking.status === 2 || bu.status === 2 || !canUpdate(
                     item?.courseDates[item?.courseDates.length - 1]?.date
-                  )"
-														(change)="
+                  )" (change)="
                               setForfait($event, forfait, item, null, bu)
-                            "
-														class="radio">
+                            " class="radio">
 														<span>
 															{{forfait.product}} - {{ forfait.name }}
 														</span>
@@ -349,30 +296,26 @@
                       : findCourseDateId(bu.course_date_id, bookingUsers))
                   ">
 									<app-level-user *ngIf="item.degrees_sport && item.degrees_sport.length"
-										[allLevels]="item.degrees_sport"
-										[selectLevel]="
+										[allLevels]="item.degrees_sport" [selectLevel]="
                       getClientDegree(bu?.client_id, item.sport_id)
-                    "
-										[size]="40"
-										[userImage]="
+                    " [size]="40" [userImage]="
                       getClientAvatar(bu?.client_id) !== null &&
                       getClientAvatar(bu?.client_id) !== ''
                         ? getClientAvatar(bu?.client_id)
                         : userAvatar
-                    "
-										mat-card-avatar></app-level-user>
+                    " mat-card-avatar></app-level-user>
 									<!-- <div mat-card-avatar [style.background-image]="'url(' + (getClientAvatar(booking.client_main_id) !== null ? getClientAvatar(booking.client_main_id) : userAvatar) + ')'"></div> -->
 									<mat-card-subtitle>
 										{{
-                    getClientName(bu?.client_id)
-                    }}
+										getClientName(bu?.client_id)
+										}}
 									</mat-card-subtitle>
 									<mat-card-subtitle>
 										{{
-                    getLanguage(getClient(bu?.client_id)?.language1_id) }} ·
-                    {{ getCountry(getClient(bu?.client_id)?.country) }} ·
-                    {{ calculateAge(getClient(bu?.client_id)?.birth_date) }}
-                    {{ "years" | translate }}
+										getLanguage(getClient(bu?.client_id)?.language1_id) }} ·
+										{{ getCountry(getClient(bu?.client_id)?.country) }} ·
+										{{ calculateAge(getClient(bu?.client_id)?.birth_date) }}
+										{{ "years" | translate }}
 									</mat-card-subtitle>
 								</mat-card-header>
 
@@ -383,51 +326,46 @@
                 courses[bI].course_type === 1
               ">
 							<app-level-user *ngIf="item.degrees_sport && item.degrees_sport.length"
-								[allLevels]="item.degrees_sport"
-								[selectLevel]="
+								[allLevels]="item.degrees_sport" [selectLevel]="
                   getClientDegree(
                     item?.courseDates[0]?.client_id,
                     item.sport_id
                   )
-                "
-								[size]="40"
-								[userImage]="
+                " [size]="40" [userImage]="
                   getClientAvatar(item?.courseDates[0]?.client_id) !== '' &&
                   getClientAvatar(item?.courseDates[0]?.client_id) !== null
                     ? getClientAvatar(item?.courseDates[0]?.client_id)
                     : userAvatar
-                "
-								mat-card-avatar></app-level-user>
+                " mat-card-avatar></app-level-user>
 							<!-- <div mat-card-avatar [style.background-image]="'url(' + (getClientAvatar(booking.client_main_id) !== null ? getClientAvatar(booking.client_main_id) : userAvatar) + ')'"></div> -->
 							<mat-card-subtitle>
 								{{
-                getClientName(item?.courseDates[0]?.client_id)
-                }}
+								getClientName(item?.courseDates[0]?.client_id)
+								}}
 							</mat-card-subtitle>
 							<mat-card-subtitle>
 								{{
-                getLanguage(
-                getClient(item?.courseDates[0]?.client_id)?.language1_id
-                )
-                }}
-                ·
-                {{
-                getCountry(
-                getClient(item?.courseDates[0]?.client_id)?.country
-                )
-                }}
-                ·
-                {{
-                calculateAge(
-                getClient(item?.courseDates[0]?.client_id)?.birth_date
-                )
-                }}
-                {{ "years" | translate }}
+								getLanguage(
+								getClient(item?.courseDates[0]?.client_id)?.language1_id
+								)
+								}}
+								·
+								{{
+								getCountry(
+								getClient(item?.courseDates[0]?.client_id)?.country
+								)
+								}}
+								·
+								{{
+								calculateAge(
+								getClient(item?.courseDates[0]?.client_id)?.birth_date
+								)
+								}}
+								{{ "years" | translate }}
 							</mat-card-subtitle>
 						</mat-card-header>
 
-						<mat-divider style="float: left;width: 100%;margin-top: 10px"
-							class="text-border"></mat-divider>
+						<mat-divider style="float: left;width: 100%;margin-top: 10px" class="text-border"></mat-divider>
 
 						<mat-card-content>
 							<div style="float: left;width: 100%;margin: 2% 0 2% 0;">
@@ -440,8 +378,7 @@
 									<app-level-user *ngIf="getMonitor(item?.courseDates[0]?.monitor_id)"
 										[allLevels]="item.degrees_sport"
 										[selectLevel]="getHighestAuthorizedDegree(getMonitor(item?.courseDates[0]?.monitor_id),  item.sport_id).degree_id"
-										[size]="60"
-										[userImage]="getMonitorAvatar(item?.courseDates[0]?.monitor_id)?.image !== null
+										[size]="60" [userImage]="getMonitorAvatar(item?.courseDates[0]?.monitor_id)?.image !== null
                      && getMonitorAvatar(item?.courseDates[0]?.monitor_id) !== ''
                      ? getMonitorAvatar(item?.courseDates[0]?.monitor_id)
                      : userAvatar"></app-level-user>
@@ -449,37 +386,36 @@
 								<div style="float: left;margin-left: 3%">
 									<span style="float: left;width: 100%;">
 										{{
-                    item?.courseDates[0]?.monitor_id !== null
-                    ? getMonitorName(item?.courseDates[0]?.monitor_id)
-                    : ("text_nomonitorset" | translate)
-                    }}
+										item?.courseDates[0]?.monitor_id !== null
+										? getMonitorName(item?.courseDates[0]?.monitor_id)
+										: ("text_nomonitorset" | translate)
+										}}
 									</span>
 									<br>
 									<span *ngIf="getMonitor(item?.courseDates[0]?.monitor_id)"
 										style="float: left;width: 100%;">
 										{{
-                    getLanguage(
-                    getMonitorLang(item?.courseDates[0]?.monitor_id)
-                    )
-                    }}
-                    ·
-                    {{
-                    getCountry(
-                    getMonitorProvince(item.courseDates[0]?.monitor_id)
-                    )
-                    }}
-                    ·
-                    {{
-                    calculateAge(
-                    getMonitorBirth(item.courseDates[0]?.monitor_id)
-                    )
-                    }}
-                    &ensp;{{ "years" | translate }}
+										getLanguage(
+										getMonitorLang(item?.courseDates[0]?.monitor_id)
+										)
+										}}
+										·
+										{{
+										getCountry(
+										getMonitorProvince(item.courseDates[0]?.monitor_id)
+										)
+										}}
+										·
+										{{
+										calculateAge(
+										getMonitorBirth(item.courseDates[0]?.monitor_id)
+										)
+										}}
+										&ensp;{{ "years" | translate }}
 									</span>
 								</div>
 							</div>
-							<mat-divider style="width: 100%;"
-								class="text-border"></mat-divider>
+							<mat-divider style="width: 100%;" class="text-border"></mat-divider>
 
 							<p *ngIf="courses[bI].options && (courses[bI].course_type == 1 || courses[bI].course_type == 3)"
 								style="padding: 5%;width: 40%;float: left;font-size: 13px; font-weight: bold;">
@@ -497,9 +433,9 @@
 										<div style="float: right;width: 50%;">
 											<p style="float: right;">
 												+{{
-                        getCourseExtraForfaitPrice(item.courseDates[0])
-                        }}
-                        {{getCourse(item?.courseDates[0]?.course_id)?.currency}}
+												getCourseExtraForfaitPrice(item.courseDates[0])
+												}}
+												{{getCourse(item?.courseDates[0]?.course_id)?.currency}}
 											</p>
 										</div>
 									</div>
@@ -507,15 +443,11 @@
 									<div class="flex flex-col sm:flex-row gap-2 sm:gap-6">
 										<ul>
 											<li *ngFor="let forfait of settings?.extras?.forfait">
-												<mat-checkbox [value]="forfait"
-													[disabled]="item?.courseDates[0]?.status === 2 ||  !canUpdate(
+												<mat-checkbox [value]="forfait" [disabled]="item?.courseDates[0]?.status === 2 ||  !canUpdate(
                     item?.courseDates[item?.courseDates.length - 1]?.date
-                  )"
-													[checked]="
+                  )" [checked]="
                             getCourseExtraForfait(forfait, item.courseDates[0])
-                          "
-													(change)="setForfait($event, forfait, item, bI)"
-													class="radio">
+                          " (change)="setForfait($event, forfait, item, bI)" class="radio">
 													<span>
 														{{forfait.product}} - {{ forfait.name }}
 													</span>
@@ -539,22 +471,18 @@
 												<p></p>
 												<p>
 													+{{group.price * findPaxesByCourseExtra(group)}}
-                            {{getCourse(item?.courseDates[0]?.course_id)?.currency}}
+													{{getCourse(item?.courseDates[0]?.course_id)?.currency}}
 												</p>
 											</div>
 										</div>
 
 										<div class="flex flex-col sm:flex-row gap-2 sm:gap-6">
-											<mat-form-field appearance="outline"
-												class="w-full">
+											<mat-form-field appearance="outline" class="w-full">
 												<mat-label>
 													{{'paxes' | translate}}
 												</mat-label>
-												<input [readonly]="true"
-													[min]="0"
-													[value]="findPaxesByCourseExtra(group)"
-													matInput
-													type="number">
+												<input [readonly]="true" [min]="0"
+													[value]="findPaxesByCourseExtra(group)" matInput type="number">
 											</mat-form-field>
 										</div>
 									</div>
@@ -611,9 +539,9 @@
 									</p>
 									<p style="color: #EA0C60;">
 										+{{
-                      getCourseExtraForfaitPriceByDateHour(item.courseDates[0])
-                      }}
-                      {{getCourse(item?.courseDates[0]?.course_id)?.currency}}
+										getCourseExtraForfaitPriceByDateHour(item.courseDates[0])
+										}}
+										{{getCourse(item?.courseDates[0]?.course_id)?.currency}}
 									</p>
 								</div>
 								<div *ngIf="courses[bI].course_type == 1">
@@ -622,13 +550,12 @@
 									</p>
 									<p style="color: #EA0C60;">
 										+{{ getCourseExtraForfaitPrice(item.courseDates[0]) }}
-                      {{getCourse(item?.courseDates[0]?.course_id)?.currency}}
+										{{getCourse(item?.courseDates[0]?.course_id)?.currency}}
 									</p>
 								</div>
 							</div>
 
-							<mat-divider style="width: 100%;"
-								class="text-border"></mat-divider>
+							<mat-divider style="width: 100%;" class="text-border"></mat-divider>
 
 							<div style="width: 100%;float:left;margin-top: 10px;margin-left: 3%;">
 								<div *ngIf="courses[bI].course_type == 1">
@@ -637,14 +564,14 @@
 									</p>
 									<p style="color: #EA0C60;">
 										{{
-                      parseFloatValue(getTotalBook(bI, item)) +
-                      getCourseExtraForfaitPrice(item.courseDates[0])
-                      }}
-                      {{
-                      bookingsToCreate.length > 0
-                      ? bookingsToCreate[0].courseDates[0].currency
-                      : ""
-                      }}
+										parseFloatValue(getTotalBook(bI, item)) +
+										getCourseExtraForfaitPrice(item.courseDates[0])
+										}}
+										{{
+										bookingsToCreate.length > 0
+										? bookingsToCreate[0].courseDates[0].currency
+										: ""
+										}}
 									</p>
 								</div>
 
@@ -654,59 +581,52 @@
 									</p>
 									<p style="color: #EA0C60;">
 										{{
-                      parseFloatValue(getTotalBook(bI, item)) +
-                      getCourseExtraForfaitPriceByDateHour(
-                      item.courseDates[0]
-                      )
-                      }}
-                      {{
-                      bookingsToCreate.length > 0
-                      ? bookingsToCreate[0].courseDates[0].currency
-                      : ""
-                      }}
+										parseFloatValue(getTotalBook(bI, item)) +
+										getCourseExtraForfaitPriceByDateHour(
+										item.courseDates[0]
+										)
+										}}
+										{{
+										bookingsToCreate.length > 0
+										? bookingsToCreate[0].courseDates[0].currency
+										: ""
+										}}
 									</p>
 								</div>
 							</div>
-							<mat-divider style="width: 100%;"
-								class="text-border"></mat-divider>
+							<mat-divider style="width: 100%;" class="text-border"></mat-divider>
 
 							<div style="width: 100%;float:left;margin: 20px 0 0 0;padding: 10px;">
 
 								<div class="flex flex-col sm:flex-row gap-2 sm:gap-6">
-									<mat-form-field appearance="outline"
-										class="flex-auto">
+									<mat-form-field appearance="outline" class="flex-auto">
 										<mat-label>
 											{{
-                        "observation_client" | translate
-                        }}
+											"observation_client" | translate
+											}}
 										</mat-label>
-										<input [value]="item.courseDates[0].notes"
-											(blur)="setClientsNotes($event)"
-											matInput
-											required
-											type="text">
+										<input [value]="item.courseDates[0].notes" (blur)="setClientsNotes($event)"
+											matInput required type="text">
 									</mat-form-field>
-                  <div *ngIf="item.courseDates[0] && item.courseDates[0].notes" class="warning-icon-container">
-                    <mat-icon color="warn" class="warning-icon">warning</mat-icon>
-                  </div>
+									<div *ngIf="item.courseDates[0] && item.courseDates[0].notes"
+										class="warning-icon-container">
+										<mat-icon color="warn" class="warning-icon">warning</mat-icon>
+									</div>
 								</div>
 								<div class="flex flex-col sm:flex-row gap-2 sm:gap-6">
-									<mat-form-field appearance="outline"
-										class="flex-auto">
+									<mat-form-field appearance="outline" class="flex-auto">
 										<mat-label>
 											{{
-                        "observation_school" | translate
-                        }}
+											"observation_school" | translate
+											}}
 										</mat-label>
 										<input [value]="item.courseDates[0].notes_school"
-											(blur)="setSchoolNotes($event)"
-											matInput
-											required
-											type="text">
+											(blur)="setSchoolNotes($event)" matInput required type="text">
 									</mat-form-field>
-                  <div *ngIf="item.courseDates[0] && item.courseDates[0].notes_school" class="warning-icon-container">
-                    <mat-icon color="warn" class="warning-icon">warning</mat-icon>
-                  </div>
+									<div *ngIf="item.courseDates[0] && item.courseDates[0].notes_school"
+										class="warning-icon-container">
+										<mat-icon color="warn" class="warning-icon">warning</mat-icon>
+									</div>
 								</div>
 
 							</div>
@@ -716,12 +636,9 @@
 			</div>
 		</div>
 
-		<div *ngIf="!loading"
-			class="column-container"
-			style="flex: 3;">
+		<div *ngIf="!loading" class="column-container" style="flex: 3;">
 			<div class="card-container">
-				<div @fadeInUp
-					class="card flex-auto">
+				<div @fadeInUp class="card flex-auto">
 
 					<mat-card class="pb-3">
 
@@ -734,18 +651,14 @@
 								<span style="display: inline-block;width: 80%; text-align: left;">
 									<mat-card-title>
 										{{'booking' | translate}} #{{ id
-                      }}
+										}}
 									</mat-card-title>
 								</span>
 								<span style="display: inline-block;width: 20%; text-align: right;">
 									<!-- <img src="assets/img/icons/edit.svg"  (click)="showDetail = false" class="btn-edit" /> -->
-									<img *ngIf="!incData"
-										(click)="goTo('/bookings/')"
-										src="assets/img/icons/close.svg"
+									<img *ngIf="!incData" (click)="goTo('/bookings/')" src="assets/img/icons/close.svg"
 										class="btn-close">
-									<img *ngIf="incData"
-										src="assets/img/icons/close.svg"
-										mat-dialog-close
+									<img *ngIf="incData" src="assets/img/icons/close.svg" mat-dialog-close
 										class="btn-close">
 								</span>
 							</div>
@@ -761,41 +674,36 @@
 											</span>
 										</span>
 									</div>
-									<div *ngIf="booking.user"
-										style="color:#868686;font-weight: normal;">
+									<div *ngIf="booking.user" style="color:#868686;font-weight: normal;">
 										<b>
 											{{ "by" | translate }}:
 										</b>
 										<span style="margin-left: 5px;color:white;">
 											{{ booking.user.username }} ({{
-                        booking.user.first_name + ' ' + booking.user.last_name
-                        }})
+											booking.user.first_name + ' ' + booking.user.last_name
+											}})
 										</span>
 									</div>
 									<div style="color:#868686;font-weight: normal;">
 										<b>
 											{{ 'from' | translate }}:
 										</b>
-										<span *ngIf="booking.source == 'web'"
-											style="margin-left: 5px;color:white;">
+										<span *ngIf="booking.source == 'web'" style="margin-left: 5px;color:white;">
 											{{'page_created' |
-                        translate}}
+											translate}}
 										</span>
-										<span *ngIf="booking.source == 'admin'"
-											style="margin-left: 5px;color:white;">
+										<span *ngIf="booking.source == 'admin'" style="margin-left: 5px;color:white;">
 											{{'api_created' |
-                        translate}}
+											translate}}
 										</span>
 									</div>
 								</mat-card-subtitle>
 							</div>
 							<div class="title-status">
-								<span *ngIf="isActive"
-									style="color:#00C32B;background-color: #B2EFAD;">
+								<span *ngIf="isActive" style="color:#00C32B;background-color: #B2EFAD;">
 									{{'active' | translate | uppercase }}
 								</span>
-								<span *ngIf="isFinished"
-									style="color:rgba(68, 74, 88, 1);background-color: #E3E3E3;">
+								<span *ngIf="isFinished" style="color:rgba(68, 74, 88, 1);background-color: #E3E3E3;">
 									{{'finished' | translate | uppercase }}
 								</span>
 								<span *ngIf="booking.status === 2"
@@ -811,11 +719,13 @@
 										style="color:#00C32B;background-color: #B2EFAD;">
 										{{'payed' | translate | uppercase }}
 									</span>
-									<span *ngIf="booking.status === 1 && !booking.paid && booking.payment_method_id != 3"
+									<span
+										*ngIf="booking.status === 1 && !booking.paid && booking.payment_method_id != 3"
 										style="color:#FF0000;background-color: #F7BB99;">
 										{{'no_payed' | translate | uppercase }}
 									</span>
-									<span *ngIf="booking.status === 1 && !booking.paid && booking.payment_method_id == 3"
+									<span
+										*ngIf="booking.status === 1 && !booking.paid && booking.payment_method_id == 3"
 										style="color:#FA9917;background-color: #F7E399;">
 										{{'link_send' | translate | uppercase }}
 									</span>
@@ -827,8 +737,7 @@
 							<div class="holder-client">
 								<div style="display: inline-block; width: 80%;">
 									<div style="display:inline-block; vertical-align: top; margin-right: 5px">
-										<app-level-user [size]="60"
-											[allLevels]="degreesClient"
+										<app-level-user [size]="60" [allLevels]="degreesClient"
 											[selectLevel]="getClientDegree(booking?.client_main_id, booking.booking_users[0].course.sport_id)"
 											[userImage]="
                         getClientAvatar(booking.client_main_id) !== null
@@ -854,15 +763,15 @@
 										</mat-card-title>
 										<mat-card-subtitle style="margin-left:0px;">
 											{{
-                        getLanguage(getClient(booking.client_main_id)?.language1_id)
-                        }}
-                        · {{
-                        getCountry(getClient(booking.client_main_id)?.country)
-                        }} ·
-                        {{
-                        calculateAge(getClient(booking.client_main_id)?.birth_date)
-                        }}
-                        &ensp;{{ "years" | translate }}
+											getLanguage(getClient(booking.client_main_id)?.language1_id)
+											}}
+											· {{
+											getCountry(getClient(booking.client_main_id)?.country)
+											}} ·
+											{{
+											calculateAge(getClient(booking.client_main_id)?.birth_date)
+											}}
+											&ensp;{{ "years" | translate }}
 										</mat-card-subtitle>
 										<mat-card-subtitle style="display: flex;">
 											<vex-icon src="chat"></vex-icon>
@@ -879,13 +788,10 @@
 									</div>
 								</div>
 								<div style="display: inline-block;width: 20%; text-align: right;">
-									<button *ngIf="booking.status !== 2"
-										(click)="sendMailInfo()"
-										style="width: 55px;height: 55px;padding: 0px;min-width: 55px;"
-										mat-raised-button
+									<button *ngIf="booking.status !== 2" (click)="sendMailInfo()"
+										style="width: 55px;height: 55px;padding: 0px;min-width: 55px;" mat-raised-button
 										color="accent">
-										<img class="icon-send-mail"
-											src="assets/img/icons/send-mail.svg">
+										<img class="icon-send-mail" src="assets/img/icons/send-mail.svg">
 										<!-- {{ "send" | translate }} {{ "mail" | translate }} -->
 									</button>
 								</div>
@@ -912,19 +818,18 @@
 								{{ "summary" | translate }}
 							</b>
 						</div>
-						<div class="list-box"
-							style="display: flex;flex-direction: column;">
+						<div class="list-box" style="display: flex;flex-direction: column;">
 							<div *ngIf="booking.status !== 2">
 								<div class="col-left">
 									{{ "base_price" | translate }}
 								</div>
 								<div class="col-right">
 									{{ getBasePrice(true) }}
-                    {{
-                    bookingsToCreate.length > 0
-                    ? bookingsToCreate[0].courseDates[0].currency
-                    : ""
-                    }}
+									{{
+									bookingsToCreate.length > 0
+									? bookingsToCreate[0].courseDates[0].currency
+									: ""
+									}}
 								</div>
 							</div>
 
@@ -934,11 +839,11 @@
 								</div>
 								<div class="col-right">
 									{{ getBasePriceForAnulations(true) }}
-                    {{
-                    bookingsToCreate.length > 0
-                    ? bookingsToCreate[0].courseDates[0].currency
-                    : ""
-                    }}
+									{{
+									bookingsToCreate.length > 0
+									? bookingsToCreate[0].courseDates[0].currency
+									: ""
+									}}
 								</div>
 							</div>
 
@@ -957,53 +862,53 @@
 									style="width: 100%; float:left">
 									<div style="float:left">
 										Forfaits - {{'course' | translate}} {{
-                      item.courseDates[0].course.name }}
+										item.courseDates[0].course.name }}
 									</div>
 									<div style="float:right">
 										+{{
-                      getCourseExtraForfaitPriceByCourse(item.courseDates[0])
-                      }}
-                      {{getCourse(item?.courseDates[0]?.course_id)?.currency}}
+										getCourseExtraForfaitPriceByCourse(item.courseDates[0])
+										}}
+										{{getCourse(item?.courseDates[0]?.course_id)?.currency}}
 									</div>
 								</div>
 								<div *ngIf="item.courseDates[0].course.course_type == 2 &&  getCourseExtraForfaitPriceByDateHour(item.courseDates[0])"
 									style="width: 100%; float:left">
 									<div style="float:left">
 										Forfait
-                      {{
-                      item.courseDates[0].date
-                      | date: "fullDate":"":translateService.currentLang
-                      }}
-                      - {{ item.courseDates[0].hour_start.slice(0, -3) }} -
-                      {{ item.courseDates[0].hour_end.slice(0, -3) }}
+										{{
+										item.courseDates[0].date
+										| date: "fullDate":"":translateService.currentLang
+										}}
+										- {{ item.courseDates[0].hour_start.slice(0, -3) }} -
+										{{ item.courseDates[0].hour_end.slice(0, -3) }}
 									</div>
 									<div style="float:right">
 										+{{
-                      getCourseExtraForfaitPriceByDateHour(
-                      item.courseDates[0]
-                      )
-                      }}
-                      {{getCourse(item?.courseDates[0]?.course_id)?.currency}}
+										getCourseExtraForfaitPriceByDateHour(
+										item.courseDates[0]
+										)
+										}}
+										{{getCourse(item?.courseDates[0]?.course_id)?.currency}}
 									</div>
 								</div>
 								<div *ngIf="item.courseDates[0].course.course_type == 3 "
 									style="width: 100%; float:left">
 									<div style="float:left">
 										Extra
-                      {{
-                      item.courseDates[0].date
-                      | date: "fullDate":"":translateService.currentLang
-                      }}
-                      - {{ item.courseDates[0].hour_start.slice(0, -3) }} -
-                      {{ item.courseDates[0].hour_end.slice(0, -3) }}
+										{{
+										item.courseDates[0].date
+										| date: "fullDate":"":translateService.currentLang
+										}}
+										- {{ item.courseDates[0].hour_start.slice(0, -3) }} -
+										{{ item.courseDates[0].hour_end.slice(0, -3) }}
 									</div>
 									<div style="float:right">
 										+{{
-                      getCourseExtraForfaitPriceByDateHour(
-                      item.courseDates[0]
-                      )
-                      }}
-                      {{getCourse(item?.courseDates[0]?.course_id)?.currency}}
+										getCourseExtraForfaitPriceByDateHour(
+										item.courseDates[0]
+										)
+										}}
+										{{getCourse(item?.courseDates[0]?.course_id)?.currency}}
 									</div>
 								</div>
 							</ng-container>
@@ -1013,21 +918,18 @@
 								</div>
 								<div class="col-right">
 									{{ geBasePriceAndExtraPrice() }}
-                    {{
-                    bookingsToCreate.length > 0
-                    ? bookingsToCreate[0].courseDates[0].currency
-                    : ""
-                    }}
+									{{
+									bookingsToCreate.length > 0
+									? bookingsToCreate[0].courseDates[0].currency
+									: ""
+									}}
 								</div>
 							</div>
 
 							<div style="margin-bottom: 10px;">
 								{{ "apply_reduction" | translate }}
 								<button [disabled]="booking.status === 2 || booking.paid || isFinished"
-									(click)="addReduction()"
-									class="btn-plus"
-									mat-raised-button
-									color="accent">
+									(click)="addReduction()" class="btn-plus" mat-raised-button color="accent">
 									+
 								</button>
 								<!-- <button
@@ -1047,11 +949,11 @@
 								</div>
 								<div class="col-right">
 									-{{ booking.price_reduction }}
-                    {{
-                    bookingsToCreate.length > 0
-                    ? bookingsToCreate[0].courseDates[0].currency
-                    : ""
-                    }}
+									{{
+									bookingsToCreate.length > 0
+									? bookingsToCreate[0].courseDates[0].currency
+									: ""
+									}}
 								</div>
 							</div>
 
@@ -1059,15 +961,15 @@
 								<div *ngFor="let item of discounts; let i = index">
 									<div class="col-left">
 										{{ "multidate_discount" | translate
-                      }}
+										}}
 									</div>
 									<div class="col-right">
 										-{{ item }}
-                      {{
-                      bookingsToCreate.length > 0
-                      ? bookingsToCreate[0].courseDates[0].currency
-                      : ""
-                      }}
+										{{
+										bookingsToCreate.length > 0
+										? bookingsToCreate[0].courseDates[0].currency
+										: ""
+										}}
 									</div>
 								</div>
 
@@ -1077,11 +979,11 @@
 									</div>
 									<div class="col-right">
 										-{{ booking.price_reduction }}
-                      {{
-                      bookingsToCreate.length > 0
-                      ? bookingsToCreate[0].courseDates[0].currency
-                      : ""
-                      }}
+										{{
+										bookingsToCreate.length > 0
+										? bookingsToCreate[0].courseDates[0].currency
+										: ""
+										}}
 									</div>
 								</div>
 							</ng-container>
@@ -1092,47 +994,45 @@
 									<mat-slide-toggle *ngIf="cancellationInsurance"
 										[(ngModel)]="booking.has_cancellation_insurance"
 										[disabled]="booking.status === 2 || booking.paid || hasOneCancelled() || isFinished"
-										(change)="addCancellationInsurance($event)"
-										color="accent"
+										(change)="addCancellationInsurance($event)" color="accent"
 										style="float: left; margin-left: 10px"></mat-slide-toggle>
 								</div>
 								<div class="col-right">
 									<div *ngIf="booking.has_cancellation_insurance">
 										{{getOpRemPrice()}}
-                      {{
-                      bookingsToCreate.length > 0
-                      ? bookingsToCreate[0].courseDates[0].currency
-                      : ""
-                      }}
+										{{
+										bookingsToCreate.length > 0
+										? bookingsToCreate[0].courseDates[0].currency
+										: ""
+										}}
 									</div>
 								</div>
 							</div>
 
-							<span *ngIf="booking.has_boukii_care"
-								style="width: 100%; float:left">
+							<span *ngIf="booking.has_boukii_care" style="width: 100%; float:left">
 								<p style="float:left">Boukii Care</p>
 								<p style="float:right">
 									{{ booking.price_boukii_care }}
-                    {{
-                    bookingsToCreate.length > 0
-                    ? bookingsToCreate[0].courseDates[0].currency
-                    : ""
-                    }}
+									{{
+									bookingsToCreate.length > 0
+									? bookingsToCreate[0].courseDates[0].currency
+									: ""
+									}}
 								</p>
 							</span>
 
 							<div *ngIf="booking.has_tva">
 								<div class="col-left">
 									{{ "tva" | translate | uppercase
-                    }}
+									}}
 								</div>
 								<div class="col-right">
 									{{ tvaPrice| number:'0.2-2' }}
-                    {{
-                    bookingsToCreate.length > 0
-                    ? bookingsToCreate[0].courseDates[0].currency
-                    : ""
-                    }}
+									{{
+									bookingsToCreate.length > 0
+									? bookingsToCreate[0].courseDates[0].currency
+									: ""
+									}}
 								</div>
 							</div>
 
@@ -1143,16 +1043,16 @@
 								<div class="col-left">
 									<b>
 										{{ "total" | translate | uppercase
-                      }}
+										}}
 									</b>
 								</div>
 								<div class="col-right">
 									{{ finalPrice| number:'0.2-2' }}
-                    {{
-                    bookingsToCreate.length > 0
-                    ? bookingsToCreate[0].courseDates[0].currency
-                    : ""
-                    }}
+									{{
+									bookingsToCreate.length > 0
+									? bookingsToCreate[0].courseDates[0].currency
+									: ""
+									}}
 								</div>
 							</div>
 						</div>
@@ -1167,74 +1067,77 @@
 								<div class="col-left">
 									<span style="color:#FB9B1B">
 										{{ "refund_text" | translate |
-                      uppercase }}
+										uppercase }}
 									</span>
 								</div>
 								<div class="col-right">
 									<span style="color:#FB9B1B">
 										{{ bookingPendingPrice| number:'0.2-2' }}
-                      {{
-                      bookingsToCreate.length > 0
-                      ? bookingsToCreate[0].courseDates[0].currency
-                      : ""
-                      }}
+										{{
+										bookingsToCreate.length > 0
+										? bookingsToCreate[0].courseDates[0].currency
+										: ""
+										}}
 									</span>
 								</div>
 							</div>
 
-							<div *ngIf="bookingPendingPrice > 0 && !booking.paid && (booking.status === 1 ||  booking.status === 3)">
+							<div
+								*ngIf="bookingPendingPrice > 0 && !booking.paid && (booking.status === 1 ||  booking.status === 3)">
 								<div class="col-left">
 									<span style="color:#FB9B1B">
 										{{ "pending_payment" | translate
-                      | uppercase }}
+										| uppercase }}
 									</span>
 								</div>
 								<div class="col-right">
 									<span style="color:#FB9B1B">
 										{{ bookingPendingPrice| number:'0.2-2' }}
-                      {{
-                      bookingsToCreate.length > 0
-                      ? bookingsToCreate[0].courseDates[0].currency
-                      : ""
-                      }}
+										{{
+										bookingsToCreate.length > 0
+										? bookingsToCreate[0].courseDates[0].currency
+										: ""
+										}}
 									</span>
 								</div>
 							</div>
 
-							<div *ngIf="bookingPendingPrice === 0 && booking.paid && (booking.status === 1 ||  booking.status === 3)">
+							<div
+								*ngIf="bookingPendingPrice === 0 && booking.paid && (booking.status === 1 ||  booking.status === 3)">
 								<div class="col-left">
 									<span style="color:#2fca45">
 										{{ "ispaid" | translate |
-                      uppercase }}
+										uppercase }}
 									</span>
 								</div>
 								<div class="col-right">
 									<span style="color:#2fca45">
 										{{ booking.paid_total }}
-                      {{
-                      bookingsToCreate.length > 0
-                      ? bookingsToCreate[0].courseDates[0].currency
-                      : ""
-                      }}
+										{{
+										bookingsToCreate.length > 0
+										? bookingsToCreate[0].courseDates[0].currency
+										: ""
+										}}
 									</span>
 								</div>
 							</div>
 
-							<div *ngIf="bookingPendingPrice === 0 && !booking.paid && (booking.status === 1 ||  booking.status === 3)">
+							<div
+								*ngIf="bookingPendingPrice === 0 && !booking.paid && (booking.status === 1 ||  booking.status === 3)">
 								<div class="col-left">
 									<span style="color:#2fca45">
 										{{ "ispaid" | translate |
-                      uppercase }}
+										uppercase }}
 									</span>
 								</div>
 								<div class="col-right">
 									<span style="color:#2fca45">
 										{{ finalPrice }}
-                      {{
-                      bookingsToCreate.length > 0
-                      ? bookingsToCreate[0].courseDates[0].currency
-                      : ""
-                      }}
+										{{
+										bookingsToCreate.length > 0
+										? bookingsToCreate[0].courseDates[0].currency
+										: ""
+										}}
 									</span>
 								</div>
 							</div>
@@ -1243,17 +1146,17 @@
 								<div class="col-left">
 									<span style="color:#2fca45">
 										{{ "ispaid" | translate |
-                      uppercase }}
+										uppercase }}
 									</span>
 								</div>
 								<div class="col-right">
 									<span style="color:#2fca45">
 										{{ booking.price_cancellation_insurance }}
-                      {{
-                      bookingsToCreate.length > 0
-                      ? bookingsToCreate[0].courseDates[0].currency
-                      : ""
-                      }}
+										{{
+										bookingsToCreate.length > 0
+										? bookingsToCreate[0].courseDates[0].currency
+										: ""
+										}}
 									</span>
 								</div>
 							</div>
@@ -1268,10 +1171,8 @@
 								<div class="col-right">
 									<button *ngIf="booking.status !== 2 && bookingPendingPrice > 0"
 										[disabled]="booking.status === 2 || bookingPendingPrice <= 0"
-										(click)="addBonus()"
-										style="min-width: 2rem;height: 1rem;float: right;"
-										mat-raised-button
-										color="accent">
+										(click)="addBonus()" style="min-width: 2rem;height: 1rem;float: right;"
+										mat-raised-button color="accent">
 										+
 									</button>
 								</div>
@@ -1281,80 +1182,71 @@
 								<div *ngFor="let item of bonus; let i = index">
 									<div class="col-left">
 										{{ item.log ? (item.log.created_at | date:
-                      "dd-MM-yyyy HH:mm") : getCurrentDateFormatted() }}
+										"dd-MM-yyyy HH:mm") : getCurrentDateFormatted() }}
 										<br>
 										{{ item?.bonus?.code }}
 									</div>
 									<div class="col-right">
 										{{
-                      (item?.bonus.before
-                      ? item?.bonus?.currentPay
-                      : item?.bonus?.reducePrice)
-                      | number:'0.2-2'
-                      }}
-                      {{
-                      bookingsToCreate.length > 0
-                      ? bookingsToCreate[0].courseDates[0].currency
-                      : ""
-                      }}
-										<mat-icon *ngIf="!booking.paid && booking.status != 2"
-											(click)="deleteBonus(i)"
+										(item?.bonus.before
+										? item?.bonus?.currentPay
+										: item?.bonus?.reducePrice)
+										| number:'0.2-2'
+										}}
+										{{
+										bookingsToCreate.length > 0
+										? bookingsToCreate[0].courseDates[0].currency
+										: ""
+										}}
+										<mat-icon *ngIf="!booking.paid && booking.status != 2" (click)="deleteBonus(i)"
 											svgIcon="mat:delete"
 											style="float: left;color: red; cursor:pointer; margin-left: 2px"></mat-icon>
 									</div>
 								</div>
 							</ng-container>
 
-							<span *ngIf="payments.length > 0"
-								style="width: 100%; float:left">
+							<span *ngIf="payments.length > 0" style="width: 100%; float:left">
 								<div style="float:left">
 									{{ "method_paiment" | translate }}
 								</div>
 							</span>
 							<ng-container *ngFor="let item of payments">
-								<div *ngIf="item.amount > 0"
-									style="width: 100%; float:left">
-									<div *ngIf="item.status == 'refund'"
-										style="float:left">
+								<div *ngIf="item.amount > 0" style="width: 100%; float:left">
+									<div *ngIf="item.status == 'refund'" style="float:left">
 										{{ item.created_at | date: "dd-MM-yyyy hh:mm:ss" }}:
-                      {{ "refund" | translate }}
+										{{ "refund" | translate }}
 									</div>
-									<div *ngIf="item.status == 'no_refund'"
-										style="float:left">
+									<div *ngIf="item.status == 'no_refund'" style="float:left">
 										{{ item.created_at | date: "dd-MM-yyyy hh:mm:ss" }}:
-                      {{ "no_refund" | translate }}
+										{{ "no_refund" | translate }}
 									</div>
-									<div *ngIf="item.status == 'paid'"
-										style="float:left">
+									<div *ngIf="item.status == 'paid'" style="float:left">
 										{{ item.created_at | date: "dd-MM-yyyy hh:mm:ss" }}:
-                      {{ "payment" | translate }} - {{ item.notes | translate }}
+										{{ "payment" | translate }} - {{ item.notes | translate }}
 									</div>
-									<div *ngIf="item.status === 'refund'"
-										style="float:right">
+									<div *ngIf="item.status === 'refund'" style="float:right">
 										{{ item.amount }}
-                      {{
-                      bookingsToCreate.length > 0
-                      ? bookingsToCreate[0].courseDates[0].currency
-                      : ""
-                      }}
+										{{
+										bookingsToCreate.length > 0
+										? bookingsToCreate[0].courseDates[0].currency
+										: ""
+										}}
 									</div>
-									<div *ngIf="item.status == 'no_refund'"
-										style="float:right">
+									<div *ngIf="item.status == 'no_refund'" style="float:right">
 										{{ item.amount }}
-                      {{
-                      bookingsToCreate.length > 0
-                      ? bookingsToCreate[0].courseDates[0].currency
-                      : ""
-                      }}
+										{{
+										bookingsToCreate.length > 0
+										? bookingsToCreate[0].courseDates[0].currency
+										: ""
+										}}
 									</div>
-									<div *ngIf="item.status == 'paid'"
-										style="float:right">
+									<div *ngIf="item.status == 'paid'" style="float:right">
 										{{ item.amount }}
-                      {{
-                      bookingsToCreate.length > 0
-                      ? bookingsToCreate[0].courseDates[0].currency
-                      : ""
-                      }}
+										{{
+										bookingsToCreate.length > 0
+										? bookingsToCreate[0].courseDates[0].currency
+										: ""
+										}}
 									</div>
 								</div>
 							</ng-container>
@@ -1440,127 +1332,82 @@
 						</ng-container>
 
 						<ng-container *ngIf="!booking.paid && booking.status !== 2 && bookingPendingPrice > 0">
-							<mat-divider class="text-border"
-								style="margin: 10px 0 10px 0"></mat-divider>
-							<div class="square-buttons-container"
-								style="padding: 0 10px; gap: 10px;">
+							<mat-divider class="text-border" style="margin: 10px 0 10px 0"></mat-divider>
+							<div class="square-buttons-container" style="padding: 0 10px; gap: 10px;">
 								<button [class.selected]="selectedButton === '1'"
-									(click)="selectedButton = '1'; selectedSubButton = '0'"
-									mat-raised-button
-									color="accent"
-									class="square-button">
+									(click)="selectedButton = '1'; selectedSubButton = '0'" mat-raised-button
+									color="accent" class="square-button">
 									{{ "payment_direct" | translate }}
 								</button>
-								<button [class.selected]="selectedButton === '2'"
-									(click)="
+								<button [class.selected]="selectedButton === '2'" (click)="
                     selectedButton = '2';
                     selectedSubButton = '0';
                     defaults.payment_method_id = 3
-                  "
-									mat-raised-button
-									color="accent"
-									class="square-button">
+                  " mat-raised-button color="accent" class="square-button">
 									{{ "payment_online" | translate }}
 								</button>
 							</div>
-							<mat-divider class="text-border"
-								style="margin: 10px 0 10px 0"></mat-divider>
-							<div *ngIf="selectedButton === '1'"
-								class="square-buttons-container"
+							<mat-divider class="text-border" style="margin: 10px 0 10px 0"></mat-divider>
+							<div *ngIf="selectedButton === '1'" class="square-buttons-container"
 								style="padding: 0 10px; gap: 10px;">
-								<button [class.selected]="selectedSubButton === '1'"
-									(click)="
+								<button [class.selected]="selectedSubButton === '1'" (click)="
                     selectedSubButton = '1'; defaults.payment_method_id = 1
-                  "
-									mat-raised-button
-									color="accent"
-									class="square-button">
+                  " mat-raised-button color="accent" class="square-button">
 									{{ "payment_cash" | translate }}
 								</button>
-								<button [class.selected]="selectedSubButton === '2'"
-									(click)="
+								<button [class.selected]="selectedSubButton === '2'" (click)="
                     selectedSubButton = '2'; defaults.payment_method_id = 4
-                  "
-									mat-raised-button
-									color="accent"
-									class="square-button">
+                  " mat-raised-button color="accent" class="square-button">
 									{{ "payment_other" | translate }}
 								</button>
-								<button [class.selected]="selectedSubButton === '3'"
-									(click)="
+								<button [class.selected]="selectedSubButton === '3'" (click)="
                     selectedSubButton = '3'; defaults.payment_method_id = 2
-                  "
-									mat-raised-button
-									color="accent"
-									class="square-button">
+                  " mat-raised-button color="accent" class="square-button">
 									Boukii Pay
 								</button>
 							</div>
 							<mat-divider *ngIf="selectedSubButton === '1' || selectedSubButton === '2'"
-								class="text-border"
-								style="margin: 10px 0 10px 0"></mat-divider>
-							<div *ngIf="selectedSubButton === '1' || selectedSubButton === '2'"
-								style="width:100%"
+								class="text-border" style="margin: 10px 0 10px 0"></mat-divider>
+							<div *ngIf="selectedSubButton === '1' || selectedSubButton === '2'" style="width:100%"
 								class="square-buttons-container">
 								<p style="float:left;width: 100%;">
 									{{ "is_paid" | translate }}
 								</p>
-								<mat-slide-toggle [(ngModel)]="defaults.paid"
-									[checked]="defaults.paid"
-									color="accent"
+								<mat-slide-toggle [(ngModel)]="defaults.paid" [checked]="defaults.paid" color="accent"
 									style="float: right;"></mat-slide-toggle>
 							</div>
 							<mat-divider *ngIf="
                   selectedSubButton === '1' ||
                   selectedSubButton === '2' ||
                   selectedSubButton === '3'
-                "
-								class="text-border"
-								style="margin: 10px 0 10px 0"></mat-divider>
+                " class="text-border" style="margin: 10px 0 10px 0"></mat-divider>
 							<div *ngIf="
                   selectedSubButton === '1' ||
                   selectedSubButton === '2' ||
                   selectedSubButton === '3'
-                "
-								style="width:100%"
-								class="square-buttons-container">
-								<button (click)="create()"
-									mat-raised-button
-									color="accent"
-									class="square-button">
+                " style="width:100%" class="square-buttons-container">
+								<button (click)="create()" mat-raised-button color="accent" class="square-button">
 									{{ "confirm_booking" | translate }}
 								</button>
 							</div>
-							<div *ngIf="selectedButton === '2'"
-								class="square-buttons-container">
-								<button (click)="create()"
-									style="width:100%"
-									mat-raised-button
-									color="primary"
+							<div *ngIf="selectedButton === '2'" class="square-buttons-container">
+								<button (click)="create()" style="width:100%" mat-raised-button color="primary"
 									class="square-button">
 									{{ "confirm_email" | translate }}
 								</button>
 							</div>
-							<div *ngIf="selectedButton === '3'"
-								class="square-buttons-container">
-								<button (click)="create()"
-									style="width:100%"
-									mat-raised-button
-									color="primary"
+							<div *ngIf="selectedButton === '3'" class="square-buttons-container">
+								<button (click)="create()" style="width:100%" mat-raised-button color="primary"
 									class="square-button">
 									{{ "confirm_booking" | translate }}
 								</button>
 							</div>
 						</ng-container>
 						<ng-container *ngIf="!booking.paid && booking.status !== 2 && bookingPendingPrice == 0">
-							<mat-divider class="text-border"
-								style="margin: 10px 0 10px 0"></mat-divider>
+							<mat-divider class="text-border" style="margin: 10px 0 10px 0"></mat-divider>
 							<div class="square-buttons-container">
-								<button (click)="defaults.payment_method_id = 5; create()"
-									style="width:100%"
-									mat-raised-button
-									color="primary"
-									class="square-button">
+								<button (click)="defaults.payment_method_id = 5; create()" style="width:100%"
+									mat-raised-button color="primary" class="square-button">
 									{{ "confirm_booking" | translate }}
 								</button>
 							</div>

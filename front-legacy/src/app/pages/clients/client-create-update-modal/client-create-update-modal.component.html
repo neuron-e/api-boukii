@@ -30,8 +30,12 @@
       <mat-step [stepControl]="formInfoAccount">
         <form [formGroup]="formInfoAccount">
           <ng-template matStepLabel>{{'monitors.creation.info' | translate }}</ng-template>
-          <vex-flux-upload-img [imagePreviewUrl]="defaults.image" (upload)="onFileChanged($event)"
-            style="margin-top: 10px;"></vex-flux-upload-img>
+
+          <vex-flux-upload-img [imagePreviewUrl]="defaults.image"
+            (upload)="formInfoAccount.patchValue({image:$event});defaults.image=$event;imagePreviewUrl=$event" [edit]="true" [width]="200"
+            [height]="200" [roundCropper]="true">
+          </vex-flux-upload-img>
+
           <!--<div class="flex flex-col sm:flex-row gap-2 sm:gap-6">
             <div class="image-container">
               <img
@@ -83,11 +87,8 @@
           <div class="flex flex-col sm:flex-row gap-2 sm:gap-6" style="margin: 3% 0 0 0;">
 
             <mat-form-field appearance="outline" class="flex-auto">
-              <input matInput [matDatepicker]="pickerFrom" placeholder="{{'birth_date' | translate }}"
-                formControlName="fromDate" [max]="minDate" [(ngModel)]="defaults.birth_date" readonly
-                (click)="pickerFrom.open()" required>
-              <mat-datepicker-toggle matSuffix [for]="pickerFrom"></mat-datepicker-toggle>
-              <mat-datepicker #pickerFrom [startAt]="minDate"></mat-datepicker>
+              <mat-label>{{'birth_date' | translate}}</mat-label>
+              <input type="date" class="flex-auto" formControlName="fromDate" [max]="minDate" [(ngModel)]="defaults.birth_date" required>
               <mat-error *ngIf="formPersonalInfo.controls?.fromDate?.errors?.['required']">
                 {{'clients.creation.errors.monitor_date' | translate }}
               </mat-error>

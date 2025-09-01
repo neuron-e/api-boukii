@@ -6,7 +6,8 @@
 		{{Prefix | translate}}
 	</span>
 	<input [id]="control" [placeholder]="name | translate" [formControlName]="control" [type]="type"
-		[required]="required" [max]="max" [min]="min" (input)="do.emit($event)" matInput class="form-control">
+		[readonly]="readonly" [required]="required" [max]="max" [min]="min" (input)="do.emit($event)" matInput
+		class="form-control">
 	<span *ngIf="Suffix" matTextSuffix>
 		{{Suffix | translate}}
 	</span>
@@ -22,7 +23,7 @@
 		{{Prefix | translate}}
 	</span>
 	<input [placeholder]="name | translate" [type]="type" [(ngModel)]="value" [required]="required" [max]="max"
-		[min]="min" (input)="do.emit($event)" matInput class="form-control">
+		[readonly]="readonly" [min]="min" (input)="do.emit($event)" matInput class="form-control">
 	<span *ngIf="Suffix" matTextSuffix>
 		{{Suffix | translate}}
 	</span>

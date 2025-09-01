@@ -32,7 +32,8 @@ export class CourseDetailNewComponent implements OnInit{
               private dialog: MatDialog, private courseService: CoursesService,
               private snackbar: MatSnackBar, private translateService: TranslateService) {
     this.user = JSON.parse(localStorage.getItem('boukiiUser'));
-    this.settings = JSON.parse(this.user.schools[0].settings);
+    this.settings = typeof this.user.schools[0].settings === 'string' ?
+      JSON.parse(this.user.schools[0].settings) : this.user.schools[0].settings;
     this.id = this.activatedRoute.snapshot.params.id;
 
   }

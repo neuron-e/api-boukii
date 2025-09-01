@@ -29,6 +29,7 @@ import { MatSortModule } from '@angular/material/sort';
 import { TranslateModule } from '@ngx-translate/core';
 import { IconComponent } from 'src/@vex/components/icon/app.component';
 import { ComponenteInputModule } from 'src/@vex/components/form/input/app.module';
+import { FluxUploadImgModule } from 'src/@vex/components/form/upload-img/app.module';
 
 @NgModule({
   imports: [
@@ -62,7 +63,8 @@ import { ComponenteInputModule } from 'src/@vex/components/form/input/app.module
     MatSortModule,
     MatChipsModule,
     TranslateModule,
-    ComponenteInputModule
+    ComponenteInputModule,
+    FluxUploadImgModule
   ],
   declarations: [ClientCreateUpdateComponent],
   exports: [ClientCreateUpdateComponent]

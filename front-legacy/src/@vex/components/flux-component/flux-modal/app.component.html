@@ -1,6 +1,7 @@
 <div class="modal">
-    <div class="modal-content resum card" [style.width]="width+'px'" [style.left]="'calc(50vw - '+ width/2 + 'px)'"
-        style="top: 10%;">
+    <div class="modal-content resum card"
+         [ngStyle]="{'max-width': width+'px', 'width': '90%', 'margin': '0 auto'}"
+         style="top: 10%;">
         <div class="modal-header"
             style="display: flex;justify-content: space-between;border-bottom: 1px #DEE6EA solid;">
             <h5 class="modal-title">{{title | translate}} </h5>

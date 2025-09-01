@@ -98,7 +98,7 @@ export class MonitorDetailComponent {
   filteredSalary: Observable<any[]>;
 
   salaryForm = new FormControl();
-
+  currency = '';
   sportsControl = new FormControl([]);
   selectedSports: any[] = [];
   selectedNewSports: any[] = [];
@@ -286,71 +286,79 @@ export class MonitorDetailComponent {
     };
 
     return forkJoin(requestsInitial).pipe(tap((results) => {
-      this.formInfoAccount = this.fb.group({
-        image: [''],
-        name: ['', Validators.required],
-        surname: ['', Validators.required],
-        email: ['', [Validators.required, Validators.email]],
-        username: [''],
-        station: [''],
-        password: [''],
+      this.crudService.get('/schools/' + this.user.schools[0].id)
+        .subscribe((data) => {
+          let school = data.data;
+          const settings = typeof school.settings === 'string' ? JSON.parse(school.settings) : school.settings;
+          this.currency = settings?.taxes?.currency;
+          this.formInfoAccount = this.fb.group({
+            image: [''],
+            name: ['', Validators.required],
+            surname: ['', Validators.required],
+            email: ['', [Validators.required, Validators.email]],
+            username: [''],
+            station: [''],
+            password: [''],
 
-      });
+          });
 
-      this.formPersonalInfo = this.fb.group({
-        fromDate: ['', Validators.required],
-        phone: [''],
-        mobile: ['', Validators.required],
-        address: [''],
-        postalCode: [''],
-        country: this.myControlCountries,
-        province: this.myControlProvinces
+          this.formPersonalInfo = this.fb.group({
+            fromDate: ['', Validators.required],
+            phone: [''],
+            mobile: ['', Validators.required],
+            address: [''],
+            postalCode: [''],
+            country: this.myControlCountries,
+            province: this.myControlProvinces
 
-      });
+          });
 
-      this.formWorkInfo = this.fb.group({
-        avs: [],
-        workId: [],
-        iban: [],
-        countryWork: this.myControlWorkCountries,
-        children: [],
-        childName: [],
-        childAge: [],
-        sports: [],
-        sportName: [],
-      });
+          this.formWorkInfo = this.fb.group({
+            avs: [],
+            workId: [],
+            iban: [],
+            countryWork: this.myControlWorkCountries,
+            children: [],
+            childName: [],
+            childAge: [],
+            sports: [],
+            sportName: [],
+          });
 
-      this.formCivilStatusInfo = this.fb.group({
+          this.formCivilStatusInfo = this.fb.group({
 
-        civilStatus: [this.defaults.civil_status],
-        spouse: [this.defaults.partner_works ? 'y' : 'n'],
-        workMobility: [this.defaults.family_allowance ? 'y' : 'n'],
-        spouseWorkId: [],
-        spousePercentage: []
-      });
+            civilStatus: [this.defaults.civil_status],
+            spouse: [this.defaults.partner_works ? 'y' : 'n'],
+            workMobility: [this.defaults.family_allowance ? 'y' : 'n'],
+            spouseWorkId: [],
+            spousePercentage: []
+          });
 
-      this.filteredStations = this.myControlStations.valueChanges
-        .pipe(
-          startWith(''),
-          map(value => this._filterStations(value))
-        );
+          this.filteredStations = this.myControlStations.valueChanges
+            .pipe(
+              startWith(''),
+              map(value => this._filterStations(value))
+            );
 
-      this.myControlStations.valueChanges.subscribe(value => {
-        this.formInfoAccount.get('station').setValue(value);
-      });
+          this.myControlStations.valueChanges.subscribe(value => {
+            this.formInfoAccount.get('station').setValue(value);
+          });
 
-      this.filteredCountries = this.myControlCountries.valueChanges.pipe(
-        startWith(''),
-        map(value => typeof value === 'string' ? value : value.name),
-        map(name => name ? this._filterCountries(name) : this.mockCountriesData.slice())
-      );
+          this.filteredCountries = this.myControlCountries.valueChanges.pipe(
+            startWith(''),
+            map(value => typeof value === 'string' ? value : value.name),
+            map(name => name ? this._filterCountries(name) : this.mockCountriesData.slice())
+          );
 
-      this.myControlCountries.valueChanges.subscribe(country => {
-        if (country) {
-          this.myControlProvinces.setValue('');  // Limpia la selección anterior de la provincia
-          this.filteredProvinces = this._filterProvinces(country.id);
-        }
-      });
+          this.myControlCountries.valueChanges.subscribe(country => {
+            if (country) {
+              this.myControlProvinces.setValue('');  // Limpia la selección anterior de la provincia
+              this.filteredProvinces = this._filterProvinces(country.id);
+            }
+          });
+        });
+
+
 
     }));
 
@@ -699,7 +707,7 @@ export class MonitorDetailComponent {
     return this.crudService.list('/monitors-schools', 1, 10000, 'desc', 'id', '&monitor_id=' + this.id + '&school_id=' + this.user.schools[0].id)
       .pipe(
         map((data) => {
-          this.monitorSchoolRel = data.data;
+          this.monitorSchoolRel = data.data[0];
         })
       )
   }
@@ -1122,9 +1130,10 @@ export class MonitorDetailComponent {
               monitor_id: monitor.data.id,
               school_id: this.user.schools[0].id,
               station_id: this.defaults.active_station,
-              active_school: this.defaultsUser.active
+              active_school: this.defaultsUser.active,
+              block_price: this.monitorSchoolRel.block_price
             }
-            this.crudService.update('/monitors-schools', schoolRel, this.monitorSchoolRel[0].id)
+            this.crudService.update('/monitors-schools', schoolRel, this.monitorSchoolRel.id)
               .subscribe((a) => { })
             // revisar a partir de aqui
             this.sportsData.data.forEach(element => {

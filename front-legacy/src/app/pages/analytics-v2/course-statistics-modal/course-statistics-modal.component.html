@@ -1,0 +1,76 @@
+<!-- =============== COURSE STATISTICS MODAL TEMPLATE =============== -->
+
+<div class="course-statistics-modal">
+
+  <!-- ==================== MODAL HEADER ==================== -->
+  <div class="modal-header" mat-dialog-title>
+    <div class="header-content">
+      <div class="title-section">
+        <h1 class="modal-title">
+          <mat-icon class="title-icon">school</mat-icon>
+          {{ modalTitle }}
+        </h1>
+        <p class="modal-subtitle" *ngIf="hasDateRange">
+          <mat-icon class="subtitle-icon">date_range</mat-icon>
+          {{ dateRangeText }}
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <button
+          mat-icon-button
+          (click)="onRefresh()"
+          matTooltip="{{ 'refresh_data' | translate }}"
+          class="action-button">
+          <mat-icon>refresh</mat-icon>
+        </button>
+
+        <button
+          mat-icon-button
+          (click)="onExport()"
+          matTooltip="{{ 'export_statistics' | translate }}"
+          class="action-button">
+          <mat-icon>download</mat-icon>
+        </button>
+
+        <button
+          mat-icon-button
+          (click)="onClose()"
+          matTooltip="{{ 'close' | translate }}"
+          class="close-button">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL CONTENT ==================== -->
+  <div class="modal-content" mat-dialog-content>
+    <app-course-statistics
+      [courseId]="data.courseId"
+      [dateRange]="data.dateRange"
+      [showTitle]="false"
+      [compact]="true">
+    </app-course-statistics>
+  </div>
+
+  <!-- ==================== MODAL FOOTER ==================== -->
+  <div class="modal-footer" mat-dialog-actions align="end">
+    <button
+      mat-button
+      (click)="onClose()"
+      class="cancel-button">
+      {{ 'close' | translate }}
+    </button>
+
+    <button
+      mat-raised-button
+      color="primary"
+      (click)="onExport()"
+      class="export-button">
+      <mat-icon>download</mat-icon>
+      {{ 'export_statistics' | translate }}
+    </button>
+  </div>
+
+</div>

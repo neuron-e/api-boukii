@@ -40,6 +40,49 @@
   }
 }
 
+.header1:hover {
+  cursor: pointer;
+
+  background-color: #fee0b9;
+  animation: fadeOut1 1s;
+}
+.header2:hover {
+  cursor: pointer;
+
+  background-color: #c2eac8;
+  animation: fadeOut2 1s;
+}
+.header3:hover {
+  cursor: pointer;
+
+  background-color: #acf4f8;
+  animation: fadeOut3 1s;
+}
+@keyframes fadeOut1 {
+  0% {
+    background-color: white;
+  }
+  100% {
+    background-color: #fee0b9;
+  }
+}
+@keyframes fadeOut2 {
+  0% {
+    background-color: white;
+  }
+  100% {
+    background-color: #c2eac8;
+  }
+}
+@keyframes fadeOut3 {
+  0% {
+    background-color: white;
+  }
+  100% {
+    background-color: #acf4f8;
+  }
+}
+
 .sportTitle {
   font-family: var(--font-dm);
   font-size: 14px;

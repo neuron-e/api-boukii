@@ -4,6 +4,7 @@
   margin-top: calc(var(--secondary-toolbar-height) * -1);
 
   &.fixed {
+    z-index: 10;
     width: var(--toolbar-width);
     border-bottom: 1px solid var(--is-light-theme, #dee6ea)
       var(--is-dark-theme, #121212);

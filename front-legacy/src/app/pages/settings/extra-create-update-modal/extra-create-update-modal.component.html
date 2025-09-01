@@ -17,7 +17,7 @@
     <div class="flex flex-col sm:flex-row gap-2 sm:gap-6" style="margin: 3% 0 0 0;">
       <mat-form-field appearance="outline" class="flex-auto">
         <mat-label>{{'product' | translate}}</mat-label>
-        <input formControlName="product" matInput required type="text" [readonly]="true" [(ngModel)]="defaults.product">
+        <input formControlName="product" matInput required type="text" [value]="defaults.product">
 
       </mat-form-field>
 

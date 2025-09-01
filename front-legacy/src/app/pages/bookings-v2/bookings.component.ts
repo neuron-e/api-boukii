@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { TableColumn } from 'src/@vex/interfaces/table-column.interface';
 import { BookingsCreateUpdateV2Component } from './bookings-create-update/bookings-create-update.component';
 import moment from 'moment';
@@ -17,6 +17,7 @@ import { LayoutService } from 'src/@vex/services/layout.service';
   styleUrls: ['./bookings.component.scss']
 })
 export class BookingsV2Component {
+  @Input() filterCourseId: number = 0
   showDetail: boolean = false;
   detailData: any;
   imageAvatar = '../../../assets/img/avatar.png';
@@ -32,6 +33,7 @@ export class BookingsV2Component {
   school: any;
   bookingLog: any = [];
   bookingUsersUnique = [];
+  allLevels: any;
 
   createComponent = BookingsCreateUpdateV2Component;
   icon = '../../../assets/img/icons/reservas.svg';
@@ -42,6 +44,7 @@ export class BookingsV2Component {
     { label: 'type', property: 'sport', type: 'booking_users_image', visible: true },
     { label: 'course', property: 'booking_users', type: 'booking_users', visible: true },
     { label: 'client', property: 'client_main', type: 'client', visible: true },
+    { label: 'obs', property: 'has_observations', type: 'warning', visible: true },
     { label: 'dates', property: 'dates', type: 'booking_dates', visible: true },
     { label: 'register', property: 'created_at', type: 'date', visible: true },
     //{ label: 'options', property: 'options', type: 'text', visible: true },
@@ -68,10 +71,18 @@ export class BookingsV2Component {
 
       }
     })
-
+    this.getDegrees();
     this.getSports();
     this.getLanguages();
   }
+
+  getDegrees() {
+    const user = JSON.parse(localStorage.getItem("boukiiUser"))
+    this.crudService.list('/degrees', 1, 10000, 'asc', 'degree_order',
+      '&school_id=' + user.schools[0].id + '&active=1')
+      .subscribe((data) => this.allLevels = data.data)
+  }
+
 
   async showDetailEvent(event: any) {
 
@@ -232,6 +243,13 @@ export class BookingsV2Component {
       new Date(bu.date) > new Date();
   }
 
+  isFinishedBookingUser(bu: any): boolean {
+    // Compara la fecha más futura con la fecha actual
+    return bu.status === 1 &&
+      new Date(bu.date) < new Date();
+  }
+
+
   encontrarPrimeraClaveConValor(obj: any): string | null {
     if (obj !== null) {
       for (const clave of Object.keys(obj)) {
@@ -296,11 +314,6 @@ export class BookingsV2Component {
       maxDate < new Date();
   }
 
-  isFinishedBookingUser(bu: any): boolean {
-    // Compara la fecha más futura con la fecha actual
-    return bu.status === 1 &&
-      new Date(bu.date) < new Date();
-  }
 
   getSportName(id) {
     return this.sports.find((s) => s.id === id).name
@@ -504,11 +517,11 @@ export class BookingsV2Component {
 
   /*  getUniqueBookingUsers(data: any) {
       const uniqueGroups = new Map<string, any>();
-
+  
       data.forEach(item => {
         // Crear una clave única por fecha y monitor
         const key = `${item.date}-${item.monitor_id}`;
-
+  
         if (uniqueGroups.has(key)) {
           const existingItem = uniqueGroups.get(key);
           // Si el precio actual es mayor que el del existente, reemplázalo
@@ -520,18 +533,18 @@ export class BookingsV2Component {
           uniqueGroups.set(key, item);
         }
       });
-
+  
       // Convertimos el Map en un array de los valores
       this.bookingUsersUnique = Array.from(uniqueGroups.values());
     }*/
 
   /*  getUniqueBookingUsers(data: any) {
       const uniqueGroups = new Map<string, any>();
-
+  
       data.forEach(item => {
         // Crear una clave única para cada combinación de client_id, date y monitor_id
         const key = `${item.client_id}-${item.date}-${item.monitor_id}`;
-
+  
         // Si el grupo ya existe, comparamos los precios y nos quedamos con el más alto
         if (uniqueGroups.has(key)) {
           const existingItem = uniqueGroups.get(key);
@@ -543,7 +556,7 @@ export class BookingsV2Component {
           uniqueGroups.set(key, item);
         }
       });
-
+  
       // Convertimos el map en un array de los valores
       this.bookingUsersUnique = Array.from(uniqueGroups.values());
     }*/
@@ -567,4 +580,6 @@ export class BookingsV2Component {
         this.bookingLog = data.data;
       })
   }
+
+  protected readonly parseFloat = parseFloat;
 }

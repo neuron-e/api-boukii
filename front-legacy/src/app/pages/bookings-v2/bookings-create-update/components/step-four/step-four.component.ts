@@ -52,8 +52,7 @@ export class StepFourComponent {
 
   tabs = [
     { label: "course_colective", courseTypeId: 1, class: "yellow" },
-    { label: "course_private", courseTypeId: 2, class: "green" },
-    { label: "activity", courseTypeId: 3, class: "blue" },
+    { label: "course_private", courseTypeId: 2, class: "green" }
   ];
 
   constructor(
@@ -62,17 +61,21 @@ export class StepFourComponent {
     private calendarService: CalendarService,
     protected utilsService: UtilsService
   ) {
+
+
+  }
+
+  ngOnInit(): void {
     this.selectedCourse = this.initialData?.selectedCourse;
-    this.selectedDate = this.initialData?.selectedDate;
+    this.selectedDate = this.initialData?.selectedDate || this.minDate;
     this.minDate = new Date();
     this.selectedDateMoment = this.selectedDate
       ? moment(this.selectedDate)
       : moment(this.minDate);
     this.updateNextMonth();
-    this.autoSelectFirstDayIfCurrentMonth();
-  }
-
-  ngOnInit(): void {
+    if(!this.initialData?.selectedDate) {
+      this.autoSelectFirstDayIfCurrentMonth();
+    }
     this.updateTabs();
     this.user = JSON.parse(localStorage.getItem("boukiiUser"));
     this.stepForm = this.fb.group({
@@ -114,10 +117,10 @@ export class StepFourComponent {
 
   updateTabs(): void {
     // Si utilizers tiene más de 1 usuario, eliminamos el tab "course_colective"
-    if (this.utilizers && this.utilizers.length > 1) {
+    if ((this.utilizers && this.utilizers.length > 1) || this.initialData?.onlyPrivate) {
       this.tabs = [
         { label: "course_private", courseTypeId: 2, class: "green" },
-        { label: "activity", courseTypeId: 3, class: "blue" }
+       /* { label: "activity", courseTypeId: 3, class: "blue" }*/
       ];
       this.courseTypeId = 2;
       this.selectedIndex = this.courseTypeId - 2;
@@ -125,8 +128,7 @@ export class StepFourComponent {
       // Si solo hay 1 user, mostramos las 3 tabs
       this.tabs = [
         { label: "course_colective", courseTypeId: 1, class: "yellow" },
-        { label: "course_private", courseTypeId: 2, class: "green" },
-        { label: "activity", courseTypeId: 3, class: "blue" }
+        { label: "course_private", courseTypeId: 2, class: "green" }
       ];
       this.selectedIndex = this.courseTypeId - 1;
     }
@@ -142,6 +144,9 @@ export class StepFourComponent {
 
   completeStep() {
     if (this.isFormValid()) {
+/*      if(this.initialData.selectedDate != this.selectedDate) {
+        this.selectedForm.get('step5').patchValue({})
+      }*/
       this.stepCompleted.emit(this.stepForm);
     }
   }
@@ -152,6 +157,7 @@ export class StepFourComponent {
 
     if (selectedMonth.isSame(currentMonth, "month")) {
       this.selectedDate = new Date();
+      this.selectedDateMoment = moment(this.selectedDate );
     }
   }
 
@@ -188,6 +194,8 @@ export class StepFourComponent {
     this.selectedDate = event;
     this.selectedDateMoment = moment(event);
     this.stepForm.get("date").patchValue(this.selectedDateMoment);
+    this.selectedCourse = null;
+    this.stepForm.get('course').setValue(null);
     this.cursesInSelectedDate = this.courses.filter(course =>
       course.course_dates.some(d => {
         const courseDateMoment = moment(d.date, "YYYY-MM-DD");
@@ -270,7 +278,7 @@ export class StepFourComponent {
       end_date: maxDate.format("YYYY-MM-DD"),
       course_type: this.courseTypeId,
       sport_id: sportLevel.sport_id,
-      client_id: this.client.id,
+      client_id: this.utilizers.map(item => item.id),
       /*degree_id: sportLevel.id,*/
       get_lower_degrees: false,
       school_id: this.user.schools[0].id,
@@ -324,6 +332,7 @@ export class StepFourComponent {
           }
         })
       );
+      this.stepForm.get("date").patchValue(this.selectedDateMoment);
       this.isLoading = false;
     });
   }

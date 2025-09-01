@@ -186,19 +186,7 @@ export class ClientCreateUpdateComponent implements OnInit {
     }, 500);
   }
 
-  onFileChanged(event: Event) {
-    const file = (event.target as HTMLInputElement).files[0];
-    if (file) {
-      const reader = new FileReader();
 
-      reader.onload = () => {
-        this.imagePreviewUrl = reader.result;
-        this.defaults.image = reader.result;
-      };
-
-      reader.readAsDataURL(file);
-    }
-  }
 
   passwordValidator(formControl: FormControl) {
     const { value } = formControl;
@@ -410,7 +398,7 @@ export class ClientCreateUpdateComponent implements OnInit {
     this.crudService.create('/users', this.defaultsUser)
       .subscribe((user) => {
         this.defaults.user_id = user.data.id;
-        this.defaults.birth_date = this.formatDate(this.defaults.birth_date)
+       // this.defaults.birth_date = this.formatDate(this.defaults.birth_date)
 
         this.crudService.create('/clients', this.defaults)
           .subscribe((client) => {

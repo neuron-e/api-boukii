@@ -251,37 +251,79 @@
 .d-flex {
   display: flex;
   align-items: center;
+  height: 75px;
 }
 
 .datepickers-container {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-left: auto; /* Mueve los datepickers a la derecha */
+  gap: 15px;
+  margin-left: auto;
 }
 
 .datepickers-container label {
-  margin: 0 5px;
-  font-size: 0.875rem; /* Ajusta el tamaño del texto si es necesario */
-}
-
-.datepickers-container input {
-  max-width: 150px; /* Ajusta el tamaño del input */
-}
-.custom-select {
-  background: white; /* Fondo blanco */
-  margin-left: 10px; /* Margen a la izquierda del texto */
-  width: 150px;
-}
-
-.datepickers-container {
-  display: flex;
-  align-items: center;
-}
-
-.datepickers-container label {
+  font-size: 0.875rem;
+  color: #666;
   margin-right: 5px;
 }
+
+/* Contenedor para input y botón del calendario */
+.date-input-wrapper {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+/* Estilos para los inputs de fecha */
+.date-input-wrapper input {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 0.875rem;
+  width: 80px;
+  cursor: pointer;
+  outline: none;
+}
+
+/* Estilos para el botón del calendario */
+.date-input-wrapper .mat-datepicker-toggle {
+  position: relative;
+  top: -2px;
+  height: 24px;
+  width: 24px;
+}
+
+.sales-date-picker-container {
+  // Aquí van estilos normales...
+
+  ::ng-deep {
+    // Dentro de este bloque, los estilos afectarán solo a elementos dentro de .sales-date-picker-container
+    .mat-datepicker-toggle .mat-icon-button {
+      width: 24px !important;
+      height: 24px !important;
+      line-height: 24px !important;
+    }
+
+    .mat-datepicker-toggle svg {
+      width: 18px !important;
+      height: 18px !important;
+      fill: #666;
+    }
+
+    .mat-form-field-wrapper,
+    .mat-form-field-flex,
+    .mat-form-field-infix {
+      padding: 0 !important;
+      border: none !important;
+      background: transparent !important;
+    }
+
+    .mat-mdc-form-field-flex {
+      max-height: 32px !important;
+    }
+  }
+}
+
 
 .total-price {
   margin-left: auto; /* Alinea el total a la derecha */

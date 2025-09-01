@@ -1132,7 +1132,8 @@ date_start: this.defaults.date_start_res
     if (!course.translations || course.translations === null) {
       return course.short_description;
     } else {
-      const translations = JSON.parse(course.translations);
+      const translations = typeof course.translations === 'string' ?
+        JSON.parse(course.translations) : course.translations;
       return translations[this.translateService.currentLang].short_description;
     }
   }
@@ -1142,7 +1143,8 @@ date_start: this.defaults.date_start_res
     if (!course.translations || course.translations === null) {
       return course.description;
     } else {
-      const translations = JSON.parse(course.translations);
+      const translations = typeof course.translations === 'string' ?
+        JSON.parse(course.translations) : course.translations;
       return translations[this.translateService.currentLang].description;
     }
   }
@@ -1151,7 +1153,8 @@ date_start: this.defaults.date_start_res
     if (!course.translations || course.translations === null) {
       return course.name;
     } else {
-      const translations = JSON.parse(course.translations);
+      const translations = typeof course.translations === 'string' ?
+        JSON.parse(course.translations) : course.translations;
       return translations[this.translateService.currentLang].name;
     }
   }

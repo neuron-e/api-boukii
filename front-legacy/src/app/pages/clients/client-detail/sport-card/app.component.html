@@ -1,0 +1,110 @@
+<div
+    [className]="center?'card cardcenter':'card'"
+    [style.boxShadow]="border?'':'none'">
+    <div style="align-items: center">
+        <span
+            style="color: white; padding: 4px 10px;height: 24px;border-radius: 3px;font-size: 12px;line-height: 16px;"
+            [style.background]="level?.color">
+            {{level?.annotation}} /
+            {{level?.name}}
+        </span>
+        <span style="margin-left: auto;font-weight: 600;">
+            {{calculateGoalsScore()}}%
+        </span>
+    </div>
+    <div style="align-items: center">
+        <div style="width: 100px;">
+            <app-level-user
+                [allLevels]="user.allLevels"
+                [selectLevel]="level?.id"
+                [size]="100"
+                [userImage]="user.getGoalImage(goals)">
+            </app-level-user>
+        </div>
+        <span *ngIf="user.getGoalImage(goals)" class="descripcion">
+           {{"medal_awarded" | translate}}
+        </span>
+        <span *ngIf="!user.getGoalImage(goals)" class="descripcion">
+            {{"achieve_all_goals" | translate}}
+        </span>
+    </div>
+    <div style="flex-direction: column;">
+        <span
+            style="color: #8B9099;font-size: 12px;font-weight: 600;line-height: 16px;">
+            {{"OBJETIVOS" | translate}}
+        </span>
+        <div *ngFor="let goal of goals"
+            style="display: flex;justify-content: space-between;align-items: center;">
+            <span
+                style="font-size: 12px;line-height: 16px;padding-right: 10px;">
+                <b>•</b>
+                {{goal.name}} </span>
+            <img src="assets/icons/check_green.png" class="icon24"
+                *ngIf="getDegreeScore(goal.id)>0"
+                alt>
+            <div
+                [style.backgroundColor]="getDegreeScore(goal.id)>0?getDegreeScore(goal.id)>5?'green':'yellow':'#E6E6E6'"
+                class="icon24"
+                style="border-radius: 100%;">
+            </div>
+        </div>
+        <span
+            *ngIf="goals.length === 0"
+            style="font-size: 12px; line-height: 16px;">
+            {{'no_data' | translate }}
+        </span>
+    </div>
+    <div style="flex-direction: column;">
+        <span
+            style="color: #8B9099;font-size: 12px;font-weight: 600;line-height: 16px;">
+            {{'multimedia' | translate }}
+        </span>
+<!--        <div *ngIf="user.getEvaluationsData(level).length===0"
+            style="display: flex;justify-content: space-between;">
+            <div *ngFor="let item of [1,2,3]" style="width: 72px;">
+                <img src="assets/icons/blank.png" class="icon72" alt>
+                <span style="font-size: 12px;line-height: 16px;">
+                    {{"comment_previous" | translate}}
+                </span>
+            </div>
+        </div>-->
+        <span
+            *ngIf="user.getEvaluationsData(level).length === 0 || user.getEvaluationsData(level)[0].files?.length === 0"
+            style="font-size: 12px; line-height: 16px;">
+            {{'no_data' | translate }}
+        </span>
+        <div
+            style="float: left; width: 100%; border-radius: 10px;"
+            *ngFor="let item of user.getEvaluationsData(level)">
+            <ng-container
+                style="float: left; width: 25%; border-radius: 10px;"
+                *ngFor="let file of item.files">
+                <img *ngIf="file.type === 'image'"
+                    [src]="file.file"
+                    style="height: 150px;width: 150px;object-fit: cover;">
+                <video *ngIf="file.type === 'video'" width="150"
+                    heigth="150" controls>
+                    <source [src]="file.file" type="video/mp4">
+                    <source [src]="file.file" type="video/ogg">
+                </video>
+            </ng-container>
+        </div>
+    </div>
+    <div style="flex-direction: column;">
+        <span
+            style="color: #8B9099;font-size: 12px;font-weight: 600;line-height: 16px;">
+            {{'monitor_comments' | translate }}
+        </span>
+        <span
+            *ngIf="user.getEvaluationsData(level).length === 0"
+            style="font-size: 12px;line-height: 16px;">
+            {{'no_data' | translate }}
+        </span>
+        <mat-form-field class="flex-auto"
+            style="width: 100%"
+            *ngFor="let item of user.getEvaluationsData(level)">
+            <input matInput [readonly]=true type="text"
+                [value]="item.observations">
+        </mat-form-field>
+    </div>
+</div>

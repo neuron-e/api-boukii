@@ -5,6 +5,21 @@
   gap: 1rem;
 }
 
+.input-wrapper {
+  display: block;
+  width: 100%;
+  padding: 5px; /* Ajusta el padding según el diseño */
+  border-radius: 4px;
+}
+
+.input-field {
+  width: 100%;
+  padding: 8px; /* Ajusta el padding para el input */
+  background: transparent; /* Asegura que el fondo del input sea transparente */
+  border: none;
+  color: white; /* Para que el texto sea visible sobre el fondo */
+}
+
 .sportCard {
   width: calc(50% - 0.5rem);
   display: flex;

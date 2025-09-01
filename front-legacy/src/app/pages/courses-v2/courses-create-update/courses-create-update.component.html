@@ -1,349 +1,438 @@
 <vex-secondary-toolbar current>
-	<vex-breadcrumbs [crumbs]="[
-    {icon:'cursos'},
-    {text:'courses.title', title: true,  link: '/courses'},
-    {text: (mode !== 'update' ? 'courses.new' : 'courses.update'), subtitle: true},
-    ]" class="flex"></vex-breadcrumbs>
+  <vex-breadcrumbs [crumbs]="[
+    { icon: 'cursos' },
+    { text: 'courses.title', title: true, link: '/courses' },
+    {
+      text: mode !== 'update'
+        ? translateService.instant('courses.new')
+        : translateService.instant('courses.update') + ' #' + id,
+      subtitle: true
+    }
+  ]" class="flex">
+  </vex-breadcrumbs>
 </vex-secondary-toolbar>
 <vex-flux-toolbad [Modal]="ModalProgress" [Flux]="ModalFlux" [create]="mode!=='create'"
-	(Check)="ModalFlux=$event;Confirm(0)"></vex-flux-toolbad>
+                  (Check)="ModalFlux=$event;Confirm(0)"></vex-flux-toolbad>
 <vex-flux-layout>
-	<mat-spinner *ngIf="loading" loading style="margin:0 auto"></mat-spinner>
-	<div *ngIf="!loading" body>
-		<div *ngIf="ModalFlux===0" [formGroup]="courses.courseFormGroup" class="flex flex-col"
-			style="padding: 20px 20px 0;">
-			<mat-radio-group class="flex" style="flex-wrap: wrap;gap: 16px;justify-content: space-between;"
-				formControlName="sport_id">
-				<mat-radio-button *ngFor="let item of sportData" [value]="item.sport_id" class="sport_checkbox"
-					style="cursor: pointer;">
-					<div style="display: flex;align-items: center;">
-						<img *ngIf="courses.courseFormGroup.controls['sport_id'].value===item.sport_id"
-							[src]="item.sport.icon_selected" class="sport_icon selected">
-						<img *ngIf="courses.courseFormGroup.controls['sport_id'].value!==item.sport_id"
-							[src]="item.sport.icon_unselected" class="sport_icon noselected">
-						{{item.sport.name | translate}}
-					</div>
-				</mat-radio-button>
-			</mat-radio-group>
-		</div>
-		<div *ngIf="ModalFlux===1" [formGroup]="courses.courseFormGroup" class="flex flex-col">
-			<mat-tab-group [selectedIndex]="courses.courseFormGroup.controls['course_type'].value-1||0"
-				(selectedIndexChange)="courses.courseFormGroup.patchValue({course_type:$event+1})">
-				<mat-tab [disabled]="mode==='update'">
-					<ng-template mat-tab-label>
-						<mat-icon style="color: #E5962A;" class="icon16">
-							circle
-						</mat-icon>
-						{{"course_colective" | translate}}
-					</ng-template>
-				</mat-tab>
-				<mat-tab [disabled]="mode==='update'">
-					<ng-template mat-tab-label>
-						<mat-icon style="color: #2FAA41;" class="icon16">
-							circle
-						</mat-icon>
-						{{"course_private" | translate}}
-					</ng-template>
-				</mat-tab>
-				<mat-tab [disabled]="mode==='update'">
-					<ng-template mat-tab-label>
-						<mat-icon style="color: #0AB0BC;" class="icon16">
-							circle
-						</mat-icon>
-						{{"activity" | translate}}
-					</ng-template>
-				</mat-tab>
-			</mat-tab-group>
-			<div style="padding: 20px 20px 0;">
-				<mat-checkbox [disabled]="mode!=='update'" formControlName="is_flexible">
-					{{'flexidates' | translate }}
-				</mat-checkbox>
-				<vex-flux-upload-img [imagePreviewUrl]="courses.courseFormGroup.controls['image'].value"
-					(upload)="courses.courseFormGroup.patchValue({image:$event})"
-					style="margin-top: 10px;"></vex-flux-upload-img>
-				<app-form-input [required]="true" [form]="courses.courseFormGroup" control="name"
-					name="courses.coursename">
-				</app-form-input>
-				<app-form-select [required]="true" [table]="stations" [form]="courses.courseFormGroup" label="station"
-					control="station_id" id="id" name="name">
-				</app-form-select>
-				<app-form-editor [required]="true" [form]="courses.courseFormGroup" control="short_description"
-					name="courses.summary">
-				</app-form-editor>
-				<app-form-editor [required]="true" [form]="courses.courseFormGroup" control="description"
-					name="courses.desc">
-				</app-form-editor>
-				<div style="display: flex; flex-wrap: wrap; column-gap: 20px;">
-					<app-form-input [required]="true" [form]="courses.courseFormGroup"
-						[Suffix]="courses.courseFormGroup.controls['currency'].value" style="width: calc(50% - 10px);"
-						control="price"
-						name="{{courses.courseFormGroup.controls['is_flexible'].value?'price_per_date':'price_per_course'}}"
-						type="number">
-					</app-form-input>
-					<app-form-input [required]="true" [form]="courses.courseFormGroup" style="width: calc(50% - 10px);"
-						control="max_participants" name="max_pax" Suffix="paxes" type="number">
-					</app-form-input>
-					<ng-container *ngIf="courses.courseFormGroup.controls['course_type'].value>1">
-						<app-form-input [required]="true" [form]="courses.courseFormGroup"
-							style="width: calc(50% - 10px);" control="age_min" name="courses.min_age" Suffix="years"
-							type="number">
-						</app-form-input>
-						<app-form-input [required]="true" [form]="courses.courseFormGroup"
-							[min]="courses.courseFormGroup.controls['age_min'].value" style="width: calc(50% - 10px);"
-							control="age_max" name="courses.max_age" Suffix="years" type="number">
-						</app-form-input>
-					</ng-container>
-				</div>
-			</div>
-		</div>
-		<div *ngIf="ModalFlux===2" class="flex flex-col">
+  <mat-spinner *ngIf="loading" loading style="margin:0 auto"></mat-spinner>
+  <div *ngIf="!loading" body>
+    <div *ngIf="ModalFlux===0" [formGroup]="courses.courseFormGroup" class="flex flex-col"
+         style="padding: 20px 20px 0;">
+      <mat-radio-group class="flex" style="flex-wrap: wrap;gap: 16px;justify-content: space-between;"
+                       formControlName="sport_id">
+        <mat-radio-button *ngFor="let item of sportData" [value]="item.sport_id" class="sport_checkbox"
+                          style="cursor: pointer;">
+          <div style="display: flex;align-items: center;">
+            <img *ngIf="courses.courseFormGroup.controls['sport_id'].value===item.sport_id"
+                 [src]="item.sport.icon_selected" class="sport_icon selected">
+            <img *ngIf="courses.courseFormGroup.controls['sport_id'].value!==item.sport_id"
+                 [src]="item.sport.icon_unselected" class="sport_icon noselected">
+            {{item.sport.name | translate}}
+          </div>
+        </mat-radio-button>
+      </mat-radio-group>
+    </div>
+    <div *ngIf="ModalFlux===1" [formGroup]="courses.courseFormGroup" class="flex flex-col">
+      <mat-tab-group [selectedIndex]="courses.courseFormGroup.controls['course_type'].value-1||0"
+                     (selectedIndexChange)="courses.courseFormGroup.patchValue({course_type:$event+1});setModalProgress()">
+        <mat-tab [disabled]="mode==='update'">
+          <ng-template mat-tab-label>
+            <mat-icon style="color: #E5962A;" class="icon16">
+              circle
+            </mat-icon>
+            {{"course_colective" | translate}}
+          </ng-template>
+        </mat-tab>
+        <mat-tab [disabled]="mode==='update'">
+          <ng-template mat-tab-label>
+            <mat-icon style="color: #2FAA41;" class="icon16">
+              circle
+            </mat-icon>
+            {{"course_private" | translate}}
+          </ng-template>
+        </mat-tab>
+        <!-- <mat-tab [disabled]="mode==='update'">
+           <ng-template mat-tab-label>
+             <mat-icon style="color: #0AB0BC;" class="icon16">
+               circle
+             </mat-icon>
+             {{"activity" | translate}}
+           </ng-template>
+         </mat-tab>-->
+      </mat-tab-group>
+      <div style="padding: 20px 20px 0;">
+        <mat-checkbox [disabled]="mode!=='update'" formControlName="is_flexible" (change)="setModalProgress()">
+          {{'flexidates' | translate }}
+        </mat-checkbox>
+        <vex-flux-upload-img [imagePreviewUrl]="courses.courseFormGroup.controls['image'].value"
+                             (upload)="courses.courseFormGroup.patchValue({image:$event})" [edit]="true" [width]="320"
+                             [height]="150" style="margin-top: 10px;"></vex-flux-upload-img>
+        <app-form-input [required]="true" [form]="courses.courseFormGroup" control="name"
+                        name="courses.coursename">
+        </app-form-input>
+        <app-form-select [required]="true" [table]="stations" [form]="courses.courseFormGroup" label="station"
+                         control="station_id" id="id" name="name">
+        </app-form-select>
+        <app-form-editor [required]="true" [form]="courses.courseFormGroup" control="short_description"
+                         name="courses.summary">
+        </app-form-editor>
+        <app-form-editor [required]="true" [form]="courses.courseFormGroup" control="description"
+                         name="courses.desc">
+        </app-form-editor>
+        <div style="display: flex; flex-wrap: wrap; column-gap: 20px;">
+          <app-form-input
+            [hidden]="courses.courseFormGroup.controls['is_flexible'].value
+    && courses.courseFormGroup.controls['course_type'].value != 1"
+            [required]="true"
+            [form]="courses.courseFormGroup"
+            [Suffix]="courses.courseFormGroup.controls['currency'].value"
+            style="width: calc(50% - 10px);"
+            control="price"
+            value="0"
+            name="{{ courses.courseFormGroup.controls['is_flexible'].value
+    ? (courses.courseFormGroup.controls['course_type'].value == 1 ? 'price_per_date' : 'min_price')
+    : 'price_per_course' }}"
+            type="number">
+          </app-form-input>
+
+          <app-form-input [required]="true" [form]="courses.courseFormGroup" style="width: calc(50% - 10px);"
+                          control="max_participants" name="max_pax" Suffix="paxes" type="number">
+          </app-form-input>
+          <ng-container *ngIf="courses.courseFormGroup.controls['course_type'].value>1">
+            <app-form-input [required]="true" [form]="courses.courseFormGroup"
+                            style="width: calc(50% - 10px);" control="age_min" name="courses.min_age" Suffix="years"
+                            type="number">
+            </app-form-input>
+            <app-form-input [required]="true" [form]="courses.courseFormGroup"
+                            [min]="courses.courseFormGroup.controls['age_min'].value" style="width: calc(50% - 10px);"
+                            control="age_max" name="courses.max_age" Suffix="years" type="number">
+            </app-form-input>
+          </ng-container>
+        </div>
+      </div>
+    </div>
+    <div *ngIf="ModalFlux===2" class="flex flex-col">
 			<span style="margin: 20px;">
 				{{'dates' | translate}}
 			</span>
-			<div [formGroup]="courses.courseFormGroup"
-				style="padding: 0 20px; display: flex; flex-wrap: nowrap; column-gap: 20px;">
-				<app-form-datepicker [required]="true" [form]="courses.courseFormGroup"
-					[min]="mode==='create'?nowDate:detailData.date_start"
-					(do)="courses.courseFormGroup.patchValue({date_start:$event.value,date_start_res:$event.value});
+      <div [formGroup]="courses.courseFormGroup"
+           style="padding: 0 20px; display: flex; flex-wrap: nowrap; column-gap: 20px;">
+        <app-form-datepicker [required]="true" [form]="courses.courseFormGroup"
+                             [min]="mode==='create'?nowDate:detailData.date_start_res"
+                             (do)="courses.courseFormGroup.patchValue({date_start:$event.value,date_start_res:$event.value});
 					courses.courseFormGroup.controls['date_end'].value<$event.value?courses.courseFormGroup.patchValue({date_end:$event.value,date_end_res:$event.value}):null"
-					control="date_start" style="min-width: 0;width: 100%;" name="courses.date_reservable">
-				</app-form-datepicker>
-				<app-form-datepicker [required]="true" [form]="courses.courseFormGroup"
-					[min]="courses.courseFormGroup.controls['date_start'].value"
-					(do)="courses.courseFormGroup.patchValue({date_end:$event.value,date_end_res:$event.value})"
-					control="date_end" style="min-width: 0;width: 100%;" name="courses.date_reservable_to">
-				</app-form-datepicker>
-				<app-form-select *ngIf="courses.courseFormGroup.controls['course_type'].value>1" [required]="true"
-					[table]="courses.duration" [form]="courses.courseFormGroup" label="courses.dur_min"
-					style="min-width: 0;width: 100%;" control="duration">
-				</app-form-select>
-			</div>
-			<ng-container *ngIf="courses.courseFormGroup.controls['course_type'].value===1">
-				<div *ngFor="let item of courses.courseFormGroup.controls['course_dates'].value, index as i">
-					<div
-						style="width: 100%;background-color: var(--color-grey4);height: 60px;border-top: 1px solid #C7D0D3;padding: 0 24px;align-content: space-evenly;">
-						<span>
-							{{('date'| translate)+' '+(i+1)}}
-						</span>
-						<mat-icon *ngIf="i!==0"
-							(click)="mode==='create'?deleteCourseDate(i):editModal=true;setEditFunction('deleteCourseDate',i)"
-							style="cursor: pointer;float: inline-end;">
-							delete
-						</mat-icon>
-					</div>
-					<div style="padding: 20px 20px 0px; display: flex; flex-wrap: nowrap; column-gap: 20px;">
-						<app-form-datepicker [required]="true"
-							[min]="courses.courseFormGroup.controls['date_start'].value"
-							[value]="courses.courseFormGroup.controls['course_dates'].value[i].date"
-							(do)="courses.courseFormGroup.controls['course_dates'].value[i].date=$event.value"
-							style="min-width: 0;width: 100%;" name="date">
-						</app-form-datepicker>
-						<app-form-select [value]="courses.courseFormGroup.controls['course_dates'].value[i].hour_start"
-							[required]="true" [table]="courses.hours"
-							(do)="courses.courseFormGroup.controls['course_dates'].value[i].hour_start=$event.option.value;"
-							style="min-width: 0;width: 100%;" label="start_hour">
-						</app-form-select>
-						<app-form-select [value]="courses.courseFormGroup.controls['course_dates'].value[i].duration"
-							[required]="true" [table]="courses.duration"
-							(do)="courses.courseFormGroup.controls['course_dates'].value[i].duration=$event.option.value;
-							courses.courseFormGroup.controls['course_dates'].value[i].hour_end=courses.addMinutesToTime(item.hour_start, $event.option.value)"
-							style="min-width: 0;width: 100%;" label="duration">
-						</app-form-select>
-						<!-- <app-form-select [value]="courses.courseFormGroup.controls['course_dates'].value[i].hour_end"
-							[required]="true"
-							[table]="courses.hours"
-							(do)="courses.courseFormGroup.controls['course_dates'].value[i].hour_end=$event.option.value;"
-							style="min-width: 0;width: 100%;"
-							label="end_hour">
-						</app-form-select> -->
-					</div>
-				</div>
-				<div style="padding: 20px;border-top: 1px solid #DEE6EA;">
-					<button (click)="mode==='create'?addCourseDate():editModal=true;setEditFunction('addCourseDate')"
-						style="border: 1px solid var(--is-light-theme, #222222) var(--is-dark-theme, #ffffff); border-radius: 3px;float: inline-end;height: 38px;width: 125px;"
-						type="button">
-						{{'add_date' | translate }}
-					</button>
-				</div>
-				<div *ngIf="courses.courseFormGroup.controls['is_flexible'].value"
-					style="background-color: var(--color-grey4);height: 20px;width: 100%;"></div>
-				<div *ngIf="courses.courseFormGroup.controls['is_flexible'].value">
-					<div style="margin: 20px;">
-						<span>
-							{{'courses.reduction_title' | translate}}
-						</span>
-					</div>
-					<div *ngFor="let item of courses.courseFormGroup.controls['discounts'].value, index as i"
-						style="padding: 0 20px;display: flex;flex-wrap: nowrap;gap: 20px; align-items: center;">
-						<app-form-input [required]="true"
-							[value]="courses.courseFormGroup.controls['discounts'].value[i].day" [min]="2"
-							[max]="courses.ndays[courses.ndays.length-1]"
-							(do)="courses.courseFormGroup.controls['discounts'].value[i].day=$event.target.value;"
-							style="min-width: 0;width: 100%;" name="courses.date_reservable" type="number"
-							Suffix="days">
-						</app-form-input>
-						<app-form-input [required]="true"
-							[value]="courses.courseFormGroup.controls['discounts'].value[i].reduccion"
-							(do)="courses.courseFormGroup.controls['discounts'].value[i].reduccion=$event.target.value;"
-							name="reduction" type="number" Suffix="%" style="min-width: 0;width: 100%;">
-						</app-form-input>
-						<mat-icon (click)="courses.courseFormGroup.controls['discounts'].value.splice(i,1)"
-							class="icon24"
-							style="margin-left: 16px;cursor: pointer; color: black;filter:  var(--is-dark-theme,invert(1));">
-							delete
-						</mat-icon>
-					</div>
-					<div style="margin: 0 20px;">
-						<button
-							(click)="courses.courseFormGroup.controls['discounts'].value.push({ day: courses.ndays[0] , reduccion: 10 })"
-							style="margin-top: 0px !important;height: 38px;" mat-button type="button">
-							<mat-icon>add</mat-icon>
-							{{'add_discount_by_date' | translate }}
-						</button>
-					</div>
-				</div>
-			</ng-container>
-			<ng-container *ngIf="courses.courseFormGroup.controls['course_type'].value>1">
-				<mat-tab-group [selectedIndex]="courses.courseFormGroup.controls['course_dates'].value.length>1?1:0"
-					(selectedIndexChange)="PeriodoFecha=$event;$event===0?courses.courseFormGroup.patchValue({course_dates:[courses.courseFormGroup.controls['course_dates'].value[0]]}):''"
-					style="margin: 20px 20px 0;">
-					<mat-tab>
-						<ng-template mat-tab-label>
-							{{"courses.uniperiod" | translate}}
-						</ng-template>
-					</mat-tab>
-					<mat-tab>
-						<ng-template mat-tab-label>
-							{{"courses.multiperiod" | translate}}
-						</ng-template>
-					</mat-tab>
-				</mat-tab-group>
-				<div style=" display: flex; flex-direction: column;padding: 10px;">
-					<ng-container
-						*ngFor="let item of courses.courseFormGroup.controls['course_dates'].value;index as i">
-						<div *ngIf="PeriodoFecha>0"
-							style="width: 100%;background-color: var(--color-grey4);height: 60px;border-top: 1px solid #C7D0D3;padding: 0 24px;align-content: space-evenly;">
+                             control="date_start_res" style="min-width: 0;width: 100%;" name="courses.date_reservable">
+        </app-form-datepicker>
+        <app-form-datepicker [required]="true" [form]="courses.courseFormGroup"
+                             [min]="mode==='create'?nowDate:detailData.date_start_end"
+                             (do)="courses.courseFormGroup.patchValue({date_end:$event.value,date_end_res:$event.value})"
+                             control="date_end_res" style="min-width: 0;width: 100%;" name="courses.date_reservable_to">
+        </app-form-datepicker>
+        <app-form-select *ngIf="courses.courseFormGroup.controls['course_type'].value>1" [required]="true"
+                         [table]="courses.duration" [form]="courses.courseFormGroup" label="{{courses.courseFormGroup.controls['is_flexible'].value ? 'courses.dur_min' : 'duration'}}"
+                         style="min-width: 0;width: 100%;" control="duration">
+        </app-form-select>
+
+      </div>
+      <!-- Sección para activar múltiples intervalos -->
+      <div class="form-check form-switch mb-3" *ngIf="courses.courseFormGroup.controls['is_flexible'].value">
+        <mat-checkbox [(ngModel)]="useMultipleIntervals" (change)="onMultipleIntervalsChange()">
+          {{'multiple_intervals' | translate }}
+        </mat-checkbox>
+      </div>
+
+      <ng-container *ngIf="courses.courseFormGroup.controls['course_type'].value===1">
+        <!-- INTERVALOS DE FECHAS -->
+        <!-- Configuración global de intervalos (solo visible cuando useMultipleIntervals está activo) -->
+        <div *ngIf="useMultipleIntervals" class="global-interval-settings mb-4 p-3 border rounded bg-light">
+          <h4 class="mb-3">{{'global_interval_settings' | translate}}</h4>
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <div class="form-check">
+                <mat-checkbox [(ngModel)]="mustBeConsecutive" (change)="syncIntervalsToCourseFormGroup()">
+                  {{'dates_must_be_consecutive' | translate }}
+                </mat-checkbox>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-check">
+                <mat-checkbox [(ngModel)]="mustStartFromFirst" (change)="syncIntervalsToCourseFormGroup()">
+                  {{'must_start_from_first_day' | translate }}
+                </mat-checkbox>
+              </div>
+            </div>
+          </div>
+          <div class="alert alert-info">
+            <small>{{'interval_global_settings_info' | translate}}</small>
+          </div>
+        </div>
+        <!-- Contenedor de intervalos múltiples -->
+        <div *ngIf="useMultipleIntervals">
+          <!-- Lista de intervalos -->
+          <div *ngFor="let interval of intervals; let i = index">
+            <div
+              style="width: 100%; background-color: var(--color-grey4); height: 60px; border-top: 1px solid #C7D0D3; padding: 0 24px; align-content: space-evenly; display: flex; justify-content: space-between; align-items: center;">
+              <span>
+                {{('interval' | translate) + ' ' + (i + 1) }}
+              </span>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <mat-icon *ngIf="intervals.length > 1"
+                          (click)="removeIntervalUI(i)"
+                          style="cursor: pointer; color: var(--color-dark1);">
+                  delete
+                </mat-icon>
+              </div>
+
+            </div>
+
+            <!-- Fechas del intervalo -->
+            <div *ngFor="let date of interval?.dates; let j = index">
+              <div
+                style="width: 100%; background-color: var(--color-grey4); height: 40px; border-top: 1px solid #DEE6EA;
+                padding: 0 24px; display: flex; align-items: center;">
+                  <span style="font-size: 13px; color: var(--color-dark1);">
+                    {{('date' | translate) + ' ' + (j + 1)}}
+                  </span>
+                <mat-icon *ngIf="interval?.dates.length > 1"
+                          (click)="removeCourseDateFromInterval(i, j)"
+                          style="cursor: pointer; margin-left: auto; font-size: 20px; color: var(--color-dark1);">
+                  delete
+                </mat-icon>
+              </div>
+              <div style="padding: 20px 20px 0px; display: flex; flex-wrap: nowrap; column-gap: 20px;">
+                <app-form-datepicker [required]="true"
+                                     [min]="interval?.dates.length > 0 ?
+                                     interval?.dates[interval?.dates.length -1].date : courses.courseFormGroup.controls['date_start'].value"
+                                     [value]="date.date"
+                                     (do)="date.date=$event.value"
+                                     style="min-width: 0;width: 100%;" name="date">
+                </app-form-datepicker>
+                <app-form-select [value]="date.hour_start"
+                                 [required]="true" [table]="courses.hours"
+                                 (do)="date.hour_start=$event.option.value;"
+                                 style="min-width: 0;width: 100%;" label="start_hour">
+                </app-form-select>
+                <app-form-select [value]="date.duration"
+                                 [required]="true" [table]="courses.duration"
+                                 (do)="date.duration=$event.option.value;
+                                     date.hour_end=courses.addMinutesToTime(date.hour_start, $event.option.value)"
+                                 style="min-width: 0;width: 100%;" label="duration">
+                </app-form-select>
+              </div>
+
+            </div>
+            <!-- Botón para añadir fecha al intervalo -->
+            <button (click)="addCourseDateToInterval(i)"
+                    style="margin: 20px; border: 1px solid var(--is-light-theme, #222222) var(--is-dark-theme, #ffffff); border-radius: 3px; float: inline-end; height: 38px; width: 125px;"
+                    type="button">
+              {{'add_date' | translate}}
+            </button>
+          </div>
+
+          <!-- Botón para añadir nuevo intervalo -->
+          <div style="padding: 20px; border-top: 1px solid #DEE6EA;">
+            <button (click)="addIntervalUI(intervals.length)"
+                    style="border: 1px solid #E91E63; color: #E91E63; background: transparent; border-radius: 3px; height: 38px; padding: 0 20px;"
+                    type="button">
+              <mat-icon style="vertical-align: middle; margin-right: 5px;">add</mat-icon>
+              {{'add_new_interval' | translate}}
+            </button>
+          </div>
+        </div>
+
+        <ng-container *ngIf="!useMultipleIntervals">
+          <!-- Mantener el código existente para fechas individuales -->
+          <div *ngFor="let item of courses.courseFormGroup.controls['course_dates'].value; index as i">
+            <div
+              style="width: 100%;background-color: var(--color-grey4);height: 60px;border-top: 1px solid #C7D0D3;padding: 0 24px;align-content: space-evenly;">
+        <span>
+          {{('date'| translate)+' '+(i+1)}}
+        </span>
+              <mat-icon *ngIf="courses.courseFormGroup.controls['course_dates'].value.length !== 1"
+                        (click)="mode==='create'?deleteCourseDate(i):editModal=true;setEditFunction('deleteCourseDate',i)"
+                        style="cursor: pointer;float: inline-end;">
+                delete
+              </mat-icon>
+            </div>
+            <div style="padding: 20px 20px 0px; display: flex; flex-wrap: nowrap; column-gap: 20px;">
+              <app-form-datepicker [required]="true"
+                                   [min]="courses.courseFormGroup.controls['date_start'].value"
+                                   [value]="courses.courseFormGroup.controls['course_dates'].value[i].date"
+                                   (do)="courses.courseFormGroup.controls['course_dates'].value[i].date=$event.value"
+                                   style="min-width: 0;width: 100%;" name="date">
+              </app-form-datepicker>
+              <app-form-select [value]="courses.courseFormGroup.controls['course_dates'].value[i].hour_start"
+                               [required]="true" [table]="courses.hours"
+                               (do)="courses.courseFormGroup.controls['course_dates'].value[i].hour_start=$event.option.value;"
+                               style="min-width: 0;width: 100%;" label="start_hour">
+              </app-form-select>
+              <app-form-select [value]="courses.courseFormGroup.controls['course_dates'].value[i].duration"
+                               [required]="true" [table]="courses.duration"
+                               (do)="courses.courseFormGroup.controls['course_dates'].value[i].duration=$event.option.value;
+                    courses.courseFormGroup.controls['course_dates'].value[i].hour_end=courses.addMinutesToTime(item.hour_start, $event.option.value)"
+                               style="min-width: 0;width: 100%;" label="duration">
+              </app-form-select>
+            </div>
+          </div>
+          <div style="padding: 20px;border-top: 1px solid #DEE6EA;">
+            <button (click)="mode==='create'?addCourseDate():editModal=true;setEditFunction('addCourseDate')"
+                    style="border: 1px solid var(--is-light-theme, #222222) var(--is-dark-theme, #ffffff); border-radius: 3px;float: inline-end;height: 38px;width: 125px;"
+                    type="button">
+              {{'add_date' | translate }}
+            </button>
+          </div>
+
+          <!-- Código existente para descuentos y configuración flexible -->
+          <div *ngIf="courses.courseFormGroup.controls['is_flexible'].value"
+               style="background-color: var(--color-grey4);height: 20px;width: 100%;"></div>
+          <div *ngIf="courses.courseFormGroup.controls['is_flexible'].value">
+            <!-- Mantén el código de descuentos existente -->
+          </div>
+        </ng-container>
+      </ng-container>
+
+      <ng-container *ngIf="courses.courseFormGroup.controls['course_type'].value>1">
+        <mat-tab-group [selectedIndex]="courses.courseFormGroup.controls['settings'].value.periods.length>1?1:0"
+                       (selectedIndexChange)="PeriodoFecha=$event;$event===0?courses.courseFormGroup.patchValue({course_dates:[courses.courseFormGroup.controls['course_dates'].value[0]]}):''"
+                       style="margin: 20px 20px 0;">
+          <mat-tab>
+            <ng-template mat-tab-label>
+              {{"courses.uniperiod" | translate}}
+            </ng-template>
+          </mat-tab>
+          <mat-tab>
+            <ng-template mat-tab-label>
+              {{"courses.multiperiod" | translate}}
+            </ng-template>
+          </mat-tab>
+        </mat-tab-group>
+        <div style=" display: flex; flex-direction: column;padding: 10px;">
+          <ng-container
+            *ngFor="let item of courses.courseFormGroup.controls['course_dates'].value;index as i">
+            <div *ngIf="PeriodoFecha>0"
+                 style="width: 100%;background-color: var(--color-grey4);height: 60px;border-top: 1px solid #C7D0D3;padding: 0 24px;align-content: space-evenly;">
 							<span>
 								{{('date'| translate)+' '+(i+1)}}
 							</span>
-							<mat-icon *ngIf="i!==0"
-								(click)="mode==='create'?deleteCourseDate(i):editModal=true;setEditFunction('deleteCourseDate',i)"
-								style="cursor: pointer;float: inline-end;">
-								delete
-							</mat-icon>
-						</div>
-						<div *ngIf="PeriodoFecha>0 || i===0" style="display: flex;column-gap: 20px;">
-							<app-form-datepicker [required]="true" [min]="mode==='create'?nowDate:detailData.date_start"
-								[value]="courses.courseFormGroup.controls['course_dates'].value[i].date"
-								(do)="courses.courseFormGroup.controls['course_dates'].value[i].date=$event.value;
+              <mat-icon *ngIf="courses.courseFormGroup.controls['course_dates'].value.length !== 1"
+                        (click)="deleteCourseDate(i);setEditFunction('deleteCourseDate',i)"
+                        style="cursor: pointer;float: inline-end;">
+                delete
+              </mat-icon>
+            </div>
+            <div *ngIf="PeriodoFecha>0 || i===0 || courses.courseFormGroup.controls['course_dates'].value.length>1" style="display: flex;column-gap: 20px;">
+              <app-form-datepicker [required]="true" [min]="mode==='create'?nowDate:detailData.date_start"
+                                   [value]="courses.courseFormGroup.controls['course_dates'].value[i].date"
+                                   (do)="courses.courseFormGroup.controls['course_dates'].value[i].date=$event.value;
 								courses.courseFormGroup.controls['course_dates'].value[i].date_end<$event.value?courses.courseFormGroup.controls['course_dates'].value[i].date_end=$event.value:null"
-								style="min-width: 0;width: 100%;" name="courses.date_reservable">
-							</app-form-datepicker>
-							<app-form-datepicker [required]="true"
-								[value]="courses.courseFormGroup.controls['course_dates'].value[i].date_end"
-								[min]="courses.courseFormGroup.controls['course_dates'].value[i].date"
-								(do)="courses.courseFormGroup.controls['course_dates'].value[i].date_end=$event.value;"
-								style="min-width: 0;width: 100%;" name="courses.date_reservable_to">
-							</app-form-datepicker>
-						</div>
-						<div style="display: flex;column-gap: 20px;">
-							<app-form-select
-								[value]="courses.courseFormGroup.controls['course_dates'].value[i].hour_start"
-								[required]="true" [table]="courses.hours"
-								(do)="courses.courseFormGroup.controls['course_dates'].value[i].hour_start=$event.option.value"
-								style="min-width: 0;width: 100%;" label="start_hour">
-							</app-form-select>
-							<app-form-select
-								[value]="courses.courseFormGroup.controls['course_dates'].value[i].duration"
-								[required]="true" [table]="courses.duration"
-								(do)="courses.courseFormGroup.controls['course_dates'].value[i].duration=$event.option.value;"
-								style="min-width: 0;width: 100%;" label="duration">
-							</app-form-select>
-							<!-- <app-form-select [value]="courses.courseFormGroup.controls['course_dates'].value[i].hour_end"
-							[required]="true"
-							[table]="courses.hours"
-							(do)="courses.courseFormGroup.controls['course_dates'].value[i].hour_end=$event.option.value"
-							style="min-width: 0;width: 100%;"
-							label="end_hour">
-						</app-form-select> -->
-						</div>
-					</ng-container>
-					<div *ngIf="PeriodoFecha>0 && mode === 'create'">
-						<button
-							(click)="mode==='create'?addCourseDate():editModal=true;setEditFunction('addCourseDate')"
-							style="margin-top: 0px !important;height: 38px; width: 200px;" mat-button type="button">
-							<mat-icon>add</mat-icon>
-							{{'add_date' | translate }}
-						</button>
-					</div>
-					<div style="display: flex; flex-wrap: wrap;gap: 16px;margin-bottom: 20px;">
-						<mat-checkbox (change)="selectWeek('0',$event)" style="width: calc(25% - 16px);">
-							{{"full_day" | translate}}
-						</mat-checkbox>
-						<mat-checkbox *ngFor="let item of courses.weekSelect"
-							[(ngModel)]="courses.courseFormGroup.controls['settings'].value.weekDays[item]"
-							(change)="selectWeek(item,$event)" style="width: calc(25% - 16px);">
-							{{item | translate}}
-						</mat-checkbox>
-					</div>
-				</div>
-			</ng-container>
-		</div>
-		<div *ngIf="ModalFlux===3" class="flex flex-col">
-			<ng-container *ngIf="courses.courseFormGroup.controls['course_type'].value===1">
-				<div class="level"
-					style="width: 100%; height: 100%; padding: 10px; background: #D2EFFF; border-radius: 8px; justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
-					<mat-icon style="color: #006fcb;" class="icon24">
-						info
-					</mat-icon>
-					<div *ngIf="courses.courseFormGroup.controls['levelGrop'].value">
+                                   style="min-width: 0;width: 100%;" name="courses.date_start">
+              </app-form-datepicker>
+              <app-form-datepicker [required]="true"
+                                   [value]="courses.courseFormGroup.controls['course_dates'].value[i].date_end"
+                                   [min]="courses.courseFormGroup.controls['course_dates'].value[i].date"
+                                   (do)="courses.courseFormGroup.controls['course_dates'].value[i].date_end=$event.value;"
+                                   style="min-width: 0;width: 100%;" name="courses.date_end">
+              </app-form-datepicker>
+            </div>
+            <div style="display: flex;column-gap: 20px;">
+              <app-form-select
+                [value]="courses.courseFormGroup.controls['course_dates'].value[i].hour_start"
+                [required]="true" [table]="courses.hours"
+                (do)="courses.courseFormGroup.controls['course_dates'].value[i].hour_start=$event.option.value"
+                style="min-width: 0;width: 100%;" label="start_hour">
+              </app-form-select>
+              <!--              <app-form-select
+                              [value]="courses.courseFormGroup.controls['course_dates'].value[i].duration"
+                              [required]="true" [table]="courses.duration"
+                              (do)="courses.courseFormGroup.controls['course_dates'].value[i].duration=$event.option.value;
+                            courses.courseFormGroup.controls['course_dates'].value[i].hour_end=courses.addMinutesToTime(item.hour_start, $event.option.value)"
+                              style="min-width: 0;width: 100%;" label="duration">
+                            </app-form-select>-->
+              <app-form-select [value]="courses.courseFormGroup.controls['course_dates'].value[i].hour_end"
+                               [required]="true"
+                               [table]="courses.filterAvailableHours(courses.courseFormGroup.controls['course_dates'].value[i].hour_start, courses.courseFormGroup.controls['duration'].value)"
+                               (do)="courses.courseFormGroup.controls['course_dates'].value[i].hour_end=$event.option.value"
+                               style="min-width: 0;width: 100%;"
+                               label="end_hour">
+              </app-form-select>
+            </div>
+          </ng-container>
+          <div *ngIf="PeriodoFecha>0">
+            <button
+              (click)="addCourseDate();setEditFunction('addCourseDate')"
+              style="margin-top: 0px !important;height: 38px; width: 200px;" mat-button type="button">
+              <mat-icon>add</mat-icon>
+              {{'add_date' | translate }}
+            </button>
+          </div>
+          <div style="display: flex; flex-wrap: wrap;gap: 16px;margin-bottom: 20px;">
+            <mat-checkbox (change)="selectWeek('0',$event)" style="width: calc(25% - 16px);">
+              {{"full_day" | translate}}
+            </mat-checkbox>
+            <mat-checkbox *ngFor="let item of courses.weekSelect"
+                          [(ngModel)]="courses.courseFormGroup.controls['settings'].value.weekDays[item]"
+                          (change)="selectWeek(item,$event)" style="width: calc(25% - 16px);">
+              {{item | translate}}
+            </mat-checkbox>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+    <div *ngIf="ModalFlux===3" class="flex flex-col">
+      <ng-container *ngIf="courses.courseFormGroup.controls['course_type'].value===1">
+        <div class="level"
+             style="width: 100%; height: 100%; padding: 10px; background: #D2EFFF; border-radius: 8px; justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
+          <mat-icon style="color: #006fcb;" class="icon24">
+            info
+          </mat-icon>
+          <div *ngIf="courses.courseFormGroup.controls['levelGrop'].value">
 						<span *ngIf="mode==='update'"
-							style="flex: 1 1 0; font-size: 14px; font-weight: 400; line-height: 18px; word-wrap: break-word;color: black;">
+                  style="flex: 1 1 0; font-size: 14px; font-weight: 400; line-height: 18px; word-wrap: break-word;color: black;">
 							{{"edit_level_here" | translate}}
 						</span>
-						<span *ngIf="mode==='create'"
-							style="flex: 1 1 0; font-size: 14px; font-weight: 400; line-height: 18px; word-wrap: break-word;color: black;">
+            <span *ngIf="mode==='create'"
+                  style="flex: 1 1 0; font-size: 14px; font-weight: 400; line-height: 18px; word-wrap: break-word;color: black;">
 							{{"choose_level_pop" | translate}}
 						</span>
-						<span *ngIf="!find(courses.courseFormGroup.controls['levelGrop'].value,'active',true)"
-							style="flex: 1 1 0; font-size: 14px; font-weight: 700; line-height: 18px; word-wrap: break-word;color: red;">
+            <span *ngIf="!find(courses.courseFormGroup.controls['levelGrop'].value,'active',true)"
+                  style="flex: 1 1 0; font-size: 14px; font-weight: 700; line-height: 18px; word-wrap: break-word;color: red;">
 							{{"choose_atlest_level" | translate}}!
 						</span>
-					</div>
-				</div>
-				<div class="level"
-					style="display: flex;flex-direction: column;padding: 20px; border-radius: 8px; gap: 10px;">
-					<ng-container *ngFor="let level of courses.courseFormGroup.controls['levelGrop'].value;index as i">
-						<div style="display: flex;gap: 16px;align-items: center;">
-							<mat-checkbox [disabled]="mode==='update'&&level.active"
-								[style.backgroundColor]="level.active?level.color:level.color+'33'"
-								[style.color]="level.color" [style.border]="'1px solid '+level.color"
-								[(ngModel)]="level.active"
-								(click)="mode==='create'?selectLevel($event,i):editModal=true;setEditFunction('selectLevel',$event,i)"
-								style="height: 46px; border-radius: 3px; min-width: 225px;font-size: 12px;align-content: space-evenly;">
-								{{level.annotation}} {{level.level}}
-							</mat-checkbox>
-							<mat-icon
-								*ngIf="mode==='update'&&level.active&&!find(courses.courseFormGroup.controls['booking_users'].value,'degree_id',level.id)"
-								(click)="editModal=true;setEditFunction('selectLevel',{target:{checked:false}},i)"
-								style="cursor: pointer;float: inline-end;">
-								delete
-							</mat-icon>
-						</div>
-						<div *ngIf="level.active" style="display: flex;gap: 16px;">
-							<app-form-input [required]="true" [value]="level.age_min" [max]="level.age_max"
-								(do)="level.age_min=$event.target.value;" style="width: calc(33.33% - 10px - 16px);"
-								name="courses.min_age" type="number" Suffix="years">
-							</app-form-input>
-							<app-form-input [required]="true" [value]="level.age_max" [min]="level.age_min"
-								(do)="level.age_max=$event.target.value;" name="courses.max_age"
-								style="width: calc(33.33% - 10px - 16px);" type="number" Suffix="years">
-							</app-form-input>
-							<app-form-input [required]="true" [value]="level.max_participants"
-								(do)="level.max_participants=$event.target.value;" name="max_pax"
-								style="width: calc(33.33% - 10px - 16px);" type="number" Suffix="paxes">
-							</app-form-input>
-							<mat-icon (click)="addLevelSubgroup(level,0,true)" color="primary" style="color: white;
+          </div>
+        </div>
+        <div class="level"
+             style="display: flex;flex-direction: column;padding: 20px; border-radius: 8px; gap: 10px;">
+          <ng-container *ngFor="let level of courses.courseFormGroup.controls['levelGrop'].value;index as i">
+            <div style="display: flex;gap: 16px;align-items: center;">
+              <mat-checkbox [disabled]="mode==='update'&&level.active"
+                            [style.backgroundColor]="level.active?level.color:level.color+'33'"
+                            [style.color]="level.color" [style.border]="'1px solid '+level.color"
+                            [(ngModel)]="level.active"
+                            (click)="mode==='create'?selectLevel($event,i):editModal=true;setEditFunction('selectLevel',$event,i)"
+                            style="height: 46px; border-radius: 3px; min-width: 225px;font-size: 12px;align-content: space-evenly;">
+                {{level.annotation}} {{level.level}}
+              </mat-checkbox>
+              <mat-icon
+                *ngIf="mode==='update'&&level.active&&!find(courses.courseFormGroup.controls['booking_users'].value,'degree_id',level.id)"
+                (click)="editModal=true;setEditFunction('selectLevel',{target:{checked:false}},i)"
+                style="cursor: pointer;float: inline-end;">
+                delete
+              </mat-icon>
+            </div>
+            <div *ngIf="level.active" style="display: flex;gap: 16px;">
+              <app-form-input [required]="true" [value]="level.age_min" [max]="level.age_max"
+                              (do)="level.age_min=$event.target.value;" style="width: calc(33.33% - 10px - 16px);"
+                              name="courses.min_age" type="number" Suffix="years">
+              </app-form-input>
+              <app-form-input [required]="true" [value]="level.age_max" [min]="level.age_min"
+                              (do)="level.age_max=$event.target.value;" name="courses.max_age"
+                              style="width: calc(33.33% - 10px - 16px);" type="number" Suffix="years">
+              </app-form-input>
+              <app-form-input [required]="true" [value]="level.max_participants"
+                              (do)="level.max_participants=$event.target.value;" name="max_pax"
+                              style="width: calc(33.33% - 10px - 16px);" type="number" Suffix="paxes">
+              </app-form-input>
+              <mat-icon (click)="addLevelSubgroup(level,0,true)" color="primary" style="color: white;
 										height: 30px;
 										min-width: 30px;
 										border-radius: 15px;
@@ -352,338 +441,355 @@
 										margin: auto 0;
 										align-content: space-evenly;
 										background-color: #E91E63;">
-								add
-							</mat-icon>
-						</div>
-						<ng-container
-							*ngIf="find(courses.courseFormGroup.controls['course_dates'].value[0].course_groups,'degree_id',level.id)">
-							<ng-container
-								*ngFor="let subgroup of find(courses.courseFormGroup.controls['course_dates'].value[0].course_groups,'degree_id',level.id).course_subgroups; index as j">
-								<div
-									style="background-color: var(--color-grey4); display: flex;width: 100%; height: 46px;justify-content: space-between;align-items: center; border-radius: 4px;padding: 10px;">
-									{{level.annotation}} {{level.level}} {{("00"+(j+1)).slice(-2)}}
-									<img *ngIf="find(courses.courseFormGroup.controls['course_dates'].value[0].course_groups,'degree_id',level.id).course_subgroups.length>1 && (!subgroup.booking_users || subgroup.booking_users.length===0)"
-										(click)="mode==='create'?addLevelSubgroup(level,j,false):editModal=true;setEditFunction('addLevelSubgroup',level,j,false)"
-										src="assets/icons/icon/delete.png" alt class="icon20"
-										style="cursor: pointer; font-size: 20px;align-content: space-evenly;">
-								</div>
-								<div *ngIf="mode==='update'"
-									style="width: 100%;margin-top: -10px;padding: 10px; background-color: var(--color-grey4);">
-									<vex-flux-disponibilidad [courseFormGroup]="courses.courseFormGroup" [level]="level"
-										[group]="find(courses.courseFormGroup.controls['course_dates'].value[0].course_groups,'degree_id',level.id)"
-										[subgroup_index]="j" (monitorSelect)="monitorSelect($event,level,j);">
-									</vex-flux-disponibilidad>
-								</div>
-							</ng-container>
-						</ng-container>
-					</ng-container>
-				</div>
-			</ng-container>
-			<ng-container *ngIf="courses.courseFormGroup.controls['course_type'].value===2">
-				<div class="table-container" style="overflow: auto;max-height: 100vh;">
-					<table #scrollContainer [dataSource]="courses.duration" mat-table class="mat-elevation-z8">
-						<ng-container matColumnDef="intervalo">
-							<th *matHeaderCellDef mat-header-cell>
-								{{'interval'|translate}}
-							</th>
-							<td *matCellDef="let row" mat-cell>
-								{{row}}
-							</td>
-						</ng-container>
-						<ng-container
-							*ngFor="let col of getNumberArray(courses.courseFormGroup.controls['max_participants'].value).slice(1)"
-							[matColumnDef]="col">
-							<th *matHeaderCellDef mat-header-cell>
-								{{col}}
-							</th>
-							<td *matCellDef="let row; index as rowi" mat-cell style="max-width: 120px;padding: 0 5px;">
-								<app-form-input
-									[value]="courses.courseFormGroup.controls['price_range'].value[+rowi][+col]"
-									[Suffix]="courses.courseFormGroup.controls['currency'].value" [margin]="4"
-									(do)="courses.courseFormGroup.controls['price_range'].value[+rowi][+col]=$event.target.value;"
-									type="number">
-								</app-form-input>
-							</td>
-						</ng-container>
-						<tbody>
-							<tr *matHeaderRowDef="getNumberArray(courses.courseFormGroup.controls['max_participants'].value)"
-								mat-header-row></tr>
-							<tr *matRowDef="let row; columns: getNumberArray(courses.courseFormGroup.controls['max_participants'].value);"
-								mat-row></tr>
-						</tbody>
-					</table>
-				</div>
-			</ng-container>
-			<ng-container *ngIf="courses.courseFormGroup.controls['course_type'].value===3">
-				<div *ngFor="let item of courses.courseFormGroup.controls['settings'].value.groups, index as i">
-					<div
-						style="width: 100%;background-color: var(--color-grey4);height: 60px;border-top: 1px solid #C7D0D3;padding: 0 24px;align-content: space-evenly;">
+                add
+              </mat-icon>
+            </div>
+            <ng-container
+              *ngIf="find(courses.courseFormGroup.controls['course_dates'].value[0].course_groups,'degree_id',level.id)">
+              <ng-container
+                *ngFor="let subgroup of find(courses.courseFormGroup.controls['course_dates'].value[0].course_groups,'degree_id',level.id).course_subgroups; index as j">
+                <div
+                  style="background-color: var(--color-grey4); display: flex;width: 100%; height: 46px;justify-content: space-between;align-items: center; border-radius: 4px;padding: 10px;">
+                  {{level.annotation}} {{level.level}} {{("00"+(j+1)).slice(-2)}}
+                  <img *ngIf="find(courses.courseFormGroup.controls['course_dates'].value[0].course_groups,'degree_id',level.id).course_subgroups.length>1 && (!subgroup.booking_users || subgroup.booking_users.length===0)"
+                       (click)="mode==='create'?addLevelSubgroup(level,j,false):editModal=true;setEditFunction('addLevelSubgroup',level,j,false)"
+                       src="assets/icons/icon/delete.png" alt class="icon20"
+                       style="cursor: pointer; font-size: 20px;align-content: space-evenly;">
+                </div>
+                <div *ngIf="mode==='update'"
+                     style="width: 100%;margin-top: -10px;padding: 10px; background-color: var(--color-grey4);">
+                  <vex-flux-disponibilidad [courseFormGroup]="courses.courseFormGroup" [level]="level"
+                                           [group]="find(courses.courseFormGroup.controls['course_dates'].value[0].course_groups,'degree_id',level.id)"
+                                           [subgroup_index]="j" (monitorSelect)="monitorSelect($event,level,j);">
+                  </vex-flux-disponibilidad>
+                </div>
+              </ng-container>
+            </ng-container>
+          </ng-container>
+        </div>
+      </ng-container>
+      <ng-container *ngIf="courses.courseFormGroup.controls['course_type'].value===2">
+        <div class="table-container" style="overflow: auto;max-height: 100vh;">
+          <table #scrollContainer [dataSource]="courses.getFilteredDuration()" mat-table class="mat-elevation-z8">
+            <ng-container matColumnDef="intervalo">
+              <th *matHeaderCellDef mat-header-cell>
+                {{'interval'|translate}}
+              </th>
+              <td *matCellDef="let row" mat-cell>
+                {{row}}
+              </td>
+            </ng-container>
+            <ng-container
+              *ngFor="let col of getNumberArray(courses.courseFormGroup.controls['max_participants'].value).slice(1)"
+              [matColumnDef]="col">
+              <th *matHeaderCellDef mat-header-cell>
+                {{col}}
+              </th>
+              <td *matCellDef="let row; index as rowi" mat-cell style="max-width: 120px;padding: 0 5px;">
+                <app-form-input
+                  [value]="courses.courseFormGroup.controls['price_range'].value[+rowi][+col]"
+                  [Suffix]="courses.courseFormGroup.controls['currency'].value" [margin]="4"
+                  (do)="courses.courseFormGroup.controls['price_range'].value[+rowi][+col]=$event.target.value;"
+                  type="number">
+                </app-form-input>
+              </td>
+            </ng-container>
+            <tbody>
+            <tr *matHeaderRowDef="getNumberArray(courses.courseFormGroup.controls['max_participants'].value)"
+                mat-header-row></tr>
+            <tr *matRowDef="let row; columns: getNumberArray(courses.courseFormGroup.controls['max_participants'].value);"
+                mat-row></tr>
+            </tbody>
+          </table>
+        </div>
+      </ng-container>
+      <ng-container *ngIf="courses.courseFormGroup.controls['course_type'].value===3">
+        <div *ngFor="let item of courses.courseFormGroup.controls['settings'].value.groups, index as i">
+          <div
+            style="width: 100%;background-color: var(--color-grey4);height: 60px;border-top: 1px solid #C7D0D3;padding: 0 24px;align-content: space-evenly;">
 						<span>
 							{{('Category_participant'| translate) + ' '+ (i+1)}}
 						</span>
-						<mat-icon *ngIf="i!==0"
-							(click)="courses.courseFormGroup.controls['settings'].value.groups.splice(i,1)"
-							style="cursor: pointer;float: inline-end;">
-							delete
-						</mat-icon>
-					</div>
-					<div style="margin: 20px 20px 0px; display: flex; flex-wrap: wrap; column-gap: 20px;">
-						<app-form-input [value]="courses.courseFormGroup.controls['settings'].value.groups[i].groupName"
-							[required]="true"
-							[errors]="!courses.courseFormGroup.controls['settings'].value.groups[i].groupName?'errors.required':''"
-							(do)="courses.courseFormGroup.controls['settings'].value.groups[i].groupName=$event.target.value;"
-							name="category_name" style="width: 100%;" type="text">
-						</app-form-input>
-						<app-form-input [value]="courses.courseFormGroup.controls['settings'].value.groups[i].ageMin"
-							[max]="courses.courseFormGroup.controls['settings'].value.groups[i].ageMax"
-							[required]="true"
-							[errors]="!courses.courseFormGroup.controls['settings'].value.groups[i].ageMin===null?'errors.required':''"
-							(do)="courses.courseFormGroup.controls['settings'].value.groups[i].ageMin=$event.target.value;"
-							name="courses.min_age" style="width: calc(50% - 10px);" Suffix="years" type="number">
-						</app-form-input>
-						<app-form-input [value]="courses.courseFormGroup.controls['settings'].value.groups[i].ageMax"
-							[min]="courses.courseFormGroup.controls['settings'].value.groups[i].ageMin"
-							[required]="true"
-							[errors]="!courses.courseFormGroup.controls['settings'].value.groups[i].ageMax===null?'errors.required':''"
-							(do)="courses.courseFormGroup.controls['settings'].value.groups[i].ageMax=$event.target.value;"
-							name="courses.max_age" style="width: calc(50% - 10px);" Suffix="years" type="number">
-						</app-form-input>
-						<app-form-input [value]="courses.courseFormGroup.controls['settings'].value.groups[i].price"
-							[Suffix]="courses.courseFormGroup.controls['currency'].value" [required]="true"
-							[errors]="courses.courseFormGroup.controls['settings'].value.groups[i].price===null?'errors.required':''"
-							(do)="courses.courseFormGroup.controls['settings'].value.groups[i].price=$event.target.value;"
-							name="price" style="width: calc(50% - 10px);" type="number">
-						</app-form-input>
-						<app-form-input
-							[value]="courses.courseFormGroup.controls['settings'].value.groups[i].optionName"
-							(do)="courses.courseFormGroup.controls['settings'].value.groups[i].optionName=$event.target.value;"
-							name="options" style="width: calc(50% - 10px);" type="text">
-						</app-form-input>
-					</div>
-				</div>
-				<div style="padding: 20px;border-top: 1px solid #DEE6EA;">
-					<button (click)="addCategory()" style="margin-top: 0px !important;height: 38px;" mat-button
-						type="button">
-						<mat-icon>add</mat-icon>
-						{{'add_category' | translate }}
-					</button>
-				</div>
-			</ng-container>
-		</div>
-		<div *ngIf="ModalFlux===4" [formGroup]="courses.courseFormGroup" class="flex flex-col" style="padding: 24px;">
-			<section class="flex" style="flex-wrap: wrap;gap: 16px;justify-content: space-around;">
-				<div style="font-size: 12px; font-weight: 400; line-height: 16px; margin-bottom: 20px;width: 100%;">
-					{{"select_extra" | translate}}:
-				</div>
-				<ng-container
-					*ngFor="let group of courses.courseFormGroup.controls['course_type'].value===3?courses.courseFormGroup.controls['settings'].value.groups:[1];index as i">
-					<div *ngIf="courses.courseFormGroup.controls['course_type'].value===3"
-						style="width: 100%;background-color: var(--color-grey4);height: 60px;border-top: 1px solid #C7D0D3;padding: 0 24px;align-content: space-evenly;">
+            <mat-icon *ngIf="i!==0"
+                      (click)="courses.courseFormGroup.controls['settings'].value.groups.splice(i,1)"
+                      style="cursor: pointer;float: inline-end;">
+              delete
+            </mat-icon>
+          </div>
+          <div style="margin: 20px 20px 0px; display: flex; flex-wrap: wrap; column-gap: 20px;">
+            <app-form-input [value]="courses.courseFormGroup.controls['settings'].value.groups[i].groupName"
+                            [required]="true"
+                            [errors]="!courses.courseFormGroup.controls['settings'].value.groups[i].groupName?'errors.required':''"
+                            (do)="courses.courseFormGroup.controls['settings'].value.groups[i].groupName=$event.target.value;"
+                            name="category_name" style="width: 100%;" type="text">
+            </app-form-input>
+            <app-form-input [value]="courses.courseFormGroup.controls['settings'].value.groups[i].ageMin"
+                            [max]="courses.courseFormGroup.controls['settings'].value.groups[i].ageMax"
+                            [required]="true"
+                            [errors]="!courses.courseFormGroup.controls['settings'].value.groups[i].ageMin===null?'errors.required':''"
+                            (do)="courses.courseFormGroup.controls['settings'].value.groups[i].ageMin=$event.target.value;"
+                            name="courses.min_age" style="width: calc(50% - 10px);" Suffix="years" type="number">
+            </app-form-input>
+            <app-form-input [value]="courses.courseFormGroup.controls['settings'].value.groups[i].ageMax"
+                            [min]="courses.courseFormGroup.controls['settings'].value.groups[i].ageMin"
+                            [required]="true"
+                            [errors]="!courses.courseFormGroup.controls['settings'].value.groups[i].ageMax===null?'errors.required':''"
+                            (do)="courses.courseFormGroup.controls['settings'].value.groups[i].ageMax=$event.target.value;"
+                            name="courses.max_age" style="width: calc(50% - 10px);" Suffix="years" type="number">
+            </app-form-input>
+            <app-form-input [value]="courses.courseFormGroup.controls['settings'].value.groups[i].price"
+                            [Suffix]="courses.courseFormGroup.controls['currency'].value" [required]="true"
+                            [errors]="courses.courseFormGroup.controls['settings'].value.groups[i].price===null?'errors.required':''"
+                            (do)="courses.courseFormGroup.controls['settings'].value.groups[i].price=$event.target.value;"
+                            name="price" style="width: calc(50% - 10px);" type="number">
+            </app-form-input>
+            <app-form-input
+              [value]="courses.courseFormGroup.controls['settings'].value.groups[i].optionName"
+              (do)="courses.courseFormGroup.controls['settings'].value.groups[i].optionName=$event.target.value;"
+              name="options" style="width: calc(50% - 10px);" type="text">
+            </app-form-input>
+          </div>
+        </div>
+        <div style="padding: 20px;border-top: 1px solid #DEE6EA;">
+          <button (click)="addCategory()" style="margin-top: 0px !important;height: 38px;" mat-button
+                  type="button">
+            <mat-icon>add</mat-icon>
+            {{'add_category' | translate }}
+          </button>
+        </div>
+      </ng-container>
+    </div>
+    <div *ngIf="ModalFlux===4" [formGroup]="courses.courseFormGroup" class="flex flex-col" style="padding: 24px;">
+      <section class="flex" style="flex-wrap: wrap;gap: 16px;justify-content: space-around;">
+        <div style="font-size: 12px; font-weight: 400; line-height: 16px; margin-bottom: 20px;width: 100%;">
+          {{"select_extra" | translate}}:
+        </div>
+        <ng-container
+          *ngFor="let group of courses.courseFormGroup.controls['course_type'].value===3?courses.courseFormGroup.controls['settings'].value.groups:[1];index as i">
+          <div *ngIf="courses.courseFormGroup.controls['course_type'].value===3"
+               style="width: 100%;background-color: var(--color-grey4);height: 60px;border-top: 1px solid #C7D0D3;padding: 0 24px;align-content: space-evenly;">
 						<span>
 							{{("extras" | translate)+' '+(i+1)+": "+group.groupName}}
 						</span>
-					</div>
-					<div *ngFor="let item of extras; index as j"
-						style="width: calc(50% - 8px); height: 64px; padding: 12px; border-radius: 3px; border: 1px var(--color-dark1) solid; justify-content: flex-start; align-items: center; gap: 10px; display: inline-flex">
-						<mat-checkbox [value]="item.id"
-							[checked]="find(this.courses.courseFormGroup.controls['course_type'].value===3?courses.courseFormGroup.controls['settings'].value.groups[i].extras:courses.courseFormGroup.controls['extras'].value,'id',item.id)"
-							(change)="selectExtra($event,item,i)">
-						</mat-checkbox>
-						<div
-							style="flex-direction: column; justify-content: flex-start; align-items: flex-start; display: inline-flex">
-							<div
-								style="align-self: stretch; font-size: 14px; font-weight: 600; line-height: 18px; word-wrap: break-word">
-								{{item.product | translate}}
-							</div>
-							<div
-								style="align-self: stretch; color: var(--color-dark1); font-size: 12px; font-weight: 400; line-height: 16px; word-wrap: break-word">
-								{{item.name | translate}}
-							</div>
-						</div>
-						<div
-							style="flex: 1 1 0; text-align: right; font-size: 14px; font-weight: 400; line-height: 18px; word-wrap: break-word">
-							{{item.price|
-							number:'0.2-2'}}&nbsp;{{courses.courseFormGroup.controls['currency'].value}}/{{'day' |
-							translate}}
-						</div>
-						<mat-icon *ngIf="item.id.startsWith('aFOR-')" (click)="extras.splice(j,1)"
-							style="cursor: pointer;float: inline-end;">
-							delete
-						</mat-icon>
-					</div>
-					<div (click)="extrasModal=!extrasModal"
-						style="width: calc(50% - 8px); height: 64px; padding-left: 12px; padding-right: 12px; padding-top: 10px; padding-bottom: 10px; border-radius: 3px; border: 1px #E91E63 dotted; flex-direction: column; justify-content: space-between; align-items: center; display: inline-flex;cursor: pointer;">
-						<div style="width: 24px; height: 24px; position: relative">
-							<mat-icon color="primary"
-								style="height: 30px;min-width: 30px;border-radius: 15px; cursor: pointer; font-size: 30px;align-content: space-evenly;">
-								add
-							</mat-icon>
-						</div>
-						<div
-							style="width: 259px; text-align: center; color: #E91E63; font-size: 14px; font-weight: 400; line-height: 18px; word-wrap: break-word">
-							{{'create_extras' | translate}}
-						</div>
-					</div>
-				</ng-container>
-			</section>
-		</div>
-		<div *ngIf="ModalFlux===5" class="flex flex-col">
-			<mat-accordion>
-				<mat-expansion-panel *ngFor="let item of Translate">
-					<mat-expansion-panel-header style="background-color: var(--color-grey4); border-top: 1px #C7D0D3 solid;
+          </div>
+          <div *ngFor="let item of extras; index as j"
+               style="width: calc(50% - 8px); height: 64px; padding: 12px; border-radius: 3px; border: 1px var(--color-dark1) solid; justify-content: flex-start; align-items: center; gap: 10px; display: inline-flex">
+            <mat-checkbox [value]="item.id"
+                          [checked]="find(this.courses.courseFormGroup.controls['course_type'].value===3?courses.courseFormGroup.controls['settings'].value.groups[i].extras:courses.courseFormGroup.controls['extras'].value,'id',item.id)"
+                          (change)="selectExtra($event,item,i)">
+            </mat-checkbox>
+            <div
+              style="flex-direction: column; justify-content: flex-start; align-items: flex-start; display: inline-flex">
+              <div
+                style="align-self: stretch; font-size: 14px; font-weight: 600; line-height: 18px; word-wrap: break-word">
+                {{item.product | translate}}
+              </div>
+              <div
+                style="align-self: stretch; color: var(--color-dark1); font-size: 12px; font-weight: 400; line-height: 16px; word-wrap: break-word">
+                {{item.name | translate}}
+              </div>
+            </div>
+            <div
+              style="flex: 1 1 0; text-align: right; font-size: 14px; font-weight: 400; line-height: 18px; word-wrap: break-word">
+              {{item.price|
+              number:'0.2-2'}}&nbsp;{{courses.courseFormGroup.controls['currency'].value}}/{{'day' |
+              translate}}
+            </div>
+            <mat-icon *ngIf="item.id.startsWith('aFOR-')" (click)="extras.splice(j,1)"
+                      style="cursor: pointer;float: inline-end;">
+              delete
+            </mat-icon>
+
+          </div>
+          <div (click)="extrasModal=!extrasModal"
+               style="width: calc(50% - 8px); height: 64px; padding-left: 12px; padding-right: 12px; padding-top: 10px; padding-bottom: 10px; border-radius: 3px; border: 1px #E91E63 dotted; flex-direction: column; justify-content: space-between; align-items: center; display: inline-flex;cursor: pointer;">
+            <div style="width: 24px; height: 24px; position: relative">
+              <mat-icon color="primary"
+                        style="height: 30px;min-width: 30px;border-radius: 15px; cursor: pointer; font-size: 30px;align-content: space-evenly;">
+                add
+              </mat-icon>
+            </div>
+            <div
+              style="width: 259px; text-align: center; color: #E91E63; font-size: 14px; font-weight: 400; line-height: 18px; word-wrap: break-word">
+              {{'create_extras' | translate}}
+            </div>
+          </div>
+        </ng-container>
+      </section>
+    </div>
+    <div *ngIf="ModalFlux===5" class="flex flex-col">
+      <mat-accordion>
+        <mat-expansion-panel *ngFor="let item of Translate">
+          <mat-expansion-panel-header style="background-color: var(--color-grey4); border-top: 1px #C7D0D3 solid;
           font-size: 14px;
           font-family: Montserrat;
           font-weight: 400;
           text-transform: uppercase;
           line-height: 20px;
           word-wrap: break-word">
-						<mat-panel-title>
-							{{item.Name | translate}}
-						</mat-panel-title>
-					</mat-expansion-panel-header>
-					<ng-template matExpansionPanelContent>
-						<app-form-input [required]="true"
-							[value]="courses.courseFormGroup.controls['translations'].value[item.Code].name"
-							(do)="courses.courseFormGroup.controls['translations'].value[item.Code].name = $event.target.value"
-							style="width: 100%;margin-top: 20px;" name="courses.coursename">
-						</app-form-input>
-						<app-form-editor [required]="true"
-							[value]="courses.courseFormGroup.controls['translations'].value[item.Code].short_description"
-							(do)="courses.courseFormGroup.controls['translations'].value[item.Code].short_description = $event.target.textContent"
-							style="margin: 10px 0;" name="courses.summary">
-						</app-form-editor>
-						<app-form-editor [required]="true"
-							[value]="courses.courseFormGroup.controls['translations'].value[item.Code].description"
-							(do)="courses.courseFormGroup.controls['translations'].value[item.Code].description = $event.target.textContent"
-							style="margin: 10px 0;" name="courses.desc">
-						</app-form-editor>
-					</ng-template>
-				</mat-expansion-panel>
-			</mat-accordion>
-		</div>
-		<div style="margin: 20px;display: flex;justify-content: space-between;">
-			<button *ngIf="ModalFlux>0"
-				(click)="mode==='create'?ModalFlux=ModalFlux-1:router.navigate(['/courses/detail/' + id])"
-				style="margin-top: 0px !important;height: 38px; width: 128px;" mat-button type="button">
-				<mat-icon *ngIf="mode==='create'">arrow_back</mat-icon>
-				{{ (mode === 'create' ? 'back' : 'cancel') | translate }}
-			</button>
-			<button (click)="mode==='create'?Confirm(1):editModal=true;setEditFunction('endCourse')"
-				style="margin-top: 0px !important;height: 38px; width: 128px;margin-left: auto;" color="primary"
-				mat-raised-button type="button">
-				{{ (mode==='create'?'confirm':'save') | translate }}
-			</button>
-		</div>
-	</div>
-	<vex-course-detail-card *ngIf="!loading" [step]="ModalFlux" [mode]="mode"
-		[courseFormGroup]="courses.courseFormGroup" card>
-	</vex-course-detail-card>
-	<vex-course-detail-card *ngIf="!loading" [step]="ModalFlux" [mode]="mode"
-		[courseFormGroup]="courses.courseFormGroup" card2>
-	</vex-course-detail-card>
+            <mat-panel-title>
+              {{item.Name | translate}}
+              <mat-icon style="float: right"
+                        *ngIf="
+                        courses.courseFormGroup.controls['translations'].value[item.Code]?.name &&
+                        courses.courseFormGroup.controls['translations'].value[item.Code]?.short_description &&
+                        courses.courseFormGroup.controls['translations'].value[item.Code]?.description
+                          "
+                        class="check">check</mat-icon>
+              <button (click)="translateCourse(item.Code);$event.stopPropagation()"
+                      style="margin-top: 0px !important;height: 38px;margin-left: auto;" color="primary"
+                      mat-raised-button type="button">{{'translate_ia' | translate}}</button>
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+          <ng-template matExpansionPanelContent>
+            <app-form-input [required]="true"
+                            [value]="courses.courseFormGroup.controls['translations'].value[item.Code].name"
+                            (do)="courses.courseFormGroup.controls['translations'].value[item.Code].name = $event.target.value"
+                            style="width: 100%;margin-top: 20px;" name="courses.coursename">
+            </app-form-input>
+            <app-form-editor [required]="true"
+                             [value]="courses.courseFormGroup.controls['translations'].value[item.Code].short_description || ''"
+                             (do)="courses.courseFormGroup.controls['translations'].value[item.Code].short_description = $event.html || courses.courseFormGroup.controls['translations'].value[item.Code].short_description"
+                             style="margin: 10px 0;"
+                             name="courses.summary">
+            </app-form-editor>
+
+            <app-form-editor [required]="true"
+                             [value]="courses.courseFormGroup.controls['translations'].value[item.Code].description || ''"
+                             (do)="courses.courseFormGroup.controls['translations'].value[item.Code].description = $event.html || courses.courseFormGroup.controls['translations'].value[item.Code].description"
+                             style="margin: 10px 0;"
+                             name="courses.desc">
+            </app-form-editor>
+
+          </ng-template>
+        </mat-expansion-panel>
+      </mat-accordion>
+    </div>
+    <div style="margin: 20px;display: flex;justify-content: space-between;">
+      <button *ngIf="ModalFlux>0"
+              (click)="mode==='create' ?
+				ModalFlux = this.courses.courseFormGroup.controls['course_type'].value === 2 &&
+      !this.courses.courseFormGroup.controls['is_flexible'].value && ModalFlux == 4 ? ModalFlux-2 : ModalFlux -1 :router.navigate(['/courses/detail/' + id])"
+              style="margin-top: 0px !important;height: 38px; width: 128px;" mat-button type="button">
+        <mat-icon *ngIf="mode==='create'">arrow_back</mat-icon>
+        {{ (mode === 'create' ? 'back' : 'cancel') | translate }}
+      </button>
+      <button (click)="mode==='create'?Confirm(1):editModal=true;setEditFunction('endCourse')"
+              style="margin-top: 0px !important;height: 38px; width: 128px;margin-left: auto;" color="primary"
+              mat-raised-button type="button">
+        {{ (mode==='create'?'confirm':'save') | translate }}
+      </button>
+    </div>
+  </div>
+  <vex-course-detail-card *ngIf="!loading" [step]="ModalFlux" [mode]="mode"
+                          [courseFormGroup]="courses.courseFormGroup" card>
+  </vex-course-detail-card>
+  <vex-course-detail-card *ngIf="!loading" [step]="ModalFlux" [mode]="mode"
+                          [courseFormGroup]="courses.courseFormGroup" card2>
+  </vex-course-detail-card>
 </vex-flux-layout>
 
 <vex-flux-modal *ngIf="extrasModal" [width]="670" (Close)="extrasModal=false" title="{{'create_extras' | translate}}">
-	<div [formGroup]="extrasFormGroup" body style="display: flex; column-gap: 20px; flex-wrap: wrap;">
-		<app-form-input [required]="true" [form]="extrasFormGroup" style="width: calc(50% - 10px);margin-top: 10px;"
-			control="product" name="product" type="text">
-		</app-form-input>
-		<app-form-input [required]="true" [form]="extrasFormGroup" style="width: calc(50% - 10px);margin-top: 10px;"
-			control="name" name="name" type="text">
-		</app-form-input>
-		<app-form-input [required]="true" [form]="extrasFormGroup"
-			[Suffix]="courses.courseFormGroup.controls['currency'].value"
-			style="width: calc(50% - 10px);margin-top: 10px;" control="price" name="price_per_day" type="number">
-		</app-form-input>
-		<app-form-input [required]="true" [form]="extrasFormGroup" style="width: calc(50% - 10px);margin-top: 10px;"
-			control="tva" name="tva" Suffix="%" type="number">
-		</app-form-input>
-		<div style="width: 100%">
-			<mat-slide-toggle formControlName="status">
-				{{'active' | translate}}
-			</mat-slide-toggle>
-		</div>
-		<button (click)="extrasModal=false"
-			style="margin-top: 0px !important;height: 38px; width: 128px;margin-left: auto;" mat-button type="button">
-			{{'cancel' | translate }}
-		</button>
-		<button (click)="createExtras()" style="margin-top: 0px !important;height: 38px; width: 150px;" color="primary"
-			mat-raised-button type="button">
-			{{'create_extras' | translate }}
-		</button>
-	</div>
+  <div [formGroup]="extrasFormGroup" body style="display: flex; column-gap: 20px; flex-wrap: wrap;">
+    <app-form-input [required]="true" [form]="extrasFormGroup" style="width: calc(50% - 10px);margin-top: 10px;"
+                    control="product" name="product" type="text">
+    </app-form-input>
+    <app-form-input [required]="true" [form]="extrasFormGroup" style="width: calc(50% - 10px);margin-top: 10px;"
+                    control="name" name="name" type="text">
+    </app-form-input>
+    <app-form-input [required]="true" [form]="extrasFormGroup"
+                    [Suffix]="courses.courseFormGroup.controls['currency'].value"
+                    style="width: calc(50% - 10px);margin-top: 10px;" control="price" name="price_per_day" type="number">
+    </app-form-input>
+    <app-form-input [required]="true" [form]="extrasFormGroup" style="width: calc(50% - 10px);margin-top: 10px;"
+                    control="tva" name="tva" Suffix="%" type="number">
+    </app-form-input>
+    <div style="width: 100%">
+      <mat-slide-toggle formControlName="status">
+        {{'active' | translate}}
+      </mat-slide-toggle>
+    </div>
+    <button (click)="extrasModal=false"
+            style="margin-top: 0px !important;height: 38px; width: 128px;margin-left: auto;" mat-button type="button">
+      {{'cancel' | translate }}
+    </button>
+    <button (click)="createExtras()" style="margin-top: 0px !important;height: 38px; width: 150px;" color="primary"
+            mat-raised-button type="button">
+      {{ editingIndex !== null ? 'save' : 'create_extras' | translate }}
+    </button>
+  </div>
 </vex-flux-modal>
 
 <vex-flux-modal *ngIf="confirmModal" [width]="670" (Close)="confirmModal=false" title="{{'almost_done' | translate}}">
-	<div [formGroup]="courses.courseFormGroup" body style="display: flex; gap: 20px; flex-wrap: wrap;">
-		<div style="width: 100;
-    font-size: 14px;
-    font-weight: 400;
-    line-height: 18px;
-    word-wrap: break-word">
-			{{(mode==='create'?"course_created":"") | translate}}
-			{{'confirm_option' | translate}}:
-		</div>
-		<div style="width: 100%">
-			<mat-slide-toggle formControlName="online">
-				<span style="
+  <div [formGroup]="courses.courseFormGroup" body style="display: flex; gap: 20px; flex-wrap: wrap;">
+    <vex-course-detail-opcion [isCreate]="true" [Form]="courses.courseFormGroup"></vex-course-detail-opcion>
+    <!--		<div style="width: 100;
         font-size: 14px;
-        font-weight: 600;
+        font-weight: 400;
         line-height: 18px;
         word-wrap: break-word">
-					{{"visible_reserve_page" | translate}}
-				</span>
-				<br>
-				<span style="
-        color: var(--color-dark1);
-        font-size: 12px;
-        font-weight: 400;
-        line-height: 16px;
-        word-wrap: break-word">
-					{{"course_visible_online_now" | translate}}
-				</span>
-			</mat-slide-toggle>
-		</div>
-		<div style="width: 100%">
-			<mat-slide-toggle formControlName="active">
-				<span style="
-        font-size: 14px;
-        font-weight: 600;
-        line-height: 18px;
-        word-wrap: break-word">
-					{{'active' | translate}}
-				</span>
-				<br>
-				<span style="
-        color: var(--color-dark1);
-        font-size: 12px;
-        font-weight: 400;
-        line-height: 16px;
-        word-wrap: break-word">
-					{{"course_active_reservable" | translate}}
-				</span>
-			</mat-slide-toggle>
-		</div>
-		<div style="display: flex;width: 100%;justify-content: flex-end;gap: 20px;">
-			<app-form-button form="stroked" name="cancel" (click)="confirmModal=false">
-			</app-form-button>
-			<app-form-button form="flat" [name]="mode==='create'?'end_create_course':'end_update_course'"
-				(click)="confirmModal=false;endCourse()">
-			</app-form-button>
-		</div>
-	</div>
+          {{(mode==='create'?"course_created":"") | translate}}
+          {{'confirm_option' | translate}}:
+        </div>
+        <div style="width: 100%">
+          <mat-slide-toggle formControlName="online">
+            <span style="
+            font-size: 14px;
+            font-weight: 600;
+            line-height: 18px;
+            word-wrap: break-word">
+              {{"visible_reserve_page" | translate}}
+            </span>
+            <br>
+            <span style="
+            color: var(&#45;&#45;color-dark1);
+            font-size: 12px;
+            font-weight: 400;
+            line-height: 16px;
+            word-wrap: break-word">
+              {{"course_visible_online_now" | translate}}
+            </span>
+          </mat-slide-toggle>
+        </div>
+        <div style="width: 100%">
+          <mat-slide-toggle formControlName="active">
+            <span style="
+            font-size: 14px;
+            font-weight: 600;
+            line-height: 18px;
+            word-wrap: break-word">
+              {{'active' | translate}}
+            </span>
+            <br>
+            <span style="
+            color: var(&#45;&#45;color-dark1);
+            font-size: 12px;
+            font-weight: 400;
+            line-height: 16px;
+            word-wrap: break-word">
+              {{"course_active_reservable" | translate}}
+            </span>
+          </mat-slide-toggle>
+        </div>-->
+    <div style="display: flex;width: 100%;justify-content: flex-end;gap: 20px;">
+      <app-form-button form="stroked" name="cancel" (click)="confirmModal=false">
+      </app-form-button>
+      <app-form-button form="flat" [name]="mode==='create'?'end_create_course':'end_update_course'"
+                       (click)="confirmModal=false;endCourse()">
+      </app-form-button>
+    </div>
+  </div>
 </vex-flux-modal>
 <vex-flux-modal *ngIf="editModal" [width]="670" (Close)="editModal=false" title="{{'are_you_sure' | translate}}">
-	<div style="display: flex;width: 100%;justify-content: flex-end;gap: 20px;" body>
-		<div>
-			{{'are_you_sure_action' | translate}}
-		</div>
-		<div style="display: flex;width: 100%;justify-content: flex-end;gap: 20px;">
-			<app-form-button form="stroked" name="cancel" (click)="editModal=false">
-			</app-form-button>
-			<app-form-button form="flat" name="confirm"
-				(click)="this[editFunctionName](editFunctionArgs);editModal=false">
-			</app-form-button>
-		</div>
-	</div>
+  <div style="display: flex;width: 100%;justify-content: flex-end;gap: 20px;" body>
+    <div>
+      {{'are_you_sure_action' | translate}}
+    </div>
+    <div style="display: flex;width: 100%;justify-content: flex-end;gap: 20px;">
+      <app-form-button form="stroked" name="cancel" (click)="editModal=false">
+      </app-form-button>
+      <app-form-button form="flat" name="confirm" (click)="executeEditFunction()">
+      </app-form-button>
+    </div>
+  </div>
 </vex-flux-modal>

@@ -1,0 +1,11 @@
+<mat-dialog-content style="max-height: -webkit-fill-available !important;">
+  <booking-detail-reservation-detail
+    [client]="data.mainClient"
+    [allLevels]="data.allLevels"
+    [isModal]="true"
+    [bookingData]="data.bookingData$ | async"
+    [activities]="data.groupedActivities"
+    [activitiesChanged]="data.activitiesChanged$"
+    [hideBotton]="true">
+  </booking-detail-reservation-detail>
+</mat-dialog-content>

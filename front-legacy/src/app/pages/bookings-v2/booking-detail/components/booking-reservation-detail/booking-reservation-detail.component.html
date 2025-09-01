@@ -2,17 +2,22 @@
   <div class="headerWrapper">
     <div style="border-bottom: 1px solid white;
     padding-bottom: 0.5rem;
-    color: white;">
+    color: white;
+    font-size: 16px;">
       {{ 'booking' | translate }} #{{bookingData.id}}
-      <span style="display: inline-block;width: 69%; text-align: right;">
+      <span style="display: inline-block;float: right; text-align: right;">
 									<!-- <img src="assets/img/icons/edit.svg"  (click)="showDetail = false" class="btn-edit" /> -->
 									              <img class="icon24" src="assets/icons/icon/delete-white.png"
                                      style="display: inline-flex; cursor: pointer"
                                      (click)="deleteActivity.emit();">
-        <img
-                    (click)="goTo('/bookings')"
-                    src="assets/img/icons/close.svg"
-                    class="btn-close">
+        <img *ngIf="!isModal"
+          (click)="goTo('/bookings')"
+          src="assets/img/icons/close.svg"
+          class="btn-close">
+          <img *ngIf="isModal"
+            (click)="closeClick.emit()"
+            src="assets/img/icons/close.svg"
+            class="btn-close">
 								</span>
     </div>
     <div style="color:#868686;">
@@ -105,7 +110,7 @@
                 : 'assets/img/avatar.png'
             " />
 
-        <div class="utilizersWrapper__description">
+        <!--<div class="utilizersWrapper__description">
           <h4>{{ client.first_name }} {{ client.last_name }}</h4>
           <span>{{ langService.getLanguage(client.language1_id) }} ·
             {{ utilsService.calculateYears(client.birth_date) }} &ensp;{{
@@ -125,12 +130,36 @@
 
 
             <img  *ngIf="bookingData.status !== 2" (click)="sendMailInfo()"
-                 src="assets/img/icons/send-mail-black.svg" class="icon24"
-                 style="margin-left: 12rem; cursor: pointer;">
-            <!-- {{ "send" | translate }} {{ "mail" | translate }} -->
+                  src="assets/img/icons/send-mail-black.svg" class="icon24"
+                  style="margin-left: 12rem; cursor: pointer;">
+            &lt;!&ndash; {{ "send" | translate }} {{ "mail" | translate }} &ndash;&gt;
 
           </div>
 
+        </div>-->
+
+        <div class="utilizersWrapper__description">
+          <h4>{{ client.first_name }} {{ client.last_name }}</h4>
+          <span>{{ langService.getLanguage(client.language1_id) }} ·
+            {{ utilsService.calculateYears(client.birth_date) }} &ensp;{{
+              "years" | translate
+            }}
+            · {{ utilsService.getCountry(client.country) }}</span>
+          <div class="user-action-buttons">
+            <img src="assets/icons/icon/chat.png" class="icon24" />
+            <vex-icon src="mail"
+                      href="mailto:{{ client.email }}"
+                      title="{{ client.email }}"
+                      class="icon24" />
+            <vex-icon src="phone"
+                      href="tel:{{ client.phone }}"
+                      title="{{ client.phone }}"
+                      class="icon24" />
+            <img *ngIf="bookingData.status !== 2"
+                 (click)="sendMailInfo()"
+                 src="assets/img/icons/send-mail-black.svg"
+                 class="icon24 send-mail-icon">
+          </div>
         </div>
       </div>
     </div>
@@ -168,9 +197,10 @@
     </div>
 
     <div class="section" style="margin-bottom: 0;border: none;">
-      <div class="dateRow" *ngIf="!bookingData.paid && bookingData.reduction != null">
+      <div class="dateRow" *ngIf="bookingData.reduction != null">
         <div>
-          <span class="hour" (click)="addReduction()" *ngIf="bookingData.reduction == null && this.calculateTotalVoucherPrice()
+          <span class="hour" (click)="addReduction()"
+                *ngIf="!bookingData.paid && bookingData.reduction == null && this.calculateTotalVoucherPrice()
             < bookingData.price_total && !bookingData.paid" style="
             color: #E91E63;
              font-size: 14px;
@@ -203,7 +233,7 @@
           <span class="hour">
             {{ "op_rem" | translate }}
           </span>
-          <span class="price">
+          <span class="price" *ngIf="bookingData.has_cancellation_insurance">
             {{bookingData.price_cancellation_insurance| number:'0.2-2'}}
             {{activities[0]?.course?.currency}}
           </span>
@@ -284,8 +314,8 @@
       </div>
       <ng-container *ngIf="bookingData.vouchers?.length">
         <div class="dateRow">
-          <div>
-            <span style="width: 100%; float:left" *ngFor="let item of bookingData.vouchers; let i = index">
+          <div *ngFor="let item of bookingData.vouchers; let i = index">
+            <span style="width: 100%; float:left" >
               <img class="icon24" src="assets/icons/icon/delete.png"
                    style="display: inline-flex;float: left; cursor: pointer"
                    *ngIf="!bookingData.paid" (click)="deleteBonus(i);">
@@ -336,7 +366,15 @@
   </div>
 
 </div>
-<button *ngIf="!bookingData.paid || bookingData.status != 2" style="height: 56px; width: 400px;border-radius: 3px;margin-top: 16px;"
-        color="primary" mat-raised-button type="button" class="client-button" (click)="payClick.emit()">
-  {{ "Pagar" | translate }}
+<button *ngIf="!bookingData.paid && bookingData.status != 2"
+        class="client-button mobile-pay-button"
+        color="primary"
+        mat-raised-button
+        type="button"
+        (click)="payClick.emit()">
+  {{ "to_pay" | translate }}
 </button>
+<!--<button *ngIf="!bookingData.paid" style="height: 56px; width: 400px;border-radius: 3px;margin-top: 16px;"
+        color="primary" mat-raised-button type="button" class="client-button" (click)="payClick.emit()">
+  {{ "to_pay" | translate }}
+</button>-->

@@ -131,7 +131,7 @@ export class BookingService {
 
       // Calcular extras solo para esta fecha
       extraPrice = date.extras?.reduce((sum: number, extra: any) => {
-        return sum + (parseFloat(extra.price) || 0);
+        return sum + (parseFloat(extra?.price) || 0);
       }, 0) || 0;
     }
 
@@ -216,8 +216,8 @@ export class BookingService {
           bookingUser.currency = item.course.currency;
           bookingUser.course_id = item.course.id;
           bookingUser.course_name = item.course.name;
-          bookingUser.notes_school = bookingData.notes_school;
-          bookingUser.notes = bookingData.notes;
+          bookingUser.notes_school = item.schoolObs;
+          bookingUser.notes = item.clientObs;
           bookingUser.course_type = item.course.course_type;
           bookingUser.currency = item.course.currency;
           bookingUser.degree_id = item.sportLevel.id;
@@ -376,7 +376,7 @@ export class BookingService {
         before_change: 'confirmed',
         user_id: userData.id
       }),
-      this.cancelBookingUsers(bookingUsers.map(b => b.id)),
+      this.cancelBookingUsers(bookingUsers),
       this.createPayment({
         booking_id: bookingId,
         school_id: userData.schools[0].id,

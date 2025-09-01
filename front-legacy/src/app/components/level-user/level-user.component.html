@@ -2,7 +2,7 @@
 	<div [style.width.px]="size"
 		[style.height.px]="size"
 		class="circle-container">
-		<img [src]="userImage"
+		<img [src]="userImage || 'assets/img/avatar.png'"
 			[style.width.px]="imageSize"
 			[style.height.px]="imageSize"
 			class="level-image">

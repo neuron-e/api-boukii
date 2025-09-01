@@ -64,39 +64,48 @@ export class CoursesComponent {
       this.detailData = event.item;
       this.groupedByColor = {};
       this.colorKeys = [];
-      this.crudService.list('/degrees', 1, 10000, 'asc', 'degree_order', '&school_id=' + this.detailData.school_id + '&sport_id=' + this.detailData.sport_id)
-        .subscribe((data) => {
-          this.detailData.degrees = [];
-          data.data.forEach((element: any) => {
-            if (element.active) this.detailData.degrees.push({ ...element, Subgrupo: this.getSubGroups(element.id) });
-          });
-          this.detailData.degrees.forEach((level: any) => {
-            if (!this.groupedByColor[level.color]) this.groupedByColor[level.color] = [];
-            level.active = false;
-            this.detailData.course_dates.forEach((cs: any) => {
-              cs.course_groups.forEach((group: any) => {
-                if (group.degree_id === level.id) {
-                  level.active = true;
-                  level.old = true;
-                } level.visible = false;
-              });
+      if(this.detailData.course_type ==1) {
+        this.crudService.list('/degrees', 1, 10000, 'asc', 'degree_order', '&school_id=' + this.detailData.school_id + '&sport_id=' + this.detailData.sport_id)
+          .subscribe((data) => {
+            this.detailData.degrees = [];
+            data.data.forEach((element: any) => {
+              if (element.active) this.detailData.degrees.push({ ...element, Subgrupo: this.getSubGroups(element.id) });
             });
-            this.groupedByColor[level.color].push(level);
+            this.detailData.degrees.forEach((level: any) => {
+              if (!this.groupedByColor[level.color]) this.groupedByColor[level.color] = [];
+              level.active = false;
+              this.detailData.course_dates.forEach((cs: any) => {
+                if(cs.course_groups) {
+                  cs.course_groups.forEach((group: any) => {
+                    if (group.degree_id === level.id) {
+                      level.active = true;
+                      level.old = true;
+                    }
+                    level.visible = false;
+                  });
+                }
+              });
+              this.groupedByColor[level.color].push(level);
+            });
+            this.colorKeys = Object.keys(this.groupedByColor);
+            //this.crudService.list('/stations', 1, 10000, 'desc', 'id', '&school_id=' + this.detailData.school_id)
+            //  .subscribe((st: any) => {
+            //    st.data.forEach((element: any) => {
+            //      if (element.id === this.detailData.station_id) this.detailData.station = element
+            //    });
+            //  })
+            //this.crudService.list('/booking-users', 1, 10000, 'desc', 'id', '&school_id=' + this.detailData.school_id + '&course_id=' + this.//detailData.id)
+            //  .subscribe((bookingUser: any) => {
+            //    this.detailData.users = bookingUser.data;
+            //  })
+            this.courses.settcourseFormGroup(this.detailData)
+            this.showDetail = true;
           });
-          this.colorKeys = Object.keys(this.groupedByColor);
-          //this.crudService.list('/stations', 1, 10000, 'desc', 'id', '&school_id=' + this.detailData.school_id)
-          //  .subscribe((st: any) => {
-          //    st.data.forEach((element: any) => {
-          //      if (element.id === this.detailData.station_id) this.detailData.station = element
-          //    });
-          //  })
-          //this.crudService.list('/booking-users', 1, 10000, 'desc', 'id', '&school_id=' + this.detailData.school_id + '&course_id=' + this.//detailData.id)
-          //  .subscribe((bookingUser: any) => {
-          //    this.detailData.users = bookingUser.data;
-          //  })
-          this.courses.settcourseFormGroup(this.detailData)
-          this.showDetail = true;
-        });
+      } else  {
+        this.showDetail = true;
+        this.courses.settcourseFormGroup(this.detailData, true)
+      }
+
     } else this.showDetail = event.showDetail;
   }
 
@@ -162,12 +171,14 @@ export class CoursesComponent {
     let ret = 0;
     this.detailData.course_dates.forEach(courseDate => {
       let find = false;
-      courseDate.course_groups.forEach(group => {
-        if (group.degree_id === levelId && !find) {
-          ret = group.course_subgroups[0]?.max_participants;
-          find = true;
-        }
-      });
+      if(courseDate.course_groups) {
+        courseDate.course_groups.forEach(group => {
+          if (group.degree_id === levelId && !find) {
+            ret = group.course_subgroups[0]?.max_participants;
+            find = true;
+          }
+        });
+      }
     });
     return ret;
   }

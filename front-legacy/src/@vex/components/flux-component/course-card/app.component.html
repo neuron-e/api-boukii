@@ -1,443 +1,660 @@
 <div *ngIf="courseFormGroup" class="cardp">
-	<ng-container *ngIf="!onlyExtras">
-		<div *ngIf="mode==='update' && step===3 && courseFormGroup.controls['course_type'].value===1" class="cardgroup">
-			<div
-				style="width: 100%; height: 100%;flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 20px; display: inline-flex">
-				<div
-					style="align-self: stretch; font-size: 14px; font-family: DM Sans; font-weight: 600; line-height: 18px; word-wrap: break-word">
-					{{"legend" | translate}}
-				</div>
-				<div
-					style="align-self: stretch; height: 276px; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 20px; display: flex">
-					<div
-						style="flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 21px; display: flex">
-						<div
-							style="height: 24px; padding-top: 10px; padding-bottom: 10px; justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
-							<div style="width: 24px; height: 24px; position: relative">
-								<img src="assets/icons/icon/monitor.png" alt>
-							</div>
-							<div
-								style="width: 91px; height: 24px; color: var(--color-dark1); font-size: 12px; font-family: DM Sans; font-weight: 600; line-height: 16px; word-wrap: break-word;align-content: center;">
-								{{'monitor' | translate}}
-							</div>
-						</div>
-						<div
-							style="align-self: stretch; height: 70px; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 8px; display: flex">
-							<div
-								style="justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
-								<div style="width: 10px; height: 10px; background: #31C044; border-radius: 9999px">
-								</div>
-								<div>
-									{{"assigned" | translate}}
-								</div>
-							</div>
-							<div
-								style="align-self: stretch; justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
-								<div style="width: 10px; height: 10px; background: #FFCF25; border-radius: 9999px">
-								</div>
-								<div>
-									{{"modified" | translate}}
-								</div>
-							</div>
-							<div
-								style="justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
-								<div style="width: 10px; height: 10px; background: #C7D0D3; border-radius: 9999px">
-								</div>
-								<div>
-									{{"without_monitor" | translate}}
-								</div>
-							</div>
-						</div>
-					</div>
-					<div
-						style="height: 141px; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 21px; display: flex">
-						<div
-							style="height: 24px; padding-top: 10px; padding-bottom: 10px; justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
-							<div style="width: 24px; height: 24px; position: relative">
-								<img src="assets/icons/icon/alumno.png" alt>
-							</div>
-							<div
-								style="width: 91px; height: 24px; color: var(--color-dark1); font-size: 12px; font-family: DM Sans; font-weight: 600; line-height: 16px; word-wrap: break-word;align-content: center;">
-								{{"students" | translate}}
-							</div>
-						</div>
-						<div
-							style="align-self: stretch; height: 96px; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 8px; display: flex">
-							<div
-								style="justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
-								<div style="width: 10px; height: 10px; background: #31C044; border-radius: 9999px">
-								</div>
-								<div>
-									{{"present_course_day" | translate}}
-								</div>
-							</div>
-							<div
-								style="align-self: stretch; justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
-								<div style="width: 10px; height: 10px; background: #FFCF25; border-radius: 9999px">
-								</div>
-								<div>
-									{{"student_changed" | translate}}
-								</div>
-							</div>
-							<div
-								style="justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
-								<div style="width: 10px; height: 10px; background: #E70F0F; border-radius: 9999px">
-								</div>
-								<div>
-									{{"not_presented" | translate}}
-								</div>
-							</div>
-							<div
-								style="justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
-								<div style="width: 10px; height: 10px; background: #C7D0D3; border-radius: 9999px">
-								</div>
-								<div>
-									{{"upcoming_day" | translate}}
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-		<div *ngIf="mode==='create' && courseFormGroup.controls['id'].value && !detail" class="cardgroup"
-			style="background-color: #2F3844;flex-direction: column;flex-wrap: nowrap;gap: 8px;">
-			<p
-				style="display: flex;flex-wrap: nowrap; color: white; font-size: 16px; font-family: Dinamit; font-weight: 500; line-height: 20px; word-wrap: break-word">
-				{{"course" | translate }} {{"#" +("00000"+courseFormGroup.controls['id'].value).slice(-5) |translate}}
-				<img (click)="open.emit(courseFormGroup.controls['id'].value)" src="assets/icons/icon/edit.png"
-					class="button" style="margin-left: auto;width: 24px;height: 24px;">
-				<img (click)="close.emit()" src="assets/icons/icon/cancel.png" style="width: 24px;height: 24px;"
-					class="button">
-			</p>
-			<div style="width: 100%; height: 100%; border: 1px #C7D0D3 solid;margin: 4px 0;"></div>
-			<p style="color: white;">
-				{{"register"| translate}}:
-				<span style="font-weight: 600; color: white;">
+  <ng-container *ngIf="!onlyExtras">
+    <div *ngIf="mode==='update' && step===3 && courseFormGroup.controls['course_type'].value===1" class="cardgroup">
+      <div
+        style="width: 100%; height: 100%;flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 20px; display: inline-flex">
+        <div
+          style="align-self: stretch; font-size: 14px; font-family: DM Sans; font-weight: 600; line-height: 18px; word-wrap: break-word">
+          {{"legend" | translate}}
+        </div>
+        <div
+          style="align-self: stretch; height: 276px; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 20px; display: flex">
+          <div
+            style="flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 21px; display: flex">
+            <div
+              style="height: 24px; padding-top: 10px; padding-bottom: 10px; justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
+              <div style="width: 24px; height: 24px; position: relative">
+                <img src="assets/icons/icon/monitor.png" alt>
+              </div>
+              <div
+                style="width: 91px; height: 24px; color: var(--color-dark1); font-size: 12px; font-family: DM Sans; font-weight: 600; line-height: 16px; word-wrap: break-word;align-content: center;">
+                {{'monitor' | translate}}
+              </div>
+            </div>
+            <div
+              style="align-self: stretch; height: 70px; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 8px; display: flex">
+              <div
+                style="justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
+                <div style="width: 10px; height: 10px; background: #31C044; border-radius: 9999px">
+                </div>
+                <div>
+                  {{"assigned" | translate}}
+                </div>
+              </div>
+              <div
+                style="align-self: stretch; justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
+                <div style="width: 10px; height: 10px; background: #FFCF25; border-radius: 9999px">
+                </div>
+                <div>
+                  {{"modified" | translate}}
+                </div>
+              </div>
+              <div
+                style="justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
+                <div style="width: 10px; height: 10px; background: #C7D0D3; border-radius: 9999px">
+                </div>
+                <div>
+                  {{"without_monitor" | translate}}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div
+            style="height: 141px; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 21px; display: flex">
+            <div
+              style="height: 24px; padding-top: 10px; padding-bottom: 10px; justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
+              <div style="width: 24px; height: 24px; position: relative">
+                <img src="assets/icons/icon/alumno.png" alt>
+              </div>
+              <div
+                style="width: 91px; height: 24px; color: var(--color-dark1); font-size: 12px; font-family: DM Sans; font-weight: 600; line-height: 16px; word-wrap: break-word;align-content: center;">
+                {{"students" | translate}}
+              </div>
+            </div>
+            <div
+              style="align-self: stretch; height: 96px; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 8px; display: flex">
+              <div
+                style="justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
+                <div style="width: 10px; height: 10px; background: #31C044; border-radius: 9999px">
+                </div>
+                <div>
+                  {{"present_course_day" | translate}}
+                </div>
+              </div>
+              <div
+                style="align-self: stretch; justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
+                <div style="width: 10px; height: 10px; background: #FFCF25; border-radius: 9999px">
+                </div>
+                <div>
+                  {{"student_changed" | translate}}
+                </div>
+              </div>
+              <div
+                style="justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
+                <div style="width: 10px; height: 10px; background: #E70F0F; border-radius: 9999px">
+                </div>
+                <div>
+                  {{"not_presented" | translate}}
+                </div>
+              </div>
+              <div
+                style="justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
+                <div style="width: 10px; height: 10px; background: #C7D0D3; border-radius: 9999px">
+                </div>
+                <div>
+                  {{"upcoming_day" | translate}}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div *ngIf="mode==='create' && courseFormGroup.controls['id'].value && !detail" class="cardgroup"
+         style="background-color: #2F3844;flex-direction: column;flex-wrap: nowrap;gap: 8px;">
+      <p
+        style="display: flex;flex-wrap: nowrap; color: white; font-size: 16px; font-family: Dinamit; font-weight: 500; line-height: 20px; word-wrap: break-word">
+        {{"course" | translate }} {{"#" +("00000"+courseFormGroup.controls['id'].value).slice(-5) |translate}}
+        <img (click)="open.emit(courseFormGroup.controls['id'].value)" src="assets/icons/icon/edit.png"
+             class="button" style="margin-left: auto;width: 24px;height: 24px;">
+        <img (click)="close.emit()" src="assets/icons/icon/cancel.png" style="width: 24px;height: 24px;"
+             class="button">
+      </p>
+      <div style="width: 100%; height: 100%; border: 1px #C7D0D3 solid;margin: 4px 0;"></div>
+      <p style="color: white;">
+        {{"register"| translate}}:
+        <span style="font-weight: 600; color: white;">
 					{{courseFormGroup.controls['created_at'].value | date:'dd-MM-yyyy HH:mm'}}h
 				</span>
-			</p>
-			<p *ngIf="courseFormGroup.controls['user'].value" style="color: white;">
-				{{courseFormGroup.controls['user'].value}}
-			</p>
-			<div style="display: flex; gap: 8px;">
-				<div *ngIf="courseFormGroup.controls['active'].value"
-					style="padding-left: 8px; padding-right: 8px; padding-top: 4px; padding-bottom: 4px; background: #B2EFAD; border-radius: 3px; justify-content: center; align-items: center; gap: 10px; display: inline-flex">
-					<div
-						style="color: #075800; font-size: 12px; font-weight: 600; line-height: 16px; word-wrap: break-word">
-						{{'active'| translate}}
-					</div>
-				</div>
-				<div *ngIf="courseFormGroup.controls['online'].value"
-					style="padding-left: 8px; padding-right: 8px; padding-top: 4px; padding-bottom: 4px; background: #B2EFAD; border-radius: 3px; justify-content: center; align-items: center; gap: 10px; display: inline-flex">
-					<div
-						style="color: #075800; font-size: 12px; font-weight: 600; line-height: 16px; word-wrap: break-word">
-						{{'payment_online'| translate}}
-					</div>
-				</div>
-			</div>
-		</div>
-		<div class="cardgroup" style="flex-wrap: nowrap;align-items: center;">
-			<img [src]="courseFormGroup.controls['icon'].value || 'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA='"
-				[class]="courseFormGroup.controls['icon'].value?'':'emptyImg1'"
-				[style.backgroundColor]="courseFormGroup.controls['course_type'].value===1?'#E5962A':courseFormGroup.controls['course_type'].value===2?'#2FAA41':courseFormGroup.controls['course_type'].value===3?'#0AB0BC':''"
-				class="sport_icon noselected" style="max-width: none;">
-			<div [style.minWidth]="courseFormGroup.controls['id']?'':'calc(100% - 60px)'" style="width: max-content;">
-				<p [class]="courseFormGroup.controls['name'].value?'':'emptyText'"
-					style="font-weight: 600; line-height: 18px; min-height: 12px;font-size: 14px;">
-					{{courseFormGroup.controls['name'].value}}
-				</p>
-				<p [class]="courseFormGroup.controls['course_type'].value?'label':'emptyText'"
-					style="line-height: 18px; min-height: 12px;margin-top: 5px;color: var(--color-dark3);font-size: 12px;font-weight: 400;line-height: 16px;word-wrap: break-word">
-					<ng-container *ngIf="courseFormGroup.controls['course_type'].value===1">
-						{{'course_colective' | translate}}
-					</ng-container>
-					<ng-container *ngIf="courseFormGroup.controls['course_type'].value===2">
-						{{'course_private' | translate}}
-					</ng-container>
-					<ng-container *ngIf="courseFormGroup.controls['course_type'].value===3">
-						{{'activity' | translate}}
-					</ng-container>
-				</p>
-			</div>
-			<div *ngIf="courseFormGroup.controls['id'].value && !detail" style="margin-left: auto;">
-				<p style="font-size: 14px;font-weight: 600;line-height: 18px;text-align: right;">
-					{{courseFormGroup.controls['price'].value}}{{courseFormGroup.controls['price'].value?('&nbsp;'+courseFormGroup.controls['currency'].value):''}}
-				</p>
-			</div>
-		</div>
-		<div class="cardgroup">
-			<div style="width: 100%;display: flex;">
-				<img *ngIf="courseFormGroup.controls['image'].value && courseFormGroup.controls['id'].value"
-					[src]="courseFormGroup.controls['image'].value || 'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA='"
-					[class]="courseFormGroup.controls['image'].value?'':'emptyImg1'" class="Img1"
-					style="margin-right: 10px;height: 68px;width: 95px;max-width: none;">
-				<div style="width: 100%;">
-					<p class="label">
-						{{"summary" | translate}}
-					</p>
-					<p [class]="courseFormGroup.controls['short_description'].value?'':'emptyText'"
-						[innerHTML]="courseFormGroup.controls['short_description'].value"
-						style="color:var(--color-dark1);">
-					</p>
-				</div>
-				<div>
-					<img *ngIf="detail" (click)="edit.emit(1)" src="assets/icons/icon/edit2.png" alt
-						class="editbutton icon24">
-				</div>
-			</div>
-			<div style="width: 100%">
-				<p class="label">
-					{{'courses.desc' | translate }}
-				</p>
-				<p [class]="courseFormGroup.controls['description'].value?'':'emptyText'"
-					[innerHTML]="courseFormGroup.controls['description'].value" style="color:var(--color-dark1);">
-				</p>
-			</div>
-			<div *ngIf="!courseFormGroup.controls['is_flexible'].value" style="width: calc(50% - 10px);">
-				<p class="label">
-					{{'price_per_course' | translate }}
-				</p>
-				<p [class]="courseFormGroup.controls['price'].value?'':'emptyText'"
-					style="color:var(--color-dark1); font-weight: 400;">
-					{{courseFormGroup.controls['price'].value |
-					number:'0.2'}}&nbsp;{{courseFormGroup.controls['currency'].value}}
-				</p>
-			</div>
-			<div style="width: calc(50% - 10px);">
-				<p class="label">
-					{{'max_pax' | translate }}
-				</p>
-				<p [class]="courseFormGroup.controls['max_participants'].value?'':'emptyText'"
-					style="color:var(--color-dark1); font-weight: 400;font-size: 12px;">
-					{{courseFormGroup.controls['max_participants'].value}}&nbsp;{{"paxes" | translate}}
-				</p>
-			</div>
-			<div *ngIf="courseFormGroup.controls['course_type'].value>1" style="width: calc(50% - 10px);">
-				<p class="label">
-					{{'courses.min_age' | translate }}
-				</p>
-				<p [class]="courseFormGroup.controls['age_min'].value>=0?'':'emptyText'"
-					style="color:var(--color-dark1);font-size: 12px;">
-					{{courseFormGroup.controls['age_min'].value}}&nbsp;{{"years" | translate}}
-				</p>
-			</div>
-			<div *ngIf="courseFormGroup.controls['course_type'].value>1" style="width: calc(50% - 10px);">
-				<p class="label">
-					{{'courses.max_age' | translate }}
-				</p>
-				<p [class]="courseFormGroup.controls['age_max'].value>=0?'':'emptyText'"
-					style="color:var(--color-dark1); font-size: 12px;">
-					{{courseFormGroup.controls['age_max'].value}}&nbsp;{{"years" | translate}}
-				</p>
-			</div>
-		</div>
-		<div class="cardgroup" style="gap: 10px;">
-			<div style="display: flex;width: 100%;column-gap: 10px;">
-				<div style="width: 100%">
-					<p class="label">
-						{{'courses.date_reservable' | translate }}
-					</p>
-					<p [class]="courseFormGroup.controls['date_start'].value?'':'emptyText'"
-						style="color:var(--color-dark1); font-size: 12px;">
-						{{courseFormGroup.controls['date_start'].value | date:'dd-MM-yyyy'}}
-					</p>
-				</div>
-				<div style="width: 100%">
-					<p class="label">
-						{{'courses.date_reservable_to' | translate }}
-					</p>
-					<p [class]="courseFormGroup.controls['date_end'].value?'':'emptyText'"
-						style="color:var(--color-dark1);font-size: 12px;">
-						{{courseFormGroup.controls['date_end'].value | date:'dd-MM-yyyy'}}
-					</p>
-				</div>
-				<div *ngIf="courseFormGroup.controls['course_type'].value>1" style="width: 100%">
-					<p class="label">
-						{{'courses.dur_min' | translate }}
-					</p>
-					<p [class]="courseFormGroup.controls['duration'].value?'':'emptyText'"
-						style="color:var(--color-dark1);font-size: 12px;">
-						{{courseFormGroup.controls['duration'].value}}
-					</p>
-				</div>
-				<div>
-					<img *ngIf="detail" (click)="edit.emit(2)" src="assets/icons/icon/edit2.png" alt
-						class="editbutton icon24">
-				</div>
-			</div>
-			<div *ngIf="courseFormGroup.controls['course_dates'].value.length>0" style="width: 100%;">
-				<div style="display: flex;">
-					<img src="assets/icons/icon/calendar.png" class="icon24">
-					<p class="label">
-						{{'bookings_page.description.date' |translate }}
-					</p>
-				</div>
-				<p *ngIf="!courseFormGroup.controls['course_dates'].value" class="emptyText">
-				</p>
-				<p *ngFor="let item of courseFormGroup.controls['course_dates'].value"
-					style="font-size: 14px;text-align-last: justify;display: flex;justify-content: space-between;">
-					<span>
-						{{courseFormGroup.controls['course_type'].value===1?(item.date |
-						date:'dd-MM-yyyy'):((item.date | date:'dd-MM-yyyy')+'-'+(item.date_end |
-						date:'dd-MM-yyyy'))}}
-					</span>
-					<span style="color: var(--color-grey1);">
-						{{item.hour_start}}h - {{item.hour_end}}h
-					</span>
-					<span *ngIf="courseFormGroup.controls['is_flexible'].value">
-						{{courseFormGroup.controls['price'].value |
-						number:'0.2'}}&nbsp;{{courseFormGroup.controls['currency'].value}}
-					</span>
-				</p>
-			</div>
-			<ng-container
-				*ngIf="courseFormGroup.controls['discounts'].value && courseFormGroup.controls['is_flexible'].value">
-				<div *ngFor="let item of courseFormGroup.controls['discounts'].value"
-					style="width: 100%; color:var(--color-dark1);font-weight: 400;">
-					· {{"reduction" | translate}} {{item.reduccion}}% {{"booking" | translate}} {{item.day}} {{"days" |
-					translate}}
-				</div>
-			</ng-container>
-			<div *ngIf="courseFormGroup.controls['settings'].value"
-				style="font-size: 12px;font-style: normal;font-weight: 400;line-height: 16px;">
-				{{CoursesService.weekString()}}
-			</div>
-		</div>
-		<div *ngIf="courseFormGroup.controls['levelGrop'].value && count(courseFormGroup.controls['levelGrop'].value,'active') && !detail"
-			class="cardgroup">
-			<div style="width: 100%;display: flex;gap: 8px;flex-wrap: wrap;">
-				<div style="width: 100%;">
-					<div *ngIf="courseFormGroup.controls['id'].value" class="label"
-						style="display: flex;justify-content: space-between;">
-						{{'levels' | translate }}
-						<div>
-							<mat-icon (click)="exportQR(courseFormGroup.controls['id'].value)" svgIcon="mat:print"
-								style="cursor: pointer;">
-							</mat-icon>
-							<mat-icon (click)="export(courseFormGroup.controls['id'].value)" svgIcon="mat:save"
-								style="cursor: pointer;">
-							</mat-icon>
-						</div>
-					</div>
-				</div>
-				<vex-course-detail-nivel [courseFormGroup]="courseFormGroup"
-					style="width: 100%;"></vex-course-detail-nivel>
-			</div>
-		</div>
-		<div *ngIf="detail" class="cardgroup languaje">
-			<div>
-				<div style="justify-content: space-between;">
-					<p class="label">
-						{{'langs' | translate }}
-					</p>
-					<img *ngIf="detail" (click)="edit.emit(5)" src="assets/icons/icon/edit2.png" alt
-						class="editbutton icon24">
-				</div>
-				<div style="justify-content: space-around;">
-					<div>
+      </p>
+      <p *ngIf="courseFormGroup.controls['user'].value" style="color: white;">
+        {{courseFormGroup.controls['user'].value}}
+      </p>
+      <div style="display: flex; gap: 8px;">
+        <div *ngIf="courseFormGroup.controls['active'].value"
+             style="padding-left: 8px; padding-right: 8px; padding-top: 4px; padding-bottom: 4px; background: #B2EFAD; border-radius: 3px; justify-content: center; align-items: center; gap: 10px; display: inline-flex">
+          <div
+            style="color: #075800; font-size: 12px; font-weight: 600; line-height: 16px; word-wrap: break-word">
+            {{'active'| translate}}
+          </div>
+        </div>
+        <div *ngIf="courseFormGroup.controls['online'].value"
+             style="padding-left: 8px; padding-right: 8px; padding-top: 4px; padding-bottom: 4px; background: #B2EFAD; border-radius: 3px; justify-content: center; align-items: center; gap: 10px; display: inline-flex">
+          <div
+            style="color: #075800; font-size: 12px; font-weight: 600; line-height: 16px; word-wrap: break-word">
+            {{'payment_online'| translate}}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cardgroup" style="flex-wrap: nowrap;align-items: center;">
+      <img [src]="courseFormGroup.controls['icon'].value || 'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA='"
+           [class]="courseFormGroup.controls['icon'].value?'':'emptyImg1'"
+           [style.backgroundColor]="courseFormGroup.controls['course_type'].value===1?'#E5962A':courseFormGroup.controls['course_type'].value===2?'#2FAA41':courseFormGroup.controls['course_type'].value===3?'#0AB0BC':''"
+           class="sport_icon noselected" style="max-width: none;">
+      <div [style.minWidth]="courseFormGroup.controls['id']?'':'calc(100% - 60px)'" style="width: max-content;">
+        <p [class]="courseFormGroup.controls['name'].value?'':'emptyText'"
+           style="font-weight: 600; line-height: 18px; min-height: 12px;font-size: 14px;">
+          {{courseFormGroup.controls['name'].value}}
+        </p>
+        <p [class]="courseFormGroup.controls['course_type'].value?'label':'emptyText'"
+           style="line-height: 18px; min-height: 12px;margin-top: 5px;color: var(--color-dark3);font-size: 12px;font-weight: 400;line-height: 16px;word-wrap: break-word">
+          <ng-container *ngIf="courseFormGroup.controls['course_type'].value===1">
+            {{'course_colective' | translate}}
+          </ng-container>
+          <ng-container *ngIf="courseFormGroup.controls['course_type'].value===2">
+            {{'course_private' | translate}}
+          </ng-container>
+          <ng-container *ngIf="courseFormGroup.controls['course_type'].value===3">
+            {{'activity' | translate}}
+          </ng-container>
+          <ng-container *ngIf="courseFormGroup.controls['is_flexible'].value">
+            {{'flex' | uppercase |translate}}
+          </ng-container>
+          <ng-container *ngIf="!courseFormGroup.controls['is_flexible'].value">
+            {{'fix' | uppercase |translate}}
+          </ng-container>
+        </p>
+      </div>
+      <div *ngIf="courseFormGroup.controls['id'].value && !detail" style="margin-left: auto;">
+        <p style="font-size: 14px;font-weight: 600;line-height: 18px;text-align: right;">
+          {{courseFormGroup.controls['price'].value}}{{courseFormGroup.controls['price'].value?('&nbsp;'+courseFormGroup.controls['currency'].value):''}}
+        </p>
+      </div>
+    </div>
+    <div class="cardgroup">
+      <div style="width: 100%;display: flex;">
+        <img
+          [src]="courseFormGroup.controls['image'].value || 'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA='"
+          [class]="courseFormGroup.controls['image'].value?'':'emptyImg1'" class="Img1"
+          style="margin-right: 10px;height: 68px;width: 95px;max-width: none;">
+        <div style="width: 100%;">
+          <p class="label">
+            {{"summary" | translate}}
+          </p>
+          <p [class]="courseFormGroup.controls['short_description'].value?'':'emptyText'"
+             [innerHTML]="courseFormGroup.controls['short_description'].value"
+             style="color:var(--color-dark1);">
+          </p>
+        </div>
+        <div>
+          <img *ngIf="detail" (click)="edit.emit(1)" src="assets/icons/icon/edit2.png" alt
+               class="editbutton icon24">
+        </div>
+      </div>
+      <!--      <div style="width: 100%">
+              <p class="label">
+                {{'courses.desc' | translate }}
+              </p>
+              <p [class]="courseFormGroup.controls['description'].value?'':'emptyText'"
+                 [innerHTML]="courseFormGroup.controls['description'].value" style="color:var(&#45;&#45;color-dark1);">
+              </p>
+            </div>-->
+      <div style="width: 100%">
+        <p class="label">
+          {{ 'courses.desc' | translate }}
+        </p>
+        <p [class]="courseFormGroup.controls['description'].value ? '' : 'emptyText'"
+           [innerHTML]="showDescription ? courseFormGroup.controls['description'].value : (courseFormGroup.controls['description'].value | slice:0:100) + '...'"
+           style="color:var(--color-dark1);">
+        </p>
+        <a *ngIf="courseFormGroup.controls['description'].value.length > 100"
+           (click)="toggleDescription()" style="color: var(--color-primary); cursor: pointer;">
+          {{ showDescription ? ('collapse_all' | translate) : ('view_details' | translate) }}
+        </a>
+      </div>
+      <div style="width: calc(50% - 10px);">
+        <p class="label" *ngIf="!courseFormGroup.controls['is_flexible'].value">
+          {{ 'price_per_course' | translate }}
+        </p>
+
+        <p class="label" *ngIf="courseFormGroup.controls['is_flexible'].value && courseFormGroup.controls['course_type'].value == 1">
+          {{ 'price_per_day' | translate }}
+        </p>
+
+        <p class="label" *ngIf="courseFormGroup.controls['is_flexible'].value
+        && courseFormGroup.controls['course_type'].value != 1">
+          {{ 'min_price' | translate }}
+        </p>
+
+        <p
+          [class]="courseFormGroup.controls['price'].value ? '' : 'emptyText'"
+          style="color: var(--color-dark1); font-weight: 400;">
+          {{courseFormGroup.controls['is_flexible'].value && courseFormGroup.controls['course_type'].value != 1 ?
+          courseFormGroup.controls['minPrice'].value || 'FLEXIBLE' : courseFormGroup.controls['price'].value | number:'0.2' }}&nbsp;{{ courseFormGroup.controls['is_flexible'].value && courseFormGroup.controls['course_type'].value != 1 ?
+          '' : courseFormGroup.controls['currency'].value }}
+        </p>
+      </div>
+      <div style="width: calc(50% - 10px);">
+        <p class="label">
+          {{'max_pax' | translate }}
+        </p>
+        <p [class]="courseFormGroup.controls['max_participants'].value?'':'emptyText'"
+           style="color:var(--color-dark1); font-weight: 400;font-size: 12px;">
+          {{courseFormGroup.controls['max_participants'].value}}&nbsp;{{"paxes" | translate}}
+        </p>
+      </div>
+      <div *ngIf="courseFormGroup.controls['course_type'].value>1" style="width: calc(50% - 10px);">
+        <p class="label">
+          {{'courses.min_age' | translate }}
+        </p>
+        <p [class]="courseFormGroup.controls['age_min'].value>=0?'':'emptyText'"
+           style="color:var(--color-dark1);font-size: 12px;">
+          {{courseFormGroup.controls['age_min'].value}}&nbsp;{{"years" | translate}}
+        </p>
+      </div>
+      <div *ngIf="courseFormGroup.controls['course_type'].value>1" style="width: calc(50% - 10px);">
+        <p class="label">
+          {{'courses.max_age' | translate }}
+        </p>
+        <p [class]="courseFormGroup.controls['age_max'].value>=0?'':'emptyText'"
+           style="color:var(--color-dark1); font-size: 12px;">
+          {{courseFormGroup.controls['age_max'].value}}&nbsp;{{"years" | translate}}
+        </p>
+      </div>
+    </div>
+    <div class="cardgroup" style="gap: 10px;">
+      <div style="display: flex;width: 100%;column-gap: 10px;">
+        <div style="width: 100%">
+          <p class="label">
+            {{'courses.date_reservable' | translate }}
+          </p>
+          <p [class]="courseFormGroup.controls['date_start_res'].value?'':'emptyText'"
+             style="color:var(--color-dark1); font-size: 12px;">
+            {{courseFormGroup.controls['date_start_res'].value | date:'dd-MM-yyyy'}}
+          </p>
+        </div>
+        <div style="width: 100%">
+          <p class="label">
+            {{'courses.date_reservable_to' | translate }}
+          </p>
+          <p [class]="courseFormGroup.controls['date_end_res'].value?'':'emptyText'"
+             style="color:var(--color-dark1);font-size: 12px;">
+            {{courseFormGroup.controls['date_end_res'].value | date:'dd-MM-yyyy'}}
+          </p>
+        </div>
+        <div *ngIf="courseFormGroup.controls['course_type'].value>1" style="width: 100%">
+          <p class="label">
+            {{'courses.dur_min' | translate }}
+          </p>
+          <p [class]="courseFormGroup.controls['duration'].value?'':'emptyText'"
+             style="color:var(--color-dark1);font-size: 12px;">
+            {{courseFormGroup.controls['duration'].value}}
+          </p>
+        </div>
+        <div>
+          <img *ngIf="detail" (click)="edit.emit(2)" src="assets/icons/icon/edit2.png" alt
+               class="editbutton icon24">
+        </div>
+      </div>
+      <div *ngIf="groupedCourseDates && groupedCourseDates.size > 0" class="course-dates-container">
+        <div class="dates-header">
+          <div style="display: flex; align-items: center;">
+            <img src="assets/icons/icon/calendar.png" class="icon24">
+            <p class="label" style="margin: 0 0 0 8px;">
+              {{'bookings_page.description.date' | translate }}
+            </p>
+          </div>
+
+          <!-- Botones para expandir/colapsar todos los intervalos -->
+          <div class="expand-buttons" *ngIf="groupedCourseDates.size > 1">
+            <button type="button" (click)="expandAllIntervals()" class="text-button">
+              <mat-icon>unfold_more</mat-icon>
+              <span>{{'expand_all' | translate}}</span>
+            </button>
+            <button type="button" (click)="collapseAllIntervals()" class="text-button">
+              <mat-icon>unfold_less</mat-icon>
+              <span>{{'collapse_all' | translate}}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Iteramos sobre los IDs de intervalo ordenados -->
+        <div *ngFor="let intervalId of getOrderedIntervalIds(groupedCourseDates)" class="interval-group">
+
+          <!-- Encabezado del intervalo con botón para expandir/colapsar -->
+          <div class="interval-header" (click)="toggleInterval(intervalId)">
+            <div class="interval-title">
+              <mat-icon>{{ isIntervalExpanded(intervalId) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+              {{ intervalNames.get(intervalId) || 'Intervalo ' + intervalId }}
+            </div>
+
+            <!-- Resumen compacto del intervalo visible incluso cuando está colapsado -->
+            <div class="interval-brief">
+              <span class="date-count">{{ groupedCourseDates.get(intervalId).length }} {{'dates' | translate}}</span>
+              <span class="weekdays-brief" *ngIf="shouldShowCompactSummary(groupedCourseDates.get(intervalId))">
+          {{ getWeekdaysPattern(groupedCourseDates.get(intervalId)) }}
+        </span>
+            </div>
+          </div>
+
+          <!-- Contenido detallado del intervalo (expandible) -->
+          <div class="interval-content" *ngIf="isIntervalExpanded(intervalId)">
+            <!-- Si es curso colectivo (course_type === 1) -->
+            <ng-container *ngIf="courseFormGroup.controls['course_type'].value === 1">
+              <!-- Si debemos mostrar un resumen compacto -->
+              <ng-container *ngIf="shouldShowCompactSummary(groupedCourseDates.get(intervalId))">
+                <div class="interval-summary">
+                  <div class="summary-left">
+              <span class="date-range">
+                <b>{{ formatDateRange(groupedCourseDates.get(intervalId)) }}</b>
+              </span>
+                    <span class="weekdays">
+                {{ getWeekdaysPattern(groupedCourseDates.get(intervalId)) }}
+              </span>
+                  </div>
+                  <div class="summary-right">
+              <span class="time-schedule">
+                {{ getCommonTimeSchedule(groupedCourseDates.get(intervalId)) }}
+              </span>
+                    <span class="price" *ngIf="courseFormGroup.controls['is_flexible'].value">
+                {{ courseFormGroup.controls['price'].value | number: '0.2' }}&nbsp;{{ courseFormGroup.controls['currency'].value }}
+              </span>
+                  </div>
+                </div>
+
+                <!-- Botón para mostrar/ocultar todas las fechas individuales -->
+                <button type="button" (click)="toggleDetailedDates(intervalId)" class="show-details-button">
+                  {{ showDetailedDates(intervalId) ? ('hide_details' | translate) : ('show_all_dates' | translate) }}
+                </button>
+
+                <!-- Mostrar todas las fechas individuales si se ha pulsado "Mostrar detalles" -->
+                <div class="detailed-dates" *ngIf="showDetailedDates(intervalId)">
+                  <div *ngFor="let item of groupedCourseDates.get(intervalId)" class="date-item">
+                    <span class="date">{{ item.date | date: 'dd-MM-yyyy' }}</span>
+                    <span class="time">
+                {{ item.hour_start }}h - {{ item.hour_end }}h
+              </span>
+                    <span class="price" *ngIf="courseFormGroup.controls['is_flexible'].value">
+                {{ courseFormGroup.controls['price'].value | number: '0.2' }}&nbsp;{{ courseFormGroup.controls['currency'].value }}
+              </span>
+                  </div>
+                </div>
+              </ng-container>
+
+              <!-- Si no mostramos resumen, mostrar cada fecha individualmente -->
+              <ng-container *ngIf="!shouldShowCompactSummary(groupedCourseDates.get(intervalId))">
+                <div *ngFor="let item of groupedCourseDates.get(intervalId)" class="date-item">
+                  <span class="date">{{ item.date | date: 'dd-MM-yyyy' }}</span>
+                  <span class="time">
+              {{ item.hour_start }}h - {{ item.hour_end }}h
+            </span>
+                  <span class="price" *ngIf="courseFormGroup.controls['is_flexible'].value">
+              {{ courseFormGroup.controls['price'].value | number: '0.2' }}&nbsp;{{ courseFormGroup.controls['currency'].value }}
+            </span>
+                </div>
+              </ng-container>
+            </ng-container>
+
+            <!-- Si es curso privado o actividad (course_type !== 1) -->
+            <ng-container *ngIf="courseFormGroup.controls['course_type'].value !== 1">
+              <div *ngFor="let item of groupedCourseDates.get(intervalId)" class="date-item">
+          <span class="date">
+            {{ item.date | date: 'dd-MM-yyyy' }} - {{ item.date_end | date: 'dd-MM-yyyy' }}
+          </span>
+                <span class="time">
+            {{ item.hour_start }}h - {{ item.hour_end }}h
+          </span>
+              </div>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección para fechas previas, con el mismo formato -->
+      <div *ngIf="groupedCourseDatesPrev && groupedCourseDatesPrev.size > 0" class="course-dates-container prev-dates">
+        <div class="dates-header">
+          <div style="display: flex; align-items: center;">
+            <img src="assets/icons/icon/calendar.png" class="icon24">
+            <p class="label" style="margin: 0 0 0 8px;">
+              {{ 'previous_dates' | translate }}
+            </p>
+          </div>
+
+          <!-- Botones para expandir/colapsar todos los intervalos -->
+          <div class="expand-buttons" *ngIf="groupedCourseDatesPrev.size > 1">
+            <button type="button" (click)="expandAllIntervals()" class="text-button">
+              <mat-icon>unfold_more</mat-icon>
+              <span>{{'expand_all' | translate}}</span>
+            </button>
+            <button type="button" (click)="collapseAllIntervals()" class="text-button">
+              <mat-icon>unfold_less</mat-icon>
+              <span>{{'collapse_all' | translate}}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Iteramos sobre los IDs de intervalo ordenados -->
+        <div *ngFor="let intervalId of getOrderedIntervalIds(groupedCourseDatesPrev); let i = index;" class="interval-group prev-interval">
+
+          <!-- Encabezado del intervalo con botón para expandir/colapsar -->
+          <div class="interval-header" (click)="toggleInterval(intervalId, true)">
+            <div class="interval-title">
+              <mat-icon>{{ isIntervalExpanded(intervalId, true) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+              {{ intervalNamesPrev.get(intervalId) || 'Intervalo ' + i + 1 }}
+            </div>
+
+            <!-- Resumen compacto del intervalo visible incluso cuando está colapsado -->
+            <div class="interval-brief">
+              <span class="date-count">{{ groupedCourseDatesPrev.get(intervalId).length }} {{'dates' | translate}}</span>
+              <span class="weekdays-brief" *ngIf="shouldShowCompactSummary(groupedCourseDatesPrev.get(intervalId))">
+          {{ getWeekdaysPattern(groupedCourseDatesPrev.get(intervalId)) }}
+        </span>
+            </div>
+          </div>
+
+          <!-- Contenido detallado del intervalo (expandible) -->
+          <div class="interval-content" *ngIf="isIntervalExpanded(intervalId, true)">
+            <!-- Si es curso colectivo (course_type === 1) -->
+            <ng-container *ngIf="courseFormGroup.controls['course_type'].value === 1">
+              <!-- Si debemos mostrar un resumen compacto -->
+              <ng-container *ngIf="shouldShowCompactSummary(groupedCourseDatesPrev.get(intervalId))">
+                <div class="interval-summary">
+                  <div class="summary-left">
+              <span class="date-range">
+                <b>{{ formatDateRange(groupedCourseDatesPrev.get(intervalId)) }}</b>
+              </span>
+                    <span class="weekdays">
+                {{ getWeekdaysPattern(groupedCourseDatesPrev.get(intervalId)) }}
+              </span>
+                  </div>
+                  <div class="summary-right">
+              <span class="time-schedule">
+                {{ getCommonTimeSchedule(groupedCourseDatesPrev.get(intervalId)) }}
+              </span>
+                    <span class="price" *ngIf="courseFormGroup.controls['is_flexible'].value">
+                {{ courseFormGroup.controls['price'].value | number: '0.2' }}&nbsp;{{ courseFormGroup.controls['currency'].value }}
+              </span>
+                  </div>
+                </div>
+
+                <!-- Botón para mostrar/ocultar todas las fechas individuales -->
+                <button type="button" (click)="toggleDetailedDatesPrev(intervalId)" class="show-details-button">
+                  {{ showDetailedDatesPrev(intervalId) ? ('hide_details' | translate) : ('show_all_dates' | translate) }}
+                </button>
+
+                <!-- Mostrar todas las fechas individuales si se ha pulsado "Mostrar detalles" -->
+                <div class="detailed-dates" *ngIf="showDetailedDatesPrev(intervalId)">
+                  <div *ngFor="let item of groupedCourseDatesPrev.get(intervalId)" class="date-item">
+                    <span class="date">{{ item.date | date: 'dd-MM-yyyy' }}</span>
+                    <span class="time">
+                {{ item.hour_start }}h - {{ item.hour_end }}h
+              </span>
+                    <span class="price" *ngIf="courseFormGroup.controls['is_flexible'].value">
+                {{ courseFormGroup.controls['price'].value | number: '0.2' }}&nbsp;{{ courseFormGroup.controls['currency'].value }}
+              </span>
+                  </div>
+                </div>
+              </ng-container>
+
+              <!-- Si no mostramos resumen, mostrar cada fecha individualmente -->
+              <ng-container *ngIf="!shouldShowCompactSummary(groupedCourseDatesPrev.get(intervalId))">
+                <div *ngFor="let item of groupedCourseDatesPrev.get(intervalId)" class="date-item">
+                  <span class="date">{{ item.date | date: 'dd-MM-yyyy' }}</span>
+                  <span class="time">
+              {{ item.hour_start }}h - {{ item.hour_end }}h
+            </span>
+                  <span class="price" *ngIf="courseFormGroup.controls['is_flexible'].value">
+              {{ courseFormGroup.controls['price'].value | number: '0.2' }}&nbsp;{{ courseFormGroup.controls['currency'].value }}
+            </span>
+                </div>
+              </ng-container>
+            </ng-container>
+
+            <!-- Si es curso privado o actividad (course_type !== 1) -->
+            <ng-container *ngIf="courseFormGroup.controls['course_type'].value !== 1">
+              <div *ngFor="let item of groupedCourseDatesPrev.get(intervalId)" class="date-item">
+          <span class="date">
+            {{ item.date | date: 'dd-MM-yyyy' }} - {{ item.date_end | date: 'dd-MM-yyyy' }}
+          </span>
+                <span class="time">
+            {{ item.hour_start }}h - {{ item.hour_end }}h
+          </span>
+              </div>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+      <ng-container
+        *ngIf="courseFormGroup.controls['discounts'].value && courseFormGroup.controls['is_flexible'].value">
+        <div *ngFor="let item of courseFormGroup.controls['discounts'].value"
+             style="width: 100%; color:var(--color-dark1);font-weight: 400;">
+          · {{"reduction" | translate}} {{item.reduccion}}% {{"booking" | translate}} {{item.day}} {{"days" |
+          translate}}
+        </div>
+      </ng-container>
+      <div *ngIf="courseFormGroup.controls['settings'].value"
+           style="font-size: 12px;font-style: normal;font-weight: 400;line-height: 16px;">
+        {{CoursesService.weekString()}}
+      </div>
+    </div>
+    <div *ngIf="courseFormGroup.controls['levelGrop'].value && count(courseFormGroup.controls['levelGrop'].value,'active') && !detail"
+         class="cardgroup">
+      <div style="width: 100%;display: flex;gap: 8px;flex-wrap: wrap;">
+        <div style="width: 100%;">
+          <div *ngIf="courseFormGroup.controls['id'].value" class="label"
+               style="display: flex;justify-content: space-between;">
+            {{'levels' | translate }}
+            <div>
+              <mat-icon (click)="exportQR(courseFormGroup.controls['id'].value)" svgIcon="mat:print"
+                        style="cursor: pointer;">
+              </mat-icon>
+              <mat-icon (click)="export(courseFormGroup.controls['id'].value)" svgIcon="mat:save"
+                        style="cursor: pointer;">
+              </mat-icon>
+            </div>
+          </div>
+        </div>
+        <vex-course-detail-nivel [courseFormGroup]="courseFormGroup"
+                                 style="width: 100%;"></vex-course-detail-nivel>
+      </div>
+    </div>
+    <div *ngIf="detail" class="cardgroup languaje">
+      <div>
+        <div style="justify-content: space-between;">
+          <p class="label">
+            {{'langs' | translate }}
+          </p>
+          <img *ngIf="detail" (click)="edit.emit(5)" src="assets/icons/icon/edit2.png" alt
+               class="editbutton icon24">
+        </div>
+        <div style="justify-content: space-around;">
+          <div *ngFor="let item of Translate">
 						<span>
-							{{"France" | translate}}
+              {{item.Name | translate}}
 						</span>
-						<mat-icon class="check">check</mat-icon>
-					</div>
-					<div>
-						<span>
-							{{"English"| translate}}
-						</span>
-						<mat-icon class="check">check</mat-icon>
-					</div>
-					<div>
-						<span>
-							{{"German"| translate}}
-						</span>
-						<mat-icon class="check">check</mat-icon>
-					</div>
-					<div>
-						<span>
-							{{"Spanish"| translate}}
-						</span>
-						<mat-icon class="check">check</mat-icon>
-					</div>
-					<div>
-						<span>
-							{{"Italian"| translate}}
-						</span>
-						<mat-icon class="check">check</mat-icon>
-					</div>
-				</div>
-			</div>
-		</div>
-	</ng-container>
-	<ng-container *ngIf="!noneExtras">
-		<div *ngIf="courseFormGroup.controls['course_type'].value===3 && courseFormGroup.controls['settings'].value.groups.length>0"
-			class="cardgroup extras">
-			<div *ngFor="let group of courseFormGroup.controls['settings'].value.groups; index as i">
-				<div *ngIf="group.extras" style="justify-content: space-between;">
-					<p class="label">
-						{{("extras" | translate)+' '+(i+1)+": "+group.groupName}}
-					</p>
-					<img *ngIf="detail" (click)="edit.emit(4)" src="assets/icons/icon/edit2.png" alt
-						class="editbutton icon24">
-				</div>
-				<div *ngFor="let extra of group.extras">
+            <mat-icon *ngIf="courseFormGroup.controls['translations'].value &&
+                 courseFormGroup.controls['translations'].value[item.Code] &&
+                 courseFormGroup.controls['translations'].value[item.Code].name &&
+                 courseFormGroup.controls['translations'].value[item.Code].short_description &&
+                 courseFormGroup.controls['translations'].value[item.Code].description"
+                      class="check">
+              check
+            </mat-icon>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+  <ng-container *ngIf="!noneExtras">
+    <div *ngIf="courseFormGroup.controls['course_type'].value===3 && courseFormGroup.controls['settings'].value.groups.length>0"
+         class="cardgroup extras">
+      <div *ngFor="let group of courseFormGroup.controls['settings'].value.groups; index as i">
+        <div *ngIf="group.extras" style="justify-content: space-between;">
+          <p class="label">
+            {{("extras" | translate)+' '+(i+1)+": "+group.groupName}}
+          </p>
+          <img *ngIf="detail" (click)="edit.emit(4)" src="assets/icons/icon/edit2.png" alt
+               class="editbutton icon24">
+        </div>
+        <div *ngFor="let extra of group.extras">
 					<span
-						style="color: var(--color-dark1);font-size: 12px;font-weight: 600;line-height: 18px;word-wrap: break-word">
+            style="color: var(--color-dark1);font-size: 12px;font-weight: 600;line-height: 18px;word-wrap: break-word">
 						{{extra.name.slice(0,20)}}
 					</span>
-					<span
-						style="color: var(--color-dark1);font-size: 12px;font-weight: 300;line-height: 18px;word-wrap: break-word;margin-left: auto;">
+          <span
+            style="color: var(--color-dark1);font-size: 12px;font-weight: 300;line-height: 18px;word-wrap: break-word;margin-left: auto;">
 						{{extra.price|number:'0.2'}}&nbsp;{{courseFormGroup.controls['currency'].value}}/{{"day" |
-						translate}}
+            translate}}
 					</span>
-				</div>
-				<div *ngIf="!group.extras || group.extras.length<1">
+        </div>
+        <div *ngIf="!group.extras || group.extras.length<1">
 					<span
-						style="color: var(--color-dark1);font-size: 12px;font-weight: 600;line-height: 18px;word-wrap: break-word">
+            style="color: var(--color-dark1);font-size: 12px;font-weight: 600;line-height: 18px;word-wrap: break-word">
 						{{"no_extra_assigned" | translate}}
 					</span>
-				</div>
-			</div>
-		</div>
-		<div *ngIf="courseFormGroup.controls['course_type'].value!==3" class="cardgroup extras">
-			<div>
-				<div style="justify-content: space-between;">
-					<p class="label">
-						{{'extras' | translate }}
-					</p>
-					<img *ngIf="detail" (click)="edit.emit(4)" src="assets/icons/icon/edit2.png" alt
-						class="editbutton icon24">
-				</div>
-				<div *ngFor="let extra of courseFormGroup.controls['extras'].value">
+        </div>
+      </div>
+    </div>
+    <div *ngIf="courseFormGroup.controls['course_type'].value!==3" class="cardgroup extras">
+      <div>
+        <div style="justify-content: space-between;">
+          <p class="label">
+            {{'extras' | translate }}
+          </p>
+          <img *ngIf="detail" (click)="edit.emit(4)" src="assets/icons/icon/edit2.png" alt
+               class="editbutton icon24">
+        </div>
+        <div *ngFor="let extra of courseFormGroup.controls['course_extras'].value">
 					<span
-						style="color: var(--color-dark1);font-size: 12px;font-weight: 600;line-height: 18px;word-wrap: break-word">
+            style="color: var(--color-dark1);font-size: 12px;font-weight: 600;line-height: 18px;word-wrap: break-word">
 						{{extra.name.slice(0,20)}}
 					</span>
-					<span
-						style="color: var(--color-dark1);font-size: 12px;font-weight: 300;line-height: 18px;word-wrap: break-word;margin-left: auto;">
+          <span
+            style="color: var(--color-dark1);font-size: 12px;font-weight: 300;line-height: 18px;word-wrap: break-word;margin-left: auto;">
 						{{extra.price|number:'0.2'}}&nbsp;{{courseFormGroup.controls['currency'].value}}/{{"day" |
-						translate}}
+            translate}}
 					</span>
-				</div>
-				<div
-					*ngIf="!courseFormGroup.controls['extras'].value || courseFormGroup.controls['extras'].value.length<1">
+        </div>
+        <div
+          *ngIf="!courseFormGroup.controls['course_extras'].value || courseFormGroup.controls['course_extras'].value.length<1">
 					<span
-						style="color: var(--color-dark1);font-size: 12px;font-weight: 600;line-height: 18px;word-wrap: break-word">
+            style="color: var(--color-dark1);font-size: 12px;font-weight: 600;line-height: 18px;word-wrap: break-word">
 						{{"no_extra_assigned" | translate}}
 					</span>
-				</div>
-				<!-- <ng-container *ngIf="detail && courseFormGroup.controls['extras'].value.length===0">
-					<div>
-						<button style="margin-top: 0px !important;"
-							mat-button
-							type="button"
-							class="client-button">
-							<mat-icon>add</mat-icon>
-							{{'add_extra' | translate }}
-						</button>
-					</div>
-				</ng-container> -->
-			</div>
-		</div>
-	</ng-container>
+        </div>
+        <!-- <ng-container *ngIf="detail && courseFormGroup.controls['extras'].value.length===0">
+          <div>
+            <button style="margin-top: 0px !important;"
+              mat-button
+              type="button"
+              class="client-button">
+              <mat-icon>add</mat-icon>
+              {{'add_extra' | translate }}
+            </button>
+          </div>
+        </ng-container> -->
+      </div>
+    </div>
+  </ng-container>
 </div>

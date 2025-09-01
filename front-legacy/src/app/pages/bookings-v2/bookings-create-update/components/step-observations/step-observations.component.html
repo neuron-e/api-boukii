@@ -21,7 +21,7 @@
     <app-form-button (click)="handlePrevStep()" form="back" name="back" icon="mat:arrow_back">
     </app-form-button>
 
-    <app-form-button form="stroked" name="bookings_page.buttons.save&CreateBooking">
+    <app-form-button form="stroked" name="bookings_page.buttons.save&CreateBooking" (click)="completeAndReset()">
     </app-form-button>
 
     <app-form-button (click)="completeStep()" form="flat" name="confirm" [disabled]="!isFormValid()">

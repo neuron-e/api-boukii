@@ -42,9 +42,16 @@
           <mat-form-field appearance="outline">
             <mat-label>{{ "monitor" | translate }}</mat-label>
             <mat-select formControlName="monitor">
-              <mat-option *ngFor="let monitor of possibleMonitors[i]" [value]="monitor">
-                {{ monitor.first_name }} {{ monitor.last_name }}
-              </mat-option>
+              <ng-container *ngIf="possibleMonitors[i]?.length; else noMonitors">
+                <mat-option *ngFor="let monitor of possibleMonitors[i]" [value]="monitor">
+                  {{ monitor.first_name }} {{ monitor.last_name }}
+                </mat-option>
+              </ng-container>
+              <ng-template #noMonitors>
+                <mat-option [value]="null" disabled>
+                  {{ 'monitor_no_available' | translate }}
+                </mat-option>
+              </ng-template>
             </mat-select>
             <mat-icon matPrefix fontSet="material-icons-outlined">school</mat-icon>
           </mat-form-field>

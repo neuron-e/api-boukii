@@ -2,59 +2,28 @@
 	<vex-breadcrumbs [crumbs]="[
 {icon:'cursos'},
 {text:'courses.title', title: true, link: '/courses'},
-{text: TranslateService.instant('courses.title')+' #'+('00000'+id).slice(-5), subtitle: true}
+{text: TranslateService.instant('courses.title')+' #'+id, subtitle: true}
 ]" class="flex">
 	</vex-breadcrumbs>
+  <button *ngIf="incData" (click)="dialog.closeAll()" class="close-button" aria-label="Close">
+    <span class="material-icons">close</span>
+  </button>
 </vex-secondary-toolbar>
 <div class="flex flex-col sm:flex-row gap-4" style="width: 100%; float: left;">
 	<div class="card flex-auto">
-		<mat-tab-group >
+		<mat-tab-group>
 			<mat-tab label="{{'course' | translate}}">
 				<mat-spinner *ngIf="loading" style="margin: 0 auto"></mat-spinner>
 				<mat-card *ngIf="!loading">
 					<mat-card-content style="display: flex;padding: 0;">
 						<div [style.width]="count(courses.courseFormGroup.controls['levelGrop'].value,'active')?'':'100%'"
 							class="contents" style="border: 1px solid #dee6ea;">
-							<div [formGroup]="courses.courseFormGroup" style="border-bottom: 1px solid #dee6ea;">
-								<div style="width: calc(50% - 10px);">
-									<mat-slide-toggle (click)="updateCourses()" formControlName="online">
-										<span
-											style="font-size: 14px;font-weight: 600;line-height: 18px;word-wrap: break-word">
-											{{"visible_reserve_page" | translate}}
-										</span>
-										<br>
-										<span
-											style="font-size: 12px;font-weight: 400;line-height: 16px;word-wrap: break-word">
-											{{"course_visible_online_now" |translate}}
-										</span>
-									</mat-slide-toggle>
-								</div>
-								<div style="width: calc(50% - 10px)">
-									<mat-slide-toggle (click)="updateCourses()" formControlName="active">
-										<span
-											style="font-size: 14px;font-weight: 600;line-height: 18px;word-wrap: break-word">
-											{{'active' | translate}}
-										</span>
-										<br>
-										<span
-											style="font-size: 12px;font-weight: 400;line-height: 16px;word-wrap: break-word">
-											{{"course_active_reservable" | translate}}
-										</span>
-									</mat-slide-toggle>
-								</div>
-								<div>
-									<button (click)="sendEmailModal=true"
-										style="margin-top: 0px !important;height: 38px; width: 160px;margin-left: auto;"
-										mat-stroked-button type="button">
-										<mat-icon>mail</mat-icon>
-										{{'send_mail' | translate }}
-									</button>
-								</div>
-							</div>
+							<vex-course-detail-opcion [Form]="courses.courseFormGroup"
+								(update)="updateCourses()"></vex-course-detail-opcion>
 							<div style="padding: 0;border: none;">
 								<vex-course-detail-card [courseFormGroup]="courses.courseFormGroup" [detail]="true"
-									[noneExtras]="!count(courses.courseFormGroup.controls['levelGrop'].value,'active')"
-									(edit)="goTo('courses-v2/update/'+id,{step:$event})" style="width: 100%">
+									[noneExtras]="!courses.courseFormGroup.controls['course_extras'].value.length"
+									(edit)="goTo('courses/update/'+id,{step:$event})" style="width: 100%">
 								</vex-course-detail-card>
 							</div>
 						</div>
@@ -66,7 +35,7 @@
 										<p
 											style="color: var(--color-dark1);font-size: 12px;font-weight: 600;line-height: 16px;word-wrap: break-word">
 											{{'groups' | translate }}
-											<img (click)="goTo('courses-v2/update/'+id,{step:3})"
+											<img (click)="goTo('courses/update/'+id,{step:3})"
 												src="assets/icons/icon/edit2.png" alt
 												style="filter: var(--is-dark-theme,invert(1));"
 												class="editbutton icon24">
@@ -76,31 +45,75 @@
 										style="width: 100%;"></vex-course-detail-nivel>
 								</div>
 							</div>
-							<div *ngIf="!count(courses.courseFormGroup.controls['levelGrop'].value,'active')"
+							<!--<div *ngIf="!count(courses.courseFormGroup.controls['levelGrop'].value,'active')"
 								style="padding: 0;border: none;">
-								<vex-course-detail-card [courseFormGroup]="courses.courseFormGroup" [detail]="true"
-									[onlyExtras]="true" (edit)="goTo('courses-v2/update/'+id,{step:$event})"
+&lt;!&ndash;								<vex-course-detail-card [courseFormGroup]="courses.courseFormGroup" [detail]="true"
+									[onlyExtras]="true" (edit)="goTo('courses/update/'+id,{step:$event})"
 									style="width: 100%">
-								</vex-course-detail-card>
-							</div>
+								</vex-course-detail-card>&ndash;&gt;
+							</div>-->
 						</div>
 					</mat-card-content>
 				</mat-card>
 			</mat-tab>
-			<mat-tab label="{{'bookings' | translate}}">
-				<vex-page-layout>
-					<vex-page-layout-content class="fullwidth">
-						<vex-aio-table [columns]="columns" [entity]="'/bookings'" [title]="'bookings'"
-							[route]="'bookings'" [filterField]="id" [filterColumn]="'course_id'" [with]="['bookingUsers.course.sport', 'bookingUsers.monitor',
-								  'bookingUsers.client.clientSports.degree',
-								  'bookingUsers.courseSubGroup.degree',
-								  'clientMain.clientSports.degree', 'user',
-								  'vouchersLogs.voucher', 'bookingUsers.bookingUserExtras.courseExtra']">
-						</vex-aio-table>
-					</vex-page-layout-content>
-				</vex-page-layout>
+			<mat-tab label="{{'bookings' | translate}}" style="overflow: auto;">
+				<vex-bookings-v2 [filterCourseId]="id"></vex-bookings-v2>
 			</mat-tab>
-			<mat-tab label="{{'menu.stats' | translate}}"></mat-tab>
+			<mat-tab label="{{'menu.stats' | translate}}">
+        <div class="card" style="margin: 2% 0 2% 0;">
+          <div class="px-4 border-b d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center">
+              <h2 class="title m-0">{{'sales' | translate }}</h2>
+            </div>
+            <span class="total-price">{{ totalPriceSell }} {{detailData?.currency}}</span>
+            <div class="sales-date-picker-container datepickers-container d-flex align-items-center">
+              <label for="dateFromSales">{{'from' | translate}}</label>
+              <mat-form-field appearance="outline" class="custom-date-field">
+                <input matInput id="dateFromSales"
+                       [matDatepicker]="pickerFromSales"
+                       (dateChange)="filterData()"
+                       [(ngModel)]="selectedFrom"
+                       [value]="selectedFrom"
+                       readonly
+                       (click)="pickerFromSales.open()">
+                <mat-datepicker-toggle matSuffix [for]="pickerFromSales"></mat-datepicker-toggle>
+                <mat-datepicker #pickerFromSales [startAt]="selectedFrom"></mat-datepicker>
+              </mat-form-field>
+
+              <label for="dateToSales">{{'to' | translate}}</label>
+              <mat-form-field appearance="outline" class="custom-date-field">
+                <input matInput id="dateToSales"
+                       [matDatepicker]="pickerToSales"
+                       (dateChange)="filterData()"
+                       [min]="selectedFrom"
+                       [(ngModel)]="selectedTo"
+                       [value]="selectedTo"
+                       readonly
+                       (click)="pickerToSales.open()">
+                <mat-datepicker-toggle matSuffix [for]="pickerToSales"></mat-datepicker-toggle>
+                <mat-datepicker #pickerToSales [startAt]="selectedTo"></mat-datepicker>
+              </mat-form-field>
+            </div>
+          </div>
+        </div>
+        <vex-aio-table *ngIf="detailData && detailData?.course_type == 1" [columns]="columnsSalesCollective"
+                       [entity]="'/admin/courses/'+this.detailData?.id + '/sells'" [search]="filter"
+                       [title]="'menu.courses'" [showDetail]="false" [withFilters]="false"
+                       [route]="'courses'"
+                       [canDelete]="false" [canDeactivate]="false"
+                       [filterColumn]="'school_id'" [filterField]="user.schools[0].id"
+                       [sectionIcon]="icon"
+                       (dataLoaded)="calculateTotal($event)"
+        ></vex-aio-table>
+        <vex-aio-table *ngIf="detailData && detailData?.course_type != 1" [columns]="columnsSalesPrivate"
+                       [entity]="'/admin/courses/'+this.detailData?.id + '/sells'" [search]="filter"
+                       [title]="'menu.courses'" [showDetail]="false" [withFilters]="false"
+                       [route]="'courses'"
+                       [canDelete]="false" [canDeactivate]="false"
+                       [filterColumn]="'school_id'" [filterField]="user.schools[0].id"
+                       [sectionIcon]="icon"
+                       (dataLoaded)="calculateTotal($event)"></vex-aio-table>
+      </mat-tab>
 		</mat-tab-group>
 	</div>
 </div>

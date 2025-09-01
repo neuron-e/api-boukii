@@ -1,31 +1,42 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
-import { addDays, getDay, startOfWeek, endOfWeek, addWeeks, subWeeks, format, isSameMonth, startOfMonth, endOfMonth, addMonths, subMonths, max, min } from 'date-fns';
-import { ApiCrudService } from 'src/service/crud.service';
-import { LEVELS } from 'src/app/static-data/level-data';
-import { MOCK_COUNTRIES } from 'src/app/static-data/countries-data';
-import { MatDialog } from '@angular/material/dialog';
-import { ConfirmModalComponent } from '../monitors/monitor-detail/confirm-dialog/confirm-dialog.component';
-import { CalendarEditComponent } from '../monitors/monitor-detail/calendar/calendar-edit/calendar-edit.component';
-import { EventService } from 'src/service/event.service';
+import {Component, OnDestroy, OnInit} from '@angular/core';
+import {
+  addDays,
+  addMonths,
+  addWeeks,
+  endOfMonth,
+  endOfWeek,
+  format,
+  getDay,
+  isSameMonth,
+  max,
+  min,
+  startOfMonth,
+  startOfWeek,
+  subMonths,
+  subWeeks
+} from 'date-fns';
+import {ApiCrudService} from 'src/service/crud.service';
+import {LEVELS} from 'src/app/static-data/level-data';
+import {MOCK_COUNTRIES} from 'src/app/static-data/countries-data';
+import {MatDialog} from '@angular/material/dialog';
+import {ConfirmModalComponent} from '../monitors/monitor-detail/confirm-dialog/confirm-dialog.component';
+import {CalendarEditComponent} from '../monitors/monitor-detail/calendar/calendar-edit/calendar-edit.component';
 import * as moment from 'moment';
 import 'moment/locale/fr';
-import { CourseDetailComponent } from '../courses/course-detail/course-detail.component';
-import { CourseDetailModalComponent } from '../courses/course-detail-modal/course-detail-modal.component';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { BookingsCreateUpdateModalComponent } from '../bookings/bookings-create-update-modal/bookings-create-update-modal.component';
-import { BookingDetailModalComponent } from '../bookings/booking-detail-modal/booking-detail-modal.component';
-import { CourseUserTransferComponent } from '../courses/course-user-transfer/course-user-transfer.component';
-import { CourseUserTransferTimelineComponent } from './course-user-transfer-timeline/course-user-transfer-timeline.component';
-import { TranslateService } from '@ngx-translate/core';
-import { ConfirmUnmatchMonitorComponent } from './confirm-unmatch-monitor/confirm-unmatch-monitor.component';
-import { Observable, Subject, firstValueFrom } from 'rxjs';
-import { map, startWith, takeUntil } from 'rxjs/operators';
-import { FormControl } from '@angular/forms';
-import { DateAdapter } from '@angular/material/core';
-import { Router } from '@angular/router';
-import { BookingDetailComponent } from '../bookings/booking-detail/booking-detail.component';
-import { UpdateCourseModalComponent } from '../bookings/booking-detail/update-course/update-course.component';
-import { EditDateComponent } from './edit-date/edit-date.component';
+import {CourseDetailComponent} from '../courses-v2/course-detail/course-detail.component';
+import {MatSnackBar} from '@angular/material/snack-bar';
+import {
+  CourseUserTransferTimelineComponent
+} from './course-user-transfer-timeline/course-user-transfer-timeline.component';
+import {TranslateService} from '@ngx-translate/core';
+import {ConfirmUnmatchMonitorComponent} from './confirm-unmatch-monitor/confirm-unmatch-monitor.component';
+import {firstValueFrom, Observable, Subject} from 'rxjs';
+import {map, startWith, takeUntil} from 'rxjs/operators';
+import {FormControl} from '@angular/forms';
+import {DateAdapter} from '@angular/material/core';
+import {Router} from '@angular/router';
+import {EditDateComponent} from './edit-date/edit-date.component';
+import {BookingDetailV2Component} from '../bookings-v2/booking-detail/booking-detail.component';
 
 moment.locale('fr');
 
@@ -1746,7 +1757,7 @@ export class TimelineComponent implements OnInit, OnDestroy {
   }
 
   goToEditCourse() {
-    const dialogRef = this.dialog.open(CourseDetailModalComponent, {
+    const dialogRef = this.dialog.open(CourseDetailComponent, {
       width: '100%',
       height: '1200px',
       maxWidth: '90vw',
@@ -2323,13 +2334,14 @@ export class TimelineComponent implements OnInit, OnDestroy {
   detailBooking(bookingId = null) {
     let id = bookingId !== null ? bookingId : this.taskDetail.booking_id;
     //this.router.navigate(["bookings/update/" + id]);
-    const dialogRef = this.dialog.open(BookingDetailComponent, {
+    const dialogRef = this.dialog.open(BookingDetailV2Component, {
       width: '100%',
       height: '1200px',
       maxWidth: '90vw',
       panelClass: 'full-screen-dialog',
       data: {
         id: bookingId !== null ? bookingId : this.taskDetail.booking_id,
+        isModal:true
       }
     });
 

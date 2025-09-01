@@ -10,6 +10,7 @@ export class CourseDetailCardNivelComponent {
 
   @Input() courseFormGroup!: UntypedFormGroup
   @Input() checkbox: boolean = false
+  @Input() selectedSubgroup: any;
   @Output() changeMonitor = new EventEmitter<any>()
 
   today: Date = new Date()
@@ -21,5 +22,37 @@ export class CourseDetailCardNivelComponent {
   numUsersArray(value: number): number[] {
     return Array.from({ length: value }, (_, i) => i);
   }
+  findBookingUsers(bookingUsers: any[], courseDates: any[], degreeId: number): number {
+    if (!bookingUsers || !courseDates) return 0;
+    if(!this.courseFormGroup.value.is_flexible) {
+      return bookingUsers.filter(user => {
+       return courseDates[0].course_groups.some(group =>
+          group.degree_id === degreeId && group.id === user.course_group_id)}).length;
+    } else {
+      return bookingUsers.filter(user => {
+        return courseDates.some(date =>
+          date.course_groups.some(group => group.degree_id === degreeId && group.id === user.course_group_id)
+        );
+      }).length;
+    }
+  }
+
+  countGroups(courseDates: any[], degreeId: number): number {
+    return Math.round(courseDates
+      .flatMap(date => date.course_groups || []) // Obtener todos los grupos
+      .filter(group => group.degree_id === degreeId).length / courseDates.length); // Filtrar por degree_id
+  }
+
+  countSubgroups(courseDates: any[], degreeId: number): number {
+    return Math.round(
+      courseDates
+        .flatMap(date => date.course_groups || []) // Obtener todos los grupos
+        .filter(group => group.degree_id === degreeId) // Filtrar los grupos por degree_id
+        .flatMap(group => group.course_subgroups || []) // Extraer todos los subgrupos dentro de los grupos filtrados
+        .filter(subgroup => subgroup.degree_id === degreeId).length / courseDates.length // Filtrar por degree_id y dividir por la cantidad de courseDates
+    );
+  }
+
+
 
 }

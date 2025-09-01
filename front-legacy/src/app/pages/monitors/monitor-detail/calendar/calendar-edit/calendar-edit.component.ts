@@ -21,8 +21,8 @@ import * as moment from 'moment';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { DateAdapter } from '@angular/material/core';
 import {
-  BookingsCreateUpdateComponent
-} from '../../../../bookings/bookings-create-update/bookings-create-update.component';
+  BookingsCreateUpdateV2Component
+} from '../../../../bookings-v2/bookings-create-update/bookings-create-update.component';
 
 @Component({
   selector: 'vex-calendar-edit',
@@ -67,6 +67,7 @@ export class CalendarEditComponent implements OnInit {
     range_dates: false,
     description: null,
     color: null,
+    price:null,
     user_nwd_subtype_id: null,
     default: false
   };
@@ -225,6 +226,18 @@ export class CalendarEditComponent implements OnInit {
       })
   }
 
+  onBlockageChange(selected: any) {
+    if (selected) {
+      this.defaults.color = selected.color;
+      this.defaults.description = selected.name;
+
+      // Si tiene un precio, lo asignamos
+      if (selected.price) {
+        this.defaults.price = selected.price;
+      }
+    }
+  }
+
   onTabChanged(event: any) {
 
     this.form.reset();
@@ -257,6 +270,7 @@ export class CalendarEditComponent implements OnInit {
           full_day: false,
           range_dates: false,
           description: null,
+          price: null,
           color: null,
           default: false,
           user_nwd_subtype_id: this.type,
@@ -286,7 +300,7 @@ export class CalendarEditComponent implements OnInit {
   }
 
   openCreateBooking() {
-    const dialogRef = this.dialog.open(BookingsCreateUpdateComponent, {
+    const dialogRef = this.dialog.open(BookingsCreateUpdateV2Component, {
       width: '50%',
       height: '1200px',
       maxWidth: '90vw',

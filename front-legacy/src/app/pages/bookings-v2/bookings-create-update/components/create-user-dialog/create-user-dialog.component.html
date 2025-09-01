@@ -19,10 +19,7 @@
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>{{ "birth_date" | translate }}</mat-label>
-          <input matInput required readonly (click)="picker.open()" [matDatepicker]="picker" [max]="today"
-            formControlName="birthDate" />
-          <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
-          <mat-datepicker #picker></mat-datepicker>
+          <input matInput type="date" formControlName="birthDate" required>
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>{{ "langs" | translate }} </mat-label>

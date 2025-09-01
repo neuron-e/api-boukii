@@ -134,7 +134,7 @@ export class FormDetailsPrivateComponent implements OnInit {
   }
 
   addCourseDate(initialData: any = null) {
-    let disabled =  initialData.booking_users[0].status == 2;
+    let disabled = initialData?.disabled || (initialData?.booking_users?.[0]?.status == 2);
     const isDatePast = initialData.date && moment(initialData.date).isBefore(moment(), 'day');
     const utilizerArray = this.fb.array(this.utilizers.map(utilizer =>
       this.createUtilizer(utilizer,
@@ -163,18 +163,19 @@ export class FormDetailsPrivateComponent implements OnInit {
       }
     }
 
+
     const courseDateGroup = this.fb.group({
       selected: [initialData ? disabled : null],
       booking_users: [initialData ? initialData.booking_users : null],
-      date: [{value: initialData ? initialData.date : formattedDate, disabled: disabled || isDatePast }, Validators.required],
-      startHour: [{value: initialData ? initialData.startHour : null, disabled: disabled || isDatePast}, Validators.required],
+      date: [{value: initialData ? initialData.date : formattedDate, disabled: disabled  }, Validators.required],
+      startHour: [{value: initialData ? initialData.startHour : null, disabled: disabled }, Validators.required],
       endHour: [initialData ? initialData.endHour : null, Validators.required],
       duration: [{value: initialData ? initialData.duration :
-        (!this.course.is_flexible ? this.course.duration : null), disabled: disabled || isDatePast}, Validators.required],
+        (!this.course.is_flexible ? this.course.duration : null), disabled: disabled }, Validators.required],
       price: [initialData ? initialData.price : null],
       currency: this.course.currency,
-      monitor: [{value: initialData ? initialData.monitor : null, disabled: disabled || isDatePast}],
-      changeMonitorOption: [{value: initialData ? initialData.changeMonitorOption : null, disabled: disabled || isDatePast}],
+      monitor: [{value: initialData ? initialData.monitor : null, disabled: disabled }],
+      changeMonitorOption: [{value: initialData ? initialData.changeMonitorOption : null, disabled: disabled }],
       utilizers: utilizerArray,
       originalData: [initialData]
     });
@@ -409,7 +410,7 @@ export class FormDetailsPrivateComponent implements OnInit {
 
     } else {
       // Si el curso no es flexible
-      const dateTotal = parseFloat(this.course.price) * this.utilizers.length; // Precio por número de utilizadores
+      const dateTotal = parseFloat(this.course.price); // Precio por número de utilizadores
       total += dateTotal;
 
     }
@@ -430,10 +431,11 @@ export class FormDetailsPrivateComponent implements OnInit {
       const bookingUsersIds = this.courseDates.at(index).value.booking_users.map(i => i.id);
       const bookingData = this.bookingService.getBookingData();
       const price = this.calculatePrice(this.courseDates.at(index).value);
-      if(bookingData.paid) {
+
+      if (bookingData.paid) {
         const dialogRef = this.dialog.open(CancelPartialBookingModalComponent, {
-          width: "1000px", // Asegurarse de que no haya un ancho máximo
-          panelClass: "full-screen-dialog", // Si necesitas estilos adicionales,
+          width: "1000px",
+          panelClass: "full-screen-dialog",
           data: {
             itemPrice: price,
             booking: bookingData,
@@ -446,7 +448,9 @@ export class FormDetailsPrivateComponent implements OnInit {
               data, bookingData, true, this.user, null, bookingUsersIds, price)
               .subscribe({
                 next: () => {
-                  this.courseDates.removeAt(index);
+                  const oldDateData = this.courseDates.at(index).value;
+                  this.courseDates.removeAt(index); // Eliminamos la fecha
+                  this.addCourseDate({ ...oldDateData, disabled: true }); // La volvemos a agregar deshabilitada
                   this.snackbar.open(
                     this.translateService.instant('snackbar.booking_detail.update'),
                     'OK',
@@ -469,6 +473,8 @@ export class FormDetailsPrivateComponent implements OnInit {
       }
     }
   }
+
+
 
   isRow1Complete(index: number): boolean {
     const dateGroup = this.courseDates.at(index) as FormGroup;
@@ -556,7 +562,6 @@ export class FormDetailsPrivateComponent implements OnInit {
       const course_dates = this.stepForm.get('course_dates').getRawValue();
 
       let totalPrice = 0;
-
       // Calcular el precio para cada fecha y acumular el total
       course_dates.forEach((date, index) => {
         if(!date.selected) {

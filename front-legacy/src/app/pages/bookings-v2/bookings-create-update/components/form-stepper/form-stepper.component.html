@@ -1,4 +1,4 @@
-<div class="stepper">
+<div class="stepper" *ngIf="stepperForm">
   <!-- Paso 1 -->
   <div *ngIf="currentStep === 0">
     <booking-step-one [initialData]="stepperForm.get('step1')?.value" [allLevels]="allLevels"
@@ -29,7 +29,7 @@
   </div>
 
   <ng-container *ngIf="currentStep === 4">
-    <booking-step-details [initialData]="stepperForm.get('step5')?.value.course_dates"
+    <booking-step-details [initialData]="stepperForm.get('step5')?.value"
       [course]="stepperForm.get('step4')?.value?.course" [date]="stepperForm.get('step4')?.value?.date"
       [sportLevel]="stepperForm.get('step3')?.value?.sportLevel"
       [utilizers]="stepperForm.get('step2')?.value?.utilizers" [activitiesBooked]="activitiesBooked"
@@ -39,7 +39,9 @@
 
   <ng-container *ngIf="currentStep === 5">
     <booking-step-observations [initialData]="stepperForm.get('step6')?.value"
-      (stepCompleted)="handleStepCompletion(6, $event)" (prevStep)="previousStep()">
+      (stepCompleted)="handleStepCompletion(6, $event)"
+      (saveAndCreateNew)="handleSaveAndCreateNew($event)"
+                               (prevStep)="previousStep()">
     </booking-step-observations>
   </ng-container>
 </div>

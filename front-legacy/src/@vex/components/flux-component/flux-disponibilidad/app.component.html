@@ -29,10 +29,28 @@
 		<tbody>
 			<tr style="border-bottom: 3px solid #dee6ea;">
 				<td style="background-color: var(--is-light-theme, #ffffff) var(--is-dark-theme, black);">
-					<app-form-select [table]="monitors" [value]="find(courseFormGroup.controls['course_dates'].value[selectDate].course_groups,'degree_id',level.id).course_subgroups[subgroup_index].monitor?
-						(find(courseFormGroup.controls['course_dates'].value[selectDate].course_groups,'degree_id',level.id).course_subgroups[subgroup_index].monitor.first_name + ' ' + find(courseFormGroup.controls['course_dates'].value[selectDate].course_groups,'degree_id',level.id).course_subgroups[subgroup_index].monitor.last_name)
-						:''" (do)="SelectMonitor($event,selectDate) " name="first_name" name2="last_name">
-					</app-form-select>
+          <app-form-select
+            [table]="monitors"
+            [value]="find(courseFormGroup.controls['course_dates'].value[selectDate].course_groups,'degree_id',level.id)?.course_subgroups[subgroup_index]?.monitor
+    ? (find(courseFormGroup.controls['course_dates'].value[selectDate].course_groups,'degree_id',level.id).course_subgroups[subgroup_index].monitor.first_name + ' ' +
+       find(courseFormGroup.controls['course_dates'].value[selectDate].course_groups,'degree_id',level.id).course_subgroups[subgroup_index].monitor.last_name)
+    : ''"
+            (do)="SelectMonitor($event,selectDate)"
+            name="first_name"
+            name2="last_name">
+          </app-form-select>
+          <div class="level" *ngIf="monitors?.length === 0 && !find(courseFormGroup.controls['course_dates'].value[selectDate].course_groups,'degree_id',level.id)?.course_subgroups[subgroup_index]?.monitor"
+               style="width: 100%; height: 100%; padding: 10px; background: #D2EFFF; border-radius: 8px; justify-content: flex-start; align-items: center; gap: 8px; display: inline-flex">
+            <mat-icon style="color: #006fcb;" class="icon24">
+              info
+            </mat-icon>
+            <div >
+          <span
+                style="flex: 1 1 0; font-size: 14px; font-weight: 700; line-height: 18px; word-wrap: break-word;color: red;">
+							{{"snackbar.booking.no_match" | translate}}!
+						</span>
+            </div>
+          </div>
 				</td>
 				<td *ngFor="let item of courseFormGroup.controls['course_dates'].value; index as i"
 					[style.backgroundColor]="selectDate===i?'var(--is-light-theme, #ffffff) var(--is-dark-theme, black)':'var(--is-light-theme, #f8f9fb) var(--is-dark-theme, #8e97a7)'"
@@ -47,7 +65,7 @@
 					<div class="flexicon">
 						<img src="assets/icons/icon/alumno.png" class="icon24">
 						{{"students" | translate}}
-						<img (click)="cambiarModal=true" src="assets/icons/icon/exc.png" class="icon24"
+						<img (click)="openTransferModal()" *ngIf="find(courseFormGroup.controls['course_dates'].value[selectDate].course_groups,'degree_id',level.id)?.booking_users?.length" src="assets/icons/icon/exc.png" class="icon24"
 							style="cursor: pointer; margin-left: auto;margin-right: 10px;">
 					</div>
 				</td>
@@ -71,9 +89,13 @@
 					</td>
 					<td *ngFor="let item of courseFormGroup.controls['course_dates'].value; index as j"
 						[style.backgroundColor]="selectDate===j?'var(--is-light-theme, #ffffff) var(--is-dark-theme, black)':' var(--is-light-theme, #f8f9fb) var(--is-dark-theme, #8e97a7)'"
-						[style.color]="item.attended?'#31C044':modified2[user.id]?'#FFCF25':Date(item.date)<today?'#E70F0F':'#C7D0D3'"
 						(click)="selectDate=j;getAvail(item)">
-						<mat-icon class="icon10">circle</mat-icon>
+            <div style="display: flex; gap: 5px; justify-content: center;" *ngIf="item.booking_users_active?.length">
+              <mat-icon class="icon10" *ngIf="Date(item.date) > today && find(item.booking_users_active,'client_id',user.client_id)?.attended" style="color: #31C044;">circle</mat-icon>
+              <mat-icon class="icon10" *ngIf="find(item.booking_users_active,'client_id',user.client_id).group_changed" style="color: #FFCF25;">circle</mat-icon>
+              <mat-icon class="icon10" *ngIf="Date(item.date) < today && !find(item.booking_users_active,'client_id',user.client_id)?.attended" style="color: #E70F0F;">circle</mat-icon>
+              <mat-icon class="icon10" *ngIf="!find(item.booking_users_active,'client_id',user.client_id).attended && !find(item.booking_users_active,'client_id',user.client_id)?.group_changed && !(Date(item.date) < today)" style="color: #C7D0D3;">circle</mat-icon>
+            </div>
 					</td>
 				</ng-container>
 			</tr>
@@ -103,7 +125,7 @@
 					<img src="assets/icons/icon/alumno.png" class="icon24">
 					{{"students" | translate}}
 				</div>
-				<mat-checkbox *ngFor="let item of booking_users; let i = index" [checked]="selectUser.includes(item)"
+				<mat-checkbox *ngFor="let item of selectedSubgroup?.booking_users; let i = index" [checked]="selectUser.includes(item)"
 					(change)="onCheckboxChange($event, item)" style="display: flex;">
 					<div style="display: flex; gap: 20px;">
 						<div>
@@ -121,7 +143,7 @@
 						</div>
 					</div>
 				</mat-checkbox>
-				<div *ngIf="courseFormGroup.controls['booking_users'].value.length===0" style="text-align-last: start;">
+				<div *ngIf="selectedSubgroup?.booking_users?.length===0" style="text-align-last: start;">
 					<div class="flexicon" style="font-size: 12px;font-weight: 600;">
 						{{"no_user_reserved" | translate}}
 					</div>
@@ -133,7 +155,7 @@
 				<img src="assets/icons/icon/alumno.png" class="icon24">
 				{{'level' | translate}}
 			</div>
-			<vex-course-detail-nivel [checkbox]="true" [courseFormGroup]="courseFormGroup"
+			<vex-course-detail-nivel [checkbox]="true" [courseFormGroup]="courseFormGroup"  [selectedSubgroup]="selectedSubgroup"
 				(changeMonitor)="changeMonitor($event)"></vex-course-detail-nivel>
 		</div>
 	</div>

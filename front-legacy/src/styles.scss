@@ -558,7 +558,7 @@ body {
 }
 
 .dark-mode {
-  --is-light-theme: !important;
+  --is-light-theme: ;
   --is-dark-theme: initial !important;
 }
 
@@ -608,15 +608,15 @@ body.dark-mode {
 }
 
 .icon10 {
-  height: 10px;
-  width: 10px;
+  height: 10px !important;
+  width: 10px !important;
   font-size: 10px;
   min-width: 10px;
   filter: var(--is-dark-theme, invert(1));
 }
 .icon16 {
-  width: 16px;
-  height: 16px;
+  height: 16px !important;
+  width: 16px !important;
   font-size: 16px;
   min-width: 16px;
   filter: var(--is-dark-theme, invert(1));
@@ -655,6 +655,10 @@ body.dark-mode {
 
 .mat-mdc-select-panel-above div.mat-mdc-select-panel {
   background-color: var(--color-grey5);
+}
+angular-editor-toolbar button i {
+  font-family: FontAwesome !important;
+  color: black !important;
 }
 angular-editor {
   .angular-editor-textarea {
@@ -853,4 +857,29 @@ button[color="accent"] {
   font-weight: 600;
   letter-spacing: 0px;
   color: var(--Grey-01, #8b9099);
+}
+/* Configuración de z-index para modales anidados */
+.cdk-overlay-container {
+  z-index: 1000;
+}
+
+/* Clase para el modal primario (detalle de reserva) */
+.customBookingDialog .cdk-overlay-pane {
+  z-index: 1001;
+}
+
+/* Clase para modales secundarios (pago, eliminación, etc.) */
+.secondary-dialog .cdk-overlay-pane {
+  z-index: 1002 !important; /* Aseguramos que esté por encima del modal primario */
+}
+vex-flux-modal {
+  position: relative;
+  z-index: 1500 !important; /* Un valor alto */
+}
+
+/* Y específicamente para los modales con títulos específicos */
+vex-flux-modal[ng-reflect-title="delete_activity"],
+vex-flux-modal[ng-reflect-title="bookings_page.detail.full_cancel"],
+vex-flux-modal[ng-reflect-title="end_booking"] {
+  z-index: 1600 !important; /* Aún más alto */
 }

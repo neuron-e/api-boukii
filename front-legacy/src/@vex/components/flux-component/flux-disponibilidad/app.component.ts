@@ -23,6 +23,7 @@ export class FluxDisponibilidadComponent implements OnInit {
 
   modified: any[] = []
   modified2: any[] = []
+  selectedSubgroup: any;
   today: Date = new Date()
   ISODate = (n: number) => new Date(new Date().getTime() + n * 24 * 60 * 60 * 1000).toLocaleString()
   find = (array: any[], key: string, value: string) => array.find((a: any) => a[key] === value)
@@ -108,6 +109,11 @@ export class FluxDisponibilidadComponent implements OnInit {
     if (event.checked) this.selectUser.push(item);
     else this.selectUser = this.selectUser.filter((selectedItem: any) => selectedItem !== item);
     this.modified2[item.id] = true
+  }
+
+  openTransferModal(){
+    this.selectedSubgroup = this.group.course_subgroups[this.subgroup_index];
+    this.cambiarModal = true;
   }
 
   Date = (v: string): Date => new Date(v)

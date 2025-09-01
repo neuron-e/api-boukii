@@ -16,6 +16,7 @@ export class StepThreeComponent implements OnInit {
   @Output() stepCompleted = new EventEmitter<FormGroup>();
   @Output() prevStep = new EventEmitter();
 
+  selectedLevelColor: string = ''; // Variable para almacenar el color del nivel seleccionado
   stepForm: FormGroup;
   sportData: any[] = [];
   filteredLevels: Observable<any[]>;
@@ -51,6 +52,14 @@ export class StepThreeComponent implements OnInit {
       if (sport) {
         this.stepForm.get('sportLevel').reset(); // Resetear el nivel al cambiar el deporte
         this.loadLevels(sport);
+      }
+    });
+
+    this.stepForm.get('sportLevel').valueChanges.subscribe((level) => {
+      if (level && level.color) {
+        this.selectedLevelColor = level.color; // Guardar color del nivel seleccionado
+      } else {
+        this.selectedLevelColor = ''; // Resetear si no hay nivel seleccionado
       }
     });
 
@@ -105,7 +114,14 @@ export class StepThreeComponent implements OnInit {
           && level.school_id == this.getUserSchoolId()
           && level.active
       );
-
+      if (!this.initialData?.sportLevel) {
+        const lowestDegree = this.getLowestDegreeForSport(selectedSport.id);
+        if (lowestDegree) {
+          this.stepForm.patchValue({
+            sportLevel: lowestDegree,
+          });
+        }
+      }
       // Preseleccionar el nivel si existe en `initialData`
       if (this.initialData?.sportLevel) {
         this.stepForm.patchValue({
@@ -115,6 +131,21 @@ export class StepThreeComponent implements OnInit {
     } else {
       this.levels = []; // Si no hay grados, vaciar el array
     }
+  }
+
+  getLowestDegreeForSport(sportId: number) {
+    if (!this.utilizers || this.utilizers.length === 0) return null;
+
+    const schoolId = this.utilsService.getSchoolData()?.id; // Obtener el ID de la escuela actual
+    if (!schoolId) return null; // Asegurar que hay un schoolId válido
+
+    const degrees = this.utilizers
+      .flatMap(utilizer => utilizer.client_sports) // Obtener todos los client_sports
+      .filter(cs => cs.sport_id === sportId && cs.school_id === schoolId) // Filtrar por sport y school
+      .map(cs => cs.degree) // Obtener los degrees
+      .filter(degree => degree); // Eliminar posibles `null`
+
+    return degrees.length ? degrees.reduce((min, degree) => degree.id < min.id ? degree : min) : null;
   }
 
   // Filtro de niveles para el autocompletado
@@ -143,7 +174,7 @@ export class StepThreeComponent implements OnInit {
   }
 
   displayFnLevel(level: any): string {
-    return level ? `${level.annotation} - ${level.name}` : '';
+    return level ? `${level.league} - ${level.name}` : '';
   }
 
   isFormValid() {

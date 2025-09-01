@@ -133,6 +133,9 @@
     gap: 16px;
     flex-wrap: wrap;
     justify-content: center;
+    @media (max-width: 700px) {
+      margin-bottom: 100px;
+    }
     booking-description-card {
       width: 400px;
       max-width: 100%;
@@ -164,8 +167,64 @@
   gap: 10px;
   position: fixed;
   bottom: 0;
-  background-color: var(--is-light-theme, #ffffff) var(--is-dark-theme, #222222);
+  background-color: white;
   width: 100%;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.12);
   flex-wrap: wrap;
+  font-family: var(--font-dm);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+  @media (min-width: 1440px) {
+    display: none;
+  }
 }
+.totalPrice {
+  font-family: var(--font-dm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.15rem;
+  color: var(--color-dark1);
+}
+
+.modal-buttons-container {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.modal-action-button {
+  height: 38px;
+  min-width: 85px;
+  border-radius: 3px;
+  margin-top: 20px;
+}
+
+.secondary-button {
+  margin-right: 10px;
+}
+
+@media (max-width: 600px) {
+  .modal-buttons-container {
+    flex-direction: column;
+  }
+
+  .modal-action-button {
+    width: 100%;
+    margin-top: 10px;
+  }
+
+  .secondary-button {
+    margin-right: 0;
+    order: 2; /* Cambiar orden en móvil */
+  }
+
+  .primary-button {
+    order: 1;
+  }
+}
+

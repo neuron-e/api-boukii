@@ -1855,7 +1855,8 @@ export class CoursesCreateUpdateModalComponent implements OnInit {
       courseDates = this.defaults.course_dates;
     }
 
-    let settings = JSON.parse(this.user.schools[0].settings);
+
+    let settings = typeof this.user.schools[0].settings === 'string' ? JSON.parse(this.user.schools[0].settings) : this.user.schools[0].settings;
     if (this.defaults.course_type === 1 && this.defaults.is_flexible) {
       data = {
         course_type: this.defaults.course_type,

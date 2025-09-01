@@ -1,990 +1,1002 @@
 <vex-page-layout>
 
-	<vex-page-layout-header *ngIf="withHeader" class="pb-16 flex flex-col items-start justify-center"
-		style="height: 0;">
-		<!-- <div
+  <vex-page-layout-header  class="pb-16 flex flex-col items-start justify-center"
+                           style="height: 0;" *ngIf="withHeader">
+    <!-- <div
          class="w-full flex flex-col sm:flex-row justify-between fullwidth">
       <div>
         <img style="float: left;font-size: 30px;margin: 0 10px 0 0;color: #f53d7c;" [src]="sectionIcon">
         <h1 class="title mt-0 mb-1" style="float: left;font-size: 24px;">{{ title | translate | uppercase}}</h1>
       </div>
     </div> -->
-	</vex-page-layout-header>
+  </vex-page-layout-header>
 
-	<vex-page-layout-content class="-mt-6 fullwidth" style="border-radius: 10px;">
+  <vex-page-layout-content class="-mt-6 fullwidth" style="border-radius: 10px;">
 
-		<div class="card overflow-auto">
+    <div class="card overflow-auto">
 
-			<div *ngIf="openFilters" style="float:left; width: 100%; padding:2%;">
+      <ng-container *ngIf="withFilters">
+      <div *ngIf="openFilters" style="float:left; width: 100%; padding:2%;">
 
-				<div *ngIf="entity.includes('bookings')" style="float:left; width: 30%">
+        <div *ngIf="entity.includes('bookings')" style="float:left; width: 30%">
 					<span style="float:left; width: 100%; font-size:16px">
 						{{
-						'table.filter.booking' | translate}}
+              'table.filter.booking' | translate}}
 					</span>
-					<mat-checkbox [checked]="reservationTypeSingle"
-						(change)="reservationTypeSingle = !reservationTypeSingle; filterData(false, 1)" color="primary">
-						{{'table.filter.single'
-						| translate}}
-					</mat-checkbox>
-					<mat-checkbox [checked]="reservationTypeMultiple"
-						(change)="reservationTypeMultiple = !reservationTypeMultiple; filterData(false, 1)"
-						color="primary">
-						{{'table.filter.multiple'
-						| translate}}
-					</mat-checkbox>
-				</div>
+          <mat-checkbox [checked]="reservationTypeSingle"
+                        (change)="reservationTypeSingle = !reservationTypeSingle; filterData(false, 1)" color="primary">
+            {{'table.filter.single'
+            | translate}}
+          </mat-checkbox>
+          <mat-checkbox [checked]="reservationTypeMultiple"
+                        (change)="reservationTypeMultiple = !reservationTypeMultiple; filterData(false, 1)"
+                        color="primary">
+            {{'table.filter.multiple'
+            | translate}}
+          </mat-checkbox>
+        </div>
 
-				<div *ngIf="entity.includes('vouchers')" style="float:left; width: 30%">
+        <div *ngIf="entity.includes('vouchers')" style="float:left; width: 30%">
 					<span style="float:left; width: 100%; font-size:16px">
 						{{
-						'table.filter.booking' | translate}}
+              'table.filter.booking' | translate}}
 					</span>
-					<mat-checkbox [checked]="trashed" (change)="trashed = !trashed; filterData(false, 1)"
-						color="primary">
-						{{'table.filter.trashed'
-						| translate}}
-					</mat-checkbox>
-				</div>
+          <mat-checkbox [checked]="trashed" (change)="trashed = !trashed; filterData(false, 1)"
+                        color="primary">
+            {{'table.filter.trashed'
+            | translate}}
+          </mat-checkbox>
+        </div>
 
-				<div *ngIf="(entity.includes('bookings') || entity.includes('courses'))" style="float:left; width: 30%">
+        <div *ngIf="(entity.includes('bookings') || entity.includes('courses'))" style="float:left; width: 30%">
 					<span style="float:left; width: 100%; font-size:16px">
 						{{
-						'table.filter.course' | translate}}
+              'table.filter.course' | translate}}
 					</span>
-					<mat-checkbox [checked]="courseColective"
-						(change)="courseColective = !courseColective; filterData(false, 1)" color="primary">
+          <mat-checkbox [checked]="courseColective"
+                        (change)="courseColective = !courseColective; filterData(false, 1)" color="primary">
 						<span style="color:#fac710">
 							{{'course_colective' | translate
-							}}
+              }}
 						</span>
-					</mat-checkbox>
-					<mat-checkbox [checked]="coursePrivate"
-						(change)="coursePrivate = !coursePrivate;filterData(false, 1)" color="primary">
+          </mat-checkbox>
+          <mat-checkbox [checked]="coursePrivate"
+                        (change)="coursePrivate = !coursePrivate;filterData(false, 1)" color="primary">
 						<span style="color:#2fca45">
 							{{'course_private' | translate
-							}}
+              }}
 						</span>
-					</mat-checkbox>
-					<mat-checkbox [checked]="courseActivity"
-						(change)="courseActivity = !courseActivity;filterData(false, 1)" color="primary">
+          </mat-checkbox>
+          <mat-checkbox [checked]="courseActivity"
+                        (change)="courseActivity = !courseActivity;filterData(false, 1)" color="primary">
 						<span style="color:#00BEFFFF">
 							{{'activity' | translate
-							}}
+              }}
 						</span>
-					</mat-checkbox>
-				</div>
+          </mat-checkbox>
+        </div>
 
-				<div *ngIf="entity.includes('bookings')" style="float:left; width: 30%">
+        <div *ngIf="entity.includes('bookings')" style="float:left; width: 30%">
 					<span style="float:left; width: 100%; font-size:16px">
 						{{
-						'table.filter.booking' | translate}}
+              'table.filter.booking' | translate}}
 					</span>
-					<mat-checkbox [checked]="bookingPayed" (change)="bookingPayed = !bookingPayed; filterData(false, 1)"
-						color="primary">
-						Paye
-					</mat-checkbox>
-					<mat-checkbox [checked]="bookingNoPayed"
-						(change)="bookingNoPayed = !bookingNoPayed;filterData(false, 1)" color="primary">
-						Non
-						Paye
-					</mat-checkbox>
-				</div>
+          <mat-checkbox [checked]="bookingPayed" (change)="bookingPayed = !bookingPayed; filterData(false, 1)"
+                        color="primary">
+            Paye
+          </mat-checkbox>
+          <mat-checkbox [checked]="bookingNoPayed"
+                        (change)="bookingNoPayed = !bookingNoPayed;filterData(false, 1)" color="primary">
+            Non
+            Paye
+          </mat-checkbox>
+        </div>
 
-				<div *ngIf="entity.includes('courses') || entity.includes('monitors')" style="float:left; width: 70%">
+        <div *ngIf="entity.includes('courses') || entity.includes('monitors')" style="float:left; width: 70%">
 					<span style="float:left; width: 100%; font-size:16px">
 						{{ 'sport' |
-						translate}}
+            translate}}
 					</span>
-					<mat-form-field appearance="outline" style="float:left; width: 100%;" class="flex-auto">
+          <mat-form-field appearance="outline" style="float:left; width: 100%;" class="flex-auto">
 
-						<mat-select [formControl]="sportsControl" (selectionChange)="filterData(false, 1)" multiple>
+            <mat-select [formControl]="sportsControl" (selectionChange)="filterData(false, 1)" multiple>
 
-							<mat-select-trigger>
-								<div
-									*ngIf="sportsControl.value?.length > 0 && sportsControl.value?.length !== sports.length;">
-									{{ getSelectedSportsNames() }}
-								</div>
-								<div
-									*ngIf="sportsControl.value?.length === sports.length || !sportsControl.value?.length;">
-									{{ 'ALL' }}</div>
-							</mat-select-trigger>
+              <mat-select-trigger>
+                <div
+                  *ngIf="sportsControl.value?.length > 0 && sportsControl.value?.length !== sports.length;">
+                  {{ getSelectedSportsNames() }}
+                </div>
+                <div
+                  *ngIf="sportsControl.value?.length === sports.length || !sportsControl.value?.length;">
+                  {{ 'ALL' }}</div>
+              </mat-select-trigger>
 
-							<mat-option *ngFor="let sport of filteredSports | async" [value]="sport"
-								(onSelectionChange)="toggleSelection(sport);">
-								{{sport.name}}
-							</mat-option>
-						</mat-select>
-					</mat-form-field>
-				</div>
+              <mat-option *ngFor="let sport of filteredSports | async" [value]="sport"
+                          (onSelectionChange)="toggleSelection(sport);">
+                {{sport.name}}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
 
-			</div>
+      </div>
+      <div class="bg-app-bar px-6 h-16 border-b sticky left-0 flex items-center"
+           style="background-color: var(--is-light-theme, #eff2f5) var(--is-dark-theme, #2f3844);">
 
-			<div class="bg-app-bar px-6 h-16 border-b sticky left-0 flex items-center"
-				style="background-color: var(--is-light-theme, #eff2f5) var(--is-dark-theme, #2f3844);">
+        <div *ngIf="selection.hasValue()" class="mr-4 pr-4 border-r flex-none">
+          <button (click)="deleteMultiple(selection.selected)" color="primary" mat-icon-button
+                  matTooltip="Delete selected" type="button">
+            <mat-icon svgIcon="mat:delete"></mat-icon>
+          </button>
 
-				<div *ngIf="selection.hasValue()" class="mr-4 pr-4 border-r flex-none">
-					<button (click)="deleteMultiple(selection.selected)" color="primary" mat-icon-button
-						matTooltip="Delete selected" type="button">
-						<mat-icon svgIcon="mat:delete"></mat-icon>
-					</button>
+          <button color="primary" mat-icon-button matTooltip="Another action" type="button">
+            <mat-icon svgIcon="mat:folder"></mat-icon>
+          </button>
+        </div>
 
-					<button color="primary" mat-icon-button matTooltip="Another action" type="button">
-						<mat-icon svgIcon="mat:folder"></mat-icon>
-					</button>
-				</div>
+        <div
+          class="bg-foreground rounded-full border px-4 max-w-[300px] flex-auto flex items-center border border-gray-300">
+          <mat-icon class="icon-sm text-secondary" svgIcon="mat:search"></mat-icon>
+          <input [formControl]="searchCtrl" class="px-4 py-2 border-0 outline-none w-full bg-transparent"
+                 placeholder="{{'search' | translate}}..." type="search">
+        </div>
 
-				<div
-					class="bg-foreground rounded-full border px-4 max-w-[300px] flex-auto flex items-center border border-gray-300">
-					<mat-icon class="icon-sm text-secondary" svgIcon="mat:search"></mat-icon>
-					<input [formControl]="searchCtrl" class="px-4 py-2 border-0 outline-none w-full bg-transparent"
-						placeholder="{{'search' | translate}}..." type="search">
-				</div>
-
-				<!-- Bonuses fake -->
-				<ng-container *ngIf="entity.includes('vouchers')">
-					<div>
-						<button (click)="gift = 0; filterData(true)" class="ml-4 flex-none" mat-button type="button">
+        <!-- Bonuses fake -->
+        <ng-container *ngIf="entity.includes('vouchers')">
+          <div>
+            <button (click)="gift = 0; filterData(true)" class="ml-4 flex-none" mat-button type="button">
 							<span [ngStyle]="{'color': !gift ? '#fe3085' : ''}">
 								{{'vouchers'
-								| translate}}
-							</span>
-						</button>
-					</div>
-					<!--					<div>
-						<button (click)="gift = 1; filterData(false, 1)"
-							class="ml-4 flex-none"
-							mat-button
-							type="button">
-							<span [ngStyle]="{'color': gift ? '#fe3085' : ''}">
-								{{'gift_vouchers'
                 | translate}}
 							</span>
-						</button>
-					</div>
-					<div>
-						<button (click)="router.navigate(['./discount-codes'])"
-							class="ml-4 flex-none"
-							mat-button
-							type="button">
-							<span [ngStyle]="{'color': activeCourse ? '#fe3085' : ''}">
-								{{'discount_code'
+            </button>
+          </div>
+          <!--					<div>
+            <button (click)="gift = 1; filterData(false, 1)"
+              class="ml-4 flex-none"
+              mat-button
+              type="button">
+              <span [ngStyle]="{'color': gift ? '#fe3085' : ''}">
+                {{'gift_vouchers'
                 | translate}}
-							</span>
-						</button>
-					</div>-->
-				</ng-container>
+              </span>
+            </button>
+          </div>
+          <div>
+            <button (click)="router.navigate(['./discount-codes'])"
+              class="ml-4 flex-none"
+              mat-button
+              type="button">
+              <span [ngStyle]="{'color': activeCourse ? '#fe3085' : ''}">
+                {{'discount_code'
+                | translate}}
+              </span>
+            </button>
+          </div>-->
+        </ng-container>
 
-				<ng-container *ngIf="entity.includes('discount')">
-					<div>
-						<button (click)="navigateWithParam('./vouchers', '0')" class="ml-4 flex-none" mat-button
-							type="button">
+        <ng-container *ngIf="entity.includes('discount')">
+          <div>
+            <button (click)="navigateWithParam('./vouchers', '0')" class="ml-4 flex-none" mat-button
+                    type="button">
 							<span [ngStyle]="{'color': activeCourse ? '#fe3085' : ''}">
 								{{'vouchers'
-								| translate}}
+                | translate}}
 							</span>
-						</button>
-					</div>
-					<div>
-						<button (click)="navigateWithParam('./vouchers', '1')" class="ml-4 flex-none" mat-button
-							type="button">
+            </button>
+          </div>
+          <div>
+            <button (click)="navigateWithParam('./vouchers', '1')" class="ml-4 flex-none" mat-button
+                    type="button">
 							<span [ngStyle]="{'color': finishedCourse ? '#fe3085' : ''}">
 								{{'gift_vouchers'
-								| translate}}
+                | translate}}
 							</span>
-						</button>
-					</div>
-					<div>
-						<button class="ml-4 flex-none" mat-button type="button">
+            </button>
+          </div>
+          <div>
+            <button class="ml-4 flex-none" mat-button type="button">
 							<span [ngStyle]="{'color': allCourse ? '#fe3085' : ''}">
 								{{'discount_code'
-								| translate}}
+                | translate}}
 							</span>
-						</button>
-					</div>
-				</ng-container>
+            </button>
+          </div>
+        </ng-container>
 
-				<!-- Bonuses fake close -->
-				<ng-container *ngIf="entity.includes('courses')">
-					<div>
-						<button
-							(click)="activeCourse = true;inActiveCourse=false;finishedCourse = false; allCourse = false;filterData(false, 1)"
-							class="ml-4 flex-none" mat-button type="button">
+        <!-- Bonuses fake close -->
+        <ng-container *ngIf="entity.includes('courses')">
+          <div>
+            <button
+              (click)="activeCourse = true;inActiveCourse=false;finishedCourse = false; allCourse = false;filterData(false, 1)"
+              class="ml-4 flex-none" mat-button type="button">
 							<span [ngStyle]="{'color': activeCourse ? '#fe3085' : ''}">
 								{{'active'
-								| translate}}
+                | translate}}
 							</span>
-						</button>
-					</div>
+            </button>
+          </div>
 
-					<div>
-						<button
-							(click)="finishedCourse = true;activeCourse=false;inActiveCourse = false; allCourse = false;filterData(false, 1)"
-							class="ml-4 flex-none" mat-button type="button">
+          <div>
+            <button
+              (click)="finishedCourse = true;activeCourse=false;inActiveCourse = false; allCourse = false;filterData(false, 1)"
+              class="ml-4 flex-none" mat-button type="button">
 							<span [style.color]="finishedCourse ? '#fe3085' : ''">
 								{{'finished'
-								| translate}}
+                | translate}}
 							</span>
-						</button>
-					</div>
-					<!-- <div *ngIf="entity.includes('courses')">
+            </button>
+          </div>
+          <!-- <div *ngIf="entity.includes('courses')">
 <button class="ml-4 flex-none" mat-button type="button" (click)="inActiveCourse = true;activeCourse=false;finishedCourse = false; allCourse = false;filterData(false, 1)">
   <span [ngStyle]="{'color': inActiveCourse ? '#fe3085' : ''}">{{'inactive' | translate}}</span>
 </button>
 </div> -->
-					<div>
-						<button
-							(click)="finishedCourse = false;activeCourse=false;inActiveCourse = true; allCourse = false;filterData(false, 1)"
-							class="ml-4 flex-none" mat-button type="button">
+          <div>
+            <button
+              (click)="finishedCourse = false;activeCourse=false;inActiveCourse = true; allCourse = false;filterData(false, 1)"
+              class="ml-4 flex-none" mat-button type="button">
 							<span [ngStyle]="{'color': inActiveCourse ? '#fe3085' : ''}">
 								{{'current'
-								| translate}}
+                | translate}}
 							</span>
-						</button>
-					</div>
-					<div>
-						<button
-							(click)="allCourse = true;activeCourse=false;inActiveCourse = false; finishedCourse = false; filterData(true, 1)"
-							class="ml-4 flex-none" mat-button type="button">
+            </button>
+          </div>
+          <div>
+            <button
+              (click)="allCourse = true;activeCourse=false;inActiveCourse = false; finishedCourse = false; filterData(true, 1)"
+              class="ml-4 flex-none" mat-button type="button">
 							<span [ngStyle]="{'color': allCourse ? '#fe3085' : ''}">
 								{{'all'
-								|
-								translate}}
+                |
+                translate}}
 							</span>
-						</button>
-					</div>
-				</ng-container>
-				<div *ngIf="entity.includes('bookings') && !entity.includes('statistics')">
-					<button
-						(click)="activeBooking = true;cancelledBookings=false; finishedBooking=false; allBookings=false;finishedBooking=false;filterData(false, 1)"
-						class="ml-4 flex-none" mat-button type="button">
+            </button>
+          </div>
+        </ng-container>
+        <div *ngIf="entity.includes('bookings') && !entity.includes('statistics')">
+          <button
+            (click)="activeBooking = true;cancelledBookings=false; finishedBooking=false; allBookings=false;finishedBooking=false;filterData(false, 1)"
+            class="ml-4 flex-none" mat-button type="button">
 						<span [ngStyle]="{'color': activeBooking ? '#fe3085' : ''}">
 							{{'active'
-							| translate}}
+              | translate}}
 						</span>
-					</button>
-				</div>
+          </button>
+        </div>
 
-				<div *ngIf="entity.includes('bookings') && !entity.includes('statistics')">
-					<button
-						(click)="finishedBooking = true;cancelledBookings=false; activeBooking=false; allBookings=false; filterData(false, 1)"
-						class="ml-4 flex-none" mat-button type="button">
+        <div *ngIf="entity.includes('bookings') && !entity.includes('statistics')">
+          <button
+            (click)="finishedBooking = true;cancelledBookings=false; activeBooking=false; allBookings=false; filterData(false, 1)"
+            class="ml-4 flex-none" mat-button type="button">
 						<span [ngStyle]="{'color': finishedBooking ? '#fe3085' : ''}">
 							{{'finished'
-							| translate}}
+              | translate}}
 						</span>
-					</button>
-				</div>
-				<div *ngIf="entity.includes('bookings') && !entity.includes('statistics')">
-					<button
-						(click)="finishedBooking = false; cancelledBookings=true; activeBooking=false; allBookings=false; filterData(false, 1)"
-						class="ml-4 flex-none" mat-button type="button">
+          </button>
+        </div>
+        <div *ngIf="entity.includes('bookings') && !entity.includes('statistics')">
+          <button
+            (click)="finishedBooking = false; cancelledBookings=true; activeBooking=false; allBookings=false; filterData(false, 1)"
+            class="ml-4 flex-none" mat-button type="button">
 						<span
-							[ngStyle]="{'color': !allBookings && !finishedBooking && !activeBooking && cancelledBookings ? '#fe3085' : ''}">
+              [ngStyle]="{'color': !allBookings && !finishedBooking && !activeBooking && cancelledBookings ? '#fe3085' : ''}">
 							{{'cancelled'
-							| translate}}
+              | translate}}
 						</span>
-					</button>
-				</div>
-				<div *ngIf="entity.includes('bookings') && !entity.includes('statistics')">
-					<button
-						(click)="allBookings = true; activeBooking=false; finishedBooking=false; filterData(false, 1)"
-						class="ml-4 flex-none" mat-button type="button">
+          </button>
+        </div>
+        <div *ngIf="entity.includes('bookings') && !entity.includes('statistics')">
+          <button
+            (click)="allBookings = true; activeBooking=false; finishedBooking=false; filterData(false, 1)"
+            class="ml-4 flex-none" mat-button type="button">
 						<span [ngStyle]="{'color': allBookings && !finishedBooking ? '#fe3085' : ''}">
 							{{'all'
-							| translate}}
+              | translate}}
 						</span>
-					</button>
-				</div>
+          </button>
+        </div>
 
-				<div *ngIf="entity.includes('monitor') && !entity.includes('statistics')">
-					<button
-						(click)="activeMonitor = true; inactiveMonitor=false; allMonitors=false; filterData(false, 1)"
-						class="ml-4 flex-none" mat-button type="button">
+        <div *ngIf="entity.includes('monitor') && !entity.includes('statistics')">
+          <button
+            (click)="activeMonitor = true; inactiveMonitor=false; allMonitors=false; filterData(false, 1)"
+            class="ml-4 flex-none" mat-button type="button">
 						<span [ngStyle]="{'color': activeMonitor ? '#fe3085' : ''}">
 							{{'active'
-							| translate}}
+              | translate}}
 						</span>
-					</button>
-				</div>
-				<div *ngIf="entity.includes('monitor') && !entity.includes('statistics')">
-					<button
-						(click)="inactiveMonitor = true; activeMonitor=false; allMonitors=false; filterData(false, 1)"
-						class="ml-4 flex-none" mat-button type="button">
+          </button>
+        </div>
+        <div *ngIf="entity.includes('monitor') && !entity.includes('statistics')">
+          <button
+            (click)="inactiveMonitor = true; activeMonitor=false; allMonitors=false; filterData(false, 1)"
+            class="ml-4 flex-none" mat-button type="button">
 						<span [ngStyle]="{'color': inactiveMonitor ? '#fe3085' : ''}">
 							{{'inactive'
-							| translate}}
+              | translate}}
 						</span>
-					</button>
-				</div>
-				<div *ngIf="entity.includes('monitor') && !entity.includes('statistics')">
-					<button
-						(click)="allMonitors = true; activeMonitor=false; inactiveMonitor=false; filterData(false, 1)"
-						class="ml-4 flex-none" mat-button type="button">
+          </button>
+        </div>
+        <div *ngIf="entity.includes('monitor') && !entity.includes('statistics')">
+          <button
+            (click)="allMonitors = true; activeMonitor=false; inactiveMonitor=false; filterData(false, 1)"
+            class="ml-4 flex-none" mat-button type="button">
 						<span [ngStyle]="{'color': allMonitors ? '#fe3085' : ''}">
 							{{'all'
-							|
-							translate}}
+              |
+              translate}}
 						</span>
-					</button>
-				</div>
+          </button>
+        </div>
 
-				<span class="flex-1"></span>
+        <span class="flex-1"></span>
 
-				<button *ngIf="entity.includes('statistics')" [matTooltip]="translateService.instant('filter_data')"
-					(click)="exportTableToExcel()" class="ml-4 flex-none" mat-icon-button type="button">
-					<mat-icon svgIcon="mat:file_download"></mat-icon>
-				</button>
+        <button *ngIf="entity.includes('statistics')" [matTooltip]="translateService.instant('filter_data')"
+                (click)="exportTableToExcel()" class="ml-4 flex-none" mat-icon-button type="button">
+          <mat-icon svgIcon="mat:file_download"></mat-icon>
+        </button>
 
-				<button *ngIf="!entity.includes('statistics')  &&
+        <button *ngIf="!entity.includes('statistics')  &&
                 !entity.includes('users') && !entity.includes('clients')"
-					[matTooltip]="translateService.instant('filter_data')" (click)="openFilters = !openFilters"
-					class="ml-4 flex-none" mat-icon-button type="button">
-					<mat-icon svgIcon="mat:youtube_searched_for"></mat-icon>
-				</button>
+                [matTooltip]="translateService.instant('filter_data')" (click)="openFilters = !openFilters"
+                class="ml-4 flex-none" mat-icon-button type="button">
+          <mat-icon svgIcon="mat:youtube_searched_for"></mat-icon>
+        </button>
 
-				<button [matMenuTriggerFor]="columnFilterMenu" [matTooltip]="translateService.instant('filter_columns')"
-					class="ml-4 flex-none" mat-icon-button type="button">
-					<mat-icon svgIcon="mat:filter_list"></mat-icon>
-				</button>
+        <button [matMenuTriggerFor]="columnFilterMenu" [matTooltip]="translateService.instant('filter_columns')"
+                class="ml-4 flex-none" mat-icon-button type="button">
+          <mat-icon svgIcon="mat:filter_list"></mat-icon>
+        </button>
 
-				<button *ngIf="!entity.includes('statistics')" [matTooltip]="translateService.instant('add')"
-					(click)="create()" class="ml-4 flex-none" color="primary" mat-mini-fab type="button">
-					<mat-icon svgIcon="mat:add"></mat-icon>
-				</button>
-			</div>
+        <button *ngIf="!entity.includes('statistics')" [matTooltip]="translateService.instant('add')"
+                (click)="create()" class="ml-4 flex-none" color="primary" mat-mini-fab type="button">
+          <mat-icon svgIcon="mat:add"></mat-icon>
+        </button>
+      </div>
+      </ng-container>
+      <table #dataTable *ngIf="!loading" [dataSource]="dataSource" (matSortChange)="sortData($event)" @stagger
+             class="w-full" mat-table matSort>
 
-			<table #dataTable *ngIf="!loading" [dataSource]="dataSource" (matSortChange)="sortData($event)" @stagger
-				class="w-full" mat-table matSort>
-
-				<!-- - Note that these columns can be defined in any order.
+        <!-- - Note that these columns can be defined in any order.
               The actual rendered columns are set as a property on the row definition" -->
 
-				<!-- Checkbox Column -->
-				<ng-container matColumnDef="checkbox">
-					<th *matHeaderCellDef mat-header-cell>
-						<mat-checkbox [checked]="selection.hasValue() && isAllSelected()"
-							[indeterminate]="selection.hasValue() && !isAllSelected()"
-							(change)="$event ? masterToggle() : null" color="primary">
-						</mat-checkbox>
-					</th>
-					<td *matCellDef="let row" class="w-4" mat-cell>
-						<mat-checkbox [checked]="selection.isSelected(row)"
-							(change)="$event ? selection.toggle(row) : null" (click)="$event.stopPropagation()"
-							color="primary">
-						</mat-checkbox>
-					</td>
-				</ng-container>
+        <!-- Checkbox Column -->
+        <ng-container matColumnDef="checkbox">
+          <th *matHeaderCellDef mat-header-cell>
+            <mat-checkbox [checked]="selection.hasValue() && isAllSelected()"
+                          [indeterminate]="selection.hasValue() && !isAllSelected()"
+                          (change)="$event ? masterToggle() : null" color="primary">
+            </mat-checkbox>
+          </th>
+          <td *matCellDef="let row" class="w-4" mat-cell>
+            <mat-checkbox [checked]="selection.isSelected(row)"
+                          (change)="$event ? selection.toggle(row) : null" (click)="$event.stopPropagation()"
+                          color="primary">
+            </mat-checkbox>
+          </td>
+        </ng-container>
 
-				<!-- Text Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'text'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell style="text-wrap: balance;">
-							{{ row[column.property] }}
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Text Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'text'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell style="text-wrap: balance;">
+              {{ row[column.property] }}
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Trads Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'trads'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell
-							style="text-wrap: balance;">
-							{{ getTrad(data[i].translations,
-							data[i].name) }}
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Trads Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'trads'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell
+                style="text-wrap: balance;">
+              {{ getTrad(data[i].translations,
+              data[i].name) }}
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- id Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'id'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell
-							style="text-wrap: balance;">
+        <!-- id Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'id'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell
+                style="text-wrap: balance;">
 							<span *ngIf="data[i].color !== ''" [ngStyle]="{'background': data[i].color}"
-								class="dot"></span>
-							<span style="float: right;width: 50%;">
+                    class="dot"></span>
+              <span style="float: right;width: 50%;">
 								{{ row[column.property]
-								}}
+                }}
 							</span>
-						</td>
-					</ng-container>
-				</ng-container>
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- QR Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'qr'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell
-							style="text-wrap: balance;">
-							<mat-icon (click)="exportQR(data[i].id)" svgIcon="mat:cloud_download"
-								style="cursor: pointer"></mat-icon>
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- QR Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'qr'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell
+                style="text-wrap: balance;">
+              <mat-icon (click)="exportQR(data[i].id)" svgIcon="mat:cloud_download"
+                        style="cursor: pointer"></mat-icon>
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Paiment method Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'payment_method_id'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
-							{{ getPaymentMethod(row[column.property]) | translate }}
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Paiment method Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'payment_method_id'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
+              {{ getPaymentMethod(row[column.property]) | translate }}
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Paiment method Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'payment_method'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
-							{{ getPaymentMethod(row[column.property]) | translate }}
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Paiment method Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'payment_method'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
+              {{ getPaymentMethod(row[column.property]) | translate }}
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Count Columns -->
+        <!-- Count Columns -->
 
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'count'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell style="text-align: center;">
-							{{ row[column.property].length + 1
-							}}
-						</td>
-					</ng-container>
-				</ng-container>
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'count'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell style="text-align: center;">
+              {{ row[column.property].length + 1
+              }}
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Booking users Columns -->
+        <!-- Booking users Columns -->
 
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'booking_users'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
-							{{
-							getBookingCourse(row[column.property]) }}
-						</td>
-					</ng-container>
-				</ng-container>
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'booking_users'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
+              {{
+                getBookingCourse(row[column.property]) }}
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Course type array monitor/client Columns -->
+        <!-- Course type array monitor/client Columns -->
 
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'course_type_data'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell>
-							{{ data[i].course.name
-							}}
-						</td>
-					</ng-container>
-				</ng-container>
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'course_type_data'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell>
+              {{ data[i].course.name
+              }}
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Course image Columns -->
+        <!-- Course image Columns -->
 
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'course_image'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell>
-							<img [src]="getCourseType(data[i]) === 'prive' ? data[i].sport.icon_prive : data[i].sport.icon_collective"
-								class="avatar h-8 w-8 align-middle"
-								style="border-radius: 5px;min-width: 48px;min-height: 48px;">
-							<!-- <ng-container *ngIf="data[i].booking_users > 1" >
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'course_image'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell>
+              <img [src]="getCourseType(data[i]) === 'prive' ? data[i].sport.icon_prive : data[i].sport.icon_collective"
+                   class="avatar h-8 w-8 align-middle"
+                   style="border-radius: 5px;min-width: 48px;min-height: 48px;">
+              <!-- <ng-container *ngIf="data[i].booking_users > 1" >
                 <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>{{ 'MULTIPLE'}}</td>
               </ng-container> -->
-						</td>
-					</ng-container>
-				</ng-container>
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Booking users image Columns -->
+        <!-- Booking users image Columns -->
 
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'booking_users_image'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell>
-							<img *ngIf="row[column.property] != 'multiple'" [src]="row[column.property]"
-								class="avatar h-8 w-8 align-middle"
-								style="border-radius: 5px;min-width: 48px;min-height: 48px;">
-							<!-- <ng-container *ngIf="data[i].booking_users > 1" >
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'booking_users_image'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell>
+              <img *ngIf="row[column.property] != 'multiple'" [src]="row[column.property]"
+                   class="avatar h-8 w-8 align-middle"
+                   style="border-radius: 5px;min-width: 48px;min-height: 48px;">
+              <!-- <ng-container *ngIf="data[i].booking_users > 1" >
                 <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>{{ 'MULTIPLE'}}</td>
               </ng-container> -->
-						</td>
-					</ng-container>
-				</ng-container>
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Booking users image Columns Monitors -->
+        <!-- Booking users image Columns Monitors -->
 
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'booking_users_image_monitors'"
-						[matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell>
-							<img [src]="row[column.property]?.sport" class="avatar h-8 w-8 align-middle"
-								style="border-radius: 5px;min-width: 48px;min-height: 48px;">
-							<!-- <ng-container *ngIf="data[i].booking_users > 1" >
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'booking_users_image_monitors'"
+                        [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell>
+              <img [src]="row[column.property]?.sport" class="avatar h-8 w-8 align-middle"
+                   style="border-radius: 5px;min-width: 48px;min-height: 48px;">
+              <!-- <ng-container *ngIf="data[i].booking_users > 1" >
                 <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>{{ 'MULTIPLE'}}</td>
               </ng-container> -->
-						</td>
-					</ng-container>
-				</ng-container>
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Booking users dates Columns -->
+        <!-- Booking users dates Columns -->
 
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'booking_dates'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row;let i = index" [ngClass]="column.cssClasses" mat-cell>
-							<!-- Jours {{ getMinMaxDates(data[i].booking_users).days}}<br> -->
-							<strong>
-								{{ getMinMaxDates(data[i].booking_users).minDate | date:
-								'dd-MM-yyyy'}}
-								<br>
-								{{
-								getMinMaxDates(data[i].booking_users).maxDate| date:
-								'dd-MM-yyyy' }}
-							</strong>
-							<br>
-							{{getMinMaxHours(data[i].booking_users).minHour}}h -
-							{{getMinMaxHours(data[i].booking_users).maxHour}}h
-						</td>
-					</ng-container>
-				</ng-container>
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'booking_dates'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row;let i = index" [ngClass]="column.cssClasses" mat-cell>
+              <!-- Jours {{ getMinMaxDates(data[i].booking_users).days}}<br> -->
+              <strong>
+                {{ getMinMaxDates(data[i].booking_users).minDate | date:
+                'dd-MM-yyyy'}}
+                <br>
+                {{
+                  getMinMaxDates(data[i].booking_users).maxDate| date:
+                    'dd-MM-yyyy' }}
+              </strong>
+              <br>
+              {{getMinMaxHours(data[i].booking_users).minHour}}h -
+              {{getMinMaxHours(data[i].booking_users).maxHour}}h
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Sports Columns -->
+        <!-- Sports Columns -->
 
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'sports'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'sports'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
 							<span *ngIf="row[column.property].length === 1">
 								{{
-								getSportName(row[column.property][0]?.sport_id)?.name }}
+                  getSportName(row[column.property][0]?.sport_id)?.name }}
 							</span>
-							<span *ngIf="row[column.property].length === 2">
+              <span *ngIf="row[column.property].length === 2">
 								{{
-								getSportName(row[column.property][0]?.sport_id)?.name }} -
-								{{getSportName(row[column.property][1]?.sport_id)?.name}}
+                  getSportName(row[column.property][0]?.sport_id)?.name }} -
+                {{getSportName(row[column.property][1]?.sport_id)?.name}}
 							</span>
-							<span *ngIf="row[column.property].length > 2">
+              <span *ngIf="row[column.property].length > 2">
 								{{
-								getSportName(row[column.property][0]?.sport_id)?.name }} -
-								{{getSportName(row[column.property][1]?.sport_id)?.name}}
-								(+{{row[column.property].length - 2}})
+                  getSportName(row[column.property][0]?.sport_id)?.name }} -
+                {{getSportName(row[column.property][1]?.sport_id)?.name}}
+                (+{{row[column.property].length - 2}})
 							</span>
-						</td>
+            </td>
 
-					</ng-container>
-				</ng-container>
+          </ng-container>
+        </ng-container>
 
-				<!-- Sports Monitor Columns -->
+        <!-- Sports Monitor Columns -->
 
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'sports_monitor'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'sports_monitor'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
 							<span *ngIf="row[column.property].length === 1">
 								{{
-								row[column.property][0].name }}
+                  row[column.property][0].name }}
 							</span>
-							<span *ngIf="row[column.property].length === 2">
+              <span *ngIf="row[column.property].length === 2">
 								{{
-								row[column.property][0].name }} -
-								{{row[column.property][1].name}}
+                  row[column.property][0].name }} -
+                {{row[column.property][1].name}}
 							</span>
-							<span *ngIf="row[column.property].length > 2">
+              <span *ngIf="row[column.property].length > 2">
 								{{
-								row[column.property][0].name }} -
-								{{row[column.property][1].name}} (+{{row[column.property].length
-								- 2}})
+                  row[column.property][0].name }} -
+                {{row[column.property][1].name}} (+{{row[column.property].length
+              - 2}})
 							</span>
-						</td>
-					</ng-container>
-				</ng-container>
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Birth Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'birth'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
-							{{
-							calculateAge(row[column.property]) }}
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Birth Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'birth'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
+              {{
+                calculateAge(row[column.property]) }}
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Bookings Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'bookings'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell>
-							<strong>
+        <!-- Bookings Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'bookings'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell>
+              <strong>
 								<span style="color:#2D9BF0">
 									{{data[i].total_reservations}}
 								</span>
-								<span *ngIf="data[i].total_places">
+                <span *ngIf="data[i].total_places">
 									/
-									{{data[i].total_places.toFixed(0)}}
+                  {{data[i].total_places.toFixed(0)}}
 								</span>
-							</strong>
-						</td>
-					</ng-container>
-				</ng-container>
+              </strong>
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Price Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'price'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell>
-							<strong *ngIf="!data[i].is_flexible">
-								{{
-								row[column.property] }} {{
-								data[i].currency }}
-							</strong>
-							<strong *ngIf="data[i].is_flexible && data[i].course_type === 1">
-								{{'from'
-								| translate }} {{ row[column.property] }}
-								{{data[i].currency}}
-							</strong>
-							<strong
-								*ngIf="data[i].is_flexible && (data[i].course_type === 2 || data[i].course_type === 3) && data[i].price_range !== null">
-								{{'from'
-								| translate }} {{
-								encontrarPrimeraClaveConValor(encontrarPrimeraCombinacionConValores(data[i].price_range))
-								}} {{data[i].currency}}
-							</strong>
-							<strong
-								*ngIf="data[i].is_flexible && data[i].course_type === 2 && data[i].price_range === null">
-								{{"NO PRICE RANGE SET" | translate}}
-							</strong>
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Price Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'price'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell>
+              <strong *ngIf="!data[i].is_flexible">
+                {{
+                  row[column.property] }} {{
+                  data[i].currency }}
+              </strong>
+              <strong *ngIf="data[i].is_flexible && data[i].course_type === 1">
+                {{'from'
+                | translate }} {{ row[column.property] }}
+                {{data[i].currency}}
+              </strong>
+              <strong
+                *ngIf="data[i].is_flexible && (data[i].course_type === 2 || data[i].course_type === 3) && data[i].price_range !== null">
+                {{'from'
+                | translate }} {{
+                  encontrarPrimeraClaveConValor(encontrarPrimeraCombinacionConValores(data[i].price_range))
+                }} {{data[i].currency}}
+              </strong>
+              <strong
+                *ngIf="data[i].is_flexible && data[i].course_type === 2 && data[i].price_range === null">
+                {{"NO PRICE RANGE SET" | translate}}
+              </strong>
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Price Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'payment_status'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses"
-							[style.color]=" row[column.property] ? '#CEE741' : 'red'" mat-cell>
-							{{ (row[column.property] ? 'yes' : 'no')| translate | uppercase }}
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Price Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'payment_status'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses"
+                [style.color]=" row[column.property] ? '#CEE741' : 'red'" mat-cell>
+              {{ (row[column.property] ? 'yes' : 'no')| translate | uppercase }}
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Client status Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'clients_schools'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses"
-							[style.color]="checkClientStatus(row[column.property]) ? '#CEE741' : 'red'" mat-cell>
-							{{ (checkClientStatus(row[column.property]) ? 'active' :
-							'inactive')| translate | uppercase }}
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Client status Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'clients_schools'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses"
+                [style.color]="checkClientStatus(row[column.property]) ? '#CEE741' : 'red'" mat-cell>
+              {{ (checkClientStatus(row[column.property]) ? 'active' :
+              'inactive')| translate | uppercase }}
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- payment_status_data Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'payment_status_data'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row;let i = index" [ngClass]="column.cssClasses"
-							[style.color]=" row[column.property] ? '#CEE741' : 'red'" mat-cell>
-							{{ (data[i].booking[column.property] ? 'payed' : 'cancelled') |
-							translate | uppercase }}
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- payment_status_data Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'payment_status_data'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row;let i = index" [ngClass]="column.cssClasses"
+                [style.color]=" row[column.property] ? '#CEE741' : 'red'" mat-cell>
+              {{ (data[i].booking[column.property] ? 'payed' : 'cancelled') |
+              translate | uppercase }}
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Cancelation Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'cancelation_status'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses"
-							[style.color]=" row[column.property] === 1 ? '#CEE741' : '#fac710'" mat-cell>
-							{{ (row[column.property] === 1 ? 'active' : row[column.property]
-							=== 2 ? 'cancelled' : 'partial_cancelled') | translate | uppercase
-							}}
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Cancelation Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'cancelation_status'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses"
+                [style.color]=" row[column.property] === 1 ? '#CEE741' : '#fac710'" mat-cell>
+              {{ (row[column.property] === 1 ? 'active' : row[column.property]
+            === 2 ? 'cancelled' : 'partial_cancelled') | translate | uppercase
+              }}
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Light Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'light'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
-							<div *ngIf="row[column.property]"
-								style="background-color: #CEE741;width: 25px;border-radius: 100%;height: 25px;"></div>
-							<div *ngIf="!row[column.property]"
-								style="background-color: #E6E6E6;width: 25px;border-radius: 100%;height: 25px;"></div>
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Light Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'light'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
+              <div *ngIf="row[column.property]"
+                   style="background-color: #CEE741;width: 25px;border-radius: 100%;height: 25px;"></div>
+              <div *ngIf="!row[column.property]"
+                   style="background-color: #E6E6E6;width: 25px;border-radius: 100%;height: 25px;"></div>
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Light DATA Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'light_data'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row;let i = index" [ngClass]="column.cssClasses" mat-cell>
-							<div *ngIf="data[i].booking[column.property]"
-								style="background-color: #CEE741;width: 25px;border-radius: 100%;height: 25px;margin: 0 0 0 20%;">
-							</div>
-							<div *ngIf="!data[i].booking[column.property]"
-								style="background-color: #E6E6E6;width: 25px;border-radius: 100%;height: 25px;margin: 0 0 0 20%;">
-							</div>
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Light Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'warning'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
+              <mat-icon color="warn" class="warning-icon" *ngIf="row[column.property]">warning</mat-icon>
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Light school Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'light_school'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
-							<div *ngIf="row[column.property] === schoolId"
-								style="background-color: #CEE741;width: 25px;border-radius: 100%;height: 25px;margin: 0 0 0 20%;">
-							</div>
-							<div *ngIf="row[column.property] !== schoolId"
-								style="background-color: #E6E6E6;width: 25px;border-radius: 100%;height: 25px;margin: 0 0 0 20%;">
-							</div>
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Light DATA Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'light_data'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row;let i = index" [ngClass]="column.cssClasses" mat-cell>
+              <div *ngIf="data[i].booking[column.property]"
+                   style="background-color: #CEE741;width: 25px;border-radius: 100%;height: 25px;margin: 0 0 0 20%;">
+              </div>
+              <div *ngIf="!data[i].booking[column.property]"
+                   style="background-color: #E6E6E6;width: 25px;border-radius: 100%;height: 25px;margin: 0 0 0 20%;">
+              </div>
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- light_monitors_schools school Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'light_monitors_schools'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
-							<div [ngStyle]="{'background': getActiveSchool(row[column.property]) ? '#CEE741' : '#E6E6E6'}"
-								style="width: 25px;border-radius: 100%;height: 25px;margin: 0 0 0 20%;"></div>
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Light school Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'light_school'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
+              <div *ngIf="row[column.property] === schoolId"
+                   style="background-color: #CEE741;width: 25px;border-radius: 100%;height: 25px;margin: 0 0 0 20%;">
+              </div>
+              <div *ngIf="row[column.property] !== schoolId"
+                   style="background-color: #E6E6E6;width: 25px;border-radius: 100%;height: 25px;margin: 0 0 0 20%;">
+              </div>
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Status Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'status'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
-							<div *ngIf="row[column.property]"
-								style="background-color: #CEE741;width: 25px;border-radius: 100%;height: 25px;margin: 0 0 0 5%;">
-							</div>
-							<div *ngIf="!row[column.property]"
-								style="background-color: #E6E6E6;width: 25px;border-radius: 100%;height: 25px;margin: 0 0 0 5%;">
-							</div>
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- light_monitors_schools school Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'light_monitors_schools'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
+              <div [ngStyle]="{'background': getActiveSchool(row[column.property]) ? '#CEE741' : '#E6E6E6'}"
+                   style="width: 25px;border-radius: 100%;height: 25px;margin: 0 0 0 20%;"></div>
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Level Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'level'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell>
-							<div *ngIf="data[i].client_sports.length > 0"
-								[style.background]="data[i].client_sports[0]?.degree?.color" class="m-0 body-1"
-								style="padding: 5%;;color: #fff;border-radius: 5px;width: 100%;text-align: center; font-size:10px;overflow: inherit;">
-								{{data[i].client_sports[0]?.degree?.annotation}}
-								{{data[i].client_sports[0].degree?.name}}
-							</div>
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Status Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'status'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
+              <div *ngIf="row[column.property]"
+                   style="background-color: #CEE741;width: 25px;border-radius: 100%;height: 25px;margin: 0 0 0 5%;">
+              </div>
+              <div *ngIf="!row[column.property]"
+                   style="background-color: #E6E6E6;width: 25px;border-radius: 100%;height: 25px;margin: 0 0 0 5%;">
+              </div>
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Level Monitor Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'monitor_sports_degrees'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							MAX. {{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell>
-							<div [style.background]="findHighestDegreeIdElement(row[column.property])?.color"
-								class="m-0 body-1"
-								style="padding: 5%;;color: #fff;border-radius: 5px;width: 100%;text-align: center; font-size:10px;overflow: inherit;">
-								{{findHighestDegreeIdElement(row[column.property])?.annotation}}
-								{{findHighestDegreeIdElement(row[column.property])?.name}}
-							</div>
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Level Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'level'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell>
+              <div *ngIf="data[i].client_sports.length > 0"
+                   [style.background]="data[i].client_sports[0]?.degree?.color" class="m-0 body-1"
+                   style="padding: 5%;;color: #fff;border-radius: 5px;width: 100%;text-align: center; font-size:10px;overflow: inherit;">
+                {{data[i].client_sports[0]?.degree?.annotation}}
+                {{data[i].client_sports[0].degree?.name}}
+              </div>
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Client Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'client'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
-							<img [src]="row[column.property]?.image !== null && row[column.property]?.image !== '' ? row[column.property]?.image : imageAvatar"
-								style="float: left;width: 40px;height: 40px;border-radius: 100%;margin: 0 5px 0 0;object-fit: cover;">
-							<span style="float: left; width: 50%;font-size:10px">
+        <!-- Level Monitor Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'monitor_sports_degrees'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              MAX. {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell>
+              <div [style.background]="findHighestDegreeIdElement(row[column.property])?.color"
+                   class="m-0 body-1"
+                   style="padding: 5%;;color: #fff;border-radius: 5px;width: 100%;text-align: center; font-size:10px;overflow: inherit;">
+                {{findHighestDegreeIdElement(row[column.property])?.annotation}}
+                {{findHighestDegreeIdElement(row[column.property])?.name}}
+              </div>
+            </td>
+          </ng-container>
+        </ng-container>
+
+        <!-- Client Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'client'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
+              <img [src]="row[column.property]?.image !== null && row[column.property]?.image !== '' ? row[column.property]?.image : imageAvatar"
+                   style="float: left;width: 40px;height: 40px;border-radius: 100%;margin: 0 5px 0 0;object-fit: cover;">
+              <span style="float: left; width: 50%;font-size:10px">
 								{{getLanguage(row[column.property]?.language1_id)}}
-								· {{getCountry(row[column.property]?.country)}} ·
-								{{calculateAge(row[column.property]?.birth_date)}} {{'years' |
-								translate }}
+                · {{getCountry(row[column.property]?.country)}} ·
+                {{calculateAge(row[column.property]?.birth_date)}} {{'years' |
+                translate }}
 							</span>
-							<span style="float: left; width: 50%;">
+              <span style="float: left; width: 50%;">
 								{{
-								row[column.property]?.first_name }} {{
-								row[column.property]?.last_name }}
+                  row[column.property]?.first_name }} {{
+                  row[column.property]?.last_name }}
 							</span>
-						</td>
-					</ng-container>
-				</ng-container>
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Client Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'client_2'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell>
-							<img [src]="data[i]?.image !== null && data[i]?.image !== '' ? data[i]?.image : imageAvatar"
-								style="float: left;width: 40px;height: 40px;border-radius: 100%;margin: 0 5px 0 0;object-fit: cover;">
-							<span style="float: left; width: 50%;font-size:10px">
+        <!-- Client Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'client_2'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell>
+              <img [src]="data[i]?.image !== null && data[i]?.image !== '' ? data[i]?.image : imageAvatar"
+                   style="float: left;width: 40px;height: 40px;border-radius: 100%;margin: 0 5px 0 0;object-fit: cover;">
+              <span style="float: left; width: 50%;font-size:10px">
 								{{getLanguage(data[i]?.language1_id)}}
-								· {{getCountry(data[i]?.country)}} ·
-								{{calculateAge(data[i]?.birth_date)}} {{'years' | translate
-								}}
+                · {{getCountry(data[i]?.country)}} ·
+                {{calculateAge(data[i]?.birth_date)}} {{'years' | translate
+                }}
 							</span>
-							<span style="float: left; width: 50%;">
+              <span style="float: left; width: 50%;">
 								{{ data[i]?.first_name }}
-								{{ data[i]?.last_name }}
+                {{ data[i]?.last_name }}
 							</span>
-						</td>
-					</ng-container>
-				</ng-container>
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Monitor Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'monitor'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell
-							style="width: 70px;">
-							<img [src]="data[i]?.image !== null && data[i]?.image !== '' ? data[i]?.image : imageAvatar"
-								style="float: left;width: 40px;height: 40px;border-radius: 100%;margin: 0 5px 0 0;object-fit: cover;">
-							<span style="float: left; width: 50%;font-size:10px">
+        <!-- Monitor Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'monitor'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell
+                style="width: 70px;">
+              <img [src]="data[i]?.image !== null && data[i]?.image !== '' ? data[i]?.image : imageAvatar"
+                   style="float: left;width: 40px;height: 40px;border-radius: 100%;margin: 0 5px 0 0;object-fit: cover;">
+              <span style="float: left; width: 50%;font-size:10px">
 								{{getLanguage(data[i]?.language1_id)}}
-								· {{getCountry(data[i]?.country)}} ·
-								{{calculateAge(data[i]?.birth_date)}} {{'years' | translate
-								}}
+                · {{getCountry(data[i]?.country)}} ·
+                {{calculateAge(data[i]?.birth_date)}} {{'years' | translate
+                }}
 							</span>
-							<span style="float: left; width: 50%;">
+              <span style="float: left; width: 50%;">
 								{{ data[i]?.first_name }}
-								{{ data[i]?.last_name }}
+                {{ data[i]?.last_name }}
 							</span>
-						</td>
-					</ng-container>
-				</ng-container>
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Dates Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'dates'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses"
-							[innerHTML]="transformDates(row[column.property])" mat-cell></td>
-					</ng-container>
-				</ng-container>
+        <!-- Dates Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'dates'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses"
+                [innerHTML]="transformDates(row[column.property])" mat-cell></td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Dates Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'datesCourse'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row, let i = index" [ngClass]="column.cssClasses" mat-cell>
-							<strong>
+        <!-- Dates Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'datesCourse'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row, let i = index" [ngClass]="column.cssClasses" mat-cell>
+              <strong>
 								<span style="text-align:center">
 									{{countActives(row[column.property])}}
-									{{'days' | translate}}
+                  {{'days' | translate}}
 								</span>
-							</strong>
-							<br>
-							<span style="text-align:center">
+              </strong>
+              <br>
+              <span style="text-align:center">
 								{{findFirstActive(row[column.property]).min
-								| date: 'dd-MM-yyyy'}} -
-								{{findFirstActive(row[column.property]).max | date:
-								'dd-MM-yyyy'}}
+                | date: 'dd-MM-yyyy'}} -
+                {{findFirstActive(row[column.property]).max | date:
+                'dd-MM-yyyy'}}
 							</span>
-						</td>
-					</ng-container>
-				</ng-container>
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Register Date Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'register_date'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses"
-							[innerHTML]="transformRegisterDates(row[column.property])" mat-cell></td>
-					</ng-container>
-				</ng-container>
+        <!-- Register Date Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'register_date'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses"
+                [innerHTML]="transformRegisterDates(row[column.property])" mat-cell></td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Register Date Columns
+        <!-- Register Date Columns
         <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
           <ng-container *ngIf="column.type === 'date'" [matColumnDef]="column.property">
             <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header> {{ column.label | translate }}</th>
@@ -992,62 +1004,62 @@
           </ng-container>
         </ng-container> -->
 
-				<!-- Register Date Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'date'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
-							{{
-							row[column.property] | date: 'dd-MM-yyyy' }}
-							<br>
-							{{ row[column.property] | date: 'HH:mm' }}
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Register Date Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'date'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
+              {{
+                row[column.property] | date: 'dd-MM-yyyy' }}
+              <br>
+              {{ row[column.property] | date: 'HH:mm' }}
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Register Date Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'duration'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row;let i = index" [ngClass]="column.cssClasses" mat-cell>
-							{{ row[column.property] ?
-							row[column.property] : (getShortestDuration(data[i]?.course_dates) | translate)
-							}}
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Register Date Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'duration'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row;let i = index" [ngClass]="column.cssClasses" mat-cell>
+              {{ row[column.property] ?
+              row[column.property] : (getShortestDuration(data[i]?.course_dates) | translate)
+              }}
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Sport Date Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'sport'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
-							{{
-							row[column.property] ? row[column.property].name : 'NDF' }}
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Sport Date Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'sport'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
+              {{
+                row[column.property] ? row[column.property].name : 'NDF' }}
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Sport Date Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'flexible'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
-							{{
-							row[column.property] ? 'FX' : 'FI' }}
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Sport Date Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'flexible'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
+              {{
+                row[column.property] ? 'FX' : 'FI' }}
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- &lt;!&ndash; Image Columns &ndash;&gt;
+        <!-- &lt;!&ndash; Image Columns &ndash;&gt;
         <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
           <ng-container *ngIf="column.type === 'image'" [matColumnDef]="column.property">
             <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header> {{ column.label | translate }}</th>
@@ -1058,172 +1070,172 @@
           </ng-container>
         </ng-container> -->
 
-				<!-- Coronita Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'coronita'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell>
-							<img *ngIf="data[i].utilizers.length > 0"
-								[src]="'../../../assets/img/icons/cuentagrupo.svg'" class="avatar h-8 w-8 align-middle"
-								style="height: 25px;margin: 0 0 0 35%;width: 30px;">
-							<img *ngIf="data[i].utilizers.length === 0"
-								[src]="'../../../assets/img/icons/cuentaunica.svg'" class="avatar h-8 w-8 align-middle"
-								style="height: 25px;margin: 0 0 0 35%;width: 30px;">
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Coronita Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'coronita'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row; let i = index" [ngClass]="column.cssClasses" mat-cell>
+              <img *ngIf="data[i].utilizers.length > 0"
+                   [src]="'../../../assets/img/icons/cuentagrupo.svg'" class="avatar h-8 w-8 align-middle"
+                   style="height: 25px;margin: 0 0 0 35%;width: 30px;">
+              <img *ngIf="data[i].utilizers.length === 0"
+                   [src]="'../../../assets/img/icons/cuentaunica.svg'" class="avatar h-8 w-8 align-middle"
+                   style="height: 25px;margin: 0 0 0 35%;width: 30px;">
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Active Columns -->
-				<ng-container *ngFor="let column of columns; trackBy: trackByProperty">
-					<ng-container *ngIf="column.type === 'active'" [matColumnDef]="column.property">
-						<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-							{{ column.label | translate }}
-						</th>
-						<td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
-							{{
-							row[column.property] ? 'SI' : 'NO'}}
-						</td>
-					</ng-container>
-				</ng-container>
+        <!-- Active Columns -->
+        <ng-container *ngFor="let column of columns; trackBy: trackByProperty">
+          <ng-container *ngIf="column.type === 'active'" [matColumnDef]="column.property">
+            <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+              {{ column.label | translate }}
+            </th>
+            <td *matCellDef="let row" [ngClass]="column.cssClasses" mat-cell>
+              {{
+                row[column.property] ? 'SI' : 'NO'}}
+            </td>
+          </ng-container>
+        </ng-container>
 
-				<!-- Contact Column -->
-				<ng-container matColumnDef="contact">
-					<th *matHeaderCellDef mat-header-cell mat-sort-header></th>
-					<td *matCellDef="let row" mat-cell>
-						<div class="flex">
-							<a (click)="$event.stopPropagation()"
-								class="w-8 h-8 p-0 leading-none flex items-center justify-center hover:bg-hover text-primary bg-primary/10"
-								mat-icon-button>
-								<mat-icon class="icon-sm">phone</mat-icon>
-							</a>
+        <!-- Contact Column -->
+        <ng-container matColumnDef="contact">
+          <th *matHeaderCellDef mat-header-cell mat-sort-header></th>
+          <td *matCellDef="let row" mat-cell>
+            <div class="flex">
+              <a (click)="$event.stopPropagation()"
+                 class="w-8 h-8 p-0 leading-none flex items-center justify-center hover:bg-hover text-primary bg-primary/10"
+                 mat-icon-button>
+                <mat-icon class="icon-sm">phone</mat-icon>
+              </a>
 
-							<a (click)="$event.stopPropagation()"
-								class="w-8 h-8 p-0 leading-none flex items-center justify-center ml-1 hover:bg-hover text-teal bg-teal/10"
-								mat-icon-button>
-								<mat-icon class="icon-sm">mail</mat-icon>
-							</a>
+              <a (click)="$event.stopPropagation()"
+                 class="w-8 h-8 p-0 leading-none flex items-center justify-center ml-1 hover:bg-hover text-teal bg-teal/10"
+                 mat-icon-button>
+                <mat-icon class="icon-sm">mail</mat-icon>
+              </a>
 
-							<a (click)="$event.stopPropagation()"
-								class="w-8 h-8 p-0 leading-none flex items-center justify-center ml-1 hover:bg-hover text-green bg-green/10"
-								mat-icon-button>
-								<mat-icon class="icon-sm" svgIcon="mat:map"></mat-icon>
-							</a>
-						</div>
-					</td>
-				</ng-container>
+              <a (click)="$event.stopPropagation()"
+                 class="w-8 h-8 p-0 leading-none flex items-center justify-center ml-1 hover:bg-hover text-green bg-green/10"
+                 mat-icon-button>
+                <mat-icon class="icon-sm" svgIcon="mat:map"></mat-icon>
+              </a>
+            </div>
+          </td>
+        </ng-container>
 
-				<!-- Label Column -->
-				<ng-container matColumnDef="labels">
-					<th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
-						Labels
-					</th>
-					<td *matCellDef="let row" mat-cell>
-						<div (click)="$event.stopPropagation()" class="flex items-center gap-1">
-							<div *ngFor="let label of row.labels" [ngClass]="[label.textClass, label.bgClass]"
-								class="rounded px-2 py-1 font-medium text-xs flex-none">
-								{{ label.text }}
-							</div>
-							<div
-								class="text-secondary bg-base text-hint cursor-pointer hover:bg-hover flex-none flex items-center justify-center">
-								<mat-icon class="icon-sm" svgIcon="mat:add"></mat-icon>
-							</div>
-						</div>
-					</td>
-				</ng-container>
+        <!-- Label Column -->
+        <ng-container matColumnDef="labels">
+          <th *matHeaderCellDef class="uppercase" mat-header-cell mat-sort-header>
+            Labels
+          </th>
+          <td *matCellDef="let row" mat-cell>
+            <div (click)="$event.stopPropagation()" class="flex items-center gap-1">
+              <div *ngFor="let label of row.labels" [ngClass]="[label.textClass, label.bgClass]"
+                   class="rounded px-2 py-1 font-medium text-xs flex-none">
+                {{ label.text }}
+              </div>
+              <div
+                class="text-secondary bg-base text-hint cursor-pointer hover:bg-hover flex-none flex items-center justify-center">
+                <mat-icon class="icon-sm" svgIcon="mat:add"></mat-icon>
+              </div>
+            </div>
+          </td>
+        </ng-container>
 
-				<!-- Action Column -->
-				<ng-container matColumnDef="actions">
-					<th *matHeaderCellDef mat-header-cell mat-sort-header></th>
-					<td *matCellDef="let row" class="w-10 text-secondary" mat-cell>
-						<button [matMenuTriggerData]="{ item: row }" [matMenuTriggerFor]="actionsMenu"
-							(click)="$event.stopPropagation()" mat-icon-button type="button">
-							<mat-icon svgIcon="mat:more_horiz"></mat-icon>
-						</button>
-					</td>
-				</ng-container>
+        <!-- Action Column -->
+        <ng-container matColumnDef="actions">
+          <th *matHeaderCellDef mat-header-cell mat-sort-header></th>
+          <td *matCellDef="let row" class="w-10 text-secondary" mat-cell>
+            <button [matMenuTriggerData]="{ item: row }" [matMenuTriggerFor]="actionsMenu"
+                    (click)="$event.stopPropagation()" mat-icon-button type="button">
+              <mat-icon svgIcon="mat:more_horiz"></mat-icon>
+            </button>
+          </td>
+        </ng-container>
 
-				<tbody>
-					<tr *matHeaderRowDef="visibleColumns" mat-header-row></tr>
-					<tr *matRowDef="let row; columns: visibleColumns;"
-						[ngStyle]="{'background': entity === '/bookings' && row.price_total - row.paid_total < 0 && row.paid ? '#ffdaa9' : ''}"
-						(click)="showDetailFn(row)" @fadeInUp class="hover:bg-hover trans-ease-out cursor-pointer"
-						mat-row>
-					</tr>
-				</tbody>
-			</table>
+        <tbody>
+        <tr *matHeaderRowDef="visibleColumns" mat-header-row></tr>
+        <tr *matRowDef="let row; columns: visibleColumns;"
+            [ngStyle]="{'background': entity === '/bookings' && row.price_total - row.paid_total < 0 && row.paid ? '#ffdaa9' : ''}"
+            (click)="showDetailFn(row)" @fadeInUp class="hover:bg-hover trans-ease-out cursor-pointer"
+            mat-row>
+        </tr>
+        </tbody>
+      </table>
 
-			<mat-paginator [pageSizeOptions]="pageSizeOptions" [pageSize]="10" [length]="totalRecords"
-				(page)="onPageChange($event)" class="sticky left-0">
-			</mat-paginator>
-		</div>
+      <mat-paginator [pageSizeOptions]="pageSizeOptions" [pageSize]="10" [length]="totalRecords"
+                     (page)="onPageChange($event)" class="sticky left-0">
+      </mat-paginator>
+    </div>
 
-	</vex-page-layout-content>
+  </vex-page-layout-content>
 
 </vex-page-layout>
 
 <mat-menu #columnFilterMenu="matMenu" xPosition="before" yPosition="below">
-	<button *ngFor="let column of columns" (click)="toggleColumnVisibility(column, $event)" class="mat-menu-item block">
-		<mat-checkbox [(ngModel)]="column.visible" (click)="$event.stopPropagation()" color="primary">
-			{{ column.label | translate }}
-		</mat-checkbox>
-	</button>
+  <button *ngFor="let column of columns" (click)="toggleColumnVisibility(column, $event)" class="mat-menu-item block">
+    <mat-checkbox [(ngModel)]="column.visible" (click)="$event.stopPropagation()" color="primary">
+      {{ column.label | translate }}
+    </mat-checkbox>
+  </button>
 </mat-menu>
 
 <mat-menu #actionsMenu="matMenu" xPosition="before" yPosition="below">
-	<ng-template let-item="item" matMenuContent>
-		<button (click)="update(item)" mat-menu-item>
-			<mat-icon svgIcon="mat:edit"></mat-icon>
-			<span>
+  <ng-template let-item="item" matMenuContent>
+    <button (click)="update(item)" mat-menu-item>
+      <mat-icon svgIcon="mat:edit"></mat-icon>
+      <span>
 				{{'update' | translate}}
 			</span>
-		</button>
-		<button *ngIf="canDelete" (click)="delete(item)" mat-menu-item>
-			<mat-icon svgIcon="mat:delete"></mat-icon>
-			<span>
+    </button>
+    <button *ngIf="canDelete" (click)="delete(item)" mat-menu-item>
+      <mat-icon svgIcon="mat:delete"></mat-icon>
+      <span>
 				{{'delete_title' | translate}}
 			</span>
-		</button>
-		<button *ngIf="canDeactivate && entity.includes('monitors')" (click)="deactivate(item)" mat-menu-item>
-			<mat-icon svgIcon="mat:delete"></mat-icon>
-			<span *ngIf="item.active">
+    </button>
+    <button *ngIf="canDeactivate && entity.includes('monitors')" (click)="deactivate(item)" mat-menu-item>
+      <mat-icon svgIcon="mat:delete"></mat-icon>
+      <span *ngIf="item.active">
 				{{'deactivate' | translate }}
 			</span>
-			<span *ngIf="!item.active">
+      <span *ngIf="!item.active">
 				{{'activate' | translate }}
 			</span>
-		</button>
-		<button *ngIf="canDeactivate && !entity.includes('monitors')" (click)="deactivate(item)" mat-menu-item>
-			<mat-icon svgIcon="mat:delete"></mat-icon>
-			<span>
+    </button>
+    <button *ngIf="canDeactivate && !entity.includes('monitors')" (click)="deactivate(item)" mat-menu-item>
+      <mat-icon svgIcon="mat:delete"></mat-icon>
+      <span>
 				{{'deactivate' | translate }}
 			</span>
-		</button>
-		<button *ngIf="canDeactivate && entity.includes('courses') && item.booking_users.length == 0"
-			(click)="delete(item)" mat-menu-item>
-			<mat-icon svgIcon="mat:delete"></mat-icon>
-			<span>
+    </button>
+    <button *ngIf="canDeactivate && entity.includes('courses') && item.booking_users_active?.length == 0"
+            (click)="delete(item)" mat-menu-item>
+      <mat-icon svgIcon="mat:delete"></mat-icon>
+      <span>
 				{{'delete_title' | translate }}
 			</span>
-		</button>
-		<button *ngIf="canDuplicate" (click)="copy(item)" mat-menu-item>
-			<mat-icon svgIcon="mat:file_copy"></mat-icon>
-			<span>
+    </button>
+    <button *ngIf="canDuplicate" (click)="copy(item)" mat-menu-item>
+      <mat-icon svgIcon="mat:file_copy"></mat-icon>
+      <span>
 				{{'duplicate' | translate }}
 			</span>
-		</button>
-		<button *ngIf="entity.includes('vouchers') && !trashed" (click)="delete(item)" mat-menu-item>
-			<mat-icon svgIcon="mat:delete"></mat-icon>
-			<span>
+    </button>
+    <button *ngIf="entity.includes('vouchers') && !trashed" (click)="delete(item)" mat-menu-item>
+      <mat-icon svgIcon="mat:delete"></mat-icon>
+      <span>
 				{{'delete_title' | translate }}
 			</span>
-		</button>
-		<button *ngIf="entity.includes('vouchers') && trashed" (click)="restore(item)" mat-menu-item>
-			<mat-icon svgIcon="mat:delete"></mat-icon>
-			<span>
+    </button>
+    <button *ngIf="entity.includes('vouchers') && trashed" (click)="restore(item)" mat-menu-item>
+      <mat-icon svgIcon="mat:delete"></mat-icon>
+      <span>
 				{{'restore_title' | translate }}
 			</span>
-		</button>
-	</ng-template>
+    </button>
+  </ng-template>
 </mat-menu>

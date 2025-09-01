@@ -15,6 +15,10 @@ import { MAT_DATE_LOCALE } from '@angular/material/core';
 import { PreviewModalComponent } from './components/preview-modal/preview-modal.component';
 import { MatDialogModule } from '@angular/material/dialog';
 import { ComponentsCustomModule } from './components/components-custom.module';
+import { CurrencyFormatterPipe } from './pipes/currency-formatter.pipe';
+import { PercentageFormatterPipe } from './pipes/percentage-formatter.pipe';
+import { NumberFormatterPipe } from './pipes/number-formatter.pipe';
+import { DateRangeFormatterPipe } from './pipes/date-range-formatter.pipe';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -22,7 +26,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 }
 
 @NgModule({
-    declarations: [AppComponent, DashboardComponent, PreviewModalComponent],
+    declarations: [AppComponent, DashboardComponent, PreviewModalComponent, CurrencyFormatterPipe, PercentageFormatterPipe, NumberFormatterPipe, DateRangeFormatterPipe],
     imports: [
         BrowserModule,
         AppRoutingModule,

@@ -1,4 +1,4 @@
-<ng-container *ngIf="!isDetail">
+<ng-container >
 	<div class="barWrapper">
 		<vex-breadcrumbs [crumbs]="[
       { icon: 'reservas' },
@@ -7,8 +7,8 @@
     ]" class="booking-breadcrumb"></vex-breadcrumbs>
 	</div>
 	<div class="barWrapper">
-		<div>
-			<button [disabled]="forms.length" [ngClass]="{ active: currentStep === 0, prev: currentStep > 0 }"
+		<div >
+			<button [disabled]="forms.length || externalData?.mainClient" [ngClass]="{ active: currentStep === 0, prev: currentStep > 0 }"
 				(click)="forceChange(0)" class="crumb">
 				{{ "bookings_page.crumbs.client" | translate }}
 			</button>
@@ -38,9 +38,10 @@
 				{{ "bookings_page.crumbs.client" | translate }}:
 			</span>
 			{{ mainClient.first_name }} {{ mainClient.last_name }}
+      <mat-icon *ngIf="externalData" svgIcon="mat:close" style="cursor: pointer; height: 24px; width: 36px;" mat-dialog-close></mat-icon>
 		</div>
 	</div>
-	<div class="bookingContainer">
+	<div class="bookingContainer" *ngIf="!isDetail">
 		<button (click)="openBookingDialog()" mat-button type="button" class="modalButton">
 			{{ "bookings_page_descriptionModal_button" | translate }}
 		</button>
@@ -54,7 +55,8 @@
 			<booking-form-stepper [forceStep]="forceStep" [activitiesBooked]="normalizedDates"
 				[selectedForm]="selectedForm" [selectedDates]="normalizedDates[selectedIndexForm] || null"
 				[allLevels]=allLevels (changedCurrentStep)="currentStep = $event; forceStep = $event;"
-				(changedFormData)="handleFormChange($event)"></booking-form-stepper>
+				(changedFormData)="handleFormChange($event)"
+                            (formSaveAndCreateNew)="handleFormChange($event, true)"></booking-form-stepper>
 		</mat-card>
 		<mat-card class="right-column">
 			<booking-description-card [utilizers]="utilizers" [allLevels]=allLevels [sport]="sport"
@@ -86,7 +88,8 @@
 		</div>
 		<div class="right-column">
 			<booking-reservation-detail [client]="mainClient" [activities]="normalizedDates" (endClick)="endModal=true"
-				(payClick)="payModal=true" (addClick)="addNewActivity()">
+				(payClick)="bookingService.calculatePendingPrice() === 0 ? finalizeBooking() : payModal=true"
+                                  (addClick)="addNewActivity()">
 			</booking-reservation-detail>
 		</div>
 	</div>
@@ -179,7 +182,7 @@
   <div body>
     <div style="margin: 10px;" class="sectionTitle" *ngIf="step === 1">
       <ng-container *ngIf="bookingService.calculatePendingPrice() > 0; else confirmReservation">
-        {{"pending_payment" | translate}}: <span class="totalPrice">{{ bookingService.calculatePendingPrice() }}</span>
+        {{"pending_payment" | translate}}: <span class="totalPrice">{{ bookingService.calculatePendingPrice() }} {{ normalizedDates[0].course.currency }}</span>
       </ng-container>
       <ng-template #confirmReservation>
         <p>{{ "confirm_booking_message" | translate }}</p>
@@ -223,10 +226,10 @@
     <div *ngIf="step === 2" style="margin: 10px 0;">
       <mat-radio-group [(ngModel)]="isPaid">
         <mat-radio-button [value]="true" style="display: block;">
-          {{"payment_confirmed" | translate}}  <!-- Pago Confirmado -->
+          {{"yes" | translate}}  <!-- Pago Confirmado -->
         </mat-radio-button>
         <mat-radio-button [value]="false" style="display: block;">
-          {{"payment_not_confirmed" | translate}}  <!-- Pago No Confirmado -->
+          {{"no" | translate}}  <!-- Pago No Confirmado -->
         </mat-radio-button>
       </mat-radio-group>
     </div>

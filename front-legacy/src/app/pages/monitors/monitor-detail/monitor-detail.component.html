@@ -284,7 +284,7 @@
 
           <div class="card" style="margin: 3% 0 0 0;">
             <div class="px-6 py-4 border-b">
-              <h2 class="title m-0">{{'sports' | translate }}
+              <h2 class="title m-0">{{'sports' | translate }} & {{'salary' | translate }}
                 <mat-icon svgIcon="mat:expand_more" style="float:right;cursor:pointer" *ngIf="!showSportInfo"
                   (click)="showSportInfoEvent(true)"></mat-icon>
                 <mat-icon svgIcon="mat:expand_less" style="float:right;cursor:pointer" *ngIf="showSportInfo"
@@ -1506,11 +1506,8 @@
                 <div class="flex flex-col sm:flex-row gap-2 sm:gap-6" style="margin: 3% 0 0 0;">
 
                   <mat-form-field appearance="outline" class="flex-auto">
-                    <input matInput [matDatepicker]="pickerFrom" placeholder="{{'birth_date' | translate }}" readonly
-                      formControlName="fromDate" [max]="minDate" [(ngModel)]="defaults.birth_date" required
-                      (click)="pickerFrom.open()">
-                    <mat-datepicker-toggle matSuffix [for]="pickerFrom"></mat-datepicker-toggle>
-                    <mat-datepicker #pickerFrom [startAt]="minDate"></mat-datepicker>
+                    <mat-label>{{'birth_date' | translate}}</mat-label>
+                    <input type="date" matInput class="flex-auto" formControlName="fromDate" [max]="minDate" [(ngModel)]="defaults.birth_date" required>
                   </mat-form-field>
 
                 </div>
@@ -1687,11 +1684,8 @@
                         translate }} </mat-header-cell>
                       <mat-cell *matCellDef="let element">
                         <mat-form-field appearance="outline" class="flex-auto" style="margin: 2% 0 0 0;">
-                          <input matInput [matDatepicker]="pickerFromChild" readonly (click)="pickerFromChild.open()"
-                            placeholder="{{'birth_date' | translate }}" [(ngModel)]="element.date" [max]="minDateChild"
-                            formControlName="childAge">
-                          <mat-datepicker-toggle matSuffix [for]="pickerFromChild"></mat-datepicker-toggle>
-                          <mat-datepicker #pickerFromChild [startAt]="minDateChild"></mat-datepicker>
+                          <mat-label>{{'birth_date' | translate}}</mat-label>
+                          <input type="date" matInput class="flex-auto" formControlName="childAge" [max]="minDateChild" [(ngModel)]="element.date" required>
                         </mat-form-field>
                       </mat-cell>
                     </ng-container>
@@ -1728,8 +1722,15 @@
               <ng-template matStepLabel>{{'sports' | translate}}</ng-template>
 
               <div style="margin: 3% 0 0 0;">
-
+                <!-- Input de precio debajo -->
+                <mat-form-field appearance="outline" style="width: 200px;">
+                  <mat-label>{{'price' | translate}} {{'paid_block' | translate}}</mat-label>
+                  <input matInput type="number" min="0" step="0.01"
+                         [(ngModel)]="monitorSchoolRel.block_price"
+                         placeholder="{{'price' | translate}} - {{currency || 'CHF'}}">
+                </mat-form-field>
                 <div class="flex flex-col sm:flex-row gap-2 sm:gap-6">
+
                   <mat-form-field appearance="outline" class="flex-auto">
                     <mat-label>{{'sports' | translate}}</mat-label>
                     <mat-select [formControl]="sportsControl" multiple>
@@ -1933,6 +1934,8 @@
                   </mat-table>
 
                 </div>
+
+
                 <div class="actions flex items-center justify-end gap-2">
                   <button mat-button type="button" (click)="editing = false">{{'cancel' | translate }}</button>
                   <button mat-button type="button" (click)="goTo('/monitors')">{{'go_list' | translate

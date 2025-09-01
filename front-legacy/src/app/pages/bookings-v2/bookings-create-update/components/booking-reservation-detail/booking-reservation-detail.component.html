@@ -66,7 +66,7 @@
       <div class="dateRow">
         <div>
           <span class="hour" (click)="addReduction()"
-                *ngIf="bookingData.reduction === null && this.calculateTotalVoucherPrice() < bookingData.price_total" style="
+                *ngIf="!bookingData.reduction && this.calculateTotalVoucherPrice() < bookingData.price_total" style="
             color: #E91E63;
              font-size: 14px;
              font-family: DM Sans;
@@ -77,7 +77,7 @@
             <mat-icon>add</mat-icon>
             {{ "apply_reduction" | translate }}
           </span>
-          <span style="width: 100%; float:left" *ngIf="bookingData.reduction !== null;">
+          <span style="width: 100%; float:left" *ngIf="bookingData.reduction;">
             <mat-icon svgIcon="mat:delete" style="float: left;color: red; cursor:pointer"
                       (click)="deleteReduction()"></mat-icon>
             <p style="float:left">{{'reduction' |translate}}</p>
@@ -106,8 +106,8 @@
       </div>
       <ng-container *ngIf="bookingData.vouchers?.length">
         <div class="dateRow">
-          <div>
-            <span style="width: 100%; float:left" *ngFor="let item of bookingData.vouchers; let i = index">
+          <div *ngFor="let item of bookingData.vouchers; let i = index">
+            <span style="width: 100%; float:left" >
               <mat-icon svgIcon="mat:delete" style="float: left;color: red; cursor:pointer"
                         (click)="deleteBonus(i);"></mat-icon>
               <p style="float:left">{{'bonus' |translate}}
@@ -126,8 +126,8 @@
                         (change)="calculateRem($event)" [disabled]="isNaN(this.cancellationInsurancePercent)"
                         style="float: left;"></mat-checkbox>
           <span class="hour">{{ "op_rem" | translate }}</span>
-          <p class="price">
-            -{{bookingData.price_cancellation_insurance| number:'0.2-2'}}
+          <p class="price" *ngIf="bookingData.has_cancellation_insurance">
+            {{bookingData.price_cancellation_insurance| number:'0.2-2'}}
             {{activities[0].course.currency}}
           </p>
         </div>

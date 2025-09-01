@@ -1,4 +1,3 @@
-
 ::ng-deep {
   .mat-mdc-form-field-subscript-wrapper {
     display: none;
@@ -22,7 +21,12 @@
     padding: 20px;
     gap: 20px;
     height: max-content;
+    align-items: center;
     > div {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
       width: 100%;
     }
   }
@@ -56,4 +60,96 @@
 
 button {
   border-radius: 3px !important;
+}
+
+.d-flex {
+  display: flex;
+  align-items: center;
+  height: 50px;
+}
+
+.datepickers-container {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-left: auto;
+}
+
+.datepickers-container label {
+  font-size: 0.875rem;
+  color: #666;
+  margin-right: 5px;
+}
+
+/* Contenedor para input y botón del calendario */
+.date-input-wrapper {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+/* Estilos para los inputs de fecha */
+.date-input-wrapper input {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 0.875rem;
+  width: 80px;
+  cursor: pointer;
+  outline: none;
+}
+
+/* Estilos para el botón del calendario */
+.date-input-wrapper .mat-datepicker-toggle {
+  position: relative;
+  top: -2px;
+  height: 24px;
+  width: 24px;
+}
+
+.sales-date-picker-container {
+  // Aquí van estilos normales...
+
+  ::ng-deep {
+    // Dentro de este bloque, los estilos afectarán solo a elementos dentro de .sales-date-picker-container
+    .mat-datepicker-toggle .mat-icon-button {
+      width: 24px !important;
+      height: 24px !important;
+      line-height: 24px !important;
+    }
+
+    .mat-datepicker-toggle svg {
+      width: 18px !important;
+      height: 18px !important;
+      fill: #666;
+    }
+
+    .mat-form-field-wrapper,
+    .mat-form-field-flex,
+    .mat-form-field-infix {
+      padding: 0 !important;
+      border: none !important;
+      background: transparent !important;
+    }
+
+    .mat-mdc-form-field-flex {
+      max-height: 32px !important;
+    }
+  }
+}
+
+.total-price {
+  margin-left: 10px;
+  font-size: 1.25rem;
+}
+
+.close-button {
+  position: absolute;
+  top: 10px;  /* Ajusta según sea necesario */
+  right: -75vw;  /* Coloca la X a la derecha */
+  background: none;
+  border: none;
+  color: var(--color-dark1);  /* Puedes cambiar el color de la X */
+  cursor: pointer;
+  font-size: 36px;  /* Ajusta el tamaño de la X */
 }

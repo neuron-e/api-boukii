@@ -39,27 +39,13 @@
 
         <mat-step [stepControl]="formInfoAccount">
           <form [formGroup]="formInfoAccount">
-            <ng-template matStepLabel>{{'monitors.creation.info' | translate
-              }}</ng-template>
+            <ng-template matStepLabel>
+              {{'monitors.creation.info' | translate }}</ng-template>
 
-            <div class="flex flex-col sm:flex-row gap-2 sm:gap-6">
-              <div class="image-container">
-                <img
-                  [src]="defaults.image !== null && defaults.image !== '' ? defaults.image : '../../../../assets/img/no-image.jpg'"
-                  alt="Image Preview" style="width: 200px;height: 200px;border-radius: 100%;object-fit: fill;">
-              </div>
-
-              <div class="input-container">
-
-                <input type="file" formControlName="image" placeholder="Select an image"
-                  (change)="onFileChanged($event)" id="file" />
-                <label for="file" class="btn-1"><mat-icon svgIcon="mat:cloud_upload"></mat-icon></label>
-                <p style="font-size: 12px">{{'image_max' | translate}}</p>
-                <p style="font-size: 12px">{{'image_format' | translate}}</p>
-                <p style="font-size: 12px">{{'image_recomendation' |
-                  translate}}</p>
-              </div>
-            </div>
+            <vex-flux-upload-img [imagePreviewUrl]="defaults.image"
+              (upload)="formInfoAccount.patchValue({image:$event});defaults.image=$event;imagePreviewUrl=$event"
+              [edit]="true" [width]="200" [height]="200" [roundCropper]="true">
+            </vex-flux-upload-img>
 
             <div class="flex flex-col sm:flex-row gap-2 sm:gap-6" style="margin: 3% 0 0 0;">
 
@@ -120,11 +106,8 @@
             <div class="flex flex-col sm:flex-row gap-2 sm:gap-6" style="margin: 3% 0 0 0;">
 
               <mat-form-field appearance="outline" class="flex-auto">
-                <input matInput [matDatepicker]="pickerFrom" placeholder="{{'birth_date' | translate }}"
-                  formControlName="fromDate" [max]="minDate" [(ngModel)]="defaults.birth_date" readonly
-                  (click)="pickerFrom.open()" required>
-                <mat-datepicker-toggle matSuffix [for]="pickerFrom"></mat-datepicker-toggle>
-                <mat-datepicker #pickerFrom [startAt]="minDate"></mat-datepicker>
+                <mat-label>{{'birth_date' | translate}}</mat-label>
+                <input type="date" matInput class="flex-auto" formControlName="fromDate" [max]="minDate" [(ngModel)]="defaults.birth_date" required>
                 <mat-error *ngIf="formPersonalInfo.controls?.fromDate?.errors?.['required']">
                   {{'clients.creation.errors.monitor_date' | translate }}
                 </mat-error>

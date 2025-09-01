@@ -13,7 +13,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from "@angular/material/progress-spinner";
-import { MatSnackBarModule } from '@angular/material/snack-bar';
+import {MAT_SNACK_BAR_DEFAULT_OPTIONS, MatSnackBarModule} from '@angular/material/snack-bar';
 import { AioTableComponent } from './aio-table/aio-table.component';
 import { LayoutModule } from '@angular/cdk/layout';
 import { PageLayoutModule } from './page-layout/page-layout.module';
@@ -64,6 +64,12 @@ import { ComponenteButtonModule } from './form/button/app.module';
     TranslateModule, MatListModule,
     ComponenteButtonModule,
 
+  ],
+  providers: [
+    {
+      provide: MAT_SNACK_BAR_DEFAULT_OPTIONS,
+      useValue: { verticalPosition: 'top', horizontalPosition: 'center', duration: 3000 }
+    }
   ],
   declarations: [AioTableComponent, DateTimeDialogComponent, ReductionDialogComponent, PrivateDatesDialogComponent, DateTimeDialogEditComponent],
   exports: [AioTableComponent]

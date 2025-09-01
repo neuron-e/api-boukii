@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit, ViewChild } from '@angular/core';
+import {ChangeDetectorRef, Component, ElementRef, OnInit, ViewChild} from '@angular/core';
 import { FormControl, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
 import { MatTable, _MatTableDataSource } from '@angular/material/table';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -149,12 +149,15 @@ export class ClientDetailComponent {
   active: false;
 
   allLevels: any = [];
+  allClientLevels: any = [];
   sportIdx: any = -1;
   selectedSport: any;
   clientSport = [];
   clients = [];
   clientSchool = [];
   goals = [];
+  bookingUsersUnique = [];
+  bonus = [];
   mainId: any;
   showDetail: boolean = false;
   detailData: any;
@@ -178,8 +181,8 @@ export class ClientDetailComponent {
 
 
   constructor(private fb: UntypedFormBuilder, private cdr: ChangeDetectorRef, private crudService: ApiCrudService, private router: Router,
-    private activatedRoute: ActivatedRoute, private snackbar: MatSnackBar, private dialog: MatDialog, private passwordGen: PasswordService,
-    private translateService: TranslateService, private dateAdapter: DateAdapter<Date>) {
+              private activatedRoute: ActivatedRoute, private snackbar: MatSnackBar, private dialog: MatDialog, private passwordGen: PasswordService,
+              private translateService: TranslateService, private dateAdapter: DateAdapter<Date>) {
     this.today = new Date();
     this.minDate = new Date(this.today);
     this.minDate.setFullYear(this.today.getFullYear() - 18);
@@ -199,6 +202,7 @@ export class ClientDetailComponent {
     this.user = JSON.parse(localStorage.getItem('boukiiUser'));
     this.id = this.activatedRoute.snapshot.params.id;
     this.mainId = this.activatedRoute.snapshot.params.id;
+    this.getDegrees();
     this.getInitialData().pipe(
       switchMap(() => this.getData())
     ).subscribe(() => {
@@ -270,6 +274,22 @@ export class ClientDetailComponent {
     }
     this.getData(id, true).subscribe();
   }
+
+
+
+  orderBookingUsers(users: any[]) {
+    return users.sort((a, b) => {
+      // Ordenar por fecha
+      const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+      if (dateComparison !== 0) {
+        return dateComparison;
+      }
+
+      // Si la fecha es la misma, ordenar por hora de inicio
+      return a.hour_start.localeCompare(b.hour_start);
+    });
+  }
+
 
   getData(id = null, onChangeUser = false) {
     const getId = id === null ? this.mainId : id;
@@ -491,21 +511,6 @@ export class ClientDetailComponent {
         this.clients = client.data;
       })
     );
-  }
-
-  onFileChanged(event: Event) {
-    const file = (event.target as HTMLInputElement).files[0];
-    if (file) {
-      const reader = new FileReader();
-
-      reader.onload = () => {
-        this.imagePreviewUrl = reader.result;
-        this.defaults.image = reader.result;
-        this.defaultsUser.image = reader.result;
-      };
-
-      reader.readAsDataURL(file);
-    }
   }
 
   passwordValidator(formControl: FormControl) {
@@ -854,7 +859,7 @@ export class ClientDetailComponent {
 
   selectSportEvo(sport: any) {
     this.coloring = true;
-    this.allLevels = [];
+    this.allClientLevels = [];
     this.selectedGoal = [];
     this.selectedSport = sport;
 
@@ -866,11 +871,11 @@ export class ClientDetailComponent {
 
     this.selectedSport.degrees.forEach(element => {
       element.inactive_color = this.lightenColor(element.color, 30);
-      this.allLevels.push(element);
+      this.allClientLevels.push(element);
     });
 
-    this.sportIdx = this.allLevels.findIndex((al) => al.id === sport.level.id);
-    this.allLevels.sort((a, b) => a.degree_order - b.degree_order);
+    this.sportIdx = this.allClientLevels.findIndex((al) => al.id === sport.level.id);
+    this.allClientLevels.sort((a, b) => a.degree_order - b.degree_order);
 
     this.goals.forEach(element => {
       if (element.degree_id === sport.level.id) {
@@ -878,6 +883,22 @@ export class ClientDetailComponent {
         this.selectedGoal.push(element);
       }
     });
+    if (sport && sport?.level) {
+      for (const i in this.allClientLevels) {
+        // Inicializa el array para cada grado (degree)
+        this.sportCard[+i] = {
+          degree: this.allClientLevels[i], // Almacenar el degree
+          goals: [] // Inicializar los goals como un array vacío
+        };
+
+        // Buscar los goals correspondientes a cada degree y asignarlos
+        this.goals.forEach((element: any) => {
+          if (element.degree_id === this.allClientLevels[i].id) {
+            this.sportCard[+i].goals.push(element);
+          }
+        });
+      }
+    }
     this.coloring = false;
   }
 
@@ -886,14 +907,14 @@ export class ClientDetailComponent {
     this.sportIdx = this.sportIdx + nextLevel;
 
     if (this.sportIdx < 0) {
-      this.sportIdx = this.allLevels.length - 1;
-    } else if (this.sportIdx >= this.allLevels.length) {
+      this.sportIdx = this.allClientLevels.length - 1;
+    } else if (this.sportIdx >= this.allClientLevels.length) {
       this.sportIdx = 0;
     }
-    this.allLevels.sort((a: any, b: any) => a.degree_order - b.degree_order);
-    this.selectedSport.level = this.allLevels[this.sportIdx];
+    this.allClientLevels.sort((a: any, b: any) => a.degree_order - b.degree_order);
+    this.selectedSport.level = this.allClientLevels[this.sportIdx];
     this.goals.forEach((element: any) => {
-      if (element.degree_id === this.allLevels[this.sportIdx].id) {
+      if (element.degree_id === this.allClientLevels[this.sportIdx].id) {
         this.selectedGoal.push(element);
       }
     });
@@ -1072,6 +1093,13 @@ export class ClientDetailComponent {
     return ret;
   }
 
+  getDegrees() {
+    this.crudService.list('/degrees', 1, 10000, 'asc', 'degree_order', '&school_id=' + this.user.schools[0].id + '&active=1')
+      .subscribe((data) => {
+        this.allLevels = data.data;
+      })
+  }
+
   getDegreeScore(goal: any) {
     const d = this.evaluationFullfiled.find(element => element.degrees_school_sport_goals_id === goal)
     if (d) return d.score
@@ -1151,55 +1179,130 @@ export class ClientDetailComponent {
 
   }
 
-  showDetailEvent(event: any) {
+  getPaymentMethod(id: number) {
+    switch (id) {
+      case 1:
+        return 'CASH';
+      case 2:
+        return 'BOUKII PAY';
+      case 3:
+        return 'ONLINE';
+      case 4:
+        return 'AUTRE';
+      case 5:
+        return 'payment_no_payment';
+      case 6:
+        return 'bonus';
+
+      default:
+        return 'payment_no_payment'
+    }
+  }
+
+  getHighestAuthorizedDegree(monitor, sport_id: number): any | null {
+    // Encuentra los deportes asociados al monitor
+    const degrees = monitor.monitor_sports_degrees
+      .filter(degree =>
+        degree.sport_id === sport_id &&
+        degree.school_id === this.user?.schools[0]?.id
+      )
+      .map(degree => degree.monitor_sport_authorized_degrees)
+      .flat(); // Aplanamos el array para obtener todos los grados autorizados
+
+    if (degrees.length === 0) {
+      return null; // Si no hay grados autorizados, retornamos null
+    }
+
+    // Buscamos el degree autorizado con el degree_order más alto
+    const highestDegree = degrees.reduce((prev, current) => {
+      return current.degree.degree_order > prev.degree.degree_order ? current : prev;
+    });
+
+    return highestDegree;
+  }
+
+
+  isActiveBookingUser(bu: any): boolean {
+    // Compara la fecha más futura con la fecha actual
+    return bu.status === 1 &&
+      new Date(bu.date) > new Date();
+  }
+
+  isFinishedBookingUser(bu: any): boolean {
+    // Compara la fecha más futura con la fecha actual
+    return bu.status === 1 &&
+      new Date(bu.date) < new Date();
+  }
+
+  getExtrasPrice() {
+    let ret = 0;
+    this.detailData.bookingusers.forEach(element => {
+      if (element.courseExtras && element.courseExtras.length > 0 && !ret) {
+        element.courseExtras.forEach(ce => {
+          ret = ret + parseFloat(ce.course_extra.price);
+        });
+      }
+    });
+
+    return ret;
+  }
+
+
+
+  existExtras() {
+    let ret = false;
+
+    this.detailData.bookingusers.forEach(element => {
+      if (element.courseExtras && element.courseExtras.length > 0 && !ret) {
+        ret = true;
+      }
+    });
+
+    return ret;
+  }
+
+  getBonusPrice() {
+    let ret = 0;
+    this.bonus.forEach(element => {
+      ret = ret + element.currentPay;
+    });
+    return ret;
+  }
+
+  async showDetailEvent(event: any) {
 
     if (event.showDetail || (!event.showDetail && this.detailData !== null && this.detailData.id !== event.item.id)) {
-      this.detailData = event.item;
+          this.detailData = event.item.booking;
 
-      this.crudService.get('/admin/courses/' + this.detailData.course_id)
-        .subscribe((course) => {
-          this.detailData.course = course.data;
-          this.crudService.get('/sports/' + this.detailData.course.sport_id)
-            .subscribe((sport) => {
-              this.detailData.sport = sport.data;
+          this.bonus = [];
+         // this.detailData = booking.data;
+
+          // Ordenar los usuarios de la reserva
+          this.detailData.bookingusers = this.orderBookingUsers(this.detailData.booking_users);
+
+          // Obtener usuarios únicos de la reserva
+          this.getUniqueBookingUsers(this.detailData.bookingusers);
+
+          this.getSchoolSportDegrees();
+
+          // Obtener los logs de los vouchers directamente desde detailData
+          if (this.detailData.vouchers_logs.length > 0) {
+            this.detailData.vouchers_logs.forEach(voucherLog => {
+              let voucher = voucherLog.voucher;
+              voucher.currentPay = parseFloat(voucherLog.amount);
+              this.bonus.push(voucher);
             });
-
-          if (this.detailData.degree_id !== null) {
-            this.crudService.get('/degrees/' + this.detailData.degree_id)
-              .subscribe((degree) => {
-                this.detailData.degree = degree.data;
-              })
           }
 
-        })
-
-      this.crudService.list('/booking-users', 1, 10000, 'desc', 'id', '&booking_id=' + this.detailData.booking.id)
-        .subscribe((booking) => {
-          this.detailData.users = [];
-
-          booking.data.forEach((element, idx) => {
-            if (moment(element.date).format('YYYY-MM-DD') === moment(this.detailData.date).format('YYYY-MM-DD')) {
-              this.detailData.users.push(element);
-
-              this.crudService.list('/client-sports', 1, 10000, 'desc', 'id', '&client_id=' + element.client_id + "&school_id=" + this.user.schools[0].id)
-                .subscribe((cd) => {
-
-                  if (cd.data.length > 0) {
-                    element.sports = [];
-
-                    cd.data.forEach(c => {
-                      element.sports.push(c);
-                    });
-                  }
-
-
-                })
-
-            }
+          // Procesar los extras de los usuarios de la reserva
+          this.detailData.bookingusers.forEach(book => {
+            book.courseExtras = [];
+            book.booking_user_extras.forEach(extra => {
+              // Se asume que los extras están directamente en el objeto book
+              book.courseExtras.push(extra);
+            });
           });
           this.showDetail = true;
-
-        });
 
 
     } else {
@@ -1208,6 +1311,27 @@ export class ClientDetailComponent {
       this.detailData = null;
     }
 
+  }
+
+  getUniqueBookingUsers(data: any) {
+    const uniqueEntriesMap = new Map();
+
+    data.forEach((item: any) => {
+      const key = `${item.client_id}-${item.course_id}`;
+
+      if (!uniqueEntriesMap.has(key)) {
+        uniqueEntriesMap.set(key, {
+          ...item,
+          bookingusers: [] // Crea un array de bookingusers para almacenar cada fecha
+        });
+      }
+
+      // Agrega la fecha actual al array de bookingusers
+      uniqueEntriesMap.get(key).bookingusers.push(item);
+    });
+
+    // Convertir el Map en un array de objetos únicos con fechas agrupadas
+    this.bookingUsersUnique = Array.from(uniqueEntriesMap.values());
   }
 
   getLanguage(id: any) {
@@ -1309,6 +1433,70 @@ export class ClientDetailComponent {
     return hour_start.substring(0, 5) + ' - ' + hour_end.substring(0, 5);
   }
 
+  getClientDegreeObject(client: any) {
+    if (!client || !client.client_sports || !client.client_sports.length) {
+      return 0;
+    }
+    const sportId = this.detailData.bookingusers && this.detailData.bookingusers[0] ? this.detailData.bookingusers[0].course.sport_id : null;
+    if (!sportId) {
+      return 0;
+    }
+    const clientSport = client.client_sports.find(cs => cs.sport_id === sportId && cs.school_id == this.user.schools[0].id);
+    if (!clientSport || !clientSport.degree_id) {
+      return 0;
+    }
+    return clientSport.degree;
+  }
+
+
+
+  getClientBookingDegree(client: any) {
+    if (!client || !client.client_sports || !client.client_sports.length) {
+      return 0;
+    }
+    const sportId = this.detailData.bookingusers && this.detailData.bookingusers[0] ? this.detailData.bookingusers[0].course.sport_id : null;
+    if (!sportId) {
+      return 0;
+    }
+    const clientSport = client.client_sports.find(cs => cs.sport_id === sportId && cs.school_id == this.user.schools[0].id);
+    if (!clientSport || !clientSport.degree_id) {
+      return 0;
+    }
+    return clientSport.degree_id;
+  }
+
+  get isActive(): boolean {
+    if (!this.detailData.booking_users || this.detailData.booking_users.length === 0) {
+      return false;
+    }
+
+    // Encuentra la fecha más futura en booking_users
+    const maxDate = this.detailData.booking_users.reduce((latest, user) => {
+      const userDate = new Date(user.date); // Asumiendo que cada `user` tiene una propiedad `date`
+      return userDate > latest ? userDate : latest;
+    }, new Date(0)); // Inicializamos con una fecha muy pasada
+
+    // Compara la fecha más futura con la fecha actual
+    return this.detailData.status === 1 &&
+      maxDate > new Date();
+  }
+
+  get isFinished(): boolean {
+    if (!this.detailData.booking_users || this.detailData.booking_users.length === 0) {
+      return false;
+    }
+
+    // Encuentra la fecha más futura en booking_users
+    const maxDate = this.detailData.booking_users.reduce((latest, user) => {
+      const userDate = new Date(user.date); // Asumiendo que cada `user` tiene una propiedad `date`
+      return userDate > latest ? userDate : latest;
+    }, new Date(0)); // Inicializamos con una fecha muy pasada
+
+    // Compara la fecha más futura con la fecha actual
+    return this.detailData.status === 1 &&
+      maxDate < new Date();
+  }
+
   getClientDegree(sport_id: any, sports: any) {
     const sportObject = sports.find(sport => sport.sport_id === sport_id);
     if (sportObject) {
@@ -1356,33 +1544,60 @@ export class ClientDetailComponent {
     this.detailData = null;
   }
 
-  getGoalImage(): string {
+  getGoalImage(goal: any): string {
     let ret = '';
-
-    if (this.selectedGoal.length > 0) {
-      this.allLevels.forEach(element => {
-        if (element.id === this.selectedGoal[0].degree_id) {
+    if (goal.length > 0) {
+      this.allClientLevels.forEach((element: any) => {
+        if (element.id === goal[0].degree_id) {
           ret = element.image;
         }
       });
     }
-
-    return ret || "assets/img/medalla.jpg";
+    return ret;
   }
 
 
 
-  getEvaluationsData(): any {
+  getEvaluationsData(level:any): any {
     let ret: any = [];
 
-    if (this.selectedSport?.level) {
-      this.evaluations.forEach(element => {
-        if (element.degree_id === this.selectedSport.level.id) {
-          ret.push(element);
-        }
-      });
-    }
+    this.evaluations.forEach((element: any) => {
+      if (element.degree_id === level.id) {
+        ret.push(element);
+      }
+    });
 
     return ret;
+  }
+
+  @ViewChild('sliderContainer', { static: false }) sliderContainer!: ElementRef;
+  centeredCardIndex: number = 0;
+  sportCard: any[] = [];
+
+  scrollLeft(num: number) {
+    this.sliderContainer.nativeElement.scrollBy({ left: num * 300, behavior: 'smooth' });
+  }
+  onScroll() {
+    this.updateCenteredCardIndex();
+  }
+
+  private updateCenteredCardIndex() {
+    const container = this.sliderContainer.nativeElement;
+    const containerCenter = container.scrollLeft + container.clientWidth / 2;
+
+    let closestIndex = 0;
+    let closestDistance = Infinity;
+
+    const cards = container.querySelectorAll('app-user-detail-sport-card');
+    cards.forEach((card: HTMLElement, index: number) => {
+      const cardCenter = card.offsetLeft + card.clientWidth / 2;
+      const distance = Math.abs(containerCenter - cardCenter);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestIndex = index;
+      }
+    });
+
+    this.centeredCardIndex = closestIndex;
   }
 }

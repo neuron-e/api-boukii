@@ -11,6 +11,7 @@ import {
   CancelPartialBookingModalComponent
 } from '../../bookings/cancel-partial-booking/cancel-partial-booking.component';
 import {CancelBookingModalComponent} from '../../bookings/cancel-booking/cancel-booking.component';
+import {BookingDetailDialogComponent} from './components/booking-dialog/booking-dialog.component';
 
 @Component({
   selector: 'booking-detail-v2',
@@ -25,6 +26,8 @@ export class BookingDetailV2Component implements OnInit {
   deleteIndex: number = 1
   mainClient: any;
   allLevels: any;
+  isMobile = false;
+  showMobileDetail = false;
   bookingData$ = new BehaviorSubject<any>(null);
   bookingData:any;
   groupedActivities: any[] = [];
@@ -58,12 +61,59 @@ export class BookingDetailV2Component implements OnInit {
   }
 
   ngOnInit(): void {
+    this.isMobile = window.innerWidth <= 768;
     this.user = JSON.parse(localStorage.getItem("boukiiUser"));
     if (!this.incData) this.id = this.activatedRoute.snapshot.params.id;
     else this.id = this.incData.id;
     this.getDegrees();
     this.getBooking();
   }
+
+  openDetailBookingDialog() {
+    const isMobile = window.innerWidth < 768;
+
+    const dialogRef = this.dialog.open(BookingDetailDialogComponent, {
+      panelClass: ["customBookingDialog", isMobile ? "mobile-dialog" : ""],
+      position: isMobile ? {
+        bottom: "0",
+        right: "0",
+        top: "0",
+        left: "0"
+      } : {
+        bottom: "24px",
+        right: "24px",
+        top: "24px",
+        left: "24px"
+      },
+      maxWidth: isMobile ? "100vw" : "900px", // En lugar de -webkit-fill-available
+      width: isMobile ? "100%" : "90%",
+      height: isMobile ? "100%" : "auto",
+      maxHeight: isMobile ? "100vh" : "90vh",
+      data: {
+        mainClient: this.mainClient,
+        groupedActivities: this.groupedActivities,
+        allLevels: this.allLevels,
+        bookingData$: this.bookingData$,
+        activitiesChanged$: this.activitiesChanged$,
+        isMobile: isMobile
+      },
+    });
+
+    dialogRef.componentInstance.deleteActivity.subscribe(() => {
+      dialogRef.close()
+      this.processFullDelete();
+    });
+
+    dialogRef.componentInstance.payActivity.subscribe(() => {
+      dialogRef.close()
+      this.payModal = true;
+    });
+
+    dialogRef.componentInstance.closeClick.subscribe(() => {
+      dialogRef.close();
+    });
+  }
+
 
   getDegrees() {
     const user = JSON.parse(localStorage.getItem("boukiiUser"))
@@ -93,8 +143,11 @@ export class BookingDetailV2Component implements OnInit {
         this.bookingData = data.data;
         this.groupedActivities  = data.data.grouped_activities;
         this.mainClient = data.data.client_main;
-/*        debugger;*/
       });
+  }
+
+  closeModal() {
+    this.dialog.closeAll();
   }
 
   groupBookingUsersByGroupId(booking: any) {
@@ -209,7 +262,7 @@ export class BookingDetailV2Component implements OnInit {
   }
 
   editActivity(data: any, index: any) {
-    if (data.course_dates) {
+    if (data && data.course_dates) {
 
       this.crudService.post('/admin/bookings/update',
         {
@@ -219,19 +272,23 @@ export class BookingDetailV2Component implements OnInit {
           booking_id: this.id
         })
         .subscribe((response) => {
-          this.bookingData$.next(response.data);
+/*          this.bookingData$.next(response.data);
           this.bookingData = response.data;
           this.groupedActivities = [...this.groupBookingUsersByGroupId(response.data)];
-          this.activitiesChangedSubject.next(response.data);
+          this.activitiesChangedSubject.next(response.data);*/
+          this.getBooking();
           this.snackBar.open(this.translateService.instant('snackbar.booking_detail.update'), 'OK', { duration: 3000 });
         });
 
     }
-    if (data.schoolObs || data.clientObs) {
+    else if (data && (data.schoolObs || data.clientObs)) {
       this.groupedActivities[index].schoolObs = data.schoolObs;
       this.groupedActivities[index].clientObs = data.clientObs;
       this.editObservations(this.groupedActivities[index].dates[0].booking_users[0].id, data)
+    } else {
+      this.getBooking();
     }
+
   }
 
   editObservations(bookingUserId:number, data:any) {
@@ -261,55 +318,60 @@ export class BookingDetailV2Component implements OnInit {
 
   processDelete(index) {
     this.deleteIndex = index;
-    if(this.bookingData.paid) {
-      const group = this.groupedActivities[index];
-      const dialogRef = this.dialog.open(CancelPartialBookingModalComponent, {
-        width: "1000px", // Asegurarse de que no haya un ancho máximo
-        panelClass: "full-screen-dialog", // Si necesitas estilos adicionales,
-        data: {
-          itemPrice: group.total,
-          booking: this.bookingData,
-        },
-      });
-
-      dialogRef.afterClosed().subscribe((data: any) => {
-        if (data) {
-          this.bookingService.processCancellation(
-            data, this.bookingData, this.hasOtherActiveGroups(group), this.user, group)
-            .subscribe({
-              next: () => {
-                this.snackBar.open(
-                  this.translateService.instant('snackbar.booking_detail.update'),
-                  'OK',
-                  { duration: 3000 }
-                );
-              },
-              error: (error) => {
-                console.error('Error processing cancellation:', error);
-                this.snackBar.open(
-                  this.translateService.instant('snackbar.error'),
-                  'OK',
-                  { duration: 3000 }
-                );
-              }
-            });
-
-        }
-      });
-
+    const group = this.groupedActivities[index];
+    if(!this.hasOtherActiveGroups(group)) {
+      this.processFullDelete();
     } else {
-      this.deleteModal = true;
+      if(this.bookingData.paid) {
+        const dialogRef = this.dialog.open(CancelPartialBookingModalComponent, {
+          width: "1000px", // Asegurarse de que no haya un ancho máximo
+          panelClass: "full-screen-dialog", // Si necesitas estilos adicionales,
+          data: {
+            itemPrice: group.total,
+            booking: this.bookingData,
+          },
+        });
+
+        dialogRef.afterClosed().subscribe((data: any) => {
+          if (data) {
+            this.bookingService.processCancellation(
+              data, this.bookingData, this.hasOtherActiveGroups(group), this.user, group)
+              .subscribe({
+                next: () => {
+                  this.getBooking();
+                  this.snackBar.open(
+                    this.translateService.instant('snackbar.booking_detail.update'),
+                    'OK',
+                    { duration: 3000 }
+                  );
+                },
+                error: (error) => {
+                  console.error('Error processing cancellation:', error);
+                  this.snackBar.open(
+                    this.translateService.instant('snackbar.error'),
+                    'OK',
+                    { duration: 3000 }
+                  );
+                }
+              });
+
+          }
+        });
+
+      } else {
+        this.deleteModal = true;
+      }
     }
+
 
   }
 
   processFullDelete() {
-    if(this.bookingData.paid) {
       const dialogRef = this.dialog.open(CancelBookingModalComponent, {
         width: "1000px", // Asegurarse de que no haya un ancho máximo
         panelClass: "full-screen-dialog", // Si necesitas estilos adicionales,
         data: {
-          itemPrice: this.bookingData.paid_total,
+          itemPrice: this.bookingData.price_total,
           booking: this.bookingData,
         },
       });
@@ -321,6 +383,7 @@ export class BookingDetailV2Component implements OnInit {
             this.bookingData.booking_users.map(b => b.id), this.bookingData.price_total)
             .subscribe({
               next: () => {
+                this.getBooking();
                 this.snackBar.open(
                   this.translateService.instant('snackbar.booking_detail.update'),
                   'OK',
@@ -339,9 +402,6 @@ export class BookingDetailV2Component implements OnInit {
 
         }
       });
-    } else {
-      this.deleteFullModal = true;
-    }
 
   }
 
@@ -402,11 +462,11 @@ export class BookingDetailV2Component implements OnInit {
 
     if (this.bookingService.calculatePendingPrice() === 0) {
       bookingData.paid = true;
-      bookingData.paid_total = bookingData.price_total;
+      bookingData.paid_total = bookingData.price_total - this.calculateTotalVoucherPrice();
     }
     // Si es pago en efectivo o tarjeta, guardar si fue pagado
     if (bookingData.payment_method_id === 1 || bookingData.payment_method_id === 4) {
-      bookingData.paid_total = bookingData.price_total;
+      bookingData.paid_total = bookingData.price_total - this.calculateTotalVoucherPrice();
       bookingData.paid = true;
     }
 
@@ -423,11 +483,12 @@ export class BookingDetailV2Component implements OnInit {
                   if (bookingData.payment_method_id === 2) {
                     window.open(paymentResult.data, "_self");
                   } else {
-                    this.showErrorSnackbar("Error al procesar el pago en línea.");
+                    this.snackBar.open(this.translateService.instant('snackbar.booking_detail.send_mail'),
+                      'OK', { duration: 1000 });
                   }
                 },
                 (error) => {
-                  this.showErrorSnackbar("Error al procesar el pago en línea.");
+                  this.showErrorSnackbar(this.translateService.instant('snackbar.booking.payment.error'));
                 }
               );
           } else {
@@ -439,10 +500,15 @@ export class BookingDetailV2Component implements OnInit {
           }
         },
         (error) => {
-          this.showErrorSnackbar("Error al actualizar el pago de la reserva.");
+          this.showErrorSnackbar(this.translateService.instant('snackbar.booking.payment.error'));
         }
       );
   }
+
+  calculateTotalVoucherPrice(): number {
+    return this.bookingData.vouchers ? this.bookingData.vouchers.reduce( (e, i) => e + parseFloat(i.bonus.reducePrice), 0) : 0
+  }
+
 
   onPaymentMethodChange(event: any) {
     // Lógica para manejar el cambio de método de pago

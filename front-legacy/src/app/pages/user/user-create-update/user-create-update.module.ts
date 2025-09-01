@@ -15,7 +15,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { NgxDropzoneModule } from 'ngx-dropzone';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatSnackBarModule } from '@angular/material/snack-bar';
+import {MAT_SNACK_BAR_DEFAULT_OPTIONS, MatSnackBarModule} from '@angular/material/snack-bar';
 import { UserCreateUpdateComponent } from './user-create-update.component';
 import { TranslateModule } from '@ngx-translate/core';
 
@@ -40,6 +40,12 @@ import { TranslateModule } from '@ngx-translate/core';
     MatSlideToggleModule,
     MatSnackBarModule,
     TranslateModule
+  ],
+  providers: [
+    {
+      provide: MAT_SNACK_BAR_DEFAULT_OPTIONS,
+      useValue: { verticalPosition: 'top', horizontalPosition: 'center', duration: 3000 }
+    }
   ],
   declarations: [UserCreateUpdateComponent],
   exports: [UserCreateUpdateComponent]

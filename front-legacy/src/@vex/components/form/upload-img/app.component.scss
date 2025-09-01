@@ -15,6 +15,13 @@ input[type="file"] {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  height: 100%;
   cursor: pointer;
+  border: 1px #c7d0d3;
+  border-style: dashed;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+:ng-deep .ngx-ic-cropper.ngx-ic-round {
+  margin: 0;
 }

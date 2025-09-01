@@ -2,7 +2,7 @@
   <form [formGroup]="stepForm">
     <mat-radio-group aria-label="Select an option" formControlName="sport" class="cards-wrapper">
       <label class="sportCard" [ngClass]="{ active: stepForm.get('sport').value?.id === item.sport.id }"
-        *ngFor="let item of sportData">
+             *ngFor="let item of sportData">
         <mat-radio-button [value]="item.sport"> </mat-radio-button>
         <img class="sportImg" [src]="item.sport.icon_selected" />
         <span class="sportTitle">{{ item.sport.name }}</span>
@@ -10,17 +10,31 @@
     </mat-radio-group>
 
     <mat-form-field appearance="outline" class="searchInput" *ngIf="stepForm.get('sport').value">
-      <input type="text" placeholder="{{ 'choose_level' | translate }}" aria-label="Choose level" matInput
-        formControlName="sportLevel" [matAutocomplete]="autoLevel" />
+      <div [ngStyle]="{'background': selectedLevelColor}" class="input-wrapper">
+        <input style="color: white !important;"
+          type="text"
+          placeholder="{{ 'choose_level' | translate }}"
+          aria-label="Choose level"
+          matInput
+          formControlName="sportLevel"
+          [matAutocomplete]="autoLevel"
+          class="input-field" />
+      </div>
+
       <mat-autocomplete #autoLevel="matAutocomplete" [displayWith]="displayFnLevel">
-        <mat-option *ngFor="let level of filteredLevels | async" [value]="level"
-          [ngStyle]="{'background': level?.color, 'color': 'white'}" class="custom-option">
-          <span style="color: white !important;">
-            {{ level.league }} - {{ level.name }}
-          </span>
+        <mat-option
+          *ngFor="let level of filteredLevels | async"
+          [value]="level"
+          [ngStyle]="{'background': level?.color, 'color': 'white'}"
+          class="custom-option">
+      <span style="color: white !important;">
+        {{ level.league }} - {{ level.name }}
+      </span>
         </mat-option>
       </mat-autocomplete>
     </mat-form-field>
+
+
   </form>
 
   <div class="stepButtonsWrapper">

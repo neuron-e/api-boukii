@@ -23,6 +23,7 @@ import {ApiCrudService} from '../../../../../../service/crud.service';
 export class BookingReservationDetailComponent implements OnInit {
   @Input() client: any;
   @Input() activities: any;
+  @Input() isModal = false;
   @Input() hideBotton = false;
   @Input() bookingData: any;
   @Input() allLevels: any;
@@ -31,6 +32,7 @@ export class BookingReservationDetailComponent implements OnInit {
   @Output() editClick = new EventEmitter();
   @Output() payClick = new EventEmitter();
   @Output() addClick = new EventEmitter();
+  @Output() closeClick = new EventEmitter();
   @Input() activitiesChanged: Observable<void>;  // Recibimos el observable
 
   private activitiesChangedSub: Subscription;

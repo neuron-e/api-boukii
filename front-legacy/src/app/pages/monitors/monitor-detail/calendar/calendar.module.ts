@@ -19,7 +19,7 @@ import { CalendarRoutingModule } from './calendar-routing.module';
 import { CalendarComponent } from './calendar.component';
 import { VexScrollbarComponent } from 'src/@vex/components/vex-scrollbar/vex-scrollbar.component';
 import { CalendarA11y, CalendarCommonModule, CalendarDateFormatter, CalendarDayModule, CalendarEventTitleFormatter, CalendarModule, CalendarMonthModule, CalendarUtils, CalendarWeekModule, DateAdapter } from 'angular-calendar';
-import { MatSnackBarModule } from '@angular/material/snack-bar';
+import {MAT_SNACK_BAR_DEFAULT_OPTIONS, MatSnackBarModule} from '@angular/material/snack-bar';
 import { MatButtonModule } from '@angular/material/button';
 import { adapterFactory } from 'angular-calendar/date-adapters/date-fns';
 import { LayoutModule } from '@angular/cdk/layout';
@@ -61,6 +61,10 @@ import { TranslateModule } from '@ngx-translate/core';
     {
       provide: DateAdapter,
       useFactory: adapterFactory,
+    },
+    {
+      provide: MAT_SNACK_BAR_DEFAULT_OPTIONS,
+      useValue: { verticalPosition: 'top', horizontalPosition: 'center', duration: 3000 }
     },
     CalendarEventTitleFormatter,
     CalendarDateFormatter,

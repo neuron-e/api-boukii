@@ -2243,7 +2243,6 @@ export class CoursesCreateUpdateComponent implements OnInit, AfterViewInit {
   }
 
   update() {
-    debugger;
     if (this.defaults.course_type === 2) {
       this.checkStep3PrivateNoFlex();
       this.setDebut(this.defaults.hour_min);

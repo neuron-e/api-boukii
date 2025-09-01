@@ -27,28 +27,28 @@ const childrenRoutes: VexRoutes = [
         loadChildren: () => import('./pages/timeline/timeline.module').then(m => m.TimelineModule),
         canActivate: [AuthGuard],
       },
-      /*      {
+            {
               path: 'calendar',
               loadChildren: () => import('./pages/calendar/calendar.module').then(m => m.CalendarMonitorModule),
               canActivate: [AuthGuard],
-            },*/
+            },
       {
-        path: 'bookings',
+        path: 'bookings-old',
         loadChildren: () => import('./pages/bookings/bookings.module').then(m => m.BookingsModule),
         canActivate: [AuthGuard],
       },
       {
-        path: 'bookings-v2',
+        path: 'bookings',
         loadChildren: () => import('./pages/bookings-v2/bookings.module').then(m => m.BookingsModule),
         canActivate: [AuthGuard],
       },
       {
-        path: 'courses-v2',
+        path: 'courses',
         loadChildren: () => import('./pages/courses-v2/courses.module').then(m => m.CoursesModule),
         canActivate: [AuthGuard],
       },
       {
-        path: 'courses',
+        path: 'courses-old',
         loadChildren: () => import('./pages/courses/courses.module').then(m => m.CoursesModule),
         canActivate: [AuthGuard],
       },
@@ -64,7 +64,7 @@ const childrenRoutes: VexRoutes = [
       },
       {
         path: 'stats',
-        loadChildren: () => import('./pages/analytics/analytics.module').then(m => m.AnalyticsModule),
+        loadChildren: () => import('./pages/analytics-v2/analytics.module').then(m => m.AnalyticsModule),
         canActivate: [AuthGuard],
       },
       {

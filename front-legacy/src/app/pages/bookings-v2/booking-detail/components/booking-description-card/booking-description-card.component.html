@@ -47,8 +47,9 @@
           <div *ngFor="let item of utilizers" class="utilizersWrapper">
             <app-level-user class="avatarImg"
                             mat-card-avatar *ngIf="item.client_sports && item.client_sports.length"
-                            [allLevels]="utilsService.getSportLevels(item.client_sports[0].sport_id, allLevels)"
-                            [selectLevel]="item.client_sports[0].sport_id?.degree_id" [size]="50"
+                            [allLevels]="utilsService.getSportLevels(sport ? sport.id : item.client_sports[0].sport_id, allLevels)"
+                            [selectLevel]="sport ? utilsService.getClientDegreeByClient(item, sport.id)?.id : item.client_sports[0]?.degree_id"
+                            [size]="50"
                             [userImage]="item?.image !== null && item?.image
                         !== '' ? item?.image :  'assets/img/avatar.png'">
             </app-level-user>
@@ -57,8 +58,8 @@
                 ? item.image
                 : 'assets/img/avatar.png'
             " style="min-width: 24px;
-          width: 24px;
-          height: 24px;" class="avatarImg">
+          width: 50px;
+          height: 50px;" class="avatarImg">
 
             <div class="utilizersWrapper__description">
               <h4>
@@ -71,25 +72,38 @@
                 }}
                 · {{ utilsService.getCountry(item.country) }}
 							</span>
+              <div *ngIf="sport && utilsService.getClientDegreeByClient(item, sport.id)"
+                   [style.background]="sport ? utilsService.getClientDegreeByClient(item, sport.id)?.color : item.client_sports[0]?.color" style="
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            color: #fff;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 10px;
+            width: 3rem;
+            overflow: inherit;">
+                {{ utilsService.getClientDegreeByClient(item, sport.id)?.league }}
+              </div>
             </div>
           </div>
         </div>
         <ng-template #summaryUtilizer>
           <div class="utilizersWrapper">
             <app-level-user class="avatarImg"
-                            mat-card-avatar *ngIf=" utilizers[0]?.client_sports &&  utilizers[0]?.client_sports.length"
-                            [allLevels]="utilsService.getSportLevels( utilizers[0]?.client_sports[0].sport_id, allLevels)"
-                            [selectLevel]=" utilizers[0]?.client_sports[0].sport_id?.degree_id" [size]="50"
-                            [userImage]=" utilizers[0]?.image !== null &&  utilizers[0]?.image
-                        !== '' ?  utilizers[0]?.image :  'assets/img/avatar.png'">
+            mat-card-avatar  *ngIf="sport && utilizers[0]?.client_sports && utilizers[0]?.client_sports.length && allLevels"
+                            [size]="50"
+                            [allLevels]="utilsService.getSportLevels(sport ? sport?.id : utilizers[0]?.client_sports.sport_id, allLevels)"
+                            [selectLevel]="sport ? utilsService.getClientDegreeByClient(utilizers[0], sport.id)?.id : utilizers[0].client_sports[0]?.degree_id"
+                            [userImage]="utilizers[0]?.image !== null && utilizers[0]?.image !== '' ? utilizers[0]?.image :  'assets/img/avatar.png'">
+            >
             </app-level-user>
             <img *ngIf="! utilizers[0]?.client_sports || ! utilizers[0]?.client_sports.length" [src]="
                utilizers[0]?.image !== null &&  utilizers[0]?.image !== ''
                 ?  utilizers[0]?.image
                 : 'assets/img/avatar.png'
             " style="min-width: 24px;
-          width: 24px;
-          height: 24px;" class="avatarImg">
+          width: 50px;
+          height: 50px;" class="avatarImg">
             <div class="utilizersWrapper__description">
               <h4>
                 {{ utilizers[0]?.first_name }} {{ utilizers[0]?.last_name
@@ -307,6 +321,7 @@
         <img *ngIf="!summaryMode && isDetail && status != 2"
              (click)="openObservationsForm(clientObs, schoolObs)" src="assets/img/icons/edit-grey.svg"
              class="icon24" style="float: right;">
+        <mat-icon color="warn" class="warning-icon" *ngIf="clientObs || schoolObs">warning</mat-icon>
       </div>
       <p>{{ clientObs }}</p>
       <div class="sectionTitle mt-5">

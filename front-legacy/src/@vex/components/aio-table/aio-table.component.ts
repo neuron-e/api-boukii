@@ -73,6 +73,7 @@ export class AioTableComponent implements OnInit, AfterViewInit, OnChanges {
   @Input() sectionIcon: string;
   @Input() route: string;
   @Input() withHeader: boolean = true;
+  @Input() withFilters: boolean = true;
   @Input() canDelete: boolean = false;
   @Input() canDeactivate: boolean = false;
   @Input() canDuplicate: boolean = false;
@@ -86,6 +87,7 @@ export class AioTableComponent implements OnInit, AfterViewInit, OnChanges {
   @Input() with: any = '';
   @Input() search: any = '';
   @Output() showDetailEvent = new EventEmitter<any>();
+  @Output() dataLoaded = new EventEmitter<any[]>();
   pageIndex = 1;
   pageSize = 10;
   filter = '';
@@ -357,6 +359,7 @@ export class AioTableComponent implements OnInit, AfterViewInit, OnChanges {
         this.pageIndex = pageIndex;
         this.pageSize = pageSize;
         this.data = response.data;
+        this.dataLoaded.emit(response.data); // Emitimos los datos al componente padre
         //this.dataSource.data = []; // Reinicializa el dataSource para eliminar los datos antiguos
         this.dataSource.data = response.data;
         this.dataSource.connect();
@@ -859,8 +862,14 @@ export class AioTableComponent implements OnInit, AfterViewInit, OnChanges {
     if (dates.length > 0) {
       let min = dates.find((objeto: any) => objeto.active === 1 || objeto.active === true);
       let max = dates.slice().reverse().find((objeto: any) => objeto.active === 1 || objeto.active === true);
-      return { min: min.date, max: max.date }
-    } else return { min: null, max: null }
+
+      return {
+        min: min ? min.date : null,
+        max: max ? max.date : null
+      };
+    } else {
+      return { min: null, max: null };
+    }
   }
 
   /* EXPORT QR */
@@ -1040,7 +1049,8 @@ export class AioTableComponent implements OnInit, AfterViewInit, OnChanges {
   }
 
   getTrad(data: any, name: any) {
-    const dataJ = JSON.parse(data);
+    let dataJ = typeof data === 'string' ?
+      JSON.parse(data) : data;
 
     return data !== null && dataJ[this.translateService.currentLang].name !== null && dataJ[this.translateService.currentLang].name !== '' ? dataJ[this.translateService.currentLang].name : name
   }
@@ -1073,6 +1083,9 @@ export class AioTableComponent implements OnInit, AfterViewInit, OnChanges {
 
   checkClientStatus(data: any) {
     let ret = false;
+    if(!data) {
+      return ret
+    }
     data.forEach(element => {
       if (element.school_id === this.user.schools[0].id) {
         ret = element.accepted_at !== null;

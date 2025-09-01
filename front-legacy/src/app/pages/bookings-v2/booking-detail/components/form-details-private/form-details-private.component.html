@@ -12,7 +12,7 @@
       <mat-card-header class="card__header">
         <mat-card-title> {{ "date" | translate }} {{ i + 1 }} </mat-card-title>
         <ng-container
-          *ngIf="!isPast(dateGroup.get('date').value)">
+          *ngIf="!isPast(dateGroup.get('date').value) && !dateGroup.get('date').disabled">
           <mat-icon fontSet="material-icons-outlined"
             (click)="removeDate(i)">delete</mat-icon>
         </ng-container>

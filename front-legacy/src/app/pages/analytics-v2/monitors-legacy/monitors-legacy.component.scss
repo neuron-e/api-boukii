@@ -1,0 +1,419 @@
+// =============== MONITORS LEGACY COMPONENT STYLES ===============
+// Archivo: src/app/components/analytics/monitors-legacy/monitors-legacy.component.scss
+
+.monitors-legacy-container {
+  padding: 20px;
+
+  // ==================== LOADING STATE ====================
+
+  .loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 400px;
+
+    .loading-card {
+      padding: 40px;
+      text-align: center;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      border-radius: 12px;
+
+      .loading-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+
+        h3 {
+          margin: 0;
+          color: #333;
+          font-weight: 500;
+        }
+
+        p {
+          margin: 0;
+          color: #666;
+          font-size: 14px;
+        }
+      }
+    }
+  }
+
+  // ==================== KPIS GRID ====================
+
+  .kpis-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+  }
+
+  .kpi-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: transform 0.2s ease;
+
+    &:hover {
+      transform: translateY(-2px);
+    }
+
+    .kpi-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px;
+
+      .kpi-info {
+        flex: 1;
+
+        .kpi-value {
+          font-size: 28px;
+          font-weight: 700;
+          margin-bottom: 4px;
+        }
+
+        .kpi-label {
+          font-size: 14px;
+          opacity: 0.9;
+          margin-bottom: 8px;
+        }
+
+        .kpi-change {
+          font-size: 12px;
+          opacity: 0.8;
+        }
+      }
+
+      .kpi-icon {
+        font-size: 36px;
+        opacity: 0.8;
+      }
+    }
+  }
+
+  // ==================== CHARTS GRID ====================
+
+  .charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+  }
+
+  .chart-card {
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+
+    .chart-container {
+      min-height: 300px;
+    }
+  }
+
+  // ==================== TABLE STYLES ====================
+
+  .table-card {
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+  }
+
+  .table-filters {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+
+    .filter-field {
+      min-width: 200px;
+    }
+  }
+
+  .monitors-table {
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+
+    .monitor-cell {
+      .monitor-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+
+        .monitor-name {
+          font-weight: 500;
+          color: #333;
+        }
+      }
+    }
+
+    .sport-chip {
+      background-color: #e3f2fd;
+      color: #1976d2;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .total-hours-cell,
+    .total-cost-cell {
+      font-weight: 600;
+      color: #2e7d32;
+    }
+
+    .monitor-row {
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+
+      &:hover {
+        background-color: #f5f5f5;
+      }
+
+      &.selected {
+        background-color: #e8f5e8;
+      }
+    }
+  }
+
+  .table-footer {
+    margin-top: 16px;
+    padding: 16px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+
+    .footer-stats {
+      display: flex;
+      gap: 16px;
+      color: #666;
+      font-size: 14px;
+      font-weight: 500;
+    }
+  }
+
+  // ==================== DETAIL SECTION ====================
+
+  .detail-card {
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-left: 4px solid #2e7d32;
+
+    .detail-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+
+      mat-card-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #2e7d32;
+        font-weight: 600;
+
+        mat-icon {
+          font-size: 24px;
+        }
+      }
+
+      .close-button {
+        color: #666;
+
+        &:hover {
+          color: #333;
+          background-color: #f5f5f5;
+        }
+      }
+    }
+  }
+
+  .detail-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 40px;
+    color: #666;
+  }
+
+  .detail-content {
+    .detail-kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+      padding: 16px;
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border-radius: 8px;
+
+      .detail-kpi {
+        text-align: center;
+        padding: 12px;
+        background: white;
+        border-radius: 6px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+
+        .detail-kpi-value {
+          font-size: 20px;
+          font-weight: 600;
+          color: #2e7d32;
+          margin-bottom: 4px;
+        }
+
+        .detail-kpi-label {
+          font-size: 12px;
+          color: #666;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+      }
+    }
+  }
+
+  .detail-table {
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+
+    .sport-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .sport-icon {
+        width: 20px;
+        height: 20px;
+        object-fit: contain;
+      }
+    }
+
+    .total-hours-cell,
+    .total-cost-cell {
+      font-weight: 600;
+      color: #2e7d32;
+    }
+
+    .detail-row {
+      &:hover {
+        background-color: #f8f9fa;
+      }
+
+      &:nth-child(even) {
+        background-color: #fafafa;
+      }
+    }
+  }
+
+  // ==================== RESPONSIVE DESIGN ====================
+
+  @media (max-width: 768px) {
+    padding: 10px;
+
+    .kpis-grid {
+      grid-template-columns: 1fr;
+      gap: 15px;
+    }
+
+    .charts-grid {
+      grid-template-columns: 1fr;
+      gap: 15px;
+    }
+
+    .table-filters {
+      flex-direction: column;
+
+      .filter-field {
+        min-width: unset;
+        width: 100%;
+      }
+    }
+
+    .detail-kpis {
+      grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    // Ocultar columnas en móvil
+    .monitors-table,
+    .detail-table {
+      th:nth-child(n+6),
+      td:nth-child(n+6) {
+        display: none;
+      }
+    }
+  }
+
+  @media (max-width: 480px) {
+    .detail-kpis {
+      grid-template-columns: 1fr !important;
+    }
+
+    .kpi-card .kpi-content {
+      flex-direction: column;
+      text-align: center;
+      gap: 8px;
+
+      .kpi-icon {
+        font-size: 24px;
+      }
+    }
+  }
+
+  // ==================== DARK THEME SUPPORT ====================
+
+  .dark-theme & {
+    .kpi-card {
+      background: linear-gradient(135deg, #424242 0%, #616161 100%);
+    }
+
+    .chart-card,
+    .table-card,
+    .detail-card {
+      background-color: #424242;
+      color: #ffffff;
+    }
+
+    .table-footer {
+      background-color: #515151;
+    }
+
+    .monitor-row:hover {
+      background-color: #515151;
+    }
+
+    .detail-kpis {
+      background: linear-gradient(135deg, #515151 0%, #616161 100%);
+
+      .detail-kpi {
+        background-color: #424242;
+        color: #ffffff;
+      }
+    }
+
+    .detail-row:hover {
+      background-color: #515151;
+    }
+
+    .detail-row:nth-child(even) {
+      background-color: #484848;
+    }
+  }
+
+  // ==================== PRINT STYLES ====================
+
+  @media print {
+    .chart-card,
+    .table-card,
+    .detail-card {
+      box-shadow: none;
+      border: 1px solid #ddd;
+    }
+
+    .kpi-card {
+      background: #f8f9fa !important;
+      color: #333 !important;
+    }
+
+    .close-button {
+      display: none;
+    }
+  }
+}

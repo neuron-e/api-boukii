@@ -43,7 +43,7 @@
     </ng-container>
     <div style="margin-left: auto;align-content: space-around;" *ngIf="isDetail"
       (click)="deleteActivity.emit(); $event.stopPropagation()">
-      <img [class]="{ sportImg: !course, courseImg: course }" class="icon24" src="assets/icons/icon/delete.png" alt>
+      <img class="icon24" src="assets/icons/icon/delete.png" alt>
     </div>
   </div>
   <div class="bodyWrapper">
@@ -57,12 +57,13 @@
       <ng-container *ngIf="utilizers">
         <div *ngIf="!summaryMode; else summaryUtilizer">
           <div *ngFor="let item of utilizers" class="utilizersWrapper">
-            <img *ngIf="!item?.client_sports || !item?.client_sports.length" class="avatarImg icon40"
+            <img *ngIf="!sport || !item?.client_sports || !item?.client_sports.length" class="avatarImg icon40"
               [src]="item?.image || 'assets/img/avatar.png'" />
-            <app-level-user *ngIf="item.client_sports && item.client_sports.length && allLevels" mat-card-avatar
+            <app-level-user *ngIf="sport && item.client_sports && item.client_sports.length && allLevels" mat-card-avatar
               style="margin-right: 5px"
-              [allLevels]="utilsService.getSportLevels(item.client_sports[0].sport_id, allLevels)"
-              [selectLevel]="item.client_sports[0]?.degree_id" [size]="50"
+              [allLevels]="utilsService.getSportLevels(sport ? sport.id : item.client_sports[0].sport_id, allLevels)"
+                            [selectLevel]="sport ? utilsService.getClientDegreeByClient(item, sport.id)?.id : item.client_sports[0]?.degree_id"
+                            [size]="50"
               [userImage]="item.image !== null && item.image !== '' ? item.image :  'assets/img/avatar.png'">
             </app-level-user>
             <div class="utilizersWrapper__description">
@@ -72,17 +73,32 @@
                 "years" | translate
                 }}
                 · {{ utilsService.getCountry(item.country) }}</span>
+              <div *ngIf="sport && utilsService.getClientDegreeByClient(item, sport.id)"
+                   [style.background]="sport ? utilsService.getClientDegreeByClient(item, sport.id)?.color : item.client_sports[0]?.color" style="
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            color: #fff;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 10px;
+            width: 3rem;
+            overflow: inherit;">
+                {{ utilsService.getClientDegreeByClient(item, sport.id)?.league }}
+              </div>
             </div>
+
           </div>
+
         </div>
         <ng-template #summaryUtilizer>
           <div class="utilizersWrapper">
             <img *ngIf="!utilizers[0]?.client_sports || !utilizers[0]?.client_sports.length" class="avatarImg icon40"
               [src]="utilizers[0]?.image || 'assets/img/avatar.png'" />
-            <app-level-user *ngIf="utilizers[0]?.client_sports && utilizers[0]?.client_sports.length && allLevels"
+            <app-level-user *ngIf="sport && utilizers[0]?.client_sports && utilizers[0]?.client_sports.length && allLevels"
               mat-card-avatar style="margin-right: 5px"
-              [allLevels]="utilsService.getSportLevels(utilizers[0]?.client_sports[0].sport_id, allLevels)"
-              [selectLevel]="utilizers[0]?.client_sports[0]?.degree_id" [size]="50"
+              [allLevels]="utilsService.getSportLevels(sport ? sport?.id : utilizers[0]?.client_sports.sport_id, allLevels)"
+              [size]="50"
+              [selectLevel]="sport ? utilsService.getClientDegreeByClient(utilizers[0], sport.id)?.id : utilizers[0].client_sports[0]?.degree_id"
               [userImage]="utilizers[0]?.image !== null && utilizers[0]?.image !== '' ? utilizers[0]?.image :  'assets/img/avatar.png'">
             </app-level-user>
             <div class="utilizersWrapper__description">
@@ -95,6 +111,18 @@
                 {{ "years" | translate }} · {{
                 utilsService.getCountry(utilizers[0]?.country) }}
               </span>
+              <div *ngIf="sport && utilsService.getClientDegreeByClient(utilizers[0], sport?.id)"
+                   [style.background]="utilsService.getClientDegreeByClient(utilizers[0], sport?.id)?.color" style="
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            color: #fff;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 10px;
+            width: 3rem;
+            overflow: inherit;">
+                {{ utilsService.getClientDegreeByClient(utilizers[0], sport.id)?.league }}
+              </div>
             </div>
             <!-- Mostrar el número de utilizadores restantes -->
             <div *ngIf="utilizers.length > 1" style="margin-left: auto;background-color: #DEE6EA;border-radius: 3px;

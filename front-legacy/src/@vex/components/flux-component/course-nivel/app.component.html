@@ -1,96 +1,97 @@
 <div style="width: 100%;  gap: 8px;
 display: flex;
 flex-direction: column;">
-	<ng-container *ngFor="let item of courseFormGroup.controls['levelGrop'].value;index as i">
-		<div *ngIf="item.active" style="height: 100%;width: 100%;">
-			<div [style.backgroundColor]="item.color+'33'" [style.border]="'1px solid '+item.color"
-				(click)="item.modal=!item.modal"
-				style="height: 74px; padding: 10px;border-radius: 4px; cursor: pointer;">
-				<div [style.color]="item.color"
-					style="font-size: 14px; font-weight: 600; display: flex;align-items: center; margin-bottom: 5px;">
-					<img src="assets/icons/icon/award.png" class="icon24">
-					<span>
+  <ng-container *ngFor="let item of courseFormGroup.controls['levelGrop'].value;index as i">
+    <div *ngIf="item.active" style="height: 100%;width: 100%;">
+      <div [style.backgroundColor]="item.color+'33'" [style.border]="'1px solid '+item.color"
+           (click)="item.modal=!item.modal"
+           style="height: 74px; padding: 10px;border-radius: 4px; cursor: pointer;">
+        <div [style.color]="item.color"
+             style="font-size: 14px; font-weight: 600; display: flex;align-items: center; margin-bottom: 5px;">
+          <img src="assets/icons/icon/award.png" class="icon24">
+          <span>
 						{{item.annotation}} {{item.level}}
 					</span>
-					<mat-icon *ngIf="!item.modal" class="icon24" style="margin-left:auto;">
-						keyboard_arrow_up
-					</mat-icon>
-					<mat-icon *ngIf="item.modal" class="icon24" style="margin-left:auto;">
-						keyboard_arrow_down
-					</mat-icon>
-				</div>
-				<div style="display: flex;align-items: center;">
-					<img src="assets/icons/icon/people.png" class="icon16">
-					<span>
-						{{find(courseFormGroup.controls['course_dates'].value[0].course_groups,'degree_id',item.id)?.course_subgroups?.length}}g
-						· {{item.max_participants||courseFormGroup.controls['max_participants'].value||0}}p
-					</span>
-					<div style="margin: auto;"></div>
-					<ng-container>
-						<img src="assets/icons/icon/calendar.png" class="icon16">
-						<span>
-							{{DateDiff(courseFormGroup.controls['date_start'].value,courseFormGroup.controls['date_end'].value)
-							|| 0}} {{'days' | translate}}
+          <mat-icon *ngIf="!item.modal" class="icon24" style="margin-left:auto;">
+            keyboard_arrow_up
+          </mat-icon>
+          <mat-icon *ngIf="item.modal" class="icon24" style="margin-left:auto;">
+            keyboard_arrow_down
+          </mat-icon>
+        </div>
+        <div style="display: flex;align-items: center;">
+          <img src="assets/icons/icon/people.png" class="icon16">
+          <span>
+  {{ countSubgroups(courseFormGroup.controls['course_dates'].value, item.id) }}g
+  · {{ findBookingUsers(courseFormGroup.controls['booking_users'].value, courseFormGroup.controls['course_dates'].value, item.id) }} /
+            {{ (item.max_participants || courseFormGroup.controls['max_participants'].value) * countSubgroups(courseFormGroup.controls['course_dates'].value, item.id) || 0 }}px
+</span>
+          <div style="margin: auto;"></div>
+          <ng-container>
+            <img src="assets/icons/icon/calendar.png" class="icon16">
+            <span>
+							{{courseFormGroup.controls['course_dates'].value.length
+            || 0}} {{'days' | translate}}
 						</span>
-						<span *ngIf="courseFormGroup.controls['duration'].value">
-							&nbsp;{{courseFormGroup.controls['duration'].value}}
+            <span *ngIf="courseFormGroup.controls['course_dates'].value[0].duration">
+							&nbsp;{{courseFormGroup.controls['course_dates'].value[0].duration}}
 						</span>
-					</ng-container>
-					<div style="margin: auto;"></div>
-					<img src="assets/icons/icon/ticket.png" class="icon16">
-					<span>
-						{{item.age_min}}/{{item.age_max}}
+          </ng-container>
+          <div style="margin: auto;"></div>
+          <img src="assets/icons/icon/ticket.png" class="icon16">
+          <span>
+					 {{'age'| translate}}	{{item.age_min}} / {{item.age_max}}
 					</span>
-					<div style="margin: auto;"></div>
-				</div>
-			</div>
-			<ng-container *ngIf="item.modal">
-				<div *ngFor="let ix of find(courseFormGroup.controls['course_dates'].value[0].course_groups,'degree_id',item.id).course_subgroups;index as i"
-					style="padding: 10px;width: 100%;border: 1px solid var(--color-grey2);display: flex;align-items: flex-start;height: 60%;background-color: var(--color-grey5);flex-direction: column;flex-wrap: nowrap;">
-					<div style="width: 100%;">
-						<div style="display: flex;justify-content: space-between;width: 100%;margin-bottom: 10px;">
+          <div style="margin: auto;"></div>
+        </div>
+      </div>
+      <ng-container *ngIf="item.modal">
+        <div *ngFor="let ix of find(courseFormGroup.controls['course_dates'].value[0].course_groups,'degree_id',item.id).course_subgroups;index as i"
+             style="padding: 10px;width: 100%;border: 1px solid var(--color-grey2);display: flex;align-items: flex-start;height: 60%;background-color: var(--color-grey5);flex-direction: column;flex-wrap: nowrap;">
+          <div style="width: 100%;">
+            <div style="display: flex;justify-content: space-between;width: 100%;margin-bottom: 10px;">
 							<span style="font-weight: 600;">
 								{{item.annotation}}
-								{{item.level}} {{i+1}}
+                {{item.level}} {{i+1}}
 							</span>
-							<button
-								(click)="changeMonitor.emit({date: courseFormGroup.controls['course_dates'].value, subgroup: ix})"
-								*ngIf="checkbox" style="height: 20px; width: 100px;" color="primary" mat-raised-button
-								type="button">
-								{{'add' | translate }}
-							</button>
-						</div>
-						<ng-container *ngIf="!checkbox">
+              <button
+                (click)="changeMonitor.emit({date: courseFormGroup.controls['course_dates'].value, subgroup: ix})"
+                *ngIf="checkbox && selectedSubgroup.id != ix.id" style="height: 20px; width: 100px;" color="primary" mat-raised-button
+                type="button">
+                {{'add' | translate }}
+              </button>
+            </div>
+            <ng-container *ngIf="!checkbox">
 							<span *ngIf="!ix.monitor">
 								{{"text_nomonitorset" | translate}}
 							</span>
-							<ng-container *ngFor="let course_date of courseFormGroup.controls['course_dates'].value">
+              <ng-container *ngFor="let course_date of courseFormGroup.controls['course_dates'].value">
 								<span *ngIf="ix.monitor">
 									{{course_date.date | date:'dd-MM-yyyy'}} {{"monitor" | translate}}:
-									{{find(course_date.course_groups,'degree_id',item.id).course_subgroups[i].monitor?.first_name}}
-									{{find(course_date.course_groups,'degree_id',item.id).course_subgroups[i].monitor?.last_name}}
+                  {{find(course_date.course_groups,'degree_id',item.id).course_subgroups[i].monitor?.first_name}}
+                  {{find(course_date.course_groups,'degree_id',item.id).course_subgroups[i].monitor?.last_name}}
 								</span>
-								<br *ngIf="ix.monitor">
-							</ng-container>
-						</ng-container>
-					</div>
-					<ng-container *ngFor="let user of courseFormGroup.controls['booking_users'].value">
-						<div *ngIf="ix.id === user.course_subgroup_id"
-							style="padding: 5px;gap: 5px;width: 100%;border: 1px solid var(--color-grey2);display: flex;align-items: center;height: 60%;background-color: var(--color-grey5);">
-							<mat-icon style="font-size: 10px;width: 10px;height: 10px;"
-								[style.color]="user.attended?'#31C044':Date(user.date)<today?'#E70F0F':'#C7D0D3'">circle</mat-icon>
-							{{user.client?.first_name}} {{user.client?.last_name}}
-						</div>
-					</ng-container>
-					<ng-container *ngFor="let i of numUsersArray(courseFormGroup.controls['max_participants'].value);">
-						<div *ngIf="checkbox && (i>=courseFormGroup.controls['booking_users'].value.length || ix.id !== courseFormGroup.controls['booking_users'].value[i].course_subgroup_id)"
-							style="padding: 5px;gap: 5px;width: 100%;border: 1px solid var(--color-grey2);display: flex;align-items: center;height: 60%;background-color: var(--color-grey4);color: var(--color-grey1);">
-							<mat-icon style="font-size: 10px;width: 10px;height: 10px;color:#C7D0D3">circle</mat-icon>
-							{{"not_assigned" | translate}}
-						</div>
-					</ng-container>
-				</div>
-			</ng-container>
-		</div>
-	</ng-container>
+                <br *ngIf="ix.monitor">
+              </ng-container>
+            </ng-container>
+          </div>
+          <ng-container *ngFor="let user of courseFormGroup.controls['booking_users'].value">
+            <div *ngIf="ix.id === user.course_subgroup_id"
+                 style="padding: 5px;gap: 5px;width: 100%;border: 1px solid var(--color-grey2);display: flex;align-items: center;height: 60%;background-color: var(--color-grey5);">
+              <mat-icon style="font-size: 10px;width: 10px;height: 10px;"
+                        [style.color]="user.attended?'#31C044':Date(user.date)<today?'#E70F0F':'#C7D0D3'">circle</mat-icon>
+              {{user.client?.first_name}} {{user.client?.last_name}}
+            </div>
+          </ng-container>
+          <ng-container *ngFor="let i of numUsersArray(courseFormGroup.controls['max_participants'].value);">
+            <div *ngIf="checkbox && (i>=courseFormGroup.controls['booking_users'].value.length || ix.id !== courseFormGroup.controls['booking_users'].value[i].course_subgroup_id)"
+                 style="padding: 5px;gap: 5px;width: 100%;border: 1px solid var(--color-grey2);display: flex;align-items: center;height: 60%;background-color: var(--color-grey4);color: var(--color-grey1);">
+              <mat-icon style="font-size: 10px;width: 10px;height: 10px;color:#C7D0D3">circle</mat-icon>
+              {{"not_assigned" | translate}}
+            </div>
+          </ng-container>
+        </div>
+      </ng-container>
+    </div>
+  </ng-container>
 </div>

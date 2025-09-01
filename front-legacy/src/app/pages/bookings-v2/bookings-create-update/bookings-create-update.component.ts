@@ -1,12 +1,13 @@
-import { Component, ChangeDetectorRef } from "@angular/core";
-import { TranslateService } from "@ngx-translate/core";
-import { MatDialog } from "@angular/material/dialog";
-import { BookingDialogComponent } from "./components/booking-dialog/booking-dialog.component";
-import { FormBuilder, FormGroup } from '@angular/forms';
-import { BookingService } from '../../../../service/bookings.service';
-import { ApiCrudService } from '../../../../service/crud.service';
-import { Router } from '@angular/router';
+import {ChangeDetectorRef, Component, Inject, Optional} from '@angular/core';
+import {TranslateService} from '@ngx-translate/core';
+import {MAT_DIALOG_DATA, MatDialog, MatDialogRef} from '@angular/material/dialog';
+import {BookingDialogComponent} from './components/booking-dialog/booking-dialog.component';
+import {FormBuilder, FormGroup} from '@angular/forms';
+import {BookingService} from '../../../../service/bookings.service';
+import {ApiCrudService} from '../../../../service/crud.service';
+import {Router} from '@angular/router';
 import {MatSnackBar} from '@angular/material/snack-bar';
+import moment from 'moment';
 
 @Component({
   selector: "bookings-create-update-v2",
@@ -58,14 +59,16 @@ export class BookingsCreateUpdateV2Component {
     public bookingService: BookingService,
     private crudService: ApiCrudService,
     private router: Router,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    @Optional() public dialogRef: MatDialogRef<BookingsCreateUpdateV2Component>,
+    @Optional() @Inject(MAT_DIALOG_DATA) public externalData: any
   ) {
     this.normalizedDates = []
     this.forms = []
     this.getDegrees();
   }
 
-  handleFormChange(formData: any) {
+  handleFormChange(formData: any, createNew: boolean = false) {
     const {
       step1: { client, mainClient },
       step2: { utilizers },
@@ -94,7 +97,7 @@ export class BookingsCreateUpdateV2Component {
       } else {
         this.forms[this.selectedIndexForm] = formData;
       }
-      this.normalizeDates()
+      this.normalizeDates(createNew)
     }
   }
 
@@ -151,10 +154,45 @@ export class BookingsCreateUpdateV2Component {
   }
 
   getDegrees() {
-    const user = JSON.parse(localStorage.getItem("boukiiUser"))
-    this.crudService.list('/degrees', 1, 10000, 'asc', 'degree_order',
-      '&school_id=' + user.schools[0].id + '&active=1')
-      .subscribe((data) => this.allLevels = data.data)
+    const user = JSON.parse(localStorage.getItem("boukiiUser"));
+    const schoolId = user?.schools?.[0]?.id;
+
+    if (!schoolId) return;
+
+    this.crudService.list('/degrees', 1, 10000, 'asc', 'degree_order', `&school_id=${schoolId}&active=1`)
+      .subscribe((data) => {
+        this.allLevels = data.data;
+        this.mainClient = this.externalData?.mainClient || null;
+        this.selectedIndexForm = null;
+
+        const step1Controls = { mainClient: this.mainClient };
+        const step2Controls = { utilizers: this.externalData?.utilizers || [] };
+        const step4Controls = {
+          selectedDate: this.externalData?.date || null,
+          onlyPrivate: this.externalData?.onlyPrivate || false
+        };
+        const step5Controls = {
+          date: this.externalData?.date || null,
+          hour: this.externalData?.hour || null,
+          monitorId: this.externalData?.monitorId || null,
+          monitor: this.externalData?.monitor || null
+        };
+
+        this.selectedForm = this.fb.group({
+          step1: this.fb.group(step1Controls),
+          step2: this.fb.group(step2Controls),
+          step3: this.fb.group({}),
+          step4: this.fb.group(step4Controls),
+          step5: this.fb.group(step5Controls),
+          step6: this.fb.group({})
+        });
+
+        // Si hay mainClient, forzamos a step 1, si no, comenzamos desde el principio
+        this.forceStep = this.mainClient ? 1 : 0;
+        this.currentStep = this.forceStep;
+
+        this.cdr.detectChanges();
+      });
   }
 
   calculateTotal() {
@@ -176,16 +214,35 @@ export class BookingsCreateUpdateV2Component {
       }
 
       // Calcular el total de los extras
-      const extrasTotal = this.dates.reduce((acc: number, date: any) => {
-        if (date.extras && Array.isArray(date.extras) && date.extras.length > 0) {
-          const extrasPrice = date.extras.reduce((extraAcc: number, extra: any) => {
-            const price = parseFloat(extra.price) || 0;
-            const quantity = parseFloat(extra.quantity) || 1;
-            return extraAcc + price * quantity;
-          }, 0);
-          return acc + extrasPrice;
+      // Calcula el total de los extras
+      const extrasTotal = this.dates.reduce((acc, date) => {
+        // Para cursos colectivos
+        if (this.course.course_type === 1) {
+          if (date.extras && date.extras.length) {
+            const extrasPrice = date.extras.reduce((extraAcc, extra) => {
+              const price = parseFloat(extra.price) || 0; // Convierte el precio del extra a un número
+              return extraAcc + (price * (extra.quantity || 1)); // Multiplica el precio del extra por la cantidad
+            }, 0);
+            return acc + extrasPrice;
+          }
         }
-        return acc;
+        // Para cursos privados
+        else if (this.course.course_type === 2) {
+          // Asegúrate de que 'utilizers' está definido en la fecha
+          if (date.utilizers && date.utilizers.length) {
+            // Sumar el total de extras de cada utilizador
+            date.utilizers.forEach(utilizer => {
+              if (utilizer.extras && utilizer.extras.length) {
+                const extrasPrice = utilizer.extras.reduce((extraAcc, extra) => {
+                  const price = parseFloat(extra.price) || 0; // Convierte el precio del extra a un número
+                  return extraAcc + (price * (extra.quantity || 1)); // Multiplica el precio del extra por la cantidad
+                }, 0);
+                acc += extrasPrice; // Suma el precio de los extras del utilizador al acumulador
+              }
+            });
+          }
+        }
+        return acc; // Retorna el acumulador
       }, 0);
 
       // Asegurarse de que el total de extras sea un número válido
@@ -247,7 +304,7 @@ export class BookingsCreateUpdateV2Component {
         }
 
         // Suma el precio total de los extras para cada utilizador en esta fecha
-        date.utilizers.forEach((utilizer: any) => {
+       /* date.utilizers.forEach((utilizer: any) => {
           if (utilizer.extras && utilizer.extras.length) {
             const extrasTotal = utilizer.extras.reduce((acc, extra) => {
               const price = parseFloat(extra.price) || 0; // Convierte el precio del extra a un número
@@ -255,15 +312,15 @@ export class BookingsCreateUpdateV2Component {
             }, 0);
             total += extrasTotal; // Suma el total de extras por cada utilizador
           }
-        });
+        });*/
 
       });
     } else {
       // Si el curso no es flexible
       this.dates.forEach((date: any) => {
-        const dateTotal = parseFloat(this.course.price) * this.utilizers.length; // Precio por número de utilizadores
+        const dateTotal = parseFloat(this.course.price); // Precio por número de utilizadores
         total += dateTotal;
-        date.utilizers.forEach((utilizer: any) => {
+        /*date.utilizers.forEach((utilizer: any) => {
           if (utilizer.extras && utilizer.extras.length) {
             const extrasTotal = utilizer.extras.reduce((acc, extra) => {
               const price = parseFloat(extra.price) || 0; // Convierte el precio del extra a un número
@@ -271,14 +328,14 @@ export class BookingsCreateUpdateV2Component {
             }, 0);
             total += extrasTotal; // Suma el total de extras por cada utilizador
           }
-        });
+        });*/
       });
     }
 
     return total;
   }
 
-  private normalizeDates() {
+  private normalizeDates(createNew: boolean = false) {
     // Limpia el array normalizedDates antes de llenarlo
     this.normalizedDates = this.forms.map(form => {
       const {
@@ -310,7 +367,12 @@ export class BookingsCreateUpdateV2Component {
       };
     });
 
-    this.isDetail = true;
+    if (createNew) {
+      this.addNewActivity();
+    } else {
+      this.isDetail = true;
+    }
+
   }
 
   private calculateIndividualTotal(course, dates, utilizers) {
@@ -323,7 +385,6 @@ export class BookingsCreateUpdateV2Component {
       total = this.calculatePrivatePriceForDates(course, dates, utilizers);
     }
 
-    // Calcula el total de los extras
     // Calcula el total de los extras
     const extrasTotal = dates.reduce((acc, date) => {
       // Para cursos colectivos
@@ -375,8 +436,16 @@ export class BookingsCreateUpdateV2Component {
     if (course.is_flexible) {
       const selectedDatesCount = dates.length; // Número de fechas seleccionadas
       total = course.price * selectedDatesCount;
-
-      const discounts = course.discounts ? JSON.parse(course.discounts) : [];
+      const discounts = [];
+      if (this.course && this.course.discounts && !Array.isArray(this.course.discounts) ) {
+        const discounts = [];
+        try {
+          const discounts = JSON.parse(this.course.discounts);
+          console.log("Discounts parseado correctamente:", discounts);
+        } catch (error) {
+          console.error("Error al parsear discounts:", error);
+        }
+      }
       discounts.forEach((discount: { date: number; percentage: number }) => {
         if (discount.date <= selectedDatesCount) {
           const discountAmount = (course.price * discount.percentage) / 100;
@@ -386,6 +455,19 @@ export class BookingsCreateUpdateV2Component {
     } else {
       total = parseFloat(course.price);
     }
+    // Calcula el total de los extras
+/*    const extrasTotal = dates.reduce((acc, date) => {
+      // Para cursos colectivos
+
+      if (date.extras && date.extras.length) {
+        const extrasPrice = date.extras.reduce((extraAcc, extra) => {
+          const price = parseFloat(extra.price) || 0; // Convierte el precio del extra a un número
+          return extraAcc + (price * (extra.quantity || 1)); // Multiplica el precio del extra por la cantidad
+        }, 0);
+        return acc + extrasPrice;
+
+      }
+    });*/
     return total;
   }
 
@@ -405,7 +487,7 @@ export class BookingsCreateUpdateV2Component {
           total += parseFloat(interval[selectedUtilizers]);
         }
 
-        date.utilizers.forEach(utilizer => {
+/*        date.utilizers.forEach(utilizer => {
           if (utilizer.extras && utilizer.extras.length) {
             const extrasTotal = utilizer.extras.reduce((acc, extra) => {
               const price = parseFloat(extra.price) || 0;
@@ -413,13 +495,13 @@ export class BookingsCreateUpdateV2Component {
             }, 0);
             total += extrasTotal;
           }
-        });
+        });*/
       });
     } else {
       dates.forEach((date: any) => {
-        const dateTotal = parseFloat(course.price) * utilizers.length;
+        const dateTotal = parseFloat(course.price);
         total += dateTotal;
-        date.utilizers.forEach(utilizer => {
+/*        date.utilizers.forEach(utilizer => {
           if (utilizer.extras && utilizer.extras.length) {
             const extrasTotal = utilizer.extras.reduce((acc, extra) => {
               const price = parseFloat(extra.price) || 0;
@@ -427,7 +509,7 @@ export class BookingsCreateUpdateV2Component {
             }, 0);
             total += extrasTotal;
           }
-        });
+        });*/
       });
     }
 
@@ -465,9 +547,16 @@ export class BookingsCreateUpdateV2Component {
       // Si el curso es flexible
       const selectedDatesCount = this.dates.length; // Número de fechas seleccionadas
       total = this.course.price * selectedDatesCount;
-
+      const discounts = [];
       // Aplica los descuentos
-      const discounts = this.course.discounts ? JSON.parse(this.course.discounts) : [];
+      if (this.course && this.course.discounts && !Array.isArray(this.course.discounts) ) {
+        try {
+          const discounts = JSON.parse(this.course.discounts);
+          console.log("Discounts parseado correctamente:", discounts);
+        } catch (error) {
+          console.error("Error al parsear discounts:", error);
+        }
+      }
       discounts.forEach((discount: { date: number; percentage: number }) => {
         if (discount.date <= selectedDatesCount) {
           const discountAmount = (this.course.price * discount.percentage) / 100;
@@ -574,13 +663,13 @@ export class BookingsCreateUpdateV2Component {
 
     if (this.bookingService.calculatePendingPrice() === 0) {
       bookingData.paid = true;
-      bookingData.paid_total = bookingData.price_total;
+      bookingData.paid_total = bookingData.price_total - this.calculateTotalVoucherPrice();
     }
     // Si es pago en efectivo o tarjeta, guardar si fue pagado
     if (bookingData.payment_method_id === 1 || bookingData.payment_method_id === 4) {
       if (this.isPaid) {
         bookingData.paid = true;
-        bookingData.paid_total = bookingData.price_total;
+        bookingData.paid_total = bookingData.price_total - this.calculateTotalVoucherPrice();
       } else {
         bookingData.paid = false;
       }
@@ -602,27 +691,47 @@ export class BookingsCreateUpdateV2Component {
               .subscribe(
                 (paymentResult: any) => {
                   if (bookingData.payment_method_id === 2) {
+                    if (this.dialogRef) {
+                      this.dialogRef.close();
+                    }
                     window.open(paymentResult.data, "_self");
                   } else {
-                    this.showErrorSnackbar("Error al procesar el pago en línea.");
-                    this.router.navigate([`/bookings-v2/update/${bookingId}`]);
+                    if (this.dialogRef) {
+                      this.dialogRef.close();
+                    }
+                    this.snackBar.open(this.translateService.instant('snackbar.booking_detail.send_mail'),
+                      'OK', { duration: 1000 });
+                    this.router.navigate([`/bookings/update/${bookingId}`]);
                   }
                 },
                 (error) => {
+                  if (this.dialogRef) {
+                    this.dialogRef.close();
+                  }
                   this.showErrorSnackbar("Error al procesar el pago en línea.");
-                  this.router.navigate([`/bookings-v2/update/${bookingId}`]);
+                  this.router.navigate([`/bookings/update/${bookingId}`]);
                 }
               );
           } else {
+            if (this.dialogRef) {
+              this.dialogRef.close();
+            }
             // Si no es pago online, llevar directamente a la página de actualización
             this.router.navigate([`/bookings/update/${bookingId}`]);
           }
         },
         (error) => {
-          this.showErrorSnackbar("Error al crear la reserva.");
+          this.showErrorSnackbar("Error");
         }
       );
   }
+
+  calculateTotalVoucherPrice(): number {
+    return  this.bookingService.getBookingData().vouchers ?
+      this.bookingService.getBookingData().vouchers.reduce( (e, i) => e + parseFloat(i.bonus.reducePrice), 0) : 0
+  }
+
+
 
   // Función para mostrar un Snackbar en caso de error
   showErrorSnackbar(message: string): void {

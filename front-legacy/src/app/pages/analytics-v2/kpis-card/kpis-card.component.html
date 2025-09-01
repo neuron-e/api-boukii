@@ -1,0 +1,79 @@
+<mat-card
+  class="kpi-card"
+  [class.kpi-card--clickable]="kpiData.clickable"
+  [class.kpi-card--compact]="compact"
+  [class.kpi-card--loading]="kpiData.loading"
+  [class.kpi-card--primary]="kpiData.color === 'primary'"
+  [class.kpi-card--secondary]="kpiData.color === 'secondary'"
+  [class.kpi-card--success]="kpiData.color === 'success'"
+  [class.kpi-card--warning]="kpiData.color === 'warning'"
+  [class.kpi-card--danger]="kpiData.color === 'danger'"
+  [class.kpi-card--info]="kpiData.color === 'info'"
+  [attr.title]="kpiData.tooltip"
+  (click)="onCardClick()">
+
+  <!-- Loading State -->
+  <div *ngIf="kpiData.loading" class="kpi-loading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <!-- Content -->
+  <div *ngIf="!kpiData.loading" class="kpi-content">
+
+    <!-- Header Section -->
+    <div class="kpi-header">
+      <div class="kpi-title-section">
+        <h3 class="kpi-title">{{ kpiData.title }}</h3>
+        <p *ngIf="kpiData.subtitle" class="kpi-subtitle">{{ kpiData.subtitle }}</p>
+      </div>
+
+      <!-- Icon -->
+      <mat-icon
+        *ngIf="showIcon && kpiData.icon"
+        class="kpi-icon">{{ kpiData.icon }}</mat-icon>
+    </div>
+
+    <!-- Value Section -->
+    <div class="kpi-value-section">
+      <div class="kpi-value" [class.animate]="animateValue">
+        {{ formattedValue }}
+        <span *ngIf="kpiData.unit" class="kpi-unit">{{ kpiData.unit }}</span>
+      </div>
+    </div>
+
+    <!-- Trend Section -->
+    <div
+      *ngIf="showTrend && (kpiData.trend || kpiData.trendValue !== undefined)"
+      class="kpi-trend"
+      [class.trend-up]="kpiData.trend === 'up'"
+      [class.trend-down]="kpiData.trend === 'down'"
+      [class.trend-stable]="kpiData.trend === 'stable'"
+      (click)="onTrendClick($event)">
+
+      <!-- Trend Icon -->
+      <mat-icon class="trend-icon">
+        {{ kpiData.trend === 'up' ? 'trending_up' :
+        kpiData.trend === 'down' ? 'trending_down' :
+          'trending_flat' }}
+      </mat-icon>
+
+      <!-- Trend Text -->
+      <span class="trend-text" *ngIf="kpiData.trendValue !== undefined">
+        {{ formattedTrend }}
+        <span *ngIf="kpiData.trendUnit" class="kpi-unit">{{ kpiData.trendUnit }}</span>
+      </span>
+
+      <!-- Comparison Text -->
+      <span *ngIf="kpiData.previousValue !== undefined" class="trend-comparison">
+        vs {{ formatPreviousValue() }}
+      </span>
+    </div>
+
+  </div>
+
+
+  <div *ngIf="kpiData.clickable" class="click-hint">
+    <mat-icon class="hint-icon">visibility</mat-icon>
+    <span class="hint-text">{{ 'view_details' | translate }}</span>
+  </div>
+</mat-card>

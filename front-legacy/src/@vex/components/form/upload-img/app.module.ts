@@ -7,6 +7,7 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { SecondaryToolbarModule } from '../../secondary-toolbar/secondary-toolbar.module';
 import { TranslateModule } from '@ngx-translate/core';
 import { ImageCropperComponent } from 'ngx-image-cropper';
+import { ComponenteButtonModule } from "../button/app.module";
 
 
 @NgModule({
@@ -18,8 +19,9 @@ import { ImageCropperComponent } from 'ngx-image-cropper';
     ReactiveFormsModule,
     SecondaryToolbarModule,
     TranslateModule,
-    ImageCropperComponent
-  ],
+    ImageCropperComponent,
+    ComponenteButtonModule
+],
   exports: [FluxUploadImgComponent]
 })
 export class FluxUploadImgModule { }

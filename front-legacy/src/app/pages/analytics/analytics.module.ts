@@ -29,42 +29,44 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatOptionModule } from '@angular/material/core';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
+import {MatCheckboxModule} from '@angular/material/checkbox';
 
 @NgModule({
   declarations: [AnalyticsComponent],
-  imports: [
-    CommonModule,
-    LayoutModule,
-    PageLayoutModule,
-    BreadcrumbsModule,
-    RouterModule,
-    AnalyticsRoutingModule,
-    SecondaryToolbarModule,
-    MatIconModule,
-    ChartModule,
-    WidgetQuickLineChartModule,
-    WidgetQuickValueCenterModule,
-    WidgetQuickValueStartModule,
-    WidgetLargeGoalChartModule,
-    WidgetAssistantModule,
-    WidgetLargeChartModule,
-    WidgetTableModule,
-    //LanguageCreateUpdateModule,
-    MatDialogModule,
-    ComponentsModule,
-    MatTabsModule,
-    TranslateModule,
-    MatCardModule,
-    MatDividerModule,
-    MatDatepickerModule,
-    MatFormFieldModule,
-    MatInputModule,
-    ReactiveFormsModule,
-    FormsModule,
-    MatOptionModule,
-    MatSelectModule,
-    MatButtonModule
-  ]
+    imports: [
+        CommonModule,
+        LayoutModule,
+        PageLayoutModule,
+        BreadcrumbsModule,
+        RouterModule,
+        AnalyticsRoutingModule,
+        SecondaryToolbarModule,
+        MatIconModule,
+        ChartModule,
+        WidgetQuickLineChartModule,
+        WidgetQuickValueCenterModule,
+        WidgetQuickValueStartModule,
+        WidgetLargeGoalChartModule,
+        WidgetAssistantModule,
+        WidgetLargeChartModule,
+        WidgetTableModule,
+        //LanguageCreateUpdateModule,
+        MatDialogModule,
+        ComponentsModule,
+        MatTabsModule,
+        TranslateModule,
+        MatCardModule,
+        MatDividerModule,
+        MatDatepickerModule,
+        MatFormFieldModule,
+        MatInputModule,
+        ReactiveFormsModule,
+        FormsModule,
+        MatOptionModule,
+        MatSelectModule,
+        MatButtonModule,
+        MatCheckboxModule
+    ]
 })
 export class AnalyticsModule {
 }

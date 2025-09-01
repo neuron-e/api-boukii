@@ -65,8 +65,12 @@ export class FormDetailsPrivateComponent implements OnInit {
     this.getSeason();
     this.initializeForm();
     this.setupExtrasValueChanges();
-    this.possibleHours = this.utilService.generateCourseHours(this.course.hour_min, this.course.hour_max, this.course.minDuration, '5min');
-    this.possibleDurations = this.utilService.generateCourseDurations(this.course.hour_min, this.course.hour_max,
+    let formatDate = moment(this.date).format('YYYY-MM-DD');
+    const courseDate = this.course.course_dates.find((d: any) =>
+      moment(d.date).format('YYYY-MM-DD') === formatDate
+    );
+    this.possibleHours = this.utilService.generateCourseHours(courseDate.hour_start, courseDate.hour_end, this.course.minDuration, '5min');
+    this.possibleDurations = this.utilService.generateCourseDurations(courseDate.hour_start, courseDate.hour_end,
       this.course, this.activitiesBooked, this.date, this.utilizers);
     this.courseDates.controls.forEach((dateGroup, index) => {
       const monitorControl = dateGroup.get('monitor');
@@ -103,9 +107,9 @@ export class FormDetailsPrivateComponent implements OnInit {
     if (!this.stepForm.get('course_dates')) {
       this.stepForm.addControl('course_dates', this.fb.array([]));
     }
-    if (this.initialData && this.initialData.length > 0) {
+    if (this.initialData?.course_dates && this.initialData?.course_dates.length > 0) {
       // Si hay datos iniciales, usamos esos datos para restaurar los valores seleccionados
-      this.initialData.forEach((data: any, index: number) => {
+      this.initialData?.course_dates.forEach((data: any, index: number) => {
         this.addCourseDate(data);
       });
     } else {
@@ -147,24 +151,49 @@ export class FormDetailsPrivateComponent implements OnInit {
       }
     }
 
+    let price = parseFloat(this.course.price);
+
+    // Check if this is the first date entry and we have externalData
+    const isFirstDate = this.courseDates.length === 0;
+    const initialStartHour = initialData ? initialData.startHour :
+      (isFirstDate && this.initialData?.hour) ? this.initialData.hour : null;
+    const initialMonitor = initialData ? initialData.monitor :
+      (isFirstDate && this.initialData?.monitor) ? this.initialData.monitor : null;
+
     const courseDateGroup = this.fb.group({
       selected: [initialData ? initialData.selected : true],
       date: [initialData ? initialData.date : formattedDate, Validators.required],
-      startHour: [initialData ? initialData.startHour : null, Validators.required],
+      startHour: [initialStartHour, Validators.required],
       endHour: [initialData ? initialData.endHour : null, Validators.required],
       duration: [
         initialData ? initialData.duration : (!this.course.is_flexible ? this.course.duration : null),
         Validators.required
       ],
-      price: [initialData ? initialData.price : null],
+      price: [initialData ? initialData.price : price],
       currency: this.course.currency,
-      monitor: [initialData ? initialData.monitor : null],
+      monitor: [initialMonitor],
       changeMonitorOption: [initialData ? initialData.changeMonitorOption : null],
       utilizers: utilizerArray,
     });
 
     this.courseDates.push(courseDateGroup);
     this.subscribeToFormChanges(courseDateGroup);
+
+    // If we just set values from externalData, trigger any dependent calculations
+    if (isFirstDate && (this.initialData?.hour || this.initialData?.monitorId)) {
+      if (this.initialData?.hour) {
+        this.updateEndHour(courseDateGroup);
+
+        // If we have both hour and duration, also check availability and load monitors
+        if (courseDateGroup.get('duration').value) {
+          this.checkAval(courseDateGroup).then((isAvailable) => {
+            if (isAvailable) {
+              this.getMonitorsAvailable(courseDateGroup);
+            }
+          });
+        }
+      }
+    }
   }
 
 
@@ -443,7 +472,20 @@ export class FormDetailsPrivateComponent implements OnInit {
       if (data.data.length === 0) {
         this.snackbar.open(this.translateService.instant('snackbar.booking.no_match'),
           'OK', {duration:3000});
+      } else {
+        const selectedMonitor = data.data.find(m => m.id === dateGroup.get('monitor').value?.id);
+        if (selectedMonitor) {
+          dateGroup.get('monitor').patchValue(selectedMonitor);
+
+          // If we also have a changeMonitorOption in externalData, set that too
+          if (dateGroup.get('changeMonitorOption').value) {
+            dateGroup.get('changeMonitorOption').patchValue( dateGroup.get('changeMonitorOption').value);
+            // Make sure the control is enabled since we have a monitor value
+            dateGroup.get('changeMonitorOption').enable();
+          }
+        }
       }
+
     });
   }
 

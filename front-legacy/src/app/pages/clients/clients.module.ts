@@ -19,7 +19,6 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { ClientsRoutingModule } from './clients-routing.module';
 import { ClientsComponent } from './clients.component';
 import { ClientsCreateUpdateModule } from './client-create-update/client-create-update.module';
-import { ClientDetailComponent } from './client-detail/client-detail.component';
 import { ClientDetailModule } from './client-detail/client-detail.module';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatCardModule } from '@angular/material/card';
@@ -52,7 +51,6 @@ import { IconComponent } from 'src/@vex/components/icon/app.component';
     ClientsCreateUpdateModule,
     MatDialogModule,
     ComponentsModule,
-    ClientDetailModule,
     MatDividerModule,
     MatCardModule,
     MatSlideToggleModule,

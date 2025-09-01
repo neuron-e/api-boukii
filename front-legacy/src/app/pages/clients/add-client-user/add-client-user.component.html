@@ -63,15 +63,8 @@
       <div class="flex flex-col sm:flex-row gap-2 sm:gap-6"
         style="margin: 3% 0 0 0;">
         <mat-form-field appearance="outline" class="flex-auto">
-          <input matInput [matDatepicker]="pickerFrom"
-            placeholder="{{'birth_date' | translate }}"
-            formControlName="fromDate" [max]="minDate"
-            [(ngModel)]="defaults.birth_date" readonly
-            (click)="pickerFrom.open()"
-            required>
-          <mat-datepicker-toggle matSuffix
-            [for]="pickerFrom"></mat-datepicker-toggle>
-          <mat-datepicker #pickerFrom [startAt]="minDate"></mat-datepicker>
+          <mat-label>{{'birth_date' | translate}}</mat-label>
+          <input type="date" matInput class="flex-auto" formControlName="fromDate" [max]="minDate" required>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="flex-auto">

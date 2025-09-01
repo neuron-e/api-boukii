@@ -72,9 +72,14 @@ export class BookingDescriptionCard {
   calculateDiscountedPrice(date: any, index: number): number {
     let price = parseFloat(date.price); // Asegúrate de convertir el precio a número
 
-    if (this.course && this.course.discounts) {
-      const discounts = JSON.parse(this.course.discounts);
-
+    if (this.course && this.course.discounts && !Array.isArray(this.course.discounts)) {
+      const discounts = [];
+      try {
+        const discounts = JSON.parse(this.course.discounts);
+        console.log("Discounts parseado correctamente:", discounts);
+      } catch (error) {
+        console.error("Error al parsear discounts:", error);
+      }
       discounts.forEach(discount => {
         if (discount.date === index + 1) { // Index + 1 porque los índices en arrays comienzan en 0
           price -= (price * (discount.percentage / 100));
@@ -98,23 +103,29 @@ export class BookingDescriptionCard {
 
   isDiscounted(date: any, index: number): boolean {
     const price = parseFloat(date.price);
-    if (this.course && this.course.discounts) {
-      const discounts = JSON.parse(this.course.discounts);
+    if (this.course && this.course.discounts && !Array.isArray(this.course.discounts)) {
+      const discounts = [];
+      try {
+        const discounts = JSON.parse(this.course.discounts);
+        console.log("Discounts parseado correctamente:", discounts);
+      } catch (error) {
+        console.error("Error al parsear discounts:", error);
+      }
       return discounts.some(discount => discount.date === index + 1); // Index + 1 porque los índices en arrays comienzan en 0
     }
     return false;
   }
 
   getExtraDescription(dateExtra) {
-    return dateExtra.map((extra) => extra.description).join(", ");
+    return dateExtra.map((extra) => extra?.description).join(", ");
   }
 
   getExtraName(dateExtra) {
-    return dateExtra.map((extra) => extra.name).join(", ");
+    return dateExtra.map((extra) => extra?.name).join(", ");
   }
 
   getExtraPrice(dateExtra) {
-    return dateExtra.map((extra) => extra.price).join(", ");
+    return dateExtra.map((extra) => extra?.price).join(", ");
   }
 
   sendEditForm(step: number) {
@@ -124,8 +135,6 @@ export class BookingDescriptionCard {
       }
     )
   }
-
-
 
   protected readonly parseFloat = parseFloat;
 }

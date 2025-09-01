@@ -1,11 +1,4 @@
 <vex-page-layout>
-  <!--<vex-secondary-toolbar>
-    <vex-breadcrumbs [crumbs]="[{icon: 'stats-2', text: ''}, {text: 'list', icon: ''}]" class="flex"></vex-breadcrumbs>
-    <button class="ml-2" color="primary" mat-icon-button type="button">
-      <mat-icon svgIcon="mat:more_vert"></mat-icon>
-    </button>
-  </vex-secondary-toolbar>-->
-
   <vex-secondary-toolbar current>
     <vex-breadcrumbs [crumbs]="[
     {icon:'stats'},
@@ -17,251 +10,228 @@
   <vex-page-layout-content class="fullwidth">
     <mat-tab-group (selectedTabChange)="onTabChange($event)" class="tab-group">
 
-       <mat-tab label="Vista General">
-         <div class="card" style="margin: 2% 0 2% 0;">
-           <div class="px-4 py-2 border-b">
-             <h2 class="title m-0">{{'Ventas' | translate }} <span
-                 style="float: right">{{ totalPriceSell }} {{currency}}</span>
-             </h2>
-           </div>
-         </div>
-         <!-- Primera fila de gráficos -->
-         <div class="chart-row">
-           <div class="chart-column">
-             <div class="card">
-               <div id="collective"></div>
-             </div>
-           </div>
-           <div class="chart-column">
-             <div class="card">
-               <div id="prive"></div>
-             </div>
-           </div>
-           <div class="chart-column">
-             <div class="card">
-               <div id="activity"></div>
-             </div>
-           </div>
-           <div class="chart-column">
-             <div class="card">
-               <div id="voucher"></div>
-             </div>
-           </div>
-           <div class="chart-column-lines">
-             <div class="card">
-               <div id="user-session-analytics" style="width: 100%;"></div>
-             </div>
-           </div>
-         </div>
-
-         <div class="card" style="margin: 2% 0 2% 0;">
-           <div class="px-4 py-2 border-b">
-             <h2 class="title m-0">{{'monitors' | translate }} <span
-                 style="float: right">{{ totalPriceSell }} {{currency}}</span>
-             </h2>
-           </div>
-         </div>
-         <!-- Segunda fila de gráficos -->
-         <div class="chart-row mt-6">
-           <div class="chart-column">
-             <div class="card">
-               <div id="activeMonitors"></div>
-             </div>
-           </div>
-           <div class="chart-column">
-             <div class="card">
-               <div id="totalHours"></div>
-             </div>
-           </div>
-           <div class="chart-column">
-             <div class="card course-hours">
-               <h3>{{ 'hour' | translate }}s {{'sport' | translate}}</h3>
-               <h4>{{ 'total' | translate }}</h4>
-               <h5>{{ totalSportHours }} h</h5>
-               <div *ngFor="let sport of sportHoursData" class="course">
-                 <div class="course-holder">
-                   <div class="course-img"><img [src]="sport.icon" width="36"
-                       height="36"></div>
-                   <div class="course-details">
-                     <span class="course-name">{{ sport.name }}</span>
-                     <div class="course-bar-container">
-                       <div class="course-bar course-bar-filled"
-                         [style.width.%]="getPercentage(sport.value, totalSportHours)"
-                         [style.backgroundColor]="sport.color"></div>
-                       <div class="course-bar course-bar-empty"
-                         [style.width.%]="100 - getPercentage(sport.value, totalSportHours)"></div>
-                     </div>
-                   </div>
-                   <div class="course-info">
-                     <span class="course-value colectivo">{{ sport.value
-                       }}h</span>
-                   </div>
-                 </div>
-               </div>
-             </div>
-           </div>
-           <div class="chart-column">
-             <div class="card course-hours">
-               <h3>{{ 'hour' | translate }}s</h3>
-               <h4>{{ 'total' | translate }}</h4>
-               <h5>{{ totalHours }} h</h5>
-               <div *ngFor="let course of courseTypeHoursData; let i = index"
-                 class="course">
-                 <div class="course-holder">
-                   <div class="course-number">0{{i+1}}</div>
-                   <div class="course-details">
-                     <span class="course-name">{{ course.name }}</span>
-                     <div class="course-bar-container">
-                       <div *ngIf="course.max_value !== 0"
-                         class="course-bar course-bar-filled"
-                         [style.width.%]="getPercentage(course.value, course.max_value)"
-                         [style.backgroundColor]="course.color"></div>
-                       <div *ngIf="course.max_value !== 0"
-                         class="course-bar course-bar-empty"
-                         [style.width.%]="getPercentage(course.max_value - course.value, course.max_value)"></div>
-                       <div *ngIf="course.max_value === 0"
-                         class="course-bar course-bar-empty"
-                         style="width: 100%;"></div>
-                     </div>
-                   </div>
-                   <div class="course-info">
-                     <span class="course-value" [ngClass]="{
-                       'colectivo': course.name === translateService.instant('course_colective'),
-                       'privado': course.name === translateService.instant('course_private'),
-                       'actividad': course.name === translateService.instant('activity')
-                     }">{{course.max_value}}h</span>
-                   </div>
-                 </div>
-               </div>
-             </div>
-           </div>
-           <div class="chart-column-lines">
-             <div class="card" style="height: 275px;">
-               <div id="user-session-analytics2"
-                 style="width: 100%; height: 300px;"></div>
-             </div>
-           </div>
-         </div>
-       </mat-tab>
-
-      <mat-tab label="Ventas">
-        <!-- Añadir contenido de la pestaña de Ventas -->
+      <!-- Vista General Tab -->
+      <mat-tab label="Vista General">
         <div class="card" style="margin: 2% 0 2% 0;">
-          <div
-            class="px-4 border-b d-flex align-items-center justify-content-between">
+          <div class="px-4 py-2 border-b">
+            <h2 class="title m-0">{{'Ventas' | translate }} <span
+              style="float: right">{{ totalPriceSell }} {{currency}}</span>
+            </h2>
+          </div>
+        </div>
+
+        <!-- Primera fila de gráficos -->
+        <div class="chart-row">
+          <div class="chart-column">
+            <div class="card">
+              <div id="collective"></div>
+            </div>
+          </div>
+          <div class="chart-column">
+            <div class="card">
+              <div id="prive"></div>
+            </div>
+          </div>
+          <div class="chart-column">
+            <div class="card">
+              <div id="activity"></div>
+            </div>
+          </div>
+          <div class="chart-column">
+            <div class="card">
+              <div id="voucher"></div>
+            </div>
+          </div>
+          <div class="chart-column-lines">
+            <div class="card">
+              <div id="user-session-analytics" style="width: 100%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin: 2% 0 2% 0;">
+          <div class="px-4 py-2 border-b">
+            <h2 class="title m-0">{{'monitors' | translate }} <span
+              style="float: right">{{ totalPriceSell }} {{currency}}</span>
+            </h2>
+          </div>
+        </div>
+
+        <!-- Segunda fila de gráficos -->
+        <div class="chart-row mt-6">
+          <div class="chart-column">
+            <div class="card">
+              <div id="activeMonitors"></div>
+            </div>
+          </div>
+          <div class="chart-column">
+            <div class="card">
+              <div id="totalHours"></div>
+            </div>
+          </div>
+          <div class="chart-column">
+            <div class="card course-hours">
+              <h3>{{ 'hour' | translate }}s {{'sport' | translate}}</h3>
+              <h4>{{ 'total' | translate }}</h4>
+              <h5>{{ totalSportHours }} h</h5>
+              <div *ngFor="let sport of sportHoursData" class="course">
+                <div class="course-holder">
+                  <div class="course-img"><img [src]="sport.icon" width="36" height="36"></div>
+                  <div class="course-details">
+                    <span class="course-name">{{ sport.name }}</span>
+                    <div class="course-bar-container">
+                      <div class="course-bar course-bar-filled"
+                           [style.width.%]="getPercentage(sport.value, totalSportHours)"
+                           [style.backgroundColor]="sport.color"></div>
+                      <div class="course-bar course-bar-empty"
+                           [style.width.%]="100 - getPercentage(sport.value, totalSportHours)"></div>
+                    </div>
+                  </div>
+                  <div class="course-info">
+                    <span class="course-value colectivo">{{ sport.value }}h</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="chart-column">
+            <div class="card course-hours">
+              <h3>{{ 'hour' | translate }}s</h3>
+              <h4>{{ 'total' | translate }}</h4>
+              <h5>{{ totalHours }} h</h5>
+              <div *ngFor="let course of courseTypeHoursData; let i = index" class="course">
+                <div class="course-holder">
+                  <div class="course-number">0{{i+1}}</div>
+                  <div class="course-details">
+                    <span class="course-name">{{ course.name }}</span>
+                    <div class="course-bar-container">
+                      <div *ngIf="course.max_value !== 0"
+                           class="course-bar course-bar-filled"
+                           [style.width.%]="getPercentage(course.value, course.max_value)"
+                           [style.backgroundColor]="course.color"></div>
+                      <div *ngIf="course.max_value !== 0"
+                           class="course-bar course-bar-empty"
+                           [style.width.%]="getPercentage(course.max_value - course.value, course.max_value)"></div>
+                      <div *ngIf="course.max_value === 0"
+                           class="course-bar course-bar-empty"
+                           style="width: 100%;"></div>
+                    </div>
+                  </div>
+                  <div class="course-info">
+                    <span class="course-value" [ngClass]="{
+                      'colectivo': course.name === translateService.instant('course_colective'),
+                      'privado': course.name === translateService.instant('course_private'),
+                      'actividad': course.name === translateService.instant('activity')
+                    }">{{course.max_value}}h</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="chart-column-lines">
+            <div class="card" style="height: 275px;">
+              <div id="user-session-analytics2" style="width: 100%; height: 300px;"></div>
+            </div>
+          </div>
+        </div>
+      </mat-tab>
+
+      <!-- Ventas Tab -->
+      <mat-tab label="Ventas">
+        <div class="card" style="margin: 2% 0 2% 0;">
+          <div class="px-4 border-b d-flex align-items-center justify-content-between">
             <div class="d-flex align-items-center">
               <h2 class="title m-0">{{'sales' | translate }}</h2>
-              <div class="ml-3">
+              <div class="ml-3" style="width: 150px; margin-left: 25px">
                 <mat-label>{{ 'sport' | translate }}</mat-label>
-                <mat-select [(ngModel)]="selectedSport"
-                            (selectionChange)="filterData()" class="custom-select">
+                <mat-select [formControl]="sportControl" class="custom-select">
                   <mat-option [value]="null">
                     {{ 'all' | translate }}
                   </mat-option>
-                  <mat-option *ngFor="let sport of allSports"
-                              [value]="sport.sport.id">
+                  <mat-option *ngFor="let sport of allSports" [value]="sport.sport.id">
                     {{ sport.sport.name }}
                   </mat-option>
                 </mat-select>
               </div>
             </div>
-            <div class="datepickers-container d-flex align-items-center">
-              <label for="dateFrom">{{'from' | translate}}</label>
-              <input matInput id="dateFromSales"
-                     [matDatepicker]="pickerFromSales" (dateChange)="filterData()"
-                     [(ngModel)]="selectedFrom" [value]="selectedFrom" readonly
-                     (click)="pickerFromSales.open()">
-              <mat-datepicker-toggle matSuffix
-                                     [for]="pickerFromSales"></mat-datepicker-toggle>
-              <mat-datepicker #pickerFromSales
-                              [startAt]="selectedFrom"></mat-datepicker>
+            <div class="sales-date-picker-container datepickers-container d-flex align-items-center">
+              <label for="dateFromSales">{{'from' | translate}}</label>
+              <mat-form-field appearance="outline" class="custom-date-field">
+                <input matInput id="dateFromSales"
+                       [matDatepicker]="pickerFromSales"
+                       [formControl]="fromDateControl"
+                       readonly
+                       (click)="pickerFromSales.open()">
+                <mat-datepicker-toggle matSuffix [for]="pickerFromSales"></mat-datepicker-toggle>
+                <mat-datepicker #pickerFromSales [startAt]="fromDateControl.value"></mat-datepicker>
+              </mat-form-field>
 
-              <label for="dateTo">{{'to' | translate}}</label>
-              <input matInput id="dateToSales" [matDatepicker]="pickerToSales"
-                     (dateChange)="filterData()" [min]="selectedFrom"
-                     [(ngModel)]="selectedTo" [value]="selectedTo" readonly
-                     (click)="pickerToSales.open()">
-              <mat-datepicker-toggle matSuffix
-                                     [for]="pickerToSales"></mat-datepicker-toggle>
-              <mat-datepicker #pickerToSales
-                              [startAt]="selectedTo"></mat-datepicker>
+              <label for="dateToSales">{{'to' | translate}}</label>
+              <mat-form-field appearance="outline" class="custom-date-field">
+                <input matInput id="dateToSales"
+                       [matDatepicker]="pickerToSales"
+                       [formControl]="toDateControl"
+                       [min]="filterForm.controls['fromDate'].value"
+                       readonly
+                       (click)="pickerToSales.open()">
+                <mat-datepicker-toggle matSuffix [for]="pickerToSales"></mat-datepicker-toggle>
+                <mat-datepicker #pickerToSales [startAt]="toDateControl.value"></mat-datepicker>
+              </mat-form-field>
+
+              <!-- Añadido: Checkbox para solo fines de semana -->
+              <mat-checkbox
+                [formControl]="onlyWeekendsControl"
+                class="ml-3">
+                {{ 'weekends' | translate }}
+              </mat-checkbox>
             </div>
             <span class="total-price">{{ totalPriceSell }} {{currency}}</span>
-            <!--            <button mat-icon-button (click)="toggleGraphsVisibility()">
-                          <mat-icon>{{ areGraphsVisible ? 'expand_less' : 'expand_more'
-                            }}</mat-icon>
-                        </button>-->
           </div>
         </div>
-        <!--  <div [hidden]="!areGraphsVisible">
-            <div class="chart-row">
-              <div class="chart-column">
-                <div class="card">
-                  <div id="collectiveSales"></div>
-                </div>
-              </div>
-              <div class="chart-column">
-                <div class="card">
-                  <div id="priveSales"></div>
-                </div>
-              </div>
-              <div class="chart-column">
-                <div class="card">
-                  <div id="activitySales"></div>
-                </div>
-              </div>
-              <div class="chart-column">
-                <div class="card">
-                  <div id="voucherSales"></div>
-                </div>
-              </div>
-              <div class="chart-column-lines">
-                <div class="card" style="height: 275px;">
-                  <div id="user-session-analytics-sales"
-                    style="width: 100%; height: 300px;"></div>
-                </div>
-              </div>
-            </div>
-          </div>-->
-        <vex-aio-table *ngIf="tabActive == 'sells'" [columns]="columnsSales"
-                       [entity]="entitySales" [deleteEntity]="deleteEntity"
-                       [title]="'menu.courses'" [showDetail]="false" [search]="filter"
-                       [route]="'monitors'" [createComponent]="createComponent"
-                       [canDelete]="false" [canDeactivate]="true"
+
+        <vex-aio-table *ngIf="tabActive == 'sells'"
+                       [columns]="columnsSales"
+                       [entity]="entitySales"
+                       [deleteEntity]="deleteEntity"
+                       [title]="'menu.courses'"
+                       [showDetail]="false"
+                       [search]="filter"
+                       [route]="'monitors'"
+                       [createComponent]="createComponent"
+                       [canDelete]="false"
+                       [canDeactivate]="true"
                        [with]="['sports', 'monitorsSchools', 'monitorsSchools', 'monitorSportsDegrees.monitorSportAuthorizedDegrees.degree']"
-                       [filterColumn]="'school_id'" [filterField]="user.schools[0].id"
+                       [filterColumn]="'school_id'"
+                       [filterField]="user.schools[0].id"
                        [sectionIcon]="icon"></vex-aio-table>
       </mat-tab>
 
+      <!-- Monitores Tab -->
       <mat-tab label="Monitores">
         <div class="card" style="margin: 2% 0 2% 0;">
-          <div
-            class="px-4 border-b d-flex align-items-center justify-content-between">
+          <div class="px-4 border-b d-flex align-items-center justify-content-between">
             <div class="d-flex align-items-center">
-              <h2 class="title m-0"*ngIf="!showDetail">{{'monitors' | translate }}</h2>
+              <h2 class="title m-0" *ngIf="!showDetail">{{'monitors' | translate }}</h2>
               <div class="chart-column" *ngIf="showDetail">
                 <div style="padding: 0;">
-                  <img
-                    [src]="monitor?.image !== null && monitor?.image !== '' ? monitor?.image : imageAvatar"
-                    style="float: left;width: 40px;height: 40px;border-radius: 100%;margin: 0 5px 0 0;object-fit: cover;">
-                  <span
-                    style="float: left; width: 50%;font-size:10px">{{monitor?.language1?.code}}
-                    · {{getCountry(monitor?.country)}} ·
-                    {{calculateAge(monitor?.birth_date)}} {{'years' | translate
-                    }}</span>
-                  <span style="float: left; width: 50%;">{{ monitor?.first_name }}
-                    {{ monitor?.last_name }}</span>
+                  <img [src]="monitor?.image !== null && monitor?.image !== '' ? monitor?.image : imageAvatar"
+                       style="float: left;width: 40px;height: 40px;border-radius: 100%;margin: 0 5px 0 0;object-fit: cover;">
+                  <span style="float: left; width: 50%;font-size:10px">
+                    {{monitor?.language1?.code}} · {{getCountry(monitor?.country)}} ·
+                    {{calculateAge(monitor?.birth_date)}} {{'years' | translate }}
+                  </span>
+                  <span style="float: left; width: 50%;">
+                    {{ monitor?.first_name }} {{ monitor?.last_name }}
+                  </span>
                 </div>
               </div>
               <div class="ml-3">
                 <mat-label>{{ 'sport' | translate }}</mat-label>
-                <mat-select [(ngModel)]="selectedSport"
-                            (selectionChange)="filterData()" class="custom-select">
+                <mat-select [formControl]="sportControl" class="custom-select">
                   <mat-option [value]="null">
                     {{ 'all' | translate }}
                   </mat-option>
-                  <mat-option *ngFor="let sport of allSports"
-                              [value]="sport.sport.id">
+                  <mat-option *ngFor="let sport of allSports" [value]="sport.sport.id">
                     {{ sport.sport.name }}
                   </mat-option>
                 </mat-select>
@@ -269,149 +239,73 @@
             </div>
             <div class="datepickers-container d-flex align-items-center">
               <label for="dateFrom">{{'from' | translate}}</label>
-              <input matInput id="dateFrom" [matDatepicker]="pickerFrom"
-                     (dateChange)="filterData()" [(ngModel)]="selectedFrom"
-                     [value]="selectedFrom" readonly (click)="pickerFrom.open()">
-              <mat-datepicker-toggle matSuffix
-                                     [for]="pickerFrom"></mat-datepicker-toggle>
-              <mat-datepicker #pickerFrom
-                              [startAt]="selectedFrom"></mat-datepicker>
+              <input matInput id="dateFrom"
+                     [matDatepicker]="pickerFrom"
+                     [formControl]="fromDateControl"
+                     readonly
+                     (click)="pickerFrom.open()">
+              <mat-datepicker-toggle matSuffix [for]="pickerFrom"></mat-datepicker-toggle>
+              <mat-datepicker #pickerFrom [startAt]="fromDateControl.value"></mat-datepicker>
+
               <label for="dateTo">{{'to' | translate}}</label>
-              <input matInput id="dateTo" [matDatepicker]="pickerTo"
-                     (dateChange)="filterData()" [min]="selectedFrom"
-                     (click)="pickerTo.open()"
-                     [(ngModel)]="selectedTo" [value]="selectedTo" readonly>
-              <mat-datepicker-toggle matSuffix
-                                     [for]="pickerTo"></mat-datepicker-toggle>
-              <mat-datepicker #pickerTo [startAt]="selectedTo"></mat-datepicker>
+              <input matInput id="dateTo"
+                     [matDatepicker]="pickerTo"
+                     [formControl]="toDateControl"
+                     [min]="filterForm.controls['fromDate'].value"
+                     readonly
+                     (click)="pickerTo.open()">
+              <mat-datepicker-toggle matSuffix [for]="pickerTo"></mat-datepicker-toggle>
+              <mat-datepicker #pickerTo [startAt]="toDateControl.value"></mat-datepicker>
+
+              <!-- Añadido: Checkbox para solo fines de semana -->
+              <mat-checkbox
+                [formControl]="onlyWeekendsControl"
+                class="ml-3">
+                {{ 'weekends' | translate }}
+              </mat-checkbox>
             </div>
             <span class="total-price">{{ totalMonitorPriceSell }}{{currency}}</span>
           </div>
         </div>
-        <!--    <div [hidden]="!areGraphsVisible">
-              <div class="chart-row mt-6">
-                <div class="chart-column" *ngIf="showDetail">
-                  <div style="padding: 15% 0 0 0;">
-                    <img
-                      [src]="monitor?.image !== null && monitor?.image !== '' ? monitor?.image : imageAvatar"
-                      style="float: left;width: 40px;height: 40px;border-radius: 100%;margin: 0 5px 0 0;object-fit: cover;">
-                    <span
-                      style="float: left; width: 50%;font-size:10px">{{monitor?.language1?.code}}
-                      · {{getCountry(monitor?.country)}} ·
-                      {{calculateAge(monitor?.birth_date)}} {{'years' | translate
-                      }}</span>
-                    <span style="float: left; width: 50%;">{{ monitor?.first_name }}
-                      {{ monitor?.last_name }}</span>
-                  </div>
-                </div>
-                <div class="chart-column" *ngIf="!showDetail">
-                  <div class="card">
-                    <div id="activeMonitorsFiltered"></div>
-                  </div>
-                </div>
-                <div class="chart-column">
-                  <div class="card">
-                    <div id="totalHoursFiltered"></div>
-                  </div>
-                </div>
-                <div class="chart-column">
-                  <div class="card course-hours">
-                    <h3>{{ 'hour' | translate }}s {{'sport' | translate}}</h3>
-                    <h4>{{ 'total' | translate }}</h4>
-                    <h5>{{ totalSportHours }} h</h5>
-                    <div *ngFor="let sport of sportHoursData" class="course">
-                      <div class="course-holder">
-                        <div class="course-img"><img [src]="sport.icon" width="36"
-                            height="36"></div>
-                        <div class="course-details">
-                          <span class="course-name">{{ sport.name }}</span>
-                          <div class="course-bar-container">
-                            <div class="course-bar course-bar-filled"
-                              [style.width.%]="getPercentage(sport.value, totalSportHours)"
-                              [style.backgroundColor]="sport.color"></div>
-                            <div class="course-bar course-bar-empty"
-                              [style.width.%]="100 - getPercentage(sport.value, totalSportHours)"></div>
-                          </div>
-                        </div>
-                        <div class="course-info">
-                          <span class="course-value colectivo">{{ sport.value
-                            }}h</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="chart-column">
-                  <div class="card course-hours">
-                    <h3>{{ 'hour' | translate }}s</h3>
-                    <h4>{{ 'total' | translate }}</h4>
-                    <h5>{{ totalHours }} h</h5>
-                    <div *ngFor="let course of courseTypeHoursData; let i = index"
-                      class="course">
-                      <div class="course-holder">
-                        <div class="course-number">0{{i+1}}</div>
-                        <div class="course-details">
-                          <span class="course-name">{{ course.name }}</span>
-                          <div class="course-bar-container">
-                            <div *ngIf="course.max_value !== 0"
-                              class="course-bar course-bar-filled"
-                              [style.width.%]="getPercentage(course.value, course.max_value)"
-                              [style.backgroundColor]="course.color"></div>
-                            <div *ngIf="course.max_value !== 0"
-                              class="course-bar course-bar-empty"
-                              [style.width.%]="getPercentage(course.max_value - course.value, course.max_value)"></div>
-                            <div *ngIf="course.max_value === 0"
-                              class="course-bar course-bar-empty"
-                              style="width: 100%;"></div>
-                          </div>
-                        </div>
-                        <div class="course-info">
-                          <span class="course-value" [ngClass]="{
-                          'colectivo': course.name === translateService.instant('course_colective'),
-                          'privado': course.name === translateService.instant('course_private'),
-                          'actividad': course.name === translateService.instant('activity')
-                        }">{{course.max_value}}h</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="chart-column-lines">
-                  <div class="card" style="height: 275px;">
-                    <div id="user-session-analytics4"
-                      style="width: 100%; height: 300px;"></div>
-                  </div>
-                </div>
-              </div>
-            </div>-->
 
-        <vex-aio-table *ngIf="!showDetail" [columns]="columns" [entity]="entity"
+        <vex-aio-table *ngIf="!showDetail"
+                       [columns]="columns"
+                       [entity]="entity"
                        [deleteEntity]="deleteEntity"
                        [title]="'menu.monitors'"
-                       (showDetailEvent)="showDetailEvent($event)" [showDetail]="showDetail"
+                       (showDetailEvent)="showDetailEvent($event)"
+                       [showDetail]="showDetail"
                        [search]="filter"
-                       [route]="'monitors'" [createComponent]="createComponent"
-                       [canDelete]="false" [canDeactivate]="true"
+                       [route]="'monitors'"
+                       [createComponent]="createComponent"
+                       [canDelete]="false"
+                       [canDeactivate]="true"
                        [with]="['sports', 'monitorsSchools', 'monitorsSchools', 'monitorSportsDegrees.monitorSportAuthorizedDegrees.degree']"
-                       [filterColumn]="'school_id'" [filterField]="user.schools[0].id"
+                       [filterColumn]="'school_id'"
+                       [filterField]="user.schools[0].id"
                        [sectionIcon]="icon"></vex-aio-table>
+
         <mat-card style="padding: 0 3%;" *ngIf="showDetail">
           <mat-card-header style="display:block; height: 50px">
             <div style="width: 100%;float: left;">
               <mat-icon svgIcon="mat:close" (click)="closeDetailEvent(null)"
                         style="cursor: pointer;float:right"></mat-icon>
             </div>
-            <mat-divider
-              style="float: left;width: 100%;margin: 5% 0 5% 0;"></mat-divider>
+            <mat-divider style="float: left;width: 100%;margin: 5% 0 5% 0;"></mat-divider>
           </mat-card-header>
           <mat-card-content>
             <vex-aio-table [columns]="columnsDetail"
-                           [entity]="entity+'/'+selectedId" [deleteEntity]="deleteEntity"
-                           [title]="'menu.monitors'" [search]="filter"
-                           [route]="'monitors'" [createComponent]="createComponent"
-                           [canDelete]="false" [canDeactivate]="true"
+                           [entity]="entity+'/'+selectedId"
+                           [deleteEntity]="deleteEntity"
+                           [title]="'menu.monitors'"
+                           [search]="filter"
+                           [route]="'monitors'"
+                           [createComponent]="createComponent"
+                           [canDelete]="false"
+                           [canDeactivate]="true"
                            [with]="['sports', 'monitorsSchools', 'monitorsSchools', 'monitorSportsDegrees.monitorSportAuthorizedDegrees.degree']"
-                           [filterColumn]="'school_id'" [filterField]="user.schools[0].id"
+                           [filterColumn]="'school_id'"
+                           [filterField]="user.schools[0].id"
                            [sectionIcon]="icon"></vex-aio-table>
           </mat-card-content>
         </mat-card>

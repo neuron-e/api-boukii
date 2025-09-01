@@ -193,6 +193,11 @@ export class UtilsService {
       const currentMinutesTime = this.timeToMinutes(`${currentHours}:${currentMinutes}`);
       const nextMinutesTime = this.timeToMinutes(`${nextIntervalEndHours}:${nextIntervalEndMinutes}`);
 
+      // 📌 Si la siguiente hora finaliza después del endTime, salimos del bucle
+      if (nextMinutesTime > this.timeToMinutes(endTime)) {
+        break;
+      }
+
       // 📌 Evitar agregar horarios ocupados
       if (!this.isTimeOccupied(currentMinutesTime, nextMinutesTime, occupiedIntervals)) {
         result.push(`${currentHours.toString().padStart(2, '0')}:${currentMinutes.toString().padStart(2, '0')}`);
@@ -223,10 +228,20 @@ export class UtilsService {
     utilizers: any[] = [],
     duration: string | null = null
   ): boolean {
+
+    let formatDate = moment(date).format('YYYY-MM-DD');
+    const courseDate = course.course_dates.find((d: any) =>
+      moment(d.date).format('YYYY-MM-DD') === formatDate
+    );
+
+    if (!courseDate) {
+      return true;
+    }
+
     const selectedDate = moment(date).format('YYYY-MM-DD');
     const selectedHour = moment(`${selectedDate} ${hour}`, 'YYYY-MM-DD HH:mm');
-    const start = moment(`${selectedDate} ${course.hour_min}`, 'YYYY-MM-DD HH:mm');
-    const end = moment(`${selectedDate} ${course.hour_max}`, 'YYYY-MM-DD HH:mm');
+    const start = moment(`${selectedDate} ${courseDate.hour_start}`, 'YYYY-MM-DD HH:mm');
+    const end = moment(`${selectedDate} ${courseDate.hour_end}`, 'YYYY-MM-DD HH:mm');
 
     // Si es hoy, deshabilitar horas pasadas
     if (moment(selectedDate).isSame(moment(), 'day')) {
@@ -450,7 +465,7 @@ export class UtilsService {
         (obj) => obj.sport_id === sport_id && obj.school_id == this.getSchoolData().id
       );
 
-      return sportObject?.degree_id;
+      return sportObject?.degree;
     }
   }
 

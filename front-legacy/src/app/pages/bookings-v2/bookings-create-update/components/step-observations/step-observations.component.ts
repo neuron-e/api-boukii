@@ -9,6 +9,7 @@ import { FormBuilder, FormGroup, Validators } from "@angular/forms";
 export class StepObservationsComponent implements OnInit, AfterViewInit {
   @Input() initialData: any;
   @Output() stepCompleted = new EventEmitter<FormGroup>();
+  @Output() saveAndCreateNew = new EventEmitter<FormGroup>();
   @Output() prevStep = new EventEmitter();
   stepForm: FormGroup;
   @ViewChild('clientObsField') clientObsField: ElementRef;
@@ -40,6 +41,14 @@ export class StepObservationsComponent implements OnInit, AfterViewInit {
       this.stepCompleted.emit(this.stepForm);
     }
   }
+
+  completeAndReset() {
+    if (this.isFormValid()) {
+      // Emitir el evento específico para guardar y crear nuevo
+      this.saveAndCreateNew.emit(this.stepForm);
+    }
+  }
+
 
   private setFocusOnClientObs(): void {
     if (this.clientObsField) {

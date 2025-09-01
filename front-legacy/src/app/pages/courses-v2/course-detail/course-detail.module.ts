@@ -22,26 +22,35 @@ import { CoursesDetailCardNivelModule } from 'src/@vex/components/flux-component
 import { ComponenteEditorModule } from "../../../../@vex/components/form/editor/app.module";
 import { PageLayoutModule } from 'src/@vex/components/page-layout/page-layout.module';
 import { ComponentsModule } from 'src/@vex/components/components.module';
+import { ComponenteButtonModule } from 'src/@vex/components/form/button/app.module';
+import { ComponenteInputModule } from "../../../../@vex/components/form/input/app.module";
+import { CourseOpcionComponent } from '../components/opcion/opcion.component';
+import { BookingsModule } from '../../bookings-v2/bookings.module';
+import {MatOptionModule} from '@angular/material/core';
+import {MatSelectModule} from '@angular/material/select';
 
 @NgModule({
   declarations: [CourseDetailComponent],
-  imports: [
-    CommonModule,
-    BreadcrumbsModule, ReactiveFormsModule,
-    SecondaryToolbarModule,
-    MatTabsModule,
-    TranslateModule,
-    MatProgressSpinnerModule,
-    FormsModule,
-    MatCardModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSlideToggleModule,
-    CoursesDetailCardModule, ComponentsModule,
-    PageLayoutModule,
-    MatIconModule, FluxModalModule, MatCheckboxModule, MatDatepickerModule, AngularEditorModule, MatButtonModule, CoursesDetailCardNivelModule,
-    ComponenteEditorModule,
-
-  ]
+    imports: [
+        CommonModule,
+        BreadcrumbsModule, ReactiveFormsModule,
+        SecondaryToolbarModule,
+        MatTabsModule,
+        TranslateModule,
+        MatProgressSpinnerModule,
+        FormsModule,
+        MatCardModule,
+        MatFormFieldModule,
+        MatInputModule,
+        MatSlideToggleModule,
+        CoursesDetailCardModule, ComponentsModule,
+        PageLayoutModule,
+        MatIconModule, FluxModalModule, MatCheckboxModule, MatDatepickerModule, AngularEditorModule, MatButtonModule, CoursesDetailCardNivelModule,
+        ComponenteEditorModule,
+        ComponenteButtonModule,
+        ComponenteInputModule,
+        CourseOpcionComponent,
+        BookingsModule, MatOptionModule, MatSelectModule
+    ]
 })
 export class CourseDetailModule { }

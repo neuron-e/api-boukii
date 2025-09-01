@@ -1,0 +1,207 @@
+<mat-card class="filters-container" [class.compact]="compact">
+
+  <!-- Header -->
+  <div class="filters-header">
+    <div class="filters-title">
+      <mat-icon>filter_list</mat-icon>
+      <h3>Filtros de Análisis</h3>
+      <mat-chip *ngIf="hasActiveFilters" class="active-filters-indicator">
+        {{ hasActiveFilters ? 'Filtros activos' : '' }}
+      </mat-chip>
+    </div>
+
+    <div class="filters-actions">
+      <button mat-icon-button
+              (click)="onTogglePresets()"
+              [class.active]="showPresets"
+              matTooltip="Presets de fechas">
+        <mat-icon>event_note</mat-icon>
+      </button>
+
+      <button mat-icon-button
+              (click)="onToggleAdvanced()"
+              matTooltip="Filtros avanzados">
+        <mat-icon>{{ showAdvanced ? 'expand_less' : 'expand_more' }}</mat-icon>
+      </button>
+
+      <button mat-icon-button
+              (click)="onResetFilters()"
+              matTooltip="Resetear filtros">
+        <mat-icon>refresh</mat-icon>
+      </button>
+    </div>
+  </div>
+
+  <!-- Form -->
+  <form [formGroup]="filterForm" class="filters-form">
+
+    <!-- Date Presets (collapsible) -->
+    <div *ngIf="showPresets && enablePresets" class="date-presets">
+      <h4>Presets de Fechas</h4>
+      <div class="presets-grid">
+        <button *ngFor="let preset of datePresets"
+                mat-stroked-button
+                type="button"
+                [class.selected]="selectedPreset === preset.value"
+                (click)="onPresetSelect(preset)"
+                class="preset-button">
+          <mat-icon *ngIf="preset.icon">{{ preset.icon }}</mat-icon>
+          {{ preset.label }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Basic Filters -->
+    <div class="filters-row basic-filters">
+
+      <!-- Date Range -->
+      <div class="date-range-section">
+        <mat-form-field appearance="outline" class="date-field">
+          <mat-label>Fecha Inicio</mat-label>
+          <input matInput
+                 [matDatepicker]="startPicker"
+                 formControlName="startDate"
+                 readonly>
+          <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
+          <mat-datepicker #startPicker></mat-datepicker>
+          <mat-error *ngIf="!isDateRangeValid">
+            La fecha de inicio debe ser anterior a la fecha de fin
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="date-field">
+          <mat-label>Fecha Fin</mat-label>
+          <input matInput
+                 [matDatepicker]="endPicker"
+                 formControlName="endDate"
+                 readonly>
+          <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
+          <mat-datepicker #endPicker></mat-datepicker>
+        </mat-form-field>
+
+        <div class="date-range-info">
+          <mat-chip class="range-chip">
+            <mat-icon>date_range</mat-icon>
+            {{ selectedDateRange }}
+          </mat-chip>
+          <small class="range-days">{{ dateRangeInDays }} días</small>
+        </div>
+      </div>
+
+      <!-- Quick Date Actions -->
+      <div *ngIf="enableQuickActions" class="quick-actions">
+        <button mat-icon-button
+                (click)="setToday()"
+                matTooltip="Hoy"
+                type="button">
+          <mat-icon>today</mat-icon>
+        </button>
+        <button mat-icon-button
+                (click)="setThisWeek()"
+                matTooltip="Esta semana"
+                type="button">
+          <mat-icon>date_range</mat-icon>
+        </button>
+        <button mat-icon-button
+                (click)="setThisMonth()"
+                matTooltip="Este mes"
+                type="button">
+          <mat-icon>calendar_month</mat-icon>
+        </button>
+        <button mat-icon-button
+                (click)="setLast30Days()"
+                matTooltip="Últimos 30 días"
+                type="button">
+          <mat-icon>schedule</mat-icon>
+        </button>
+      </div>
+
+      <!-- Season -->
+      <mat-form-field *ngIf="seasons.length > 0" appearance="outline">
+        <mat-label>Temporada</mat-label>
+        <mat-select formControlName="seasonId">
+          <mat-option [value]="null">Todas las temporadas</mat-option>
+          <mat-option *ngFor="let season of seasons" [value]="season.value">
+            <mat-icon *ngIf="season.icon">{{ season.icon }}</mat-icon>
+            {{ season.label }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- Optimization Level -->
+      <mat-form-field appearance="outline">
+        <mat-label>Nivel de Optimización</mat-label>
+        <mat-select formControlName="optimizationLevel">
+          <mat-option *ngFor="let level of optimizationLevels" [value]="level.value">
+            <mat-icon *ngIf="level.icon">{{ level.icon }}</mat-icon>
+            {{ level.label }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+    </div>
+
+    <!-- Advanced Filters -->
+    <div *ngIf="showAdvanced" class="filters-row advanced-filters">
+
+      <!-- Sport -->
+      <mat-form-field *ngIf="sports.length > 0" appearance="outline">
+        <mat-label>Deporte</mat-label>
+        <mat-select formControlName="sportId">
+          <mat-option [value]="null">Todos los deportes</mat-option>
+          <mat-option *ngFor="let sport of sports" [value]="sport.value" [disabled]="sport.disabled">
+            <mat-icon *ngIf="sport.icon">{{ sport.icon }}</mat-icon>
+            {{ sport.label }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- Course Type -->
+      <mat-form-field appearance="outline">
+        <mat-label>Tipo de Curso</mat-label>
+        <mat-select formControlName="courseType">
+          <mat-option [value]="null">Todos los tipos</mat-option>
+          <mat-option *ngFor="let type of courseTypes" [value]="type.value">
+            <mat-icon *ngIf="type.icon">{{ type.icon }}</mat-icon>
+            {{ type.label }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- Source -->
+      <mat-form-field appearance="outline">
+        <mat-label>Fuente de Reserva</mat-label>
+        <mat-select formControlName="source">
+          <mat-option [value]="null">Todas las fuentes</mat-option>
+          <mat-option *ngFor="let source of sources" [value]="source.value">
+            <mat-icon *ngIf="source.icon">{{ source.icon }}</mat-icon>
+            {{ source.label }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- Weekends Only -->
+      <div class="checkbox-section">
+        <mat-checkbox formControlName="onlyWeekends" class="weekend-checkbox">
+          <mat-icon>weekend</mat-icon>
+          Solo fines de semana
+        </mat-checkbox>
+      </div>
+
+    </div>
+
+    <!-- Apply Button -->
+    <div class="filters-apply" *ngIf="enableQuickActions">
+      <button mat-raised-button
+              color="primary"
+              (click)="onApplyFilters()"
+              [disabled]="!isDateRangeValid"
+              type="button">
+        <mat-icon>search</mat-icon>
+        Aplicar Filtros
+      </button>
+    </div>
+
+  </form>
+
+</mat-card>

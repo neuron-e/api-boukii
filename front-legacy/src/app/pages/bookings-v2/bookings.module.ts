@@ -37,7 +37,6 @@ import { BookingDetailModule } from './booking-detail/booking-detail.module';
     RouterModule,
     BookingsRoutingModule,
     SecondaryToolbarModule,
-    MatIconModule,
     ChartModule,
     WidgetQuickLineChartModule,
     WidgetQuickValueCenterModule,
@@ -58,7 +57,7 @@ import { BookingDetailModule } from './booking-detail/booking-detail.module';
     BookingsCreateUpdateModule,
     BookingDetailModule,
   ],
-  exports: []
+  exports: [BookingsV2Component]
 })
 export class BookingsModule {
 }

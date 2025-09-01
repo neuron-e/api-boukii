@@ -21,7 +21,7 @@ import { NgxMatDatetimePickerModule, NgxMatTimepickerModule } from '@angular-mat
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { AddClientSportModalComponent } from './add-client-sport.component';
 import { MatTableModule } from '@angular/material/table';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import {MAT_SNACK_BAR_DEFAULT_OPTIONS, MatSnackBar, MatSnackBarModule} from '@angular/material/snack-bar';
 import { TranslateModule } from '@ngx-translate/core';
 
 @NgModule({
@@ -51,6 +51,12 @@ import { TranslateModule } from '@ngx-translate/core';
     MatSlideToggleModule,
     MatTableModule,
     MatSnackBarModule
+  ],
+  providers: [
+    {
+      provide: MAT_SNACK_BAR_DEFAULT_OPTIONS,
+      useValue: { verticalPosition: 'top', horizontalPosition: 'center', duration: 3000 }
+    }
   ],
   declarations: [AddClientSportModalComponent],
   exports: [AddClientSportModalComponent]

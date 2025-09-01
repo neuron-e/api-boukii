@@ -35,6 +35,11 @@
                 "glob": "**/*.svg",
                 "input": "node_modules/@material-design-icons/svg",
                 "output": "assets/img/icons/material-design-icons/"
+              },
+              {
+                "glob": "**/*",
+                "input": "node_modules/@kolkov/angular-editor/assets/icons",
+                "output": "assets/ae-icons/"
               }
             ],
             "styles": [
@@ -95,7 +100,7 @@
                 {
                   "type": "initial",
                   "maximumWarning": "3mb",
-                  "maximumError": "5mb"
+                  "maximumError": "20mb"
                 }
               ]
             },
@@ -110,18 +115,18 @@
                 "input": "src/index.dev.html",
                 "output": "index.html"
               },
-              "optimization": true,
+              "optimization": false,
               "outputHashing": "all",
-              "sourceMap": false,
+              "sourceMap": true,
               "namedChunks": false,
-              "extractLicenses": true,
-              "vendorChunk": false,
-              "buildOptimizer": true,
+              "extractLicenses": false,
+              "vendorChunk": true,
+              "buildOptimizer": false,
               "budgets": [
                 {
                   "type": "initial",
                   "maximumWarning": "3mb",
-                  "maximumError": "5mb"
+                  "maximumError": "20mb"
                 }
               ]
             },
@@ -147,7 +152,7 @@
                 {
                   "type": "initial",
                   "maximumWarning": "3mb",
-                  "maximumError": "5mb"
+                  "maximumError": "15mb"
                 }
               ]
             }
@@ -164,6 +169,9 @@
             },
             "local": {
               "browserTarget": "vex:build:local"
+            },
+            "development": {
+              "browserTarget": "vex:build:development"
             }
           }
         },
