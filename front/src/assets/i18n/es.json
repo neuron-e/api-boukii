@@ -23,7 +23,75 @@
     "previous": "Anterior",
     "create": "Crear"
   },
+  "schools": {
+    "selectSchool": {
+      "title": "Seleccionar Escuela",
+      "subtitle": "Elige la escuela con la que quieres trabajar",
+      "breadcrumb": "Cuenta / Seleccionar escuela",
+      "searchPlaceholder": "Buscar escuelas...",
+      "useThisSchool": "Usar esta escuela",
+      "noSchools": "No se encontraron escuelas",
+      "noSchoolsMessage": "No tienes acceso a ninguna escuela. Contacta al administrador.",
+      "loadingSchools": "Cargando escuelas...",
+      "errorLoading": "Error al cargar escuelas",
+      "errorSelecting": "Error al seleccionar escuela"
+    },
+    "status": {
+      "active": "Activa",
+      "inactive": "Inactiva"
+    },
+    "pagination": {
+      "showing": "Mostrando",
+      "to": "a",
+      "of": "de",
+      "results": "resultados",
+      "page": "Página",
+      "previous": "Anterior",
+      "next": "Siguiente"
+    }
+  },
+  "seasons": {
+    "selectSeason": {
+      "title": "Seleccionar Temporada",
+      "subtitle": "Elige la temporada con la que quieres trabajar",
+      "breadcrumb": "Cuenta / Seleccionar temporada",
+      "searchPlaceholder": "Buscar temporadas...",
+      "useThisSeason": "Usar esta temporada",
+      "noSeasons": "No se encontraron temporadas",
+      "noSeasonsMessage": "No hay temporadas disponibles para esta escuela.",
+      "loadingSeasons": "Cargando temporadas...",
+      "errorLoading": "Error al cargar temporadas",
+      "selectionFailed": "Error al seleccionar temporada",
+      "success": "Temporada seleccionada: {{seasonName}}",
+      "noSchoolSelected": "No se ha seleccionado ninguna escuela",
+      "noPermission": "No tienes permiso para acceder a las temporadas",
+      "notFound": "No se encontraron temporadas para esta escuela",
+      "inactiveSeason": "No puedes seleccionar una temporada inactiva"
+    },
+    "status": {
+      "active": "Activa",
+      "inactive": "Inactiva",
+      "current": "Actual"
+    },
+    "startDate": "Fecha de inicio",
+    "endDate": "Fecha de fin",
+    "courses": "Cursos",
+    "bookings": "Reservas"
+  },
   "clients": {
+    "title": "Clientes",
+    "fullName": "Nombre completo",
+    "email": "Email",
+    "phone": "Teléfono",
+    "utilizadores": "Usuarios",
+    "sportsSummary": "Deportes",
+    "status": "Estado",
+    "signupDate": "Fecha de registro",
+    "filtersAria": "Filtros de clientes",
+    "tableAria": "Tabla de clientes",
+    "viewClient": "Ver cliente",
+    "editClient": "Editar cliente",
+    "deleteClient": "Eliminar cliente",
     "form": {
       "name": "Nombre completo",
       "namePlaceholder": "Nombre y apellidos",
@@ -51,52 +119,414 @@
       "createClient": "Crear Cliente"
     }
   },
-  "schools": {
-    "selectSchool": {
-      "title": "Seleccionar Escuela",
-      "subtitle": "Elige la escuela con la que deseas trabajar",
-      "breadcrumb": "Cuenta / Seleccionar escuela",
-      "searchPlaceholder": "Buscar escuelas...",
-      "useThisSchool": "Usar esta escuela",
-      "noSchools": "No se encontraron escuelas",
-      "noSchoolsMessage": "No tienes acceso a ninguna escuela. Contacta al administrador.",
-      "loadingSchools": "Cargando escuelas...",
-      "errorLoading": "Error al cargar las escuelas",
-      "errorSelecting": "Error al seleccionar la escuela"
+  "auth": {
+    "brandLine": "Gestión deportiva todo en uno",
+    "features": {
+      "suite": {
+        "title": "Suite completa",
+        "subtitle": "Reservas, cursos y planificación"
+      },
+      "multiseason": {
+        "title": "Multi-temporada",
+        "subtitle": "Trabaja por escuela y temporada"
+      },
+      "pro": {
+        "title": "Nivel profesional",
+        "subtitle": "Roles, permisos y auditoría"
+      }
     },
-    "status": {
-      "active": "Activa",
-      "inactive": "Inactiva"
+    "common": {
+      "email": "Email",
+      "password": "Contraseña",
+      "showPassword": "Mostrar contraseña",
+      "hidePassword": "Ocultar contraseña",
+      "signin": "Iniciar sesión",
+      "signup": "Registrarse",
+      "forgot": "¿Olvidaste tu contraseña?",
+      "haveAccount": "¿Ya tienes una cuenta?",
+      "noAccount": "¿No tienes una cuenta?"
     },
-    "pagination": {
-      "showing": "Mostrando",
-      "to": "a",
-      "of": "de",
-      "results": "resultados",
-      "page": "Página",
-      "previous": "Anterior",
-      "next": "Siguiente"
+    "errors": {
+      "requiredEmail": "El email es obligatorio",
+      "invalidEmail": "Por favor ingresa un email válido",
+      "requiredPassword": "La contraseña es obligatoria",
+      "passwordsNoMatch": "Las contraseñas no coinciden"
+    },
+    "hero": {
+      "welcomeBack": "Bienvenido de nuevo",
+      "join": "Únete a Boukii V5",
+      "feature1": "Gestión Completa",
+      "feature1Desc": "Gestión, reservas y más.",
+      "feature2": "Multi-Temporada",
+      "feature2Desc": "Organiza por temporadas.",
+      "feature3": "Profesionalización",
+      "feature3Desc": "Herramientas profesionales."
+    },
+    "login": {
+      "title": "Acceder a Boukii",
+      "subtitle": "Gestiona tus escuelas y temporadas",
+      "cta": "Iniciar sesión",
+      "links": { "register": "Crear cuenta", "forgot": "¿Olvidaste tu contraseña?" },
+      "success": "Sesión iniciada correctamente",
+      "error": "Error al iniciar sesión",
+      "processing": "Procesando...",
+      "selectingSchool": "Seleccionando escuela...",
+      "selectingSeason": "Seleccionando temporada..."
+    },
+    "register": {
+      "title": "Crear cuenta",
+      "subtitle": "Configura tu primera escuela",
+      "cta": "Registrarse",
+      "links": { "login": "Ya tengo una cuenta" },
+      "success": "Cuenta creada exitosamente",
+      "error": "Error en el registro",
+      "processing": "Procesando registro..."
+    },
+    "forgotPassword": {
+      "title": "Restablecer contraseña",
+      "subtitle": "Te enviaremos un enlace de recuperación",
+      "cta": "Enviar enlace",
+      "links": { "login": "Volver al inicio de sesión" },
+      "success": "Enlace de recuperación enviado exitosamente",
+      "error": "Error al enviar el enlace de recuperación",
+      "processing": "Procesando...",
+      "emailSent": "Si existe una cuenta con ese email, hemos enviado las instrucciones.",
+      "successTitle": "¡Enlace de recuperación enviado!",
+      "successMessage": "Hemos enviado las instrucciones de recuperación a:",
+      "checkSpam": "Si no ves el email, revisa tu carpeta de spam.",
+      "sendAnother": "Enviar otro enlace",
+      "rememberedPassword": "¿Recordaste tu contraseña?"
+    },
+    "email": {
+      "label": "Email",
+      "placeholder": "Ingresa tu email",
+      "required": "El email es obligatorio",
+      "invalid": "El email no es válido"
+    },
+    "password": {
+      "label": "Contraseña",
+      "placeholder": "Ingresa tu contraseña",
+      "required": "La contraseña es obligatoria",
+      "minLength": "La contraseña debe tener al menos 6 caracteres"
+    },
+    "name": {
+      "label": "Nombre",
+      "placeholder": "Ingresa tu nombre completo",
+      "required": "El nombre es obligatorio",
+      "minLength": "El nombre debe tener al menos 2 caracteres"
+    },
+    "confirmPassword": {
+      "label": "Confirmar Contraseña",
+      "placeholder": "Confirma tu contraseña",
+      "required": "La confirmación de contraseña es obligatoria",
+      "mismatch": "Las contraseñas no coinciden"
+    },
+    "errors": {
+      "requiredEmail": "El email es obligatorio",
+      "invalidEmail": "Por favor ingresa un email válido",
+      "requiredPassword": "La contraseña es obligatoria",
+      "passwordsNoMatch": "Las contraseñas no coinciden",
+      "networkError": "Error de conexión. Verifica tu conexión a internet.",
+      "invalidCredentials": "Email o contraseña incorrectos",
+      "sessionExpired": "Tu sesión ha expirado. Por favor inicia sesión nuevamente.",
+      "invalidToken": "Token de sesión inválido",
+      "unauthorized": "No estás autorizado para acceder a esto",
+      "forbidden": "No tienes permiso para realizar esta acción",
+      "validationFailed": "Los datos proporcionados no son válidos",
+      "invalidRequest": "La solicitud no es válida",
+      "rateLimited": "Demasiados intentos. Por favor espera unos minutos.",
+      "serverError": "Error del servidor. Por favor intenta más tarde.",
+      "unknownError": "Ocurrió un error inesperado",
+      "actions": {
+        "checkConnection": "Verifica tu conexión a internet",
+        "checkInput": "Revisa los datos ingresados",
+        "tryLogin": "Intenta iniciar sesión nuevamente",
+        "tryLater": "Intenta más tarde"
+      }
+    },
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "noAccount": "¿No tienes una cuenta?",
+    "alreadyHaveAccount": "¿Ya tienes una cuenta?",
+    "createAccount": "Crear cuenta",
+    "signIn": "Iniciar sesión",
+    "signOut": "Cerrar sesión",
+    "backToLogin": "Volver al login",
+    "allRightsReserved": "Todos los derechos reservados",
+    "terms": "Términos",
+    "privacy": "Privacidad",
+    "support": "Soporte"
+  },
+  "schoolSelection": {
+    "title": "Seleccionar Escuela",
+    "subtitle": "Elige la escuela con la que quieres trabajar",
+    "selectSchool": "Seleccionar Escuela",
+    "loading": "Cargando escuelas...",
+    "noSchools": "No tienes acceso a ninguna escuela",
+    "error": "Error al cargar escuelas",
+    "continue": "Continuar",
+    "autoRedirecting": "Redirigiendo automáticamente..."
+  },
+  "dashboard": {
+    "charts": {
+      "dailyAttendance": "Asistencia Diaria",
+      "hourlyBookings": "Reservas por Hora",
+      "legend": {
+        "attendance": "Asistencia",
+        "bookings": "Reservas"
+      }
     }
   },
-  "seasons": {
-    "selectSeason": {
-      "title": "Seleccionar Temporada",
-      "subtitle": "Elige la temporada con la que deseas trabajar",
-      "breadcrumb": "Cuenta / Seleccionar temporada",
-      "searchPlaceholder": "Buscar temporadas...",
-      "useThisSeason": "Usar esta temporada",
-      "noSeasons": "No se encontraron temporadas",
-      "noSeasonsMessage": "No hay temporadas disponibles para esta escuela.",
-      "loadingSeasons": "Cargando temporadas...",
-      "errorLoading": "Error al cargar las temporadas",
-      "errorSelecting": "Error al seleccionar la temporada",
-      "createSeason": "Crear temporada",
-      "manageSeason": "Gestionar temporada"
+  "nav": {
+    "searchPlaceholder": "Buscar...",
+    "dashboard": "Panel de Control",
+    "reservas": "Reservas",
+    "clientes": "Clientes",
+    "planificador": "Planificador",
+    "instructores": "Instructores",
+    "cursos": "Cursos y Actividades",
+    "material": "Alquiler de Material",
+    "bonos": "Bonos y Códigos",
+    "comunicacion": "Comunicación",
+    "pagos": "Pagos",
+    "reportes": "Reportes",
+    "admin": "Administradores",
+    "config": "Configuración",
+    "notifications": "Notificaciones",
+    "mainNavigation": "Navegación principal"
+  },
+  "notifications": {
+    "title": "Notificaciones",
+    "noNotifications": "No hay notificaciones",
+    "markAllAsRead": "Marcar todas como leídas",
+    "justNow": "ahora mismo",
+    "minutesAgo": "hace {{count}}m",
+    "hoursAgo": "hace {{count}}h",
+    "daysAgo": "hace {{count}}d"
+  },
+  "userMenu": {
+    "profile": "Perfil",
+    "settings": "Configuración",
+    "logout": "Cerrar sesión",
+    "loggingOut": "Cerrando sesión...",
+    "logoutConfirm": "¿Estás seguro de que quieres cerrar sesión?",
+    "defaultName": "Usuario",
+    "defaultEmail": "usuario@ejemplo.com"
+  },
+  "roles": {
+    "admin": "Administrador",
+    "manager": "Gerente",
+    "instructor": "Instructor",
+    "staff": "Personal",
+    "user": "Usuario"
+  },
+  "language": {
+    "title": "Idioma",
+    "es": "ES - Español",
+    "en": "EN - Inglés",
+    "fr": "FR - Francés",
+    "it": "IT - Italiano",
+    "de": "DE - Alemán"
+  },
+  "theme": {
+    "toggle": "Cambiar tema",
+    "switchToLight": "Cambiar a modo claro",
+    "switchToDark": "Cambiar a modo oscuro"
+  },
+  "support": {
+    "needHelp": "¿Necesitas ayuda?",
+    "support": "Soporte"
+  },
+  "sidebar": {
+    "toggle": "Contraer/Expandir"
+  },
+  "errors": {
+    "general": "Ocurrió un error inesperado",
+    "network": "Error de conexión. Verifica tu conexión a internet",
+    "serverError": "Error del servidor. Por favor intenta más tarde",
+    "unauthorized": "No estás autorizado para acceder a este recurso",
+    "forbidden": "Acceso denegado",
+    "notFound": "No se encontró el recurso solicitado",
+    "validation": "Error de validación en los datos enviados",
+    "timeout": "La solicitud ha expirado",
+    "api": {
+      "loginFailed": "Credenciales inválidas",
+      "emailNotFound": "Email no encontrado",
+      "accountLocked": "Cuenta bloqueada temporalmente",
+      "emailAlreadyExists": "Este email ya está registrado",
+      "registrationFailed": "Error al crear la cuenta",
+      "passwordResetFailed": "Error al enviar el enlace de recuperación",
+      "schoolSelectionFailed": "Error al seleccionar la escuela"
+    }
+  },
+  "featureFlags": {
+    "title": "Configuración de Funciones",
+    "resetDefaults": "Restablecer Valores Predeterminados",
+    "reloadConfig": "Recargar Configuración",
+    "categories": {
+      "core": {
+        "title": "Funciones Principales",
+        "description": "Funcionalidades básicas del sistema"
+      },
+      "dashboard": {
+        "title": "Panel de Control",
+        "description": "Características y widgets del panel"
+      },
+      "admin": {
+        "title": "Administración",
+        "description": "Herramientas y configuraciones administrativas"
+      },
+      "experimental": {
+        "title": "Experimental",
+        "description": "Funciones en desarrollo"
+      }
+    },
+    "features": {
+      "darkTheme": {
+        "name": "Tema Oscuro",
+        "description": "Habilita el tema oscuro para la interfaz"
+      },
+      "multiLanguage": {
+        "name": "Multi-idioma",
+        "description": "Soporte para múltiples idiomas"
+      },
+      "notifications": {
+        "name": "Notificaciones",
+        "description": "Sistema de notificaciones push"
+      },
+      "analytics": {
+        "name": "Analíticas",
+        "description": "Seguimiento de uso y analíticas"
+      },
+      "dashboardWidgets": {
+        "name": "Widgets del Panel",
+        "description": "Widgets personalizables del panel"
+      },
+      "realtimeUpdates": {
+        "name": "Actualizaciones en Tiempo Real",
+        "description": "Actualizaciones de datos en tiempo real"
+      },
+      "exportData": {
+        "name": "Exportar Datos",
+        "description": "Funcionalidad de exportación de datos"
+      },
+      "importData": {
+        "name": "Importar Datos",
+        "description": "Funcionalidad de importación de datos"
+      },
+      "userManagement": {
+        "name": "Gestión de Usuarios",
+        "description": "Panel de administración de usuarios"
+      },
+      "systemSettings": {
+        "name": "Configuración del Sistema",
+        "description": "Configuraciones avanzadas del sistema"
+      },
+      "auditLogs": {
+        "name": "Registros de Auditoría",
+        "description": "Registro de actividades del sistema"
+      },
+      "backupRestore": {
+        "name": "Respaldo y Restauración",
+        "description": "Herramientas de respaldo y restauración"
+      },
+      "experimentalUI": {
+        "name": "Interfaz Experimental",
+        "description": "Nueva interfaz de usuario en desarrollo"
+      },
+      "betaFeatures": {
+        "name": "Funciones Beta",
+        "description": "Funciones en fase de pruebas beta"
+      },
+      "debugMode": {
+        "name": "Modo de Depuración",
+        "description": "Herramientas de depuración para desarrolladores"
+      },
+      "performanceMonitoring": {
+        "name": "Monitoreo de Rendimiento",
+        "description": "Seguimiento del rendimiento del sistema"
+      }
+    }
+  },
+  "users": {
+    "title": "Gestión de Usuarios",
+    "list": {
+      "subtitle": "Gestiona los usuarios y sus roles en el sistema",
+      "createUser": "Crear Usuario",
+      "filters": {
+        "search": "Buscar",
+        "searchPlaceholder": "Buscar usuarios por nombre o email...",
+        "role": "Rol",
+        "status": "Estado",
+        "allRoles": "Todos los roles",
+        "allStatuses": "Todos los estados"
+      },
+      "table": {
+        "name": "Nombre",
+        "email": "Email",
+        "roles": "Roles",
+        "status": "Estado",
+        "createdAt": "Creado",
+        "actions": "Acciones"
+      },
+      "empty": {
+        "title": "No se encontraron usuarios",
+        "message": "No hay usuarios que coincidan con los filtros aplicados."
+      }
+    },
+    "detail": {
+      "title": "Detalle del Usuario",
+      "userInfo": "Información del Usuario",
+      "status": "Estado",
+      "phone": "Teléfono",
+      "permissions": "Permisos",
+      "rolesSection": "Asignación de Roles",
+      "rolesSubtitle": "Selecciona los roles que quieres asignar a este usuario",
+      "saveRoles": "Guardar Roles"
     },
     "status": {
-      "active": "Activa",
-      "inactive": "Inactiva",
-      "archived": "Archivada"
+      "active": "Activo",
+      "inactive": "Inactivo",
+      "pending": "Pendiente"
+    }
+  },
+  "roles": {
+    "title": "Gestión de Roles",
+    "subtitle": "Gestiona los roles y permisos del sistema",
+    "permissions": "Permisos",
+    "noRoles": "No hay roles disponibles",
+    "empty": {
+      "title": "No se encontraron roles",
+      "message": "No se encontraron roles en el sistema."
+    }
+  },
+  "communications": {
+    "title": "Comunicaciones",
+    "recipients": "Destinatarios",
+    "clients": "Clientes",
+    "monitors": "Monitores",
+    "subject": "Asunto",
+    "body": "Mensaje",
+    "send": "Enviar",
+    "sentList": "Emails enviados",
+    "sentAt": "Enviado"
+  },
+  "pagination": {
+    "showing": "Mostrando",
+    "to": "a",
+    "of": "de",
+    "results": "resultados",
+    "page": "Página",
+    "previous": "Anterior",
+    "next": "Siguiente"
+  },
+  "settings": {
+    "school": {
+      "title": "Configuración de Escuela",
+      "name": "Nombre",
+      "email": "Email",
+      "contact_phone": "Teléfono de Contacto",
+      "address": "Dirección",
+      "logo": "Logo"
     }
   }
 }
