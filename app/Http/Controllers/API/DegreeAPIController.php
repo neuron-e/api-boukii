@@ -11,6 +11,7 @@ use App\Repositories\DegreeRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Class DegreeController
@@ -56,16 +57,46 @@ class DegreeAPIController extends AppBaseController
      */
     public function index(Request $request): JsonResponse
     {
-        $degrees = $this->degreeRepository->all(
-            $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with']),
-            $request->get('search'),
-            $request->get('skip'),
-            $request->get('limit'),
-            $request->perPage,
-            $request->get('with', []),
-            $request->get('order', 'desc'),
-            $request->get('orderColumn', 'id')
-        );
+        // Cache and optimize the request for perPage=99999 which is commonly used in monitor details
+        if ($request->get('perPage') == 99999 && !$request->get('search')) {
+            $school = null;
+            $schoolId = 'all';
+            
+            // Safely get school if method exists
+            if (method_exists($this, 'getSchool')) {
+                try {
+                    $school = $this->getSchool($request);
+                    $schoolId = $school ? $school->id : 'all';
+                } catch (\Exception $e) {
+                    $schoolId = 'all';
+                }
+            }
+            
+            $cacheKey = "degrees_all_{$schoolId}";
+            
+            $degrees = Cache::remember($cacheKey, 300, function () use ($request, $schoolId) { // 5 minutes cache
+                // Optimized query: select only essential fields and add school filter
+                $query = Degree::select(['id', 'name', 'level', 'color', 'school_id', 'sport_id', 'active'])
+                    ->where('active', 1);
+                
+                if ($schoolId !== 'all') {
+                    $query->where('school_id', $schoolId);
+                }
+                
+                return $query->orderBy('name', 'asc')->get();
+            });
+        } else {
+            $degrees = $this->degreeRepository->all(
+                $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with']),
+                $request->get('search'),
+                $request->get('skip'),
+                $request->get('limit'),
+                $request->perPage,
+                $request->get('with', []),
+                $request->get('order', 'desc'),
+                $request->get('orderColumn', 'id')
+            );
+        }
 
         return $this->sendResponse($degrees, 'Degrees retrieved successfully');
     }

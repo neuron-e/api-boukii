@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Http\Controllers\API\BaseCrudController;
+use App\Http\Controllers\AppBaseController;
 use App\Http\Requests\API\CreateBookingAPIRequest;
 use App\Http\Requests\API\UpdateBookingAPIRequest;
 use App\Http\Resources\API\BookingResource;
@@ -21,12 +21,14 @@ use Illuminate\Support\Facades\Mail;
  * Class BookingController
  */
 
-class BookingAPIController extends BaseCrudController
+class BookingAPIController extends AppBaseController
 {
+    /** @var  BookingRepository */
+    private $bookingRepository;
+
     public function __construct(BookingRepository $bookingRepo)
     {
-        parent::__construct($bookingRepo);
-        $this->resource = BookingResource::class;
+        $this->bookingRepository = $bookingRepo;
     }
 
     /**
@@ -59,7 +61,7 @@ class BookingAPIController extends BaseCrudController
      */
     public function index(Request $request): JsonResponse
     {
-        $bookings = $this->repository->all(
+        $bookings = $this->bookingRepository->all(
             searchArray: $request->except([
                 'skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order',
                 'orderColumn', 'page', 'with', 'isMultiple', 'course_types',
@@ -115,11 +117,11 @@ class BookingAPIController extends BaseCrudController
      *      )
      * )
      */
-    public function store(CreateBookingAPIRequest|Request $request): JsonResponse
+    public function store(CreateBookingAPIRequest $request): JsonResponse
     {
         $input = $request->all();
 
-        $booking = $this->repository->create($input);
+        $booking = $this->bookingRepository->create($input);
 
         $logData = [
             'booking_id' => $booking->id,
@@ -172,7 +174,7 @@ class BookingAPIController extends BaseCrudController
     public function show($id, Request $request): JsonResponse
     {
         /** @var Booking $booking */
-        $booking = $this->repository->find($id, with: $request->get('with', []));
+        $booking = $this->bookingRepository->find($id, with: $request->get('with', []));
 
         if (empty($booking)) {
             return $this->sendError('Booking not found');
@@ -221,18 +223,18 @@ class BookingAPIController extends BaseCrudController
      *      )
      * )
      */
-    public function update($id, UpdateBookingAPIRequest|Request $request): JsonResponse
+    public function update($id, UpdateBookingAPIRequest $request): JsonResponse
     {
         $input = $request->all();
 
         /** @var Booking $booking */
-        $booking = $this->repository->find($id, with: $request->get('with', []));
+        $booking = $this->bookingRepository->find($id, with: $request->get('with', []));
 
         if (empty($booking)) {
             return $this->sendError('Booking not found');
         }
 
-        $booking = $this->repository->update($input, $id);
+        $booking = $this->bookingRepository->update($input, $id);
 
         if($request->has('send_mail') && $request->input('send_mail')) {
             dispatch(function () use ($booking) {
@@ -288,7 +290,7 @@ class BookingAPIController extends BaseCrudController
     public function destroy($id): JsonResponse
     {
         /** @var Booking $booking */
-        $booking = $this->repository->find($id);
+        $booking = $this->bookingRepository->find($id);
         if (empty($booking)) {
             return $this->sendError('Booking not found');
         }
@@ -300,10 +302,8 @@ class BookingAPIController extends BaseCrudController
 
     private function applyStatusFilter($query, Request $request): void
     {
-        if($request->has('status') && !$request->has('all')) {
-            $query->where('status',  $request->get('status'));
-        } elseif (!$request->has('all')) {
-            $query->where('status', '!=', 2);
+        if (!$request->has('all')) {
+            $query->where('status', '!=', 3);
         }
     }
 
@@ -349,44 +349,29 @@ class BookingAPIController extends BaseCrudController
 
     private function applyFinishedFilter($query, Request $request): void
     {
-        if ($request->has('finished') && !$request->has('all') && !$request->has('status')) {
+        if ($request->has('finished') && !$request->has('all')) {
             $today = now()->format('Y-m-d H:i:s');
             $isFinished = $request->get('finished') == 1;
 
-            if (!$isFinished) {
-                // Filtrar reservas finalizadas
-                $query->whereDoesntHave('bookingUsers', function ($subQuery) use ($today) {
-                    $subQuery->whereHas('courseDateActive', function ($dateQuery) use ($today) {
-                        $dateQuery->where('date', '>=', $today)
+            $query->whereDoesntHave('bookingUsers', function ($subQuery) use ($today, $isFinished) {
+                $subQuery->where(function ($dateQuery) use ($today, $isFinished) {
+                    if ($isFinished) {
+                        // Filtrar reservas finalizadas
+                        $dateQuery->where('date', '<=', $today)
                             ->orWhere(function ($hourQuery) use ($today) {
                                 $hourQuery->where('date', $today)
-                                    ->where('hour_end', '>=', $today);
+                                    ->where('hour_end', '<=', $today);
                             });
-                    });
+                    } else {
+                        // Filtrar reservas no finalizadas
+                        $dateQuery->where('date', '>', $today)
+                            ->orWhere(function ($hourQuery) use ($today) {
+                                $hourQuery->where('date', $today)
+                                    ->where('hour_end', '>', $today);
+                            });
+                    }
                 });
-            } else {
-                // Filtrar reservas no finalizadas
-                $query->whereHas('bookingUsers', function ($subQuery) use ($today) {
-                    $subQuery->whereHas('courseDateActive', function ($dateQuery) use ($today) {
-                        $dateQuery->where('date', '>=', $today);
-                    });
-                });
-            }
+            });
         }
     }
-
-    public function metrics($id): JsonResponse
-    {
-        $service = new \App\Services\Analytics\BookingAnalyticsService();
-        $data = $service->computeMetrics($id);
-        return $this->sendResponse($data, "Booking metrics retrieved");
-    }
-
-    public function profitability($id): JsonResponse
-    {
-        $service = new \App\Services\Analytics\BookingAnalyticsService();
-        $data = $service->computeProfitability($id);
-        return $this->sendResponse($data, "Booking profitability retrieved");
-    }
-
 }

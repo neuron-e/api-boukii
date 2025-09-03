@@ -10,6 +10,7 @@ use App\Models\MonitorsSchool;
 use App\Repositories\MonitorsSchoolRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Class MonitorsSchoolController
@@ -55,16 +56,46 @@ class MonitorsSchoolAPIController extends AppBaseController
      */
     public function index(Request $request): JsonResponse
     {
-        $monitorsSchools = $this->monitorsSchoolRepository->all(
-            $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with']),
-            $request->get('search'),
-            $request->get('skip'),
-            $request->get('limit'),
-            $request->perPage,
-            $request->get('with', []),
-            $request->get('order', 'desc'),
-            $request->get('orderColumn', 'id')
-        );
+        // Cache and optimize for large requests commonly used in monitor details
+        if ($request->get('perPage') == 99999 && !$request->get('search')) {
+            $school = null;
+            $schoolId = 'all';
+            
+            // Safely get school if method exists
+            if (method_exists($this, 'getSchool')) {
+                try {
+                    $school = $this->getSchool($request);
+                    $schoolId = $school ? $school->id : 'all';
+                } catch (\Exception $e) {
+                    $schoolId = 'all';
+                }
+            }
+            
+            $cacheKey = "monitors_schools_all_{$schoolId}";
+            
+            $monitorsSchools = Cache::remember($cacheKey, 300, function () use ($request, $schoolId) { // 5 minutes cache
+                // Optimized query: only active records with essential fields
+                $query = MonitorsSchool::select(['id', 'monitor_id', 'school_id', 'active_school'])
+                    ->where('active_school', 1);
+                
+                if ($schoolId !== 'all') {
+                    $query->where('school_id', $schoolId);
+                }
+                
+                return $query->orderBy('id', 'desc')->get();
+            });
+        } else {
+            $monitorsSchools = $this->monitorsSchoolRepository->all(
+                $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with']),
+                $request->get('search'),
+                $request->get('skip'),
+                $request->get('limit'),
+                $request->perPage,
+                $request->get('with', []),
+                $request->get('order', 'desc'),
+                $request->get('orderColumn', 'id')
+            );
+        }
 
         return $this->sendResponse($monitorsSchools, 'Monitors Schools retrieved successfully');
     }

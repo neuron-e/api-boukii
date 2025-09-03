@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Http\Controllers\API\BaseCrudController;
+use App\Http\Controllers\AppBaseController;
 use App\Http\Requests\API\CreateClientAPIRequest;
 use App\Http\Requests\API\UpdateClientAPIRequest;
 use App\Http\Resources\API\ClientResource;
@@ -21,12 +21,11 @@ use Illuminate\Support\Facades\Storage;
  * Class ClientController
  */
 
-class ClientAPIController extends BaseCrudController
+class ClientAPIController extends AppBaseController
 {
     public function __construct(ClientRepository $clientRepo)
     {
-        parent::__construct($clientRepo);
-        $this->resource = ClientResource::class;
+        $this->clientRepository = $clientRepo;
     }
 
     /**
@@ -60,7 +59,7 @@ class ClientAPIController extends BaseCrudController
     public function index(Request $request): JsonResponse
     {
 
-        $clients = $this->repository->all(
+        $clients = $this->clientRepository->all(
             $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with']),
             $request->get('search'),
             $request->get('skip'),
@@ -116,7 +115,7 @@ class ClientAPIController extends BaseCrudController
      *      )
      * )
      */
-    public function store(Request $request): JsonResponse
+    public function store(CreateClientAPIRequest $request): JsonResponse
     {
         $input = $request->all();
 
@@ -140,9 +139,9 @@ class ClientAPIController extends BaseCrudController
             $input['image'] = url(Storage::url($imageName));
         }
 
-        $request->replace($input);
+        $client = $this->clientRepository->create($input);
 
-        return parent::store($request);
+        return $this->sendResponse(new ClientResource($client), 'Client saved successfully');
     }
 
     /**
@@ -183,7 +182,14 @@ class ClientAPIController extends BaseCrudController
      */
     public function show($id, Request $request): JsonResponse
     {
-        return parent::show($id, $request);
+        /** @var Client $client */
+        $client = $this->clientRepository->find($id, with: $request->get('with', []));
+
+        if (empty($client)) {
+            return $this->sendError('Client not found');
+        }
+
+        return $this->sendResponse($client, 'Client retrieved successfully');
     }
 
     /**
@@ -226,12 +232,12 @@ class ClientAPIController extends BaseCrudController
      *      )
      * )
      */
-    public function update($id, Request $request): JsonResponse
+    public function update($id, UpdateClientAPIRequest $request): JsonResponse
     {
         $input = $request->all();
 
         /** @var Client $client */
-        $client = $this->repository->find($id, with: $request->get('with', []));
+        $client = $this->clientRepository->find($id, with: $request->get('with', []));
 
         if (empty($client)) {
             return $this->sendError('Client not found');
@@ -258,9 +264,9 @@ class ClientAPIController extends BaseCrudController
             $input = $request->except('image');
         }
 
-        $request->replace($input);
+        $client = $this->clientRepository->update($input, $id);
 
-        return parent::update($id, $request);
+        return $this->sendResponse(new ClientResource($client), 'Client updated successfully');
     }
 
     /**
@@ -301,7 +307,16 @@ class ClientAPIController extends BaseCrudController
      */
     public function destroy($id): JsonResponse
     {
-        return parent::destroy($id);
+        /** @var Client $client */
+        $client = $this->clientRepository->find($id);
+
+        if (empty($client)) {
+            return $this->sendError('Client not found');
+        }
+
+        $client->delete();
+
+        return $this->sendSuccess('Client deleted successfully');
     }
 
     /**

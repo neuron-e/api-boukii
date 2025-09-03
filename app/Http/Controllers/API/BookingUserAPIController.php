@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Http\Controllers\API\BaseCrudController;
+use App\Http\Controllers\AppBaseController;
 use App\Http\Requests\API\CreateBookingUserAPIRequest;
 use App\Http\Requests\API\UpdateBookingUserAPIRequest;
 use App\Http\Resources\API\BookingUserResource;
@@ -15,12 +15,14 @@ use Illuminate\Http\Request;
  * Class BookingUserController
  */
 
-class BookingUserAPIController extends BaseCrudController
+class BookingUserAPIController extends AppBaseController
 {
+    /** @var  BookingUserRepository */
+    private $bookingUserRepository;
+
     public function __construct(BookingUserRepository $bookingUserRepo)
     {
-        parent::__construct($bookingUserRepo);
-        $this->resource = BookingUserResource::class;
+        $this->bookingUserRepository = $bookingUserRepo;
     }
 
     /**
@@ -53,7 +55,7 @@ class BookingUserAPIController extends BaseCrudController
      */
     public function index(Request $request): JsonResponse
     {
-        $bookingUsers = $this->repository->all(
+        $bookingUsers = $this->bookingUserRepository->all(
             $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with']),
             $request->get('search'),
             $request->get('skip'),
@@ -102,9 +104,13 @@ class BookingUserAPIController extends BaseCrudController
      *      )
      * )
      */
-    public function store(Request $request): JsonResponse
+    public function store(CreateBookingUserAPIRequest $request): JsonResponse
     {
-        return parent::store($request);
+        $input = $request->all();
+
+        $bookingUser = $this->bookingUserRepository->create($input);
+
+        return $this->sendResponse($bookingUser, 'Booking User saved successfully');
     }
 
     /**
@@ -145,7 +151,14 @@ class BookingUserAPIController extends BaseCrudController
      */
     public function show($id, Request $request): JsonResponse
     {
-        return parent::show($id, $request);
+        /** @var BookingUser $bookingUser */
+        $bookingUser = $this->bookingUserRepository->find($id, with: $request->get('with', []));
+
+        if (empty($bookingUser)) {
+            return $this->sendError('Booking User not found');
+        }
+
+        return $this->sendResponse($bookingUser, 'Booking User retrieved successfully');
     }
 
     /**
@@ -188,9 +201,20 @@ class BookingUserAPIController extends BaseCrudController
      *      )
      * )
      */
-    public function update($id, Request $request): JsonResponse
+    public function update($id, UpdateBookingUserAPIRequest $request): JsonResponse
     {
-        return parent::update($id, $request);
+        $input = $request->all();
+
+        /** @var BookingUser $bookingUser */
+        $bookingUser = $this->bookingUserRepository->find($id, with: $request->get('with', []));
+
+        if (empty($bookingUser)) {
+            return $this->sendError('Booking User not found');
+        }
+
+        $bookingUser = $this->bookingUserRepository->update($input, $id);
+
+        return $this->sendResponse(new BookingUserResource($bookingUser), 'BookingUser updated successfully');
     }
 
     /**
@@ -231,6 +255,15 @@ class BookingUserAPIController extends BaseCrudController
      */
     public function destroy($id): JsonResponse
     {
-        return parent::destroy($id);
+        /** @var BookingUser $bookingUser */
+        $bookingUser = $this->bookingUserRepository->find($id);
+
+        if (empty($bookingUser)) {
+            return $this->sendError('Booking User not found');
+        }
+
+        $bookingUser->delete();
+
+        return $this->sendSuccess('Booking User deleted successfully');
     }
 }
