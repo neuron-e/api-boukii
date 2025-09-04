@@ -43,6 +43,7 @@ return [
     'allowed_headers' => [
         'Accept',
         'Authorization',
+        'slug',
         'Content-Type',
         'X-Requested-With',
         'X-School-Slug',
