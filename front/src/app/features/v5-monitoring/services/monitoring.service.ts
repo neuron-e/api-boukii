@@ -87,7 +87,7 @@ export class MonitoringService {
    * Get system statistics
    */
   getSystemStats(): Observable<SystemStats> {
-    return this.http.get<SystemStats>('/api/v5/monitoring/system-stats');
+    return this.http.get<SystemStats>('/monitoring/system-stats');
   }
 
   /**
@@ -110,7 +110,7 @@ export class MonitoringService {
       httpParams = httpParams.set('hours', params.hours.toString());
     }
 
-    return this.http.get<PerformanceComparison>('/api/v5/monitoring/performance-comparison', {
+    return this.http.get<PerformanceComparison>('/monitoring/performance-comparison', {
       params: httpParams
     });
   }
@@ -135,7 +135,7 @@ export class MonitoringService {
       httpParams = httpParams.set('school_id', params.school_id.toString());
     }
 
-    return this.http.get<AlertData[]>('/api/v5/monitoring/alerts', {
+    return this.http.get<AlertData[]>('/monitoring/alerts', {
       params: httpParams
     });
   }
@@ -144,14 +144,14 @@ export class MonitoringService {
    * Record a performance metric
    */
   recordPerformance(metric: PerformanceMetric): Observable<{ success: boolean }> {
-    return this.http.post<{ success: boolean }>('/api/v5/monitoring/performance', metric);
+    return this.http.post<{ success: boolean }>('/monitoring/performance', metric);
   }
 
   /**
    * Record a migration error
    */
   recordMigrationError(error: MigrationError): Observable<{ success: boolean }> {
-    return this.http.post<{ success: boolean }>('/api/v5/monitoring/migration-error', error);
+    return this.http.post<{ success: boolean }>('/monitoring/migration-error', error);
   }
 
   /**
@@ -178,7 +178,7 @@ export class MonitoringService {
       school_id: number;
       performance: PerformanceComparison;
       period: { hours: number; module: string; };
-    }>(`/api/v5/monitoring/school/${schoolId}`, {
+    }>(`/monitoring/school/${schoolId}`, {
       params: httpParams
     });
   }
@@ -195,14 +195,14 @@ export class MonitoringService {
       status: string;
       timestamp: string;
       checks: Record<string, string>;
-    }>('/api/v5/monitoring/health');
+    }>('/monitoring/health');
   }
 
   /**
    * Clear metrics cache (development only)
    */
   clearMetricsCache(): Observable<{ success: boolean; message: string }> {
-    return this.http.delete<{ success: boolean; message: string }>('/api/v5/monitoring/cache');
+    return this.http.delete<{ success: boolean; message: string }>('/monitoring/cache');
   }
 
   /**

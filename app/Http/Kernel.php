@@ -76,6 +76,8 @@ class Kernel extends HttpKernel
         'role.permission.middleware' => \App\Http\Middleware\V5\ContextPermissionMiddleware::class,
         'context.middleware' => \App\Http\Middleware\V5\ContextMiddleware::class,
         'school.context.middleware' => \App\Http\Middleware\V5\SchoolContextMiddleware::class,
+        'context.required' => \App\Http\Middleware\V5\ContextRequired::class,
         'v5.logging' => \App\V5\Middleware\RequestLoggingMiddleware::class,
+        'module.access' => \App\Http\Middleware\V5\ModuleAccessMiddleware::class,
     ];
 }

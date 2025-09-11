@@ -34,7 +34,7 @@ export class RolesService {
    * Update existing role (optional for v1)
    */
   updateRole(id: number, role: Partial<Omit<Role, 'id'>>): Observable<Role> {
-    return from(this.api.put<Role>(`/api/v5/roles/${id}`, role));
+    return from(this.api.put<Role>(`/roles/${id}`, role));
   }
 
   /**

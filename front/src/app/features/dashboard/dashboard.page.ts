@@ -1,8 +1,11 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { NgChartsModule } from 'ng2-charts';
 import { ChartData, ChartOptions } from 'chart.js';
+import { Subject, takeUntil, forkJoin } from 'rxjs';
+import { DashboardService, DashboardStats, WeatherData, WeatherStation } from './services/dashboard.service';
+import { AuthV5Service } from '../../core/services/auth-v5.service';
 
 interface Metric {
   label: string;
@@ -31,15 +34,26 @@ interface QuickLink {
   templateUrl: './dashboard.page.html',
   styleUrls: ['./dashboard.page.scss'],
 })
-export class DashboardPageComponent implements OnInit {
+export class DashboardPageComponent implements OnInit, OnDestroy {
+  private dashboardService = inject(DashboardService);
+  private authService = inject(AuthV5Service);
+  private destroy$ = new Subject<void>();
+
   metrics = signal<Metric[]>([]);
   activities = signal<Activity[]>([]);
   quickLinks = signal<QuickLink[]>([]);
-  weather = signal<{ temp: string; condition: string } | null>(null);
-  userName = signal<string>('Carlos');
+  weather = signal<WeatherData | null>(null);
+  weatherStations = signal<WeatherStation[]>([]);
+  selectedStationId = signal<number | null>(null);
+  
+  // Get user name from auth service
+  userName = this.authService.user;
+  currentUser = this.authService.user;
 
   loadingMetrics = signal(true);
   loadingActivities = signal(true);
+  loadingWeather = signal(true);
+  loadingStations = signal(true);
 
   // Sales by Channel Chart
   salesChannelData: ChartData<'line'> = {
@@ -129,54 +143,132 @@ export class DashboardPageComponent implements OnInit {
   };
 
   ngOnInit(): void {
-    setTimeout(() => {
-      this.metrics.set([
-        { label: 'Reservas del día', value: 24, icon: 'i-calendar' },
-        { label: 'Clientes activos', value: 102, icon: 'i-users' },
-        { label: 'Cursos programados', value: 7, icon: 'i-academic-cap' },
-        { label: 'Ingresos del período', value: '€5,300', icon: 'i-banknotes' },
-      ]);
-      this.loadingMetrics.set(false);
-    }, 800);
+    this.loadDashboardData();
+    this.loadChartData();
+    this.setupQuickLinks();
+  }
 
-    setTimeout(() => {
-      this.activities.set([
-        {
-          id: 1,
-          title: 'Nueva reserva',
-          description: 'Clase de esquí para Ana',
-          time: 'hace 2 min',
-          status: 'success',
-        },
-        {
-          id: 2,
-          title: 'Pago pendiente',
-          description: 'Reserva #1234',
-          time: 'hace 10 min',
-          status: 'warning',
-        },
-        {
-          id: 3,
-          title: 'Curso actualizado',
-          description: 'Snowboard avanzado',
-          time: 'hace 1 h',
-          status: 'info',
-        },
-      ]);
-      this.loadingActivities.set(false);
-    }, 1000);
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
 
+  private loadDashboardData(): void {
+    // Load dashboard data from API (no user data since it comes from AuthService)
+    forkJoin({
+      stats: this.dashboardService.getDashboardStats(),
+      weather: this.dashboardService.getWeatherData()
+    }).pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: ({ stats, weather }) => {
+        this.updateMetrics(stats);
+        this.weather.set(weather);
+        
+        this.loadingMetrics.set(false);
+        this.loadingWeather.set(false);
+      },
+      error: (error) => {
+        console.error('Error loading dashboard data:', error);
+        this.loadingMetrics.set(false);
+        this.loadingWeather.set(false);
+        
+        // Si no hay datos reales, no mostrar nada falso
+        this.metrics.set([]);
+        this.weather.set(null);
+      }
+    });
+
+    // Load activities separately (could be from different endpoint)
+    this.loadActivities();
+  }
+
+  private updateMetrics(stats: DashboardStats): void {
+    this.metrics.set([
+      { 
+        label: 'Reservas del día', 
+        value: stats.todayBookings, 
+        icon: 'i-calendar' 
+      },
+      { 
+        label: 'Cursos programados', 
+        value: stats.weeklyCoursesScheduled, 
+        icon: 'i-academic-cap' 
+      },
+      { 
+        label: 'Rendimiento', 
+        value: `+${stats.performanceIncrease}%`, 
+        icon: 'i-chart-line' 
+      },
+      { 
+        label: 'Monitores activos', 
+        value: `${stats.activeMonitors}/${stats.availableMonitors}`, 
+        icon: 'i-users' 
+      },
+      { 
+        label: 'Horas disponibles', 
+        value: stats.availableHours, 
+        icon: 'i-clock' 
+      },
+      { 
+        label: 'Ingresos del período', 
+        value: `€${stats.totalRevenue.toLocaleString()}`, 
+        icon: 'i-banknotes' 
+      }
+    ]);
+  }
+
+  private loadActivities(): void {
+    // TODO: Implement real activities API endpoint
+    // For now, show empty state since we don't have real data
+    this.activities.set([]);
+    this.loadingActivities.set(false);
+  }
+
+  private loadChartData(): void {
+    // Load revenue chart data
+    this.dashboardService.getRevenueChart('monthly')
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (chartData) => {
+          this.salesChannelData = {
+            labels: chartData.labels,
+            datasets: chartData.datasets
+          };
+        },
+        error: (error) => {
+          console.error('Error loading chart data:', error);
+        }
+      });
+
+    // Load bookings by type for daily sessions chart
+    this.dashboardService.getBookingsByType()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (data) => {
+          this.dailySessionsData = {
+            labels: data.labels,
+            datasets: [{
+              data: data.data,
+              backgroundColor: data.backgroundColor,
+              borderRadius: 6,
+              maxBarThickness: 24,
+            }]
+          };
+        },
+        error: (error) => {
+          console.error('Error loading bookings data:', error);
+        }
+      });
+  }
+
+  private setupQuickLinks(): void {
     this.quickLinks.set([
       { label: 'Nueva reserva', icon: 'i-plus-circle', route: '/reservations/new' },
       { label: 'Añadir cliente', icon: 'i-user-plus', route: '/clients/new' },
       { label: 'Gestionar cursos', icon: 'i-academic-cap', route: '/courses' },
       { label: 'Ver reportes', icon: 'i-chart-bar', route: '/statistics' },
     ]);
-
-    this.weather.set({ temp: '2°C', condition: 'Nublado' });
-    
-    // Set user name - in real app this would come from auth service
-    this.userName.set('Carlos');
   }
 
   trackMetric(index: number, item: Metric) {
@@ -189,6 +281,30 @@ export class DashboardPageComponent implements OnInit {
 
   trackQuickLink(index: number, item: QuickLink) {
     return item.route;
+  }
+
+  getWindDescription(windSpeed?: number): string {
+    if (!windSpeed) return 'Desconocido';
+    if (windSpeed < 10) return 'Suave';
+    if (windSpeed < 20) return 'Moderado';
+    if (windSpeed < 30) return 'Fuerte';
+    return 'Muy fuerte';
+  }
+
+  getVisibilityDescription(visibility?: number): string {
+    if (!visibility) return 'Desconocida';
+    if (visibility >= 8) return 'Excelente';
+    if (visibility >= 5) return 'Buena';
+    if (visibility >= 2) return 'Regular';
+    return 'Mala';
+  }
+
+  getSnowDescription(snowDepth?: number): string {
+    if (!snowDepth) return 'Sin datos';
+    if (snowDepth >= 40) return 'Polvo fresco';
+    if (snowDepth >= 20) return 'Buena base';
+    if (snowDepth >= 10) return 'Base mínima';
+    return 'Insuficiente';
   }
 }
 

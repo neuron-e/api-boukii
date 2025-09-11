@@ -1265,3 +1265,25 @@ interface RentingModule {
 - **PROMPT 6.1**: Optimización performance
 - **PROMPT 6.2**: Testing automatizado E2E
 - **PROMPT 6.3**: Deployment y DevOps final
+
+---
+
+## Backend V5 Unificado del Dashboard
+
+- Controlador: `App/Http/Controllers/Api/V5/Dashboard/DashboardController`
+- Rutas: `routes/api_v5/dashboard.php`
+- Endpoints:
+  - `GET /api/v5/dashboard/stats`
+  - `GET /api/v5/dashboard/weather?station_id=`
+  - `GET /api/v5/dashboard/weather-stations`
+  - `GET /api/v5/dashboard/revenue-chart`
+  - `GET /api/v5/dashboard/bookings-by-type`
+  - `GET /api/v5/dashboard/recent-activity`
+  - `GET /api/v5/dashboard/alerts`
+  - `GET /api/v5/dashboard/quick-actions`
+  - `GET /api/v5/dashboard/performance-metrics`
+
+Notas:
+- Se eliminaron controladores duplicados V5 para el dashboard.
+- Cache: weather 30m; stats y graficas 5–10m.
+- Fallback meteo si no hay AccuWeather.

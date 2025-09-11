@@ -619,7 +619,7 @@ export class MonitoringDashboardComponent implements OnInit {
   }
 
   private loadSystemStats() {
-    return this.http.get<SystemStats>('/api/v5/monitoring/system-stats').pipe(
+    return this.http.get<SystemStats>('/monitoring/system-stats').pipe(
       switchMap(stats => {
         this.systemStats.set(stats);
         this.lastUpdated.set(new Date());
@@ -630,7 +630,7 @@ export class MonitoringDashboardComponent implements OnInit {
   }
 
   private loadPerformanceData() {
-    return this.http.get<PerformanceComparison>('/api/v5/monitoring/performance-comparison').pipe(
+    return this.http.get<PerformanceComparison>('/monitoring/performance-comparison').pipe(
       switchMap(data => {
         this.performanceData.set(data);
         return [];

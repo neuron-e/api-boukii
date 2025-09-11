@@ -12,9 +12,6 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   // Skip auth header for certain URLs
   const skipAuthUrls = [
-    '/api/v5/auth/login',
-    '/api/v5/auth/register',
-    '/api/v5/auth/forgot-password',
     '/auth/login',
     '/auth/register',
     '/auth/forgot-password',

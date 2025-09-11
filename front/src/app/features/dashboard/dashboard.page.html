@@ -4,8 +4,18 @@
     <div class="header-content">
       <div class="header-left">
         <div class="header-title-section">
-          <h1>¡Bienvenido de vuelta, {{ userName() }}! <span class="wave">⛷️</span></h1>
-          <p class="header-subtitle">Tienes 8 nuevas reservas hoy y 3 cursos programados para esta semana. El rendimiento de tu escuela ha mejorado un 15% este mes.</p>
+          <h1>¡Bienvenido de vuelta, {{ currentUser()?.name || 'Usuario' }}! <span class="wave">⛷️</span></h1>
+          <p class="header-subtitle" *ngIf="currentUser() && !loadingMetrics(); else loadingMessage">
+            @if (metrics().length >= 3) {
+              Tienes {{ metrics()[0].value || 0 }} nuevas reservas hoy y {{ metrics()[1].value || 0 }} cursos programados para esta semana. 
+              El rendimiento de tu escuela ha mejorado un {{ metrics()[2].value || '0%' }} este mes.
+            } @else {
+              Cargando información de tu dashboard...
+            }
+          </p>
+          <ng-template #loadingMessage>
+            <p class="header-subtitle">Cargando información de tu dashboard...</p>
+          </ng-template>
         </div>
         <div class="header-actions-line">
           <div class="header-buttons">
@@ -37,35 +47,47 @@
         </div>
         <div class="status-section">
           <div class="status-indicators">
-            <div class="status-item">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-              </svg>
-              <span>6 monitores activos</span>
-            </div>
-            <div class="status-item">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <path d="M12 6v6l4 2"></path>
-              </svg>
-              <span>4 disponibles</span>
-            </div>
-            <div class="status-item">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 9V5a3 3 0 0 0-6 0v4"></path>
-                <rect x="2" y="9" width="20" height="12" rx="2" ry="2"></rect>
-              </svg>
-              <span>32h disponibles</span>
-            </div>
+            @if (!loadingMetrics() && metrics().length >= 6) {
+              <div class="status-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                <span>{{ metrics()[3].value || '0/0' }}</span>
+              </div>
+              <div class="status-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M12 6v6l4 2"></path>
+                </svg>
+                <span>{{ metrics()[4].value || '0' }}h disponibles</span>
+              </div>
+              <div class="status-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 9V5a3 3 0 0 0-6 0v4"></path>
+                  <rect x="2" y="9" width="20" height="12" rx="2" ry="2"></rect>
+                </svg>
+                <span>{{ metrics()[5].value || '€0' }}</span>
+              </div>
+            } @else {
+              <div class="status-item">
+                <span>Cargando...</span>
+              </div>
+            }
           </div>
         </div>
       </div>
       <div class="header-right">
         <div class="weather-info">
-          <div class="weather-details">
-            <span class="weather-temp">2°C</span>
-            <span class="weather-desc">Nublado</span>
+          <div class="weather-details" *ngIf="weather() && !loadingWeather(); else loadingWeatherTemplate">
+            <span class="weather-temp">{{ weather()?.temperature }}°C</span>
+            <span class="weather-desc">{{ weather()?.condition }}</span>
           </div>
+          <ng-template #loadingWeatherTemplate>
+            <div class="weather-details">
+              <span class="weather-temp">--°C</span>
+              <span class="weather-desc">Cargando...</span>
+            </div>
+          </ng-template>
         </div>
         <div class="header-date">
           <span class="date-text">Hoy, 23 Jul</span>
@@ -90,8 +112,8 @@
         </svg>
         <div class="weather-content">
           <span class="weather-label">Temperatura</span>
-          <span class="weather-value">-8°C</span>
-          <span class="weather-desc">Soleado</span>
+          <span class="weather-value">{{ weather()?.temperature || '--' }}°C</span>
+          <span class="weather-desc">{{ weather()?.condition || 'Cargando...' }}</span>
         </div>
       </div>
       <div class="weather-card">
@@ -104,8 +126,8 @@
         </svg>
         <div class="weather-content">
           <span class="weather-label">Viento</span>
-          <span class="weather-value">15 km/h</span>
-          <span class="weather-desc">Suave</span>
+          <span class="weather-value">{{ weather()?.windSpeed || '--' }} km/h</span>
+          <span class="weather-desc">{{ getWindDescription(weather()?.windSpeed) }}</span>
         </div>
       </div>
       <div class="weather-card">
@@ -115,8 +137,8 @@
         </svg>
         <div class="weather-content">
           <span class="weather-label">Visibilidad</span>
-          <span class="weather-value">8 km</span>
-          <span class="weather-desc">Excelente</span>
+          <span class="weather-value">{{ weather()?.visibility || '--' }} km</span>
+          <span class="weather-desc">{{ getVisibilityDescription(weather()?.visibility) }}</span>
         </div>
       </div>
       <div class="weather-card">
@@ -131,8 +153,8 @@
         </svg>
         <div class="weather-content">
           <span class="weather-label">Nieve</span>
-          <span class="weather-value">45 cm</span>
-          <span class="weather-desc">Polvo fresco</span>
+          <span class="weather-value">{{ weather()?.snowDepth || '--' }} cm</span>
+          <span class="weather-desc">{{ getSnowDescription(weather()?.snowDepth) }}</span>
         </div>
       </div>
     </div>

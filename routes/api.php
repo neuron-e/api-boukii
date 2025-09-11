@@ -40,9 +40,10 @@ use Payrexx\Models\Response\Transaction as TransactionResponse;
 use Payrexx\Payrexx;
 
 $v5Middleware = ['api', 'throttle:api'];
-if (!app()->environment('testing')) {
-    $v5Middleware[] = 'v5.logging';
-}
+// Temporarily disabled V5 logging until v5_logs table is created
+// if (!app()->environment('testing')) {
+//     $v5Middleware[] = 'v5.logging';
+// }
 Route::prefix('v5')
     ->middleware($v5Middleware)
     ->group(function () {
@@ -60,6 +61,8 @@ Route::prefix('v5')
         require base_path('routes/api_v5/me.php');
         require base_path('routes/api_v5/context.php');
         require base_path('routes/api_v5/uploads.php');
+        require base_path('routes/api_v5/modules.php');
+        require base_path('routes/api_v5/dashboard.php');
         
         // V5 Feature Flags routes
         Route::middleware('auth:sanctum')->group(function () {

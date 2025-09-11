@@ -193,6 +193,106 @@ export const routes: Routes = [
           ),
         canActivate: [requireCompleteAuthGuard],
       },
+      
+      // New V5 Modules
+      {
+        path: 'bookings',
+        canActivate: [requireCompleteAuthGuard],
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./features/bookings/bookings-list.page').then(
+                (c) => c.BookingsListPage
+              ),
+          },
+          {
+            path: 'new',
+            loadComponent: () =>
+              import('./features/bookings/booking-form.page').then(
+                (c) => c.BookingFormPage
+              ),
+          },
+          {
+            path: ':id',
+            loadComponent: () =>
+              import('./features/bookings/booking-detail.page').then(
+                (c) => c.BookingDetailPage
+              ),
+          },
+          {
+            path: ':id/edit',
+            loadComponent: () =>
+              import('./features/bookings/booking-form.page').then(
+                (c) => c.BookingFormPage
+              ),
+          },
+        ],
+      },
+      {
+        path: 'renting',
+        loadComponent: () =>
+          import('./features/renting/renting-dashboard.page').then(
+            (c) => c.RentingDashboardPage
+          ),
+        canActivate: [requireCompleteAuthGuard],
+      },
+      {
+        path: 'instructors',
+        loadComponent: () =>
+          import('./features/instructors/instructors-list.page').then(
+            (c) => c.InstructorsListPage
+          ),
+        canActivate: [requireCompleteAuthGuard],
+      },
+      {
+        path: 'finance',
+        loadComponent: () =>
+          import('./features/finance/finance-dashboard.page').then(
+            (c) => c.FinanceDashboardPage
+          ),
+        canActivate: [requireCompleteAuthGuard],
+      },
+      {
+        path: 'analytics',
+        loadComponent: () =>
+          import('./features/analytics/analytics-dashboard.page').then(
+            (c) => c.AnalyticsDashboardPage
+          ),
+        canActivate: [requireCompleteAuthGuard],
+      },
+      {
+        path: 'communications-center',
+        loadComponent: () =>
+          import('./features/communications/communications-center.page').then(
+            (c) => c.CommunicationsCenterPage
+          ),
+        canActivate: [requireCompleteAuthGuard],
+      },
+      {
+        path: 'vouchers-list',
+        loadComponent: () =>
+          import('./features/vouchers/vouchers-list.page').then(
+            (c) => c.VouchersListPage
+          ),
+        canActivate: [requireCompleteAuthGuard],
+      },
+      {
+        path: 'schedules',
+        loadComponent: () =>
+          import('./features/schedules/schedules-calendar.page').then(
+            (c) => c.SchedulesCalendarPage
+          ),
+        canActivate: [requireCompleteAuthGuard],
+      },
+      {
+        path: 'modules',
+        loadComponent: () =>
+          import('./features/modules/modules-management.page').then(
+            (c) => c.ModulesManagementPage
+          ),
+        canActivate: [requireCompleteAuthGuard],
+      },
       {
         path: 'monitors',
         canActivate: [requireCompleteAuthGuard],

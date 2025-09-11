@@ -5,6 +5,9 @@ namespace App\V5\Requests\Season;
 use App\V5\Requests\BaseV5Request;
 use App\V5\Validation\V5ValidationRules;
 
+/**
+ * @deprecated Use App\\Http\\Requests\\API\\V5\\CreateSeasonV5Request instead.
+ */
 class CreateSeasonRequest extends BaseV5Request
 {
     /**

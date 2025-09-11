@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>URL Construction Test</title>
+</head>
+<body>
+    <h1>URL Construction Test</h1>
+    <div id="results"></div>
+
+    <script>
+        // Simulate ConfigService behavior
+        class ConfigService {
+            constructor() {
+                this.runtime = {
+                    api: {
+                        baseUrl: "http://api-boukii.test",
+                        version: "v5"
+                    }
+                };
+            }
+
+            getApiBaseUrl() {
+                const raw = this.runtime.api.baseUrl;
+                const base = raw.replace(/\/+$/, '');
+                
+                // If the base already includes '/api/vX', respect it as-is.
+                if (/\/api\/v\d+$/i.test(base)) {
+                    return base;
+                }
+                
+                const version = this.runtime.api.version || 'v5';
+                return `${base}/api/${version.replace(/^\/+|\/+$/g, '')}`;
+            }
+        }
+
+        // Simulate ApiService join method
+        class ApiService {
+            constructor(configService) {
+                this.config = configService;
+            }
+
+            get baseUrl() {
+                return this.config.getApiBaseUrl();
+            }
+
+            join(path) {
+                const base = this.baseUrl.replace(/\/+$/, '');
+                const rel = (path || '').toString().replace(/^\/+/, '');
+                return `${base}/${rel}`;
+            }
+        }
+
+        // Simulate baseUrlInterceptor logic
+        function baseUrlInterceptor(url, configService) {
+            // Skip if URL is already absolute or is an asset
+            if (url.startsWith('http') || url.startsWith('/assets/')) {
+                return url;
+            }
+
+            // Skip if URL starts with specific prefixes that shouldn't be modified
+            if (url.startsWith('/api/v5/api/') || url.includes('://')) {
+                return url;
+            }
+
+            // Add base URL for relative API paths
+            const baseUrl = configService.getApiBaseUrl();
+            return `${baseUrl}${url.startsWith('/') ? url : '/' + url}`;
+        }
+
+        // Test scenarios
+        const config = new ConfigService();
+        const api = new ApiService(config);
+
+        const tests = [
+            // Current AuthV5Service URLs (should work with ApiService)
+            { method: 'ApiService', path: '/auth/check-user' },
+            { method: 'ApiService', path: '/auth/select-school' },
+            { method: 'ApiService', path: '/auth/select-season' },
+            
+            // Dashboard service URLs (HttpClient + interceptor)
+            { method: 'Interceptor', path: '/api/v5/dashboard/stats' },
+            { method: 'Interceptor', path: '/api/v5/dashboard/weather-stations' },
+            
+            // Problem cases (what was happening before)
+            { method: 'ApiService', path: '/api/v5/auth/check-user', problem: true },
+        ];
+
+        let results = '<h2>Test Results</h2>';
+        
+        tests.forEach(test => {
+            let finalUrl;
+            if (test.method === 'ApiService') {
+                finalUrl = api.join(test.path);
+            } else {
+                finalUrl = baseUrlInterceptor(test.path, config);
+            }
+            
+            const expected = `http://api-boukii.test/api/v5${test.path.replace('/api/v5', '')}`;
+            const isCorrect = finalUrl === expected;
+            const status = test.problem ? '❌ PROBLEM' : (isCorrect ? '✅ CORRECT' : '❌ WRONG');
+            
+            results += `
+                <div style="margin: 10px 0; padding: 10px; border-left: 3px solid ${isCorrect ? '#4CAF50' : '#f44336'};">
+                    <strong>${status} ${test.method}:</strong><br>
+                    Path: <code>${test.path}</code><br>
+                    Result: <code>${finalUrl}</code><br>
+                    Expected: <code>${expected}</code>
+                </div>
+            `;
+        });
+
+        document.getElementById('results').innerHTML = results;
+        
+        console.log('Config base URL:', config.getApiBaseUrl());
+    </script>
+</body>
+</html>

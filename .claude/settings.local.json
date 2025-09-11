@@ -7,7 +7,15 @@
       "Bash(php artisan migrate:*)",
       "Bash(php artisan route:list:*)",
       "Bash(vendor/bin/pint:*)",
-      "Bash(php artisan:*)"
+      "Bash(php artisan:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx ng build:*)",
+      "Bash(npm run lint)",
+      "Bash(mysql:*)",
+      "Bash(php:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(curl:*)",
+      "Bash(npm start)"
     ],
     "deny": []
   }

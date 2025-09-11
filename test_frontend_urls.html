@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Frontend URLs Test</title>
+</head>
+<body>
+    <h1>Frontend URLs Construction Test</h1>
+    <div id="results"></div>
+
+    <script>
+        // Simulate the baseUrlInterceptor logic
+        function baseUrlInterceptor(url, baseUrl = "http://api-boukii.test/api/v5") {
+            // Skip if URL is already absolute or is an asset
+            if (url.startsWith('http') || url.startsWith('/assets/')) {
+                return url;
+            }
+
+            // Skip if URL starts with specific prefixes that shouldn't be modified
+            if (url.startsWith('/api/v5/api/') || url.includes('://')) {
+                return url;
+            }
+
+            // Add base URL for relative API paths
+            return `${baseUrl}${url.startsWith('/') ? url : '/' + url}`;
+        }
+
+        // Test the corrected URLs from our services
+        const servicesToTest = [
+            { service: 'DashboardService', url: '/dashboard/stats' },
+            { service: 'CoursesService', url: '/courses' },
+            { service: 'ModulesService', url: '/modules' },
+            { service: 'ClientsService', url: '/clients' },
+            { service: 'InstructorsService', url: '/instructors' },
+            { service: 'ScheduleService', url: '/schedules' },
+            { service: 'RentingService', url: '/rentals' },
+            { service: 'BookingsService', url: '/bookings' },
+            { service: 'MonitoringService', url: '/monitoring/system-stats' },
+            { service: 'RolesService (ApiService)', url: '/roles' },
+            { service: 'AuthV5Service', url: '/auth/check-user' }
+        ];
+
+        let results = '<h2>URL Construction Results</h2>';
+        results += '<p><strong>Base URL:</strong> <code>http://api-boukii.test/api/v5</code></p>';
+        
+        servicesToTest.forEach(test => {
+            const finalUrl = baseUrlInterceptor(test.url);
+            const isCorrect = finalUrl === `http://api-boukii.test/api/v5${test.url}`;
+            const status = isCorrect ? '✅' : '❌';
+            
+            results += `
+                <div style="margin: 10px 0; padding: 10px; border-left: 3px solid ${isCorrect ? '#4CAF50' : '#f44336'};">
+                    <strong>${status} ${test.service}:</strong><br>
+                    Input: <code>${test.url}</code><br>
+                    Result: <code>${finalUrl}</code>
+                </div>
+            `;
+        });
+
+        // Test problematic cases (what we fixed)
+        results += '<h3>❌ Previous Problems (Now Fixed)</h3>';
+        const problemCases = [
+            { description: 'AuthV5Service before fix', url: '/api/v5/auth/check-user' },
+            { description: 'DashboardService before fix', url: '/api/v5/dashboard/stats' }
+        ];
+
+        problemCases.forEach(test => {
+            const finalUrl = baseUrlInterceptor(test.url);
+            const wouldBeDuplicated = finalUrl.includes('/api/v5/api/v5/');
+            const status = wouldBeDuplicated ? '❌ PROBLEM' : '✅ FIXED';
+            
+            results += `
+                <div style="margin: 10px 0; padding: 10px; border-left: 3px solid ${wouldBeDuplicated ? '#f44336' : '#4CAF50'};">
+                    <strong>${status} ${test.description}:</strong><br>
+                    Input: <code>${test.url}</code><br>
+                    Result: <code>${finalUrl}</code>
+                    ${wouldBeDuplicated ? '<br><span style="color: red;">⚠️ Would cause duplication!</span>' : '<br><span style="color: green;">✅ Now works correctly</span>'}
+                </div>
+            `;
+        });
+
+        document.getElementById('results').innerHTML = results;
+    </script>
+</body>
+</html>

@@ -12,6 +12,8 @@ use App\Models\Course;
 use App\Models\Monitor;
 use App\Models\MonitorsSchool;
 use App\Models\ClientsSchool;
+use App\Models\School;
+use App\Models\Station;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
@@ -141,6 +143,472 @@ class DashboardController extends Controller
         } catch (\Exception $e) {
             Log::error('Recent activity error: ' . $e->getMessage());
             return $this->errorResponse('Failed to retrieve recent activity', 500);
+        }
+    }
+
+    // ==================== MOVED FROM V5 DASHBOARD CONTROLLER ====================
+
+    // Note: These endpoints preserve the legacy response shape for compatibility
+
+    public function weather(Request $request): JsonResponse
+    {
+        $schoolId = $request->header('X-School-ID');
+        $stationId = $request->get('station_id');
+
+        if (!$schoolId) {
+            return response()->json(['error' => 'School context required'], 400);
+        }
+
+        // If no station specified, get the school's primary station
+        if (!$stationId) {
+            $school = School::with('stationsSchools.station')->find($schoolId);
+            if (!$school || $school->stationsSchools->isEmpty()) {
+                return response()->json(['error' => 'No weather station configured for this school'], 404);
+            }
+            $station = $school->stationsSchools->first()->station;
+        } else {
+            $station = Station::find($stationId);
+            if (!$station) {
+                return response()->json(['error' => 'Weather station not found'], 404);
+            }
+        }
+
+        $cacheKey = "weather_data_station_{$station->id}";
+
+        $weatherData = Cache::remember($cacheKey, 1800, function () use ($station) {
+            return $this->fetchWeatherDataFromStation($station);
+        });
+
+        return response()->json($weatherData);
+    }
+
+    public function weatherStations(Request $request): JsonResponse
+    {
+        $schoolId = $request->header('X-School-ID');
+
+        if (!$schoolId) {
+            return response()->json(['error' => 'School context required'], 400);
+        }
+
+        $school = School::with('stationsSchools.station')->find($schoolId);
+        if (!$school) {
+            return response()->json(['error' => 'School not found'], 404);
+        }
+
+        $stations = $school->stationsSchools->map(function ($stationSchool) {
+            $station = $stationSchool->station;
+            return [
+                'id' => $station->id,
+                'name' => $station->name,
+                'city' => $station->city,
+                'country' => $station->country,
+                'province' => $station->province,
+                'latitude' => $station->latitude,
+                'longitude' => $station->longitude,
+                'active' => $station->active,
+                'has_weather_data' => !empty($station->accuweather)
+            ];
+        });
+
+        return response()->json([
+            'stations' => $stations,
+            'default_station_id' => $stations->first()['id'] ?? null
+        ]);
+    }
+
+    public function revenueChart(Request $request): JsonResponse
+    {
+        $period = $request->get('period', 'monthly');
+        $schoolId = $request->header('X-School-ID');
+        $seasonId = $request->header('X-Season-ID');
+
+        if (!$schoolId) {
+            return response()->json(['error' => 'School context required'], 400);
+        }
+
+        $cacheKey = "revenue_chart_{$schoolId}_{$seasonId}_{$period}";
+
+        $chartData = Cache::remember($cacheKey, 600, function () use ($schoolId, $seasonId, $period) {
+            return $this->generateRevenueChart($schoolId, $seasonId, $period);
+        });
+
+        return response()->json($chartData);
+    }
+
+    public function bookingsByType(Request $request): JsonResponse
+    {
+        $schoolId = $request->header('X-School-ID');
+        $seasonId = $request->header('X-Season-ID');
+
+        if (!$schoolId) {
+            return response()->json(['error' => 'School context required'], 400);
+        }
+
+        $cacheKey = "bookings_by_type_{$schoolId}_{$seasonId}";
+
+        $data = Cache::remember($cacheKey, 600, function () use ($schoolId, $seasonId) {
+            return $this->calculateBookingsByType($schoolId, $seasonId);
+        });
+
+        return response()->json($data);
+    }
+
+    private function fetchWeatherDataFromStation(Station $station): array
+    {
+        // First try to use AccuWeather data if available
+        if (!empty($station->accuweather)) {
+            try {
+                $accuWeatherData = json_decode($station->accuweather, true);
+                if (isset($accuWeatherData['current_conditions'])) {
+                    $current = $accuWeatherData['current_conditions'];
+                    return [
+                        'temperature' => $current['Temperature']['Metric']['Value'] ?? 0,
+                        'condition' => $current['WeatherText'] ?? 'No disponible',
+                        'windSpeed' => round(($current['Wind']['Speed']['Metric']['Value'] ?? 0)),
+                        'visibility' => round(($current['Visibility']['Metric']['Value'] ?? 0)),
+                        'snowDepth' => $current['Snow']['Metric']['Value'] ?? 0,
+                        'icon' => $current['WeatherIcon'] ?? 'unknown',
+                        'station_name' => $station->name
+                    ];
+                }
+            } catch (\Exception $e) {
+                \Log::warning('AccuWeather data parsing error: ' . $e->getMessage());
+            }
+        }
+
+        // Try to refresh AccuWeather data if coordinates are available
+        if ($station->latitude && $station->longitude) {
+            try {
+                $station->downloadAccuweatherData();
+                $station->refresh();
+
+                // Try again with fresh data
+                if (!empty($station->accuweather)) {
+                    $accuWeatherData = json_decode($station->accuweather, true);
+                    if (isset($accuWeatherData['current_conditions'])) {
+                        $current = $accuWeatherData['current_conditions'];
+                        return [
+                            'temperature' => $current['Temperature']['Metric']['Value'] ?? 0,
+                            'condition' => $current['WeatherText'] ?? 'No disponible',
+                            'windSpeed' => round(($current['Wind']['Speed']['Metric']['Value'] ?? 0)),
+                            'visibility' => round(($current['Visibility']['Metric']['Value'] ?? 0)),
+                            'snowDepth' => $current['Snow']['Metric']['Value'] ?? 0,
+                            'icon' => $current['WeatherIcon'] ?? 'unknown',
+                            'station_name' => $station->name
+                        ];
+                    }
+                }
+            } catch (\Exception $e) {
+                \Log::warning('AccuWeather API error: ' . $e->getMessage());
+            }
+        }
+
+        // Fallback - return empty/unavailable data
+        return [
+            'temperature' => 0,
+            'condition' => 'No disponible',
+            'windSpeed' => 0,
+            'visibility' => 0,
+            'snowDepth' => 0,
+            'icon' => 'unknown',
+            'station_name' => $station->name
+        ];
+    }
+
+    private function generateRevenueChart(int $schoolId, ?int $seasonId, string $period): array
+    {
+        $endDate = Carbon::now();
+        $months = [];
+        $objectiveData = [];
+        $adminSalesData = [];
+        $onlineSalesData = [];
+
+        // Generate last 7 months data
+        for ($i = 6; $i >= 0; $i--) {
+            $monthStart = $endDate->copy()->subMonths($i)->startOfMonth();
+            $monthEnd = $monthStart->copy()->endOfMonth();
+
+            $months[] = $monthStart->format('M');
+
+            // Get sales data for this month
+            $adminSales = Booking::whereHas('bookingUsers.course', function ($query) use ($schoolId, $seasonId) {
+                $query->where('school_id', $schoolId);
+                // TODO: Implement season filtering
+                // if ($seasonId) {
+                //     $query->where('season_id', $seasonId);
+                // }
+            })
+            ->where('booking_channel', 'admin')
+            ->whereBetween('created_at', [$monthStart, $monthEnd])
+            ->whereIn('status', ['confirmed', 'completed'])
+            ->sum('total_price');
+
+            $onlineSales = Booking::whereHas('bookingUsers.course', function ($query) use ($schoolId, $seasonId) {
+                $query->where('school_id', $schoolId);
+                // TODO: Implement season filtering
+                // if ($seasonId) {
+                //     $query->where('season_id', $seasonId);
+                // }
+            })
+            ->where('booking_channel', 'online')
+            ->whereBetween('created_at', [$monthStart, $monthEnd])
+            ->whereIn('status', ['confirmed', 'completed'])
+            ->sum('total_price');
+
+            // Convert to thousands
+            $adminSalesData[] = round($adminSales / 1000, 1);
+            $onlineSalesData[] = round($onlineSales / 1000, 1);
+
+            // Set objectives slightly higher than actual sales
+            $objectiveData[] = round(($adminSales + $onlineSales) * 1.2 / 1000, 1);
+        }
+
+        return [
+            'labels' => $months,
+            'datasets' => [
+                [
+                    'label' => 'Objetivo',
+                    'data' => $objectiveData,
+                    'borderColor' => '#ef4444',
+                    'backgroundColor' => 'transparent',
+                    'tension' => 0.4
+                ],
+                [
+                    'label' => 'Ventas Admin',
+                    'data' => $adminSalesData,
+                    'borderColor' => '#8b5cf6',
+                    'backgroundColor' => 'transparent',
+                    'tension' => 0.4
+                ],
+                [
+                    'label' => 'Ventas Online',
+                    'data' => $onlineSalesData,
+                    'borderColor' => '#06b6d4',
+                    'backgroundColor' => 'transparent',
+                    'tension' => 0.4
+                ]
+            ]
+        ];
+    }
+
+    private function calculateBookingsByType(int $schoolId, ?int $seasonId): array
+    {
+        $thisWeek = Carbon::now()->startOfWeek();
+        $daysOfWeek = ['Lun', 'Mar', 'MiǸ', 'Jue', 'Vie', 'Sǭb', 'Dom'];
+        $data = [];
+
+        for ($i = 0; $i < 7; $i++) {
+            $day = $thisWeek->copy()->addDays($i);
+
+            $dayBookings = Booking::whereHas('bookingUsers.course', function ($query) use ($schoolId, $seasonId) {
+                $query->where('school_id', $schoolId);
+                // TODO: Implement season filtering
+                // if ($seasonId) {
+                //     $query->where('season_id', $seasonId);
+                // }
+            })
+            ->whereDate('booking_date', $day)
+            ->count();
+
+            $data[] = $dayBookings;
+        }
+
+        return [
+            'labels' => $daysOfWeek,
+            'data' => $data,
+            'backgroundColor' => array_fill(0, 7, '#06b6d4')
+        ];
+    }
+
+    /**
+     * @OA\Get(
+     *     path="/api/v5/dashboard/quick-actions",
+     *     summary="Get context-aware quick actions for the current user",
+     *     tags={"V5 Dashboard"}
+     * )
+     */
+    public function quickActions(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            $schoolId = $this->getCurrentSchoolId($request);
+
+            if (!$user || !$schoolId) {
+                return $this->errorResponse('User and school context required', 400);
+            }
+
+            $actions = [];
+
+            // Base actions available to most authenticated users
+            $actions[] = [
+                'id' => 'create_booking',
+                'label' => 'Nueva reserva',
+                'icon' => 'add',
+                'url' => '/v5/bookings/new',
+                'priority' => 2
+            ];
+
+            // School-context roles
+            $isSuperAdmin = method_exists($user, 'hasSchoolRole') ? $user->hasSchoolRole('superadmin', (int) $schoolId) : $user->hasRole('superadmin');
+            $isAdmin = method_exists($user, 'hasSchoolRole') ? $user->hasSchoolRole('admin', (int) $schoolId) : $user->hasRole('admin');
+            $isManager = method_exists($user, 'hasSchoolRole') ? $user->hasSchoolRole('manager', (int) $schoolId) : $user->hasRole('manager');
+            $isMonitor = method_exists($user, 'hasSchoolRole') ? $user->hasSchoolRole('monitor', (int) $schoolId) : $user->hasRole('monitor');
+
+            if ($isSuperAdmin || $isAdmin || $isManager) {
+                $actions = array_merge($actions, [
+                    [
+                        'id' => 'finance_overview',
+                        'label' => 'Finanzas',
+                        'icon' => 'payments',
+                        'url' => '/v5/finance/overview',
+                        'priority' => 1
+                    ],
+                    [
+                        'id' => 'manage_courses',
+                        'label' => 'Gestionar cursos',
+                        'icon' => 'school',
+                        'url' => '/v5/courses',
+                        'priority' => 3
+                    ],
+                    [
+                        'id' => 'manage_monitors',
+                        'label' => 'Monitores',
+                        'icon' => 'groups',
+                        'url' => '/v5/monitors',
+                        'priority' => 4
+                    ],
+                    [
+                        'id' => 'view_alerts',
+                        'label' => 'Ver alertas',
+                        'icon' => 'notifications',
+                        'url' => '/v5/dashboard/alerts',
+                        'priority' => 5
+                    ],
+                ]);
+            }
+
+            if ($isMonitor) {
+                $actions = array_merge($actions, [
+                    [
+                        'id' => 'today_schedule',
+                        'label' => 'Mi horario de hoy',
+                        'icon' => 'schedule',
+                        'url' => '/v5/monitor/schedule/today',
+                        'priority' => 2
+                    ],
+                    [
+                        'id' => 'mark_attendance',
+                        'label' => 'Pasar lista',
+                        'icon' => 'checklist',
+                        'url' => '/v5/monitor/attendance',
+                        'priority' => 3
+                    ],
+                ]);
+            }
+
+            // Sort by priority asc
+            usort($actions, fn($a, $b) => ($a['priority'] <=> $b['priority']));
+
+            return $this->successResponse($actions, 'Quick actions retrieved successfully');
+        } catch (\Exception $e) {
+            Log::error('Quick actions error: ' . $e->getMessage());
+            return $this->errorResponse('Failed to retrieve quick actions', 500);
+        }
+    }
+
+    /**
+     * @OA\Get(
+     *     path="/api/v5/dashboard/performance-metrics",
+     *     summary="Get month-over-month performance metrics",
+     *     tags={"V5 Dashboard"}
+     * )
+     */
+    public function performanceMetrics(Request $request): JsonResponse
+    {
+        try {
+            $schoolId = $this->getCurrentSchoolId($request);
+            if (!$schoolId) {
+                return $this->errorResponse('School ID is required', 400);
+            }
+
+            $now = Carbon::now();
+            $thisMonthStart = $now->copy()->startOfMonth();
+            $thisMonthEnd = $now->copy()->endOfMonth();
+            $lastMonthStart = $now->copy()->subMonthNoOverflow()->startOfMonth();
+            $lastMonthEnd = $now->copy()->subMonthNoOverflow()->endOfMonth();
+
+            // Revenue from completed payments
+            $thisMonthRevenue = \App\Models\Payment::where('school_id', $schoolId)
+                ->where('status', 'completed')
+                ->whereBetween('created_at', [$thisMonthStart, $thisMonthEnd])
+                ->sum('amount');
+
+            $lastMonthRevenue = \App\Models\Payment::where('school_id', $schoolId)
+                ->where('status', 'completed')
+                ->whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])
+                ->sum('amount');
+
+            // Bookings count (exclude cancelled = 2)
+            $thisMonthBookings = \App\Models\Booking::where('school_id', $schoolId)
+                ->whereBetween('created_at', [$thisMonthStart, $thisMonthEnd])
+                ->where('status', '!=', 2)
+                ->count();
+
+            $lastMonthBookings = \App\Models\Booking::where('school_id', $schoolId)
+                ->whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])
+                ->where('status', '!=', 2)
+                ->count();
+
+            $revenueGrowth = $lastMonthRevenue > 0
+                ? round((($thisMonthRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100, 1)
+                : null;
+
+            $bookingGrowth = $lastMonthBookings > 0
+                ? round((($thisMonthBookings - $lastMonthBookings) / $lastMonthBookings) * 100, 1)
+                : null;
+
+            // Trend: last 7 days revenue (payments)
+            $trendLabels = [];
+            $trendRevenue = [];
+            for ($i = 6; $i >= 0; $i--) {
+                $day = Carbon::now()->subDays($i);
+                $trendLabels[] = $day->format('Y-m-d');
+                $dayRevenue = \App\Models\Payment::where('school_id', $schoolId)
+                    ->where('status', 'completed')
+                    ->whereDate('created_at', $day->toDateString())
+                    ->sum('amount');
+                $trendRevenue[] = (float) $dayRevenue;
+            }
+
+            $data = [
+                'revenue' => [
+                    'thisMonth' => (float) $thisMonthRevenue,
+                    'lastMonth' => (float) $lastMonthRevenue,
+                    'growth' => $revenueGrowth,
+                ],
+                'bookings' => [
+                    'thisMonth' => $thisMonthBookings,
+                    'lastMonth' => $lastMonthBookings,
+                    'growth' => $bookingGrowth,
+                ],
+                'trend' => [
+                    'labels' => $trendLabels,
+                    'datasets' => [
+                        [
+                            'label' => 'Ingresos diarios',
+                            'data' => $trendRevenue,
+                            'borderColor' => '#06b6d4',
+                            'backgroundColor' => 'transparent',
+                            'tension' => 0.35
+                        ]
+                    ]
+                ]
+            ];
+
+            return $this->successResponse($data, 'Performance metrics retrieved successfully');
+        } catch (\Exception $e) {
+            Log::error('Performance metrics error: ' . $e->getMessage());
+            return $this->errorResponse('Failed to retrieve performance metrics', 500);
         }
     }
 

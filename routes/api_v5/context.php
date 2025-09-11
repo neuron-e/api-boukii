@@ -9,4 +9,5 @@ Route::middleware(['auth:sanctum', 'throttle:context'])
     ->group(function () {
         Route::get('/', [ContextController::class, 'show'])->name('show');
         Route::post('/school', [ContextController::class, 'switchSchool'])->name('school');
+        Route::post('/season', [ContextController::class, 'switchSeason'])->name('season');
     });

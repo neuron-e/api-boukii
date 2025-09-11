@@ -48,7 +48,7 @@ export class AuthV5Service {
   readonly currentSeason = computed(() => {
     const seasonId = this.currentSeasonIdSignal();
     const school = this.currentSchool();
-    return seasonId && school && school.seasons ? 
+    return seasonId && school && school.seasons ?
       school.seasons.find(s => s.id === seasonId) || null : null;
   });
 
@@ -62,12 +62,23 @@ export class AuthV5Service {
   public checkUser(credentials: { email: string; password: string }): Observable<ApiResponse<any>> {
     this.logger.logInfo('AuthV5Service: Checking user credentials', { email: credentials.email });
 
-    return from(this.apiService.post<ApiResponse<any>>('/auth/check-user', credentials)).pipe(
+    return from(this.apiService.post<ApiResponse<any>>('/api/v5/auth/check-user', credentials)).pipe(
       tap(response => {
-        this.logger.logInfo('AuthV5Service: User check successful', { 
+        this.logger.logInfo('AuthV5Service: User check successful', {
           email: credentials.email,
           schoolsCount: response.data?.schools?.length || 0
         });
+
+        if (response.success && response.data) {
+          // Store temporary data
+          this.userSignal.set(response.data.user);
+          this.schoolsSignal.set(response.data.schools);
+
+          // Store temp token for school selection
+          if (response.data.temp_token) {
+            this.storeToken(response.data.temp_token);
+          }
+        }
       }),
       catchError(error => {
         console.error('AuthV5Service: User check failed', { email: credentials.email, error });
@@ -82,7 +93,7 @@ export class AuthV5Service {
   public selectSchool(schoolId: number, tempToken: string): Observable<ApiResponse<any>> {
     this.logger.logInfo('AuthV5Service: Selecting school', { schoolId });
 
-    return from(this.apiService.postWithHeaders<ApiResponse<any>>('/auth/select-school',
+    return from(this.apiService.postWithHeaders<ApiResponse<any>>('/api/v5/auth/select-school',
       { school_id: schoolId },
       { 'Authorization': `Bearer ${tempToken}` }
     )).pipe(
@@ -112,7 +123,7 @@ export class AuthV5Service {
 
     return from(this.apiService.get<ApiResponse<any[]>>(`/seasons?school_id=${schoolId}`)).pipe(
       tap(response => {
-        this.logger.logInfo('AuthV5Service: Seasons loaded successfully', { 
+        this.logger.logInfo('AuthV5Service: Seasons loaded successfully', {
           schoolId,
           seasonsCount: response.data?.length || 0
         });
@@ -139,14 +150,14 @@ export class AuthV5Service {
    */
   public selectSeason(seasonId: number): Observable<ApiResponse<any>> {
     const schoolId = this.currentSchoolIdSignal();
-    
+
     if (!schoolId) {
       throw new Error('No school selected');
     }
 
     this.logger.logInfo('AuthV5Service: Selecting season', { seasonId, schoolId });
 
-    return from(this.apiService.post<ApiResponse<any>>('/auth/select-season', 
+    return from(this.apiService.post<ApiResponse<any>>('/api/v5/auth/select-season',
       { season_id: seasonId, school_id: schoolId }
     )).pipe(
       tap(response => {
@@ -156,7 +167,7 @@ export class AuthV5Service {
           this.currentSeasonIdSignal.set(seasonId);
           // Store season ID in localStorage
           localStorage.setItem('context_seasonId', seasonId.toString());
-          
+
           // Update any additional context data
           if (response.data.permissions) {
             this.permissionsSignal.set(response.data.permissions);
@@ -177,7 +188,7 @@ export class AuthV5Service {
   public loginComplete(credentials: LoginRequest & { school_id?: number; season_id?: number }): Observable<ApiResponse<any>> {
     this.logger.logInfo('AuthV5Service: Attempting complete login', { email: credentials.email });
 
-    return from(this.apiService.post<ApiResponse<any>>('/auth/login', credentials)).pipe(
+    return from(this.apiService.post<ApiResponse<any>>('/api/v5/auth/login', credentials)).pipe(
       tap(response => {
         this.logger.logInfo('AuthV5Service: Complete login successful', { email: credentials.email });
         if (response.success && response.data) {
@@ -199,7 +210,7 @@ export class AuthV5Service {
     this.logger.logInfo('AuthV5Service: Attempting registration', { email: userData.email });
 
     // Try real API first, fallback to mock if fails
-    return from(this.apiService.post<ApiResponse<any>>('/auth/register', userData)).pipe(
+    return from(this.apiService.post<ApiResponse<any>>('/api/v5/auth/register', userData)).pipe(
       tap(response => {
         this.logger.logInfo('AuthV5Service: Real API registration successful', { email: userData.email });
         if (response.success && response.data) {
@@ -208,11 +219,11 @@ export class AuthV5Service {
         }
       }),
       catchError(apiError => {
-        this.logger.logWarning('AuthV5Service: Real API failed, using mock', { 
-          email: userData.email, 
-          error: apiError 
+        this.logger.logWarning('AuthV5Service: Real API failed, using mock', {
+          email: userData.email,
+          error: apiError
         });
-        
+
         // Fallback to mock implementation
         return of({
           success: true,
@@ -254,16 +265,16 @@ export class AuthV5Service {
     this.logger.logInfo('AuthV5Service: Requesting password reset', { email: data.email });
 
     // Try real API first, fallback to mock if fails
-    return from(this.apiService.post<ApiResponse<{ message: string }>>('/auth/forgot-password', data)).pipe(
+    return from(this.apiService.post<ApiResponse<{ message: string }>>('/api/v5/auth/forgot-password', data)).pipe(
       tap(() => {
         this.logger.logInfo('AuthV5Service: Real API password reset successful', { email: data.email });
       }),
       catchError(apiError => {
-        this.logger.logWarning('AuthV5Service: Real API failed, using mock', { 
-          email: data.email, 
-          error: apiError 
+        this.logger.logWarning('AuthV5Service: Real API failed, using mock', {
+          email: data.email,
+          error: apiError
         });
-        
+
         // Fallback to mock implementation
         return of({
           success: true,
@@ -279,7 +290,7 @@ export class AuthV5Service {
    */
   public logout(): void {
     this.logger.logInfo('AuthV5Service: Logout completed');
-    
+
     this.clearState();
     this.router.navigate(['/auth/login']);
   }
@@ -297,7 +308,7 @@ export class AuthV5Service {
       // Get school-specific roles and permissions
       const schoolRoles = user.roles?.filter(userRole => userRole.school_id === schoolId) || [];
       const effectiveRoles = schoolRoles.map(userRole => userRole.role);
-      
+
       const schoolPermission = {
         school_id: schoolId,
         user_roles: schoolRoles,
@@ -346,11 +357,11 @@ export class AuthV5Service {
   public hasAnyRole(rolesSlugs: string[]): boolean {
     const user = this.userSignal();
     const schoolId = this.currentSchoolIdSignal();
-    
+
     if (!user?.roles || !schoolId) return false;
-    
+
     const schoolRoles = user.roles.filter(userRole => userRole.school_id === schoolId);
-    return rolesSlugs.some(roleSlug => 
+    return rolesSlugs.some(roleSlug =>
       schoolRoles.some(userRole => userRole.role.slug === roleSlug)
     );
   }
@@ -387,7 +398,7 @@ export class AuthV5Service {
   public setCurrentSchool(schoolId: number): Observable<unknown> {
     const schools = this.schoolsSignal();
     const school = schools.find(s => s.id === schoolId);
-    
+
     if (!school) {
       throw new Error('School not found');
     }
@@ -405,8 +416,8 @@ export class AuthV5Service {
       return this.setCurrentSeason(activeSeasons[0].id);
     }
 
-    this.logger.logInfo('AuthV5Service: School selected', { 
-      schoolId, 
+    this.logger.logInfo('AuthV5Service: School selected', {
+      schoolId,
       schoolName: school.name,
       seasonsCount: seasons.length,
       activeSeasonsCount: activeSeasons.length
@@ -432,7 +443,7 @@ export class AuthV5Service {
 
   public handleLoginSuccess(data: any): void {
     console.log('🔑 handleLoginSuccess called with data:', data);
-    
+
     if (!data) {
       console.log('❌ handleLoginSuccess: No data provided');
       return;

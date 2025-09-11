@@ -4,6 +4,7 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
 
 import { routes } from './app.routes';
+import { baseUrlInterceptor } from '@core/interceptors/base-url.interceptor';
 import { authInterceptor } from '@core/interceptors/auth.interceptor';
 import { unauthorizedInterceptor } from '@core/interceptors/unauthorized.interceptor';
 import { errorInterceptor } from '@core/interceptors/error.interceptor';
@@ -16,7 +17,8 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideHttpClient(
       withInterceptors([
-        // Order matters: loading and auth first, then error handling
+        // Order matters: base URL first, then loading/auth, then error handling
+        baseUrlInterceptor,
         loadingInterceptor,
         authInterceptor,
         errorInterceptor,

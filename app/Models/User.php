@@ -219,6 +219,49 @@ use App\Support\Pivot;
         return $this->hasMany(UserSeasonRole::class);
     }
 
+    /**
+     * Get the school-specific roles for this user
+     * This works alongside Spatie's HasRoles trait for school-contextualized permissions
+     */
+    public function schoolRoles(): HasMany
+    {
+        return $this->hasMany(UserSchoolRole::class);
+    }
+
+    /**
+     * Check if user has specific role in a school
+     */
+    public function hasSchoolRole(string $roleName, int $schoolId): bool
+    {
+        return $this->schoolRoles()
+            ->join('roles', 'user_school_roles.role_id', '=', 'roles.id')
+            ->where('roles.name', $roleName)
+            ->where('user_school_roles.school_id', $schoolId)
+            ->where('user_school_roles.active', true)
+            ->where(function($query) {
+                $query->whereNull('user_school_roles.expires_at')
+                      ->orWhere('user_school_roles.expires_at', '>', now());
+            })
+            ->exists();
+    }
+
+    /**
+     * Get user's roles for a specific school
+     */
+    public function getSchoolRoles(int $schoolId): array
+    {
+        return $this->schoolRoles()
+            ->join('roles', 'user_school_roles.role_id', '=', 'roles.id')
+            ->where('user_school_roles.school_id', $schoolId)
+            ->where('user_school_roles.active', true)
+            ->where(function($query) {
+                $query->whereNull('user_school_roles.expires_at')
+                      ->orWhere('user_school_roles.expires_at', '>', now());
+            })
+            ->pluck('roles.name')
+            ->toArray();
+    }
+
     public function getSeasonRole(int $seasonId): ?string
     {
         return $this->userSeasonRoles()

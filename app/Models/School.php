@@ -540,6 +540,85 @@ class School extends Model
         return $this->belongsTo(\App\V5\Models\Season::class, 'current_season_id');
     }
 
+    /**
+     * Module subscriptions relationships
+     */
+    public function moduleSubscriptions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\SchoolModuleSubscription::class, 'school_id');
+    }
+
+    public function activeModuleSubscriptions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->moduleSubscriptions()
+            ->where(function ($query) {
+                $query->where('status', 'active')
+                      ->orWhere(function ($q) {
+                          $q->where('status', 'trial')
+                            ->where('trial_ends_at', '>', now());
+                      });
+            });
+    }
+
+    public function subscribedModules(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(
+            \App\Models\Module::class,
+            'school_module_subscriptions',
+            'school_id',
+            'module_id'
+        )->withPivot([
+            'status',
+            'subscription_type',
+            'activated_at',
+            'expires_at',
+            'trial_ends_at',
+            'settings',
+            'limits',
+            'monthly_cost'
+        ])->withTimestamps();
+    }
+
+    public function activeModules(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->subscribedModules()
+            ->wherePivot('status', 'active')
+            ->orWhere(function ($query) {
+                $query->wherePivot('status', 'trial')
+                      ->where('school_module_subscriptions.trial_ends_at', '>', now());
+            });
+    }
+
+    /**
+     * Check if school has access to a module
+     */
+    public function hasModuleAccess(string $moduleSlug): bool
+    {
+        $module = \App\Models\Module::where('slug', $moduleSlug)->first();
+        if (!$module) {
+            return false;
+        }
+
+        // Core modules are always available
+        if ($module->isCore()) {
+            return true;
+        }
+
+        $subscription = $this->moduleSubscriptions()
+            ->where('module_id', $module->id)
+            ->first();
+
+        return $subscription?->canAccess() ?? false;
+    }
+
+    /**
+     * Get active module slugs
+     */
+    public function getActiveModuleSlugs(): array
+    {
+        return $this->activeModules()->pluck('slug')->toArray();
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
          return LogOptions::defaults();
