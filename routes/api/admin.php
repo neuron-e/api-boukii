@@ -414,4 +414,28 @@ if (app()->environment(['local', 'development'])) {
 
     });
 
+    // ===== TIMING API v4 - Sistema de cronometraje =====
+    Route::prefix('timing')->group(function () {
+        
+        // Endpoint de ingesta de eventos de cronometraje (con API Key auth)
+        Route::post('/ingest', [\App\Http\Controllers\Admin\TimingController::class, 'ingest'])
+            ->middleware('api.key:timing:write')
+            ->name('timing.ingest');
+        
+        // Stream de eventos en tiempo real (SSE)
+        Route::get('/stream', [\App\Http\Controllers\Admin\TimingController::class, 'stream'])
+            ->name('timing.stream');
+        
+        // Resumen/estado inicial
+        Route::get('/summary', [\App\Http\Controllers\Admin\TimingController::class, 'summary'])
+            ->name('timing.summary');
+        
+        // CRUD de tiempos individuales
+        Route::put('/times/{id}', [\App\Http\Controllers\Admin\TimingController::class, 'updateTime'])
+            ->name('timing.times.update');
+        
+        Route::delete('/times/{id}', [\App\Http\Controllers\Admin\TimingController::class, 'deleteTime'])
+            ->name('timing.times.delete');
+    });
+
 }

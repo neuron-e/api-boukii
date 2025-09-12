@@ -35,7 +35,7 @@ return [
 
     'allowed_origins_patterns' => [
         // Permitir subdominios de desarrollo
-        '#^https?://.*\.localhost(:\d+)?$#',
+        '#^http?://.*\.localhost(:\d+)?$#',
         // Permitir dominios de producción específicos
         '#^https://.*\.boukii\.com$#',
     ],

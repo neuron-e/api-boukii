@@ -14,6 +14,28 @@ class SchoolResource extends JsonResource
      */
     public function toArray($request)
     {
+        // Ensure settings include booking.social keys with nulls if missing
+        $settingsStr = $this->settings;
+        try {
+            $settings = is_string($settingsStr) ? json_decode($settingsStr, true) : $settingsStr;
+            if (is_array($settings)) {
+                if (!isset($settings['booking']) || !is_array($settings['booking'])) {
+                    $settings['booking'] = [];
+                }
+                if (!isset($settings['booking']['social']) || !is_array($settings['booking']['social'])) {
+                    $settings['booking']['social'] = [];
+                }
+                foreach (['facebook','instagram','x','youtube','tiktok','linkedin'] as $key) {
+                    if (!array_key_exists($key, $settings['booking']['social'])) {
+                        $settings['booking']['social'][$key] = null;
+                    }
+                }
+                $settingsStr = json_encode($settings);
+            }
+        } catch (\Throwable $e) {
+            // keep original settings string on error
+        }
+
         return [
             'id' => $this->id,
             'name' => $this->name,
@@ -51,7 +73,7 @@ class SchoolResource extends JsonResource
             'inscription' => $this->inscription,
             'type' => $this->type,
             'active' => $this->active,
-            'settings' => $this->settings,
+            'settings' => $settingsStr,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'deleted_at' => $this->deleted_at

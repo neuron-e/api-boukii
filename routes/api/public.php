@@ -214,3 +214,10 @@ Route::middleware(['guest'])->group(function () {
         Route::post('predictive-analysis', [\App\Http\Controllers\API\AIController::class, 'predictiveAnalysis']);
     });
 });
+
+// Timing v4 endpoints (public, API-Key protected at controller)
+Route::prefix('v4')->group(function () {
+    Route::post('timing/ingest', [\App\Http\Controllers\API\TimingController::class, 'ingest']);
+    Route::get('courses/{course}/timing/summary', [\App\Http\Controllers\API\TimingController::class, 'courseSummary']);
+    Route::get('courses/{course}/timing/export.csv', [\App\Http\Controllers\API\TimingController::class, 'courseExportCsv']);
+});

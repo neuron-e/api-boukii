@@ -416,6 +416,40 @@ class SchoolAPIController extends AppBaseController
                 }
             }
 
+            // Normalizar enlaces de redes sociales en settings.booking.social
+            if (isset($settings['booking']['social']) && is_array($settings['booking']['social'])) {
+                $social = $settings['booking']['social'];
+                $platforms = ['facebook', 'instagram', 'x', 'youtube', 'tiktok', 'linkedin'];
+
+                foreach ($platforms as $platform) {
+                    if (!array_key_exists($platform, $social)) {
+                        continue; // claves faltantes: ausentes o null
+                    }
+                    $value = $social[$platform];
+                    if ($value === null) {
+                        continue;
+                    }
+                    if (is_string($value)) {
+                        // Validación de longitud de entrada
+                        if (mb_strlen($value) > 255) {
+                            return $this->sendError('Invalid URL or handle for ' . $platform, 422);
+                        }
+
+                        $normalized = $this->normalizeSocialUrl($platform, $value);
+                        if ($normalized === false) {
+                            return $this->sendError('Invalid URL or handle for ' . $platform, 422);
+                        }
+                        if ($normalized !== null && mb_strlen($normalized) > 255) {
+                            return $this->sendError('Invalid URL or handle for ' . $platform, 422);
+                        }
+                        $settings['booking']['social'][$platform] = $normalized;
+                    } else {
+                        // Si no es string, rechazamos
+                        return $this->sendError('Invalid value for ' . $platform, 422);
+                    }
+                }
+            }
+
             // Convertimos de nuevo a JSON después de modificarlo
             $input['settings'] = json_encode($settings);
         }
@@ -447,6 +481,63 @@ class SchoolAPIController extends AppBaseController
         }
 
         return null; // Si la imagen no es válida, devuelve null
+    }
+
+    /**
+     * Normaliza un valor de red social a URL http(s) válida o devuelve false si no es válida.
+     */
+    private function normalizeSocialUrl(string $platform, string $raw)
+    {
+        $value = trim($raw);
+        if ($value === '') {
+            return null; // tratar vacío como null
+        }
+
+        // Si empieza con esquema, validar que sea http(s) y URL válida
+        if (preg_match('/^[a-zA-Z][a-zA-Z0-9+\-.]*:/', $value) === 1) {
+            $parsed = parse_url($value);
+            $scheme = $parsed['scheme'] ?? '';
+            if (!in_array(strtolower($scheme), ['http', 'https'], true)) {
+                return false; // protocolos no seguros/no permitidos
+            }
+            if (filter_var($value, FILTER_VALIDATE_URL) === false) {
+                return false;
+            }
+            return $value; // URL http(s) ya válida, se conserva
+        }
+
+        // Manejar como handle: quitar '@' inicial y barras sobrantes
+        $handle = ltrim($value);
+        $handle = ltrim($handle, '@');
+        $handle = trim($handle, "/ ");
+        if ($handle === '') {
+            return null;
+        }
+
+        switch ($platform) {
+            case 'facebook':
+                return 'https://www.facebook.com/' . rawurlencode($handle);
+            case 'instagram':
+                return 'https://www.instagram.com/' . rawurlencode($handle);
+            case 'x': // Twitter/X
+                return 'https://twitter.com/' . rawurlencode($handle);
+            case 'youtube':
+                // Forzamos formato @handle
+                return 'https://www.youtube.com/@' . rawurlencode($handle);
+            case 'tiktok':
+                return 'https://www.tiktok.com/@' . rawurlencode($handle);
+            case 'linkedin':
+                // Si detectamos prefijo in/ (perfil personal) respetarlo
+                if (str_starts_with($handle, 'in/')) {
+                    return 'https://www.linkedin.com/' . $handle; // in/<handle>
+                }
+                if (str_starts_with($handle, 'company/')) {
+                    $handle = substr($handle, 8);
+                }
+                return 'https://www.linkedin.com/company/' . rawurlencode($handle);
+            default:
+                return false;
+        }
     }
 
     /**

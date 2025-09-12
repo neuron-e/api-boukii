@@ -35,4 +35,9 @@ return [
         'key' => env('ACCUWEATHER_API_KEY')
     ],
 
+    'timing' => [
+        // API key used by Timing Connector to ingest data
+        'api_key' => env('TIMING_API_KEY'),
+    ],
+
 ];

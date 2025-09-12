@@ -55,6 +55,28 @@ class SchoolController extends SlugAuthController
             $school = $this->school;
             $school->load('sports');
 
+            // Ensure booking.social keys exist in settings for consumer convenience
+            try {
+                $settingsStr = $school->settings;
+                $settings = is_string($settingsStr) ? json_decode($settingsStr, true) : $settingsStr;
+                if (is_array($settings)) {
+                    if (!isset($settings['booking']) || !is_array($settings['booking'])) {
+                        $settings['booking'] = [];
+                    }
+                    if (!isset($settings['booking']['social']) || !is_array($settings['booking']['social'])) {
+                        $settings['booking']['social'] = [];
+                    }
+                    foreach (['facebook','instagram','x','youtube','tiktok','linkedin'] as $key) {
+                        if (!array_key_exists($key, $settings['booking']['social'])) {
+                            $settings['booking']['social'][$key] = null;
+                        }
+                    }
+                    $school->settings = json_encode($settings);
+                }
+            } catch (\Throwable $e) {
+                // noop
+            }
+
             return $this->sendResponse($school, 'School retrieved successfully');
         } catch (\Exception $e) {
             return $this->sendError($e->getMessage(), 500);
