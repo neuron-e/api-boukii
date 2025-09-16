@@ -29,6 +29,9 @@ return [
         // Otros frontends
         env('FRONTEND_URL', 'http://localhost:4201'),
         env('TEACHER_APP_URL', 'http://localhost:8100'),
+        // Capacitor (apps nativas)
+        'capacitor://localhost',   // iOS
+        'http://localhost',        // Android
         env('BOOKING_PAGE_URL', 'http://localhost:4203'),
         'https://booking.boukii.com'
     ],
