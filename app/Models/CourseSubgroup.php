@@ -114,6 +114,22 @@ class CourseSubgroup extends Model
      */
     public function getIsFullAttribute(): bool
     {
+        // Check if max_participants is set
+        if (!$this->max_participants) {
+            return false;
+        }
+
+        // Check if bookingUsers relation is loaded
+        if (!$this->relationLoaded('bookingUsers')) {
+            // Load the relation if not loaded
+            $this->load('bookingUsers');
+        }
+
+        // Check if bookingUsers exists and is not null
+        if (!$this->bookingUsers) {
+            return false;
+        }
+
         // Filtrar los bookingUsers con status = 1
         $activeBookingUsers = $this->bookingUsers->filter(function ($user) {
             return $user->status == 1;

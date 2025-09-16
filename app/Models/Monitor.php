@@ -439,11 +439,21 @@ class Monitor extends Model
 
     public function getMonitorSportsDegreesDetailsAttribute()
     {
+        // Check if monitorSportsDegrees relation is loaded
+        if (!$this->relationLoaded('monitorSportsDegrees')) {
+            $this->load('monitorSportsDegrees.sport', 'monitorSportsDegrees.degree', 'monitorSportsDegrees.monitorSportAuthorizedDegrees');
+        }
+
+        // Check if monitorSportsDegrees exists and is not null
+        if (!$this->monitorSportsDegrees) {
+            return collect();
+        }
+
         return $this->monitorSportsDegrees->map(function ($monitorSportsDegree) {
             return [
-                'sport_name' => $monitorSportsDegree->sport->name,
-                'sport_icon_selected' => $monitorSportsDegree->sport->icon_selected,
-                'sport_icon_unselected' => $monitorSportsDegree->sport->icon_unselected,
+                'sport_name' => $monitorSportsDegree->sport ? $monitorSportsDegree->sport->name : null,
+                'sport_icon_selected' => $monitorSportsDegree->sport ? $monitorSportsDegree->sport->icon_selected : null,
+                'sport_icon_unselected' => $monitorSportsDegree->sport ? $monitorSportsDegree->sport->icon_unselected : null,
                 'school_id' => $monitorSportsDegree->school_id,
                 'sport_id' => $monitorSportsDegree->sport_id,
                 'degree' => $monitorSportsDegree->degree,

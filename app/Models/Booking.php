@@ -777,44 +777,57 @@ class Booking extends Model
 
     public function getSportAttribute()
     {
-        // Obtener todos los bookingUsers asociados a este booking
-        $bookingUsers = $this->bookingUsers()->with('course')->get();
+        try {
+            // Check if bookingUsers relation is loaded
+            if ($this->relationLoaded('bookingUsers')) {
+                $bookingUsers = $this->bookingUsers;
+            } else {
+                $bookingUsers = $this->bookingUsers()->with('course.sport')->get();
+            }
 
-        // Obtener los cursos únicos asociados a los bookingUsers
-        $courses = $bookingUsers->pluck('course')->unique();
+            // Obtener los cursos únicos asociados a los bookingUsers
+            $courses = $bookingUsers->pluck('course')->filter()->unique();
 
-        if ($courses->isNotEmpty()) {
-            // Verificar si todos los bookingUsers tienen el mismo course_type
-            $courseType = $courses->first()->course_type ?? null;
-            $sameCourseType = $courses->every(function ($course) use ($courseType) {
-                if ($course && isset($course->course_type)) {
-                    return $course->course_type === $courseType;
-                }
-                return false;
-            });
+            if ($courses->isNotEmpty()) {
+                // Verificar si todos los bookingUsers tienen el mismo course_type
+                $courseType = $courses->first()->course_type ?? null;
+                $sameCourseType = $courses->every(function ($course) use ($courseType) {
+                    if ($course && isset($course->course_type)) {
+                        return $course->course_type === $courseType;
+                    }
+                    return false;
+                });
 
-            if ($sameCourseType && $courses->count() == 1) {
-                // Si solo hay un curso y todos tienen el mismo course_type
-                // devolver el deporte de ese curso
-                if ($courseType == 1) {
-                    return $courses->first()->sport->icon_collective;
-                } elseif ($courseType == 2) {
-                    return $courses->first()->sport->icon_prive;
-                }
-                elseif ($courseType == 3) {
-                    return $courses->first()->sport->icon_activity;
-                }
-            } elseif ($sameCourseType && $courses->pluck('sport')->unique()->count() == 1) {
-                // Si hay varios cursos pero todos tienen el mismo course_type y el mismo deporte
-                // devolver ese deporte
-                if ($courseType == 1) {
-                    return $courses->first()->sport->icon_collective;
-                } elseif ($courseType == 2) {
-                    return $courses->first()->sport->icon_prive;
-                } elseif ($courseType == 3) {
-                    return $courses->first()->sport->icon_activity;
+                if ($sameCourseType && $courses->count() == 1) {
+                    // Si solo hay un curso y todos tienen el mismo course_type
+                    // devolver el deporte de ese curso
+                    $firstCourse = $courses->first();
+                    if ($firstCourse && $firstCourse->sport) {
+                        if ($courseType == 1) {
+                            return $firstCourse->sport->icon_collective ?? null;
+                        } elseif ($courseType == 2) {
+                            return $firstCourse->sport->icon_prive ?? null;
+                        } elseif ($courseType == 3) {
+                            return $firstCourse->sport->icon_activity ?? null;
+                        }
+                    }
+                } elseif ($sameCourseType && $courses->pluck('sport')->filter()->unique()->count() == 1) {
+                    // Si hay varios cursos pero todos tienen el mismo course_type y el mismo deporte
+                    // devolver ese deporte
+                    $firstCourse = $courses->first();
+                    if ($firstCourse && $firstCourse->sport) {
+                        if ($courseType == 1) {
+                            return $firstCourse->sport->icon_collective ?? null;
+                        } elseif ($courseType == 2) {
+                            return $firstCourse->sport->icon_prive ?? null;
+                        } elseif ($courseType == 3) {
+                            return $firstCourse->sport->icon_activity ?? null;
+                        }
+                    }
                 }
             }
+        } catch (\Exception $e) {
+            \Log::error('Error in getSportAttribute: ' . $e->getMessage());
         }
 
         // Si hay varios cursos con diferentes course_type o deportes diferentes
@@ -830,7 +843,8 @@ class Booking extends Model
         // Si el estado de la reserva es "totalmente cancelada"
         if ($this->status == 2) {
             $status = 'total_cancel';
-            $statusPayment = $this->bookingLogs->last()->action;
+            $lastLog = $this->bookingLogs ? $this->bookingLogs->last() : null;
+            $statusPayment = $lastLog ? $lastLog->action : '';
 
         } else {
             // Comprobamos si hay cancelaciones parciales

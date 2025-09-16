@@ -103,10 +103,7 @@ class HomeController extends AppBaseController
 
         $subgroupsQuery = CourseSubgroup::with([
             'courseGroup.course',
-            'bookingUsers.client.sports',
-            'course.courseDates',
-            'bookingUsers.client.evaluations.degree',
-            'bookingUsers.client.evaluations.evaluationFulfilledGoals'
+            'course.courseDates'
         ])
             ->whereHas('courseGroup.course', function ($query) use ($schoolId) {
                 if ($schoolId) {
@@ -123,7 +120,10 @@ class HomeController extends AppBaseController
             })
             ->where('monitor_id', $monitor->id)
             ->where(function ($query) {
-                $query->doesntHave('bookingUsers');
+                $query->doesntHave('bookingUsers')
+                      ->orWhereHas('bookingUsers', function ($subQuery) {
+                          $subQuery->where('status', '!=', 1);
+                      });
             });
 
         if($schoolId) {
@@ -153,12 +153,28 @@ class HomeController extends AppBaseController
         }
 
         // Obtén los resultados para las reservas y los MonitorNwd
-        $bookings = $bookingQuery->get();
-        $nwd = $nwdQuery->get();
-        $subgroups = $subgroupsQuery->get();
+        try {
+            $bookings = $bookingQuery->get();
+        } catch (\Exception $e) {
+            \Log::error('Error fetching bookings: ' . $e->getMessage());
+            $bookings = collect();
+        }
+
+        try {
+            $nwd = $nwdQuery->get();
+        } catch (\Exception $e) {
+            \Log::error('Error fetching nwd: ' . $e->getMessage());
+            $nwd = collect();
+        }
+
+        try {
+            $subgroups = $subgroupsQuery->get();
+        } catch (\Exception $e) {
+            \Log::error('Error fetching subgroups: ' . $e->getMessage());
+            $subgroups = collect();
+        }
 
         $data = ['bookings' => $bookings, 'nwd' => $nwd, 'subgroups' => $subgroups];
-
 
         return $this->sendResponse($data, 'Agenda retrieved successfully');
     }
