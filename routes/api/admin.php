@@ -137,6 +137,42 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
 
     /** Mailing */
     Route::post('mails/send', [\App\Http\Controllers\Admin\MailController::class, 'sendMail']);
+    Route::get('mails/{mailId}/recipients', [\App\Http\Controllers\Admin\MailController::class, 'getRecipients']);
+
+    /** Templates */
+    Route::resource('templates', App\Http\Controllers\Admin\TemplateController::class)
+        ->except(['create', 'edit'])->names([
+            'index' => 'api.admin.templates.index',
+            'store' => 'api.admin.templates.store',
+            'show' => 'api.admin.templates.show',
+            'update' => 'api.admin.templates.update',
+            'destroy' => 'api.admin.templates.destroy',
+        ]);
+
+    /** Newsletter */
+    Route::get('newsletters/stats', [\App\Http\Controllers\Admin\NewsletterController::class, 'stats'])
+        ->name('api.admin.newsletters.stats');
+    
+    Route::get('newsletters/recent', [\App\Http\Controllers\Admin\NewsletterController::class, 'recent'])
+        ->name('api.admin.newsletters.recent');
+    
+    Route::post('newsletters/subscriber-count', [\App\Http\Controllers\Admin\NewsletterController::class, 'subscriberCount'])
+        ->name('api.admin.newsletters.subscriber-count');
+    
+    Route::get('newsletters/subscribers', [\App\Http\Controllers\Admin\NewsletterController::class, 'subscribers'])
+        ->name('api.admin.newsletters.subscribers');
+
+    Route::resource('newsletters', App\Http\Controllers\Admin\NewsletterController::class)
+        ->except(['create', 'edit'])->names([
+            'index' => 'api.admin.newsletters.index',
+            'store' => 'api.admin.newsletters.store',
+            'show' => 'api.admin.newsletters.show',
+            'update' => 'api.admin.newsletters.update',
+            'destroy' => 'api.admin.newsletters.destroy',
+        ]);
+    
+    Route::post('newsletters/{id}/send', [\App\Http\Controllers\Admin\NewsletterController::class, 'send'])
+        ->name('api.admin.newsletters.send');
 
     /** Weather */
     Route::get('weather', [\App\Http\Controllers\Admin\HomeController::class, 'get12HourlyForecastByStation'])

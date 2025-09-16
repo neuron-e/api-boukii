@@ -218,4 +218,139 @@ class MailController extends AppBaseController
         return $this->sendError('Emails not found');
 
     }
+
+    /**
+     * Get recipients for a specific email/mail
+     */
+    public function getRecipients(Request $request, $mailId)
+    {
+        try {
+            $school = $this->getSchool($request);
+
+            // Try to get from EmailLog first
+            $emailLog = EmailLog::where('id', $mailId)
+                ->where('school_id', $school->id)
+                ->first();
+
+            if ($emailLog) {
+                $recipients = $this->parseEmailLogRecipients($emailLog);
+                return $this->sendResponse($recipients, 'Recipients retrieved successfully');
+            }
+
+            // If not found in EmailLog, check if it's a newsletter
+            $newsletter = \App\Models\Newsletter::where('id', $mailId)
+                ->where('school_id', $school->id)
+                ->first();
+
+            if ($newsletter) {
+                $recipients = $this->getNewsletterRecipients($newsletter, $school);
+                return $this->sendResponse($recipients, 'Newsletter recipients retrieved successfully');
+            }
+
+            return $this->sendResponse([], 'No recipients found');
+
+        } catch (\Exception $e) {
+            return $this->sendError('Error retrieving recipients', $e->getMessage());
+        }
+    }
+
+    private function parseEmailLogRecipients($emailLog)
+    {
+        $recipients = [];
+        $emailAddresses = array_map('trim', explode(',', $emailLog->to));
+
+        foreach ($emailAddresses as $email) {
+            // Try to find the client/monitor by email
+            $client = Client::where('email', $email)->first();
+            if ($client) {
+                $recipients[] = [
+                    'type' => 'client',
+                    'name' => $client->first_name . ' ' . $client->last_name,
+                    'email' => $client->email
+                ];
+                continue;
+            }
+
+            $monitor = Monitor::where('email', $email)->first();
+            if ($monitor) {
+                $recipients[] = [
+                    'type' => 'monitor',
+                    'name' => $monitor->first_name . ' ' . $monitor->last_name,
+                    'email' => $monitor->email
+                ];
+                continue;
+            }
+
+            // If not found in clients or monitors, treat as system/unknown
+            $recipients[] = [
+                'type' => 'system',
+                'name' => 'Unknown Recipient',
+                'email' => $email
+            ];
+        }
+
+        return $recipients;
+    }
+
+    private function getNewsletterRecipients($newsletter, $school)
+    {
+        $recipients = [];
+        $config = json_decode($newsletter->recipients_config, true);
+
+        if (!$config) {
+            return $recipients;
+        }
+
+        $type = $config['type'] ?? 'all';
+
+        switch ($type) {
+            case 'all':
+                $clients = Client::where('user_id', $school->user_id)
+                    ->where('accepts_newsletter', true)
+                    ->get(['first_name', 'last_name', 'email']);
+
+                foreach ($clients as $client) {
+                    $recipients[] = [
+                        'type' => 'client',
+                        'name' => $client->first_name . ' ' . $client->last_name,
+                        'email' => $client->email
+                    ];
+                }
+                break;
+
+            case 'active':
+                $clients = Client::where('user_id', $school->user_id)
+                    ->where('accepts_newsletter', true)
+                    ->where('updated_at', '>=', now()->subMonths(3))
+                    ->get(['first_name', 'last_name', 'email']);
+
+                foreach ($clients as $client) {
+                    $recipients[] = [
+                        'type' => 'client',
+                        'name' => $client->first_name . ' ' . $client->last_name,
+                        'email' => $client->email
+                    ];
+                }
+                break;
+
+            case 'vip':
+                $clients = Client::where('user_id', $school->user_id)
+                    ->where('accepts_newsletter', true)
+                    ->whereHas('bookings', function ($query) {
+                        $query->where('created_at', '>=', now()->subYear());
+                    })
+                    ->get(['first_name', 'last_name', 'email']);
+
+                foreach ($clients as $client) {
+                    $recipients[] = [
+                        'type' => 'client',
+                        'name' => $client->first_name . ' ' . $client->last_name,
+                        'email' => $client->email
+                    ];
+                }
+                break;
+        }
+
+        return $recipients;
+    }
 }

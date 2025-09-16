@@ -197,6 +197,7 @@ class Client extends Model
         'language5_id',
         'language6_id',
         'image',
+        'accepts_newsletter',
         'old_id',
         'user_id'
     ];
@@ -213,7 +214,8 @@ class Client extends Model
         'city' => 'string',
         'province' => 'string',
         'country' => 'string',
-        'image' => 'string'
+        'image' => 'string',
+        'accepts_newsletter' => 'boolean'
     ];
 
     public static array $rules = [
@@ -237,6 +239,7 @@ class Client extends Model
         'language5_id' => 'nullable',
         'language6_id' => 'nullable',
         'image' => 'nullable|string',
+        'accepts_newsletter' => 'boolean',
         'user_id' => 'nullable',
         'created_at' => 'nullable',
         'updated_at' => 'nullable',

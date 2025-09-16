@@ -28,7 +28,7 @@ return [
 
         // Otros frontends
         env('FRONTEND_URL', 'http://localhost:4201'),
-        env('TEACHER_APP_URL', 'http://localhost:4202'),
+        env('TEACHER_APP_URL', 'http://localhost:8100'),
         env('BOOKING_PAGE_URL', 'http://localhost:4203'),
         'https://booking.boukii.com'
     ],
