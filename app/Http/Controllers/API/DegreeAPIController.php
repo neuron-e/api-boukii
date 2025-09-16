@@ -59,31 +59,23 @@ class DegreeAPIController extends AppBaseController
     {
         // Cache and optimize the request for perPage=99999 which is commonly used in monitor details
         if ($request->get('perPage') == 99999 && !$request->get('search')) {
-            $school = null;
-            $schoolId = 'all';
-            
-            // Safely get school if method exists
-            if (method_exists($this, 'getSchool')) {
-                try {
-                    $school = $this->getSchool($request);
-                    $schoolId = $school ? $school->id : 'all';
-                } catch (\Exception $e) {
-                    $schoolId = 'all';
-                }
-            }
-            
+            $schoolId = $request->get('school_id', 'all');
+
             $cacheKey = "degrees_all_{$schoolId}";
-            
+
             $degrees = Cache::remember($cacheKey, 300, function () use ($request, $schoolId) { // 5 minutes cache
                 // Optimized query: select only essential fields and add school filter
-                $query = Degree::select(['id', 'name', 'level', 'color', 'school_id', 'sport_id', 'active'])
+                $query = Degree::select(['id', 'name', 'level', 'league', 'color', 'school_id', 'sport_id', 'active', 'degree_order'])
                     ->where('active', 1);
-                
-                if ($schoolId !== 'all') {
-                    $query->where('school_id', $schoolId);
+
+                if ($schoolId !== 'all' && $schoolId) {
+                    $query->where(function ($q) use ($schoolId) {
+                        $q->where('school_id', $schoolId)
+                          ->orWhereNull('school_id'); // Include default degrees
+                    });
                 }
-                
-                return $query->orderBy('name', 'asc')->get();
+
+                return $query->orderBy('degree_order', 'asc')->get();
             });
         } else {
             $degrees = $this->degreeRepository->all(
