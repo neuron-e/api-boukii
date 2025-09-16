@@ -51,20 +51,32 @@ class AppBaseController extends Controller
     public function getMonitor($request) {
         $user = $request->user();
         $user->load('monitors');
-        return $user->monitors[0];
+
+        if (!$user->monitors || $user->monitors->isEmpty()) {
+            return null;
+        }
+
+        return $user->monitors->first();
     }
 
     public function getSchool($request) {
         $user = $request->user();
         $user->load('schools');
-        return $user->schools[0];
+
+        if (!$user->schools || $user->schools->isEmpty()) {
+            return null;
+        }
+
+        return $user->schools->first();
     }
 
     public function ensureSchoolInRequest($request): void
     {
         if (!$request->has('school_id')) {
             $school = $this->getSchool($request);
-            $request->merge(['school_id' => $school->id]);
+            if ($school) {
+                $request->merge(['school_id' => $school->id]);
+            }
         }
     }
 }

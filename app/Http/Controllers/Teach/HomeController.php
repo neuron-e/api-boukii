@@ -79,6 +79,10 @@ class HomeController extends AppBaseController
 
         $monitor = $this->getMonitor($request);
 
+        if (!$monitor) {
+            return $this->sendError('Monitor not found for this user', [], 404);
+        }
+
         // Consulta para las reservas (BookingUser)
         $bookingQuery = BookingUser::with('booking', 'course.courseDates', 'client.sports',
             'client.evaluations.degree', 'client.evaluations.evaluationFulfilledGoals')

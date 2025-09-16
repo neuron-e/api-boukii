@@ -59,7 +59,11 @@ class ClientsController extends AppBaseController
      */
     public function index(Request $request): JsonResponse
     {
-        $monitorId = $this->getMonitor($request)->id;
+        $monitor = $this->getMonitor($request);
+        if (!$monitor) {
+            return $this->sendError('Monitor not found for this user', [], 404);
+        }
+        $monitorId = $monitor->id;
 
         $clients = Client::with(['sports', 'utilizers', 'main', 'evaluations.degree',
             'evaluations.evaluationFulfilledGoals', 'observations'])
@@ -109,7 +113,11 @@ class ClientsController extends AppBaseController
      */
     public function show($id, Request $request): JsonResponse
     {
-        $monitorId = $this->getMonitor($request)->id;
+        $monitor = $this->getMonitor($request);
+        if (!$monitor) {
+            return $this->sendError('Monitor not found for this user', [], 404);
+        }
+        $monitorId = $monitor->id;
 
         // Comprueba si el cliente principal tiene booking_users asociados con el ID del monitor
         $client = Client::with('sports', 'utilizers', 'main',
@@ -155,7 +163,11 @@ class ClientsController extends AppBaseController
      */
     public function getBookings($id, Request $request): JsonResponse
     {
-        $monitorId = $this->getMonitor($request)->id;
+        $monitor = $this->getMonitor($request);
+        if (!$monitor) {
+            return $this->sendError('Monitor not found for this user', [], 404);
+        }
+        $monitorId = $monitor->id;
         $dateStart = $request->input('date_start');
         $dateEnd = $request->input('date_end');
 

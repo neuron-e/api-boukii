@@ -67,7 +67,11 @@ class CourseController extends AppBaseController
      */
     public function show($id, Request $request): JsonResponse
     {
-        $monitorId = $this->getMonitor($request)->id;
+        $monitor = $this->getMonitor($request);
+        if (!$monitor) {
+            return $this->sendError('Monitor not found for this user', [], 404);
+        }
+        $monitorId = $monitor->id;
 
         // Cargar las relaciones
         $course = Course::with(

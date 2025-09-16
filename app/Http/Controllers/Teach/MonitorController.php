@@ -77,6 +77,9 @@ class MonitorController extends AppBaseController
 
         // Crea una instancia de Monitor con los datos validados
         $monitor = $this->getMonitor($request);
+        if (!$monitor) {
+            return $this->sendError('Monitor not found for this user', [], 404);
+        }
 
         // Si hay relaciones que debes editar o eliminar, puedes hacerlo aquí
         // Por ejemplo, para monitorObservations:
@@ -137,6 +140,9 @@ class MonitorController extends AppBaseController
     public function getPastBookings(Request $request): JsonResponse
     {
         $monitor = $this->getMonitor($request);
+        if (!$monitor) {
+            return $this->sendError('Monitor not found for this user', [], 404);
+        }
 
         $seasonStart = Season::where('school_id', $request->school_id)->where('is_active', 1)->select('start_date')->first();
 
