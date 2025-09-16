@@ -32,13 +32,14 @@ return [
         // Capacitor (apps nativas)
         'capacitor://localhost',   // iOS
         'http://localhost',        // Android
+        'https://localhost',        // Android
         env('BOOKING_PAGE_URL', 'http://localhost:4203'),
         'https://booking.boukii.com'
     ],
 
     'allowed_origins_patterns' => [
         // Permitir subdominios de desarrollo
-        '#^http?://.*\.localhost(:\d+)?$#',
+        '#^https?://(localhost|.*\.localhost)(:\d+)?$#',
         // Permitir dominios de producción específicos
         '#^https://.*\.boukii\.com$#',
     ],
