@@ -19,6 +19,7 @@ class VerifyCsrfToken extends Middleware
         
         // Admin API endpoints - Angular usa Bearer tokens, no CSRF
         'api/admin/*',              // Admin panel usa Bearer authentication
+        'api/teach/*',              // Teach app usa Bearer authentication
         
         // Endpoints CRUD usados por Angular admin sin CSRF
         'api/schools/*',            // Gestión de escuelas
