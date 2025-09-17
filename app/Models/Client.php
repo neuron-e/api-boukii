@@ -198,6 +198,7 @@ class Client extends Model
         'language6_id',
         'image',
         'accepts_newsletter',
+        'is_vip',
         'old_id',
         'user_id'
     ];
@@ -215,7 +216,8 @@ class Client extends Model
         'province' => 'string',
         'country' => 'string',
         'image' => 'string',
-        'accepts_newsletter' => 'boolean'
+        'accepts_newsletter' => 'boolean',
+        'is_vip' => 'boolean'
     ];
 
     public static array $rules = [
@@ -240,6 +242,7 @@ class Client extends Model
         'language6_id' => 'nullable',
         'image' => 'nullable|string',
         'accepts_newsletter' => 'boolean',
+        'is_vip' => 'boolean',
         'user_id' => 'nullable',
         'created_at' => 'nullable',
         'updated_at' => 'nullable',

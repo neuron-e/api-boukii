@@ -40,6 +40,12 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
     Route::get('clients/mains', [\App\Http\Controllers\Admin\ClientsController::class, 'getMains'])
         ->name('api.admin.clients.main');
 
+    Route::get('clients/stats', [\App\Http\Controllers\Admin\ClientStatsController::class, 'index'])
+        ->name('api.admin.clients.stats');
+
+    Route::get('clients/by-type/{type}', [\App\Http\Controllers\Admin\ClientStatsController::class, 'getClientsByType'])
+        ->name('api.admin.clients.by_type');
+
     Route::resource('clients', App\Http\Controllers\Admin\ClientsController::class)
         ->except(['create', 'edit'])->names([
             'index' => 'api.admin.clients.index',
@@ -173,6 +179,9 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
     
     Route::post('newsletters/{id}/send', [\App\Http\Controllers\Admin\NewsletterController::class, 'send'])
         ->name('api.admin.newsletters.send');
+
+    // Test endpoint for debugging
+    Route::get('newsletters/test', [\App\Http\Controllers\Admin\NewsletterController::class, 'test']);
 
     /** Weather */
     Route::get('weather', [\App\Http\Controllers\Admin\HomeController::class, 'get12HourlyForecastByStation'])
