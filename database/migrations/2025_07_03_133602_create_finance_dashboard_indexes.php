@@ -12,9 +12,9 @@ return new class extends Migration
     public function up()
     {
         // 1. Índice principal para bookings
-        Schema::table('bookings', function (Blueprint $table) {
+      /*  Schema::table('bookings', function (Blueprint $table) {
             //$table->index(['school_id', 'created_at', 'deleted_at'], 'idx_bookings_school_created');
-/*            $table->index(['school_id', 'status', 'price_expected', 'source'], 'idx_bookings_financial');*/
+         $table->index(['school_id', 'status', 'price_expected', 'source'], 'idx_bookings_financial');
         });
 
         // 2. Índice para booking_users
@@ -35,7 +35,7 @@ return new class extends Migration
         // 5. Índice para seasons
         Schema::table('seasons', function (Blueprint $table) {
             $table->index(['school_id', 'start_date', 'end_date'], 'idx_seasons_school_dates');
-        });
+        });*/
     }
 
     public function down()
