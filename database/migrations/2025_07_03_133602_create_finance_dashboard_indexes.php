@@ -13,7 +13,7 @@ return new class extends Migration
     {
         // 1. Índice principal para bookings
         Schema::table('bookings', function (Blueprint $table) {
-            $table->index(['school_id', 'created_at', 'deleted_at'], 'idx_bookings_school_created');
+            //$table->index(['school_id', 'created_at', 'deleted_at'], 'idx_bookings_school_created');
 /*            $table->index(['school_id', 'status', 'price_expected', 'source'], 'idx_bookings_financial');*/
         });
 
