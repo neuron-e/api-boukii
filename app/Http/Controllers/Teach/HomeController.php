@@ -73,58 +73,90 @@ class HomeController extends AppBaseController
 
     public function getAgenda(Request $request): JsonResponse
     {
-        $dateStart = $request->input('date_start');
-        $dateEnd = $request->input('date_end');
-        $schoolId = $request->input('school_id');
+        try {
+            \Log::info('getAgenda called with params:', $request->all());
 
-        $monitor = $this->getMonitor($request);
+            $dateStart = $request->input('date_start');
+            $dateEnd = $request->input('date_end');
+            $schoolId = $request->input('school_id');
 
-        if (!$monitor) {
-            return $this->sendError('Monitor not found for this user', [], 404);
+            \Log::info('Getting monitor...');
+            $monitor = $this->getMonitor($request);
+
+            if (!$monitor) {
+                \Log::error('Monitor not found');
+                return $this->sendError('Monitor not found for this user', [], 404);
+            }
+
+            \Log::info('Monitor found:', ['id' => $monitor->id, 'active_school' => $monitor->active_school]);
+        } catch (\Exception $e) {
+            \Log::error('Error in getAgenda start: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+            return $this->sendError('Error in getAgenda: ' . $e->getMessage(), [], 500);
         }
 
-        // Consulta para las reservas (BookingUser)
-        $bookingQuery = BookingUser::with('booking', 'course.courseDates', 'client.sports',
-            'client.evaluations.degree', 'client.evaluations.evaluationFulfilledGoals')
-            ->where('school_id', $monitor->active_school)
-            ->where('status', 1)
-            ->where('accepted', 1)
-            ->whereHas('booking', function ($subQuery) {
-                $subQuery->where('status',  1);
-            })
-            ->byMonitor($monitor->id)
-            ->orderBy('hour_start');
+        try {
+            \Log::info('Building booking query...');
+            // Consulta para las reservas (BookingUser)
+            $bookingQuery = BookingUser::with('booking', 'course.courseDates', 'client.sports',
+                'client.evaluations.degree', 'client.evaluations.evaluationFulfilledGoals')
+                ->where('school_id', $monitor->active_school)
+                ->where('status', 1)
+                ->where('accepted', 1)
+                ->whereHas('booking', function ($subQuery) {
+                    $subQuery->where('status',  1);
+                })
+                ->byMonitor($monitor->id)
+                ->orderBy('hour_start');
+            \Log::info('Booking query built successfully');
+        } catch (\Exception $e) {
+            \Log::error('Error building booking query: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+            return $this->sendError('Error building booking query: ' . $e->getMessage(), [], 500);
+        }
 
         //return $this->sendResponse($bookingQuery->get(), 'Agenda retrieved successfully');
 
-        // Consulta para los MonitorNwd
-        $nwdQuery = MonitorNwd::where('monitor_id', $monitor->id)
-            ->orderBy('start_time');
+        try {
+            \Log::info('Building NWD query...');
+            // Consulta para los MonitorNwd
+            $nwdQuery = MonitorNwd::where('monitor_id', $monitor->id)
+                ->orderBy('start_time');
+            \Log::info('NWD query built successfully');
+        } catch (\Exception $e) {
+            \Log::error('Error building NWD query: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+            return $this->sendError('Error building NWD query: ' . $e->getMessage(), [], 500);
+        }
 
-        $subgroupsQuery = CourseSubgroup::with([
-            'courseGroup.course',
-            'course.courseDates'
-        ])
-            ->whereHas('courseGroup.course', function ($query) use ($schoolId) {
-                if ($schoolId) {
-                    $query->where('school_id', $schoolId);
-                }
-            })
-            ->whereHas('courseDate', function ($query) use ($dateStart, $dateEnd) {
-                if ($dateStart && $dateEnd) {
-                    $query->whereBetween('date', [$dateStart, $dateEnd])->where('active', 1);
-                } else {
-                    $today = Carbon::today();
-                    $query->whereDate('date', $today)->where('active', 1);
-                }
-            })
-            ->where('monitor_id', $monitor->id)
-            ->where(function ($query) {
-                $query->doesntHave('bookingUsers')
-                      ->orWhereHas('bookingUsers', function ($subQuery) {
-                          $subQuery->where('status', '!=', 1);
-                      });
-            });
+        try {
+            \Log::info('Building subgroups query...');
+            $subgroupsQuery = CourseSubgroup::with([
+                'courseGroup.course',
+                'course.courseDates'
+            ])
+                ->whereHas('courseGroup.course', function ($query) use ($schoolId) {
+                    if ($schoolId) {
+                        $query->where('school_id', $schoolId);
+                    }
+                })
+                ->whereHas('courseDate', function ($query) use ($dateStart, $dateEnd) {
+                    if ($dateStart && $dateEnd) {
+                        $query->whereBetween('date', [$dateStart, $dateEnd])->where('active', 1);
+                    } else {
+                        $today = Carbon::today();
+                        $query->whereDate('date', $today)->where('active', 1);
+                    }
+                })
+                ->where('monitor_id', $monitor->id)
+                ->where(function ($query) {
+                    $query->doesntHave('bookingUsers')
+                          ->orWhereHas('bookingUsers', function ($subQuery) {
+                              $subQuery->where('status', '!=', 1);
+                          });
+                });
+            \Log::info('Subgroups query built successfully');
+        } catch (\Exception $e) {
+            \Log::error('Error building subgroups query: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+            return $this->sendError('Error building subgroups query: ' . $e->getMessage(), [], 500);
+        }
 
         if($schoolId) {
             $bookingQuery->where('school_id', $schoolId);
@@ -154,23 +186,32 @@ class HomeController extends AppBaseController
 
         // Obtén los resultados para las reservas y los MonitorNwd
         try {
+            \Log::info('Executing booking query...');
             $bookings = $bookingQuery->get();
+            \Log::info('Bookings fetched successfully: ' . $bookings->count() . ' records');
         } catch (\Exception $e) {
-            \Log::error('Error fetching bookings: ' . $e->getMessage());
+            \Log::error('Error fetching bookings: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
             $bookings = collect();
         }
 
         try {
+            \Log::info('Executing NWD query...');
             $nwd = $nwdQuery->get();
+            \Log::info('NWD fetched successfully: ' . $nwd->count() . ' records');
         } catch (\Exception $e) {
-            \Log::error('Error fetching nwd: ' . $e->getMessage());
+            \Log::error('Error fetching nwd: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
             $nwd = collect();
         }
 
         try {
+            \Log::info('Executing subgroups query...');
             $subgroups = $subgroupsQuery->get();
+            \Log::info('Subgroups fetched successfully: ' . $subgroups->count() . ' records');
         } catch (\Exception $e) {
-            \Log::error('Error fetching subgroups: ' . $e->getMessage());
+            \Log::error('Error fetching subgroups: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
             $subgroups = collect();
         }
 

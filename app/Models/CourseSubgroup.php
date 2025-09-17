@@ -80,7 +80,7 @@ class CourseSubgroup extends Model
     use LogsActivity, SoftDeletes, HasFactory;
 
     public $table = 'course_subgroups';
-    protected $appends = ['is_full'];
+    protected $appends = []; // Temporarily disabled ['is_full']
     public $fillable = [
         'course_id',
         'course_date_id',

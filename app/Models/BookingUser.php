@@ -247,7 +247,7 @@ class BookingUser extends Model
         'deleted_at' => 'nullable'
     ];
 
-    protected $appends = ['duration', 'formattedDuration'];
+    protected $appends = []; // Temporarily disabled ['duration', 'formattedDuration']
 
     /**
      * Calculate duration between start and end time.

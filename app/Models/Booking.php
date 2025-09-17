@@ -368,8 +368,7 @@ class Booking extends Model
     {
         return LogOptions::defaults();
     }
-    protected $appends = ['sport', 'bonus', 'payment_method_status', 'has_observations',
-        'cancellation_status', 'payment_method', 'grouped_activities', 'vouchers_used_amount'];
+    protected $appends = []; // Temporarily disabled ['sport', 'bonus', 'payment_method_status', 'has_observations', 'cancellation_status', 'payment_method', 'grouped_activities', 'vouchers_used_amount']
 
     public function getHasObservationsAttribute()
     {
