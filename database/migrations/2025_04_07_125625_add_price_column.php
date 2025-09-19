@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('monitors_schools', function (Blueprint $table) {
-            $table->decimal('block_price', 10, 2)->nullable()->after('accepted_at');
-        });
+        if (!Schema::hasColumn('monitors_schools', 'block_price')) {
+            Schema::table('monitors_schools', function (Blueprint $table) {
+                $table->decimal('block_price', 10, 2)->nullable()->after('accepted_at');
+            });
+        }
     }
 
     /**
@@ -21,8 +23,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('monitors_schools', function (Blueprint $table) {
-            $table->dropColumn('block_price');
-        });
+        if (Schema::hasColumn('monitors_schools', 'block_price')) {
+            Schema::table('monitors_schools', function (Blueprint $table) {
+                $table->dropColumn('block_price');
+            });
+        }
     }
 };

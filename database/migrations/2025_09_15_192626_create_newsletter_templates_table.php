@@ -11,17 +11,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('newsletter_templates', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->text('description')->nullable();
-            $table->string('subject');
-            $table->longText('content');
-            $table->unsignedBigInteger('school_id');
-            $table->timestamps();
+        if (!Schema::hasTable('newsletter_templates')) {
+            Schema::create('newsletter_templates', function (Blueprint $table) {
+                $table->id();
+                $table->string('name');
+                $table->text('description')->nullable();
+                $table->string('subject');
+                $table->longText('content');
+                $table->unsignedBigInteger('school_id');
+                $table->timestamps();
 
-            $table->index(['school_id', 'created_at']);
-        });
+                $table->index(['school_id', 'created_at']);
+            });
+        }
     }
 
     /**

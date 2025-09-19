@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('clients', function (Blueprint $table) {
-            $table->boolean('is_vip')->default(false);
-        });
+        if (!Schema::hasColumn('clients', 'is_vip')) {
+            Schema::table('clients', function (Blueprint $table) {
+                $table->boolean('is_vip')->default(false);
+            });
+        }
     }
 
     /**
@@ -21,8 +23,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('clients', function (Blueprint $table) {
-            $table->dropColumn('is_vip');
-        });
+        if (Schema::hasColumn('clients', 'is_vip')) {
+            Schema::table('clients', function (Blueprint $table) {
+                $table->dropColumn('is_vip');
+            });
+        }
     }
 };

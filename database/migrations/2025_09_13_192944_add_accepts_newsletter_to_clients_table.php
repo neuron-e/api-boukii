@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('clients', function (Blueprint $table) {
-            $table->boolean('accepts_newsletter')->default(false)->after('image');
-        });
+        if (!Schema::hasColumn('clients', 'accepts_newsletter')) {
+            Schema::table('clients', function (Blueprint $table) {
+                $table->boolean('accepts_newsletter')->default(false)->after('image');
+            });
+        }
     }
 
     /**
@@ -21,8 +23,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('clients', function (Blueprint $table) {
-            $table->dropColumn('accepts_newsletter');
-        });
+        if (Schema::hasColumn('clients', 'accepts_newsletter')) {
+            Schema::table('clients', function (Blueprint $table) {
+                $table->dropColumn('accepts_newsletter');
+            });
+        }
     }
 };
