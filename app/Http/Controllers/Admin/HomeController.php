@@ -14,18 +14,17 @@ class HomeController extends AppBaseController
 
         $school = $this->getSchool($request);
 
-        $id = $school->stationsSchools[0]->station_id ?? null;
-
-        $station = Station::find($id);
-
-        if ($station)
-        {
-            // Pick its Station coordinates:
-            // TODO TBD what about Schools located at _several_ Stations ??
-            // As of 2022-11 just forecast the first one
-            $accuweatherData = ($station && $station->accuweather) ?
-                json_decode($station->accuweather, true) : [];
-            $forecast = $accuweatherData['12HoursForecast'] ?? [];
+        // Try each associated station and return the first with valid forecast
+        $stationsSchools = $school->stationsSchools ?? [];
+        foreach ($stationsSchools as $ss) {
+            $station = Station::find($ss->station_id ?? null);
+            if ($station && $station->accuweather) {
+                $accuweatherData = json_decode($station->accuweather, true) ?: [];
+                if (!empty($accuweatherData['12HoursForecast'])) {
+                    $forecast = $accuweatherData['12HoursForecast'];
+                    break;
+                }
+            }
         }
 
         return $this->sendResponse($forecast, 'Weather send correctly');
@@ -37,18 +36,17 @@ class HomeController extends AppBaseController
 
         $school = $this->getSchool($request);
 
-        $id = $school->stationsSchools[0]->station_id ?? null;
-
-        $station = Station::find($id);
-
-        if ($station)
-        {
-            // Pick its Station coordinates:
-            // TODO TBD what about Schools located at _several_ Stations ??
-            // As of 2022-11 just forecast the first one
-            $accuweatherData = ($station && $station->accuweather) ?
-                json_decode($station->accuweather, true) : [];
-            $forecast = $accuweatherData['5DaysForecast'] ?? [];
+        // Try each associated station and return the first with valid forecast
+        $stationsSchools = $school->stationsSchools ?? [];
+        foreach ($stationsSchools as $ss) {
+            $station = Station::find($ss->station_id ?? null);
+            if ($station && $station->accuweather) {
+                $accuweatherData = json_decode($station->accuweather, true) ?: [];
+                if (!empty($accuweatherData['5DaysForecast'])) {
+                    $forecast = $accuweatherData['5DaysForecast'];
+                    break;
+                }
+            }
         }
 
         return $this->sendResponse($forecast, 'Weather send correctly');

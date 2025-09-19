@@ -1478,6 +1478,16 @@ Route::post('/fix-booking-users', function (Illuminate\Http\Request $request) {
 
     $results = [];
     foreach ($data as $bookingData) {
+        // Safety check: ensure course_subgroup_id exists
+        if (!isset($bookingData['course_subgroup_id'])) {
+            $results[] = [
+                'status' => 'error',
+                'message' => 'Missing course_subgroup_id in booking data',
+                'data' => $bookingData,
+            ];
+            continue;
+        }
+
         // Obtener el `course_group_id` a través del `course_subgroup_id`
         $courseGroupId = \DB::table('course_subgroups')
             ->where('id', $bookingData['course_subgroup_id'])

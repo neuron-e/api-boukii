@@ -13,11 +13,17 @@ use GuzzleHttp\Client as GuzzleClient;
 class AccuweatherHelpers
 {
     private $baseUrl = 'https://dataservice.accuweather.com/';
-    private $apiKey = 'xxx';
+    private $apiKey;
 
     function __construct()
     {
         $this->apiKey = config('services.accuweather.key');
+
+        // Validate API key is configured
+        if (empty($this->apiKey) || $this->apiKey === 'xxx') {
+            Log::warning('AccuWeather API key not properly configured');
+            throw new \Exception('AccuWeather API key not configured. Please set ACCUWEATHER_API_KEY in .env file');
+        }
     }
 
 
@@ -47,7 +53,14 @@ class AccuweatherHelpers
             $size = $body->getSize();
             $jsonData = json_decode($body->read($size), true);
 
-            $locationKey = $jsonData['Key'];
+            if ($jsonData && isset($jsonData['Key'])) {
+                $locationKey = $jsonData['Key'];
+            } else {
+                Log::channel('accuweather')->error('No location key found in AccuWeather response', [
+                    'url' => $acUrl,
+                    'response' => $jsonData
+                ]);
+            }
         }
         catch (\Exception $ex)
         {

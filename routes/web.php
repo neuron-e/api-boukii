@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Faker\Factory as Faker;
+use App\Http\Controllers\UnsubscribeController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -16,6 +17,9 @@ use Faker\Factory as Faker;
 Route::get('/', function () {
     return view('welcome');
 });
+
+// Desuscripción newsletter
+Route::get('/unsubscribe', UnsubscribeController::class)->name('newsletter.unsubscribe');
 Route::get('/boom', function () {
     $url = 'https://data-hub-service.production.bike-on.app/applicationusers';
 

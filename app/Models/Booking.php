@@ -720,15 +720,22 @@ class Booking extends Model
     {
         $price = 0;
 
-        if (array_key_exists('course',$activity) && $activity['course']['course_type'] === 1) {
+        // Safety check: ensure activity is not null and is an array
+        if (!$activity || !is_array($activity)) {
+            return $price;
+        }
+
+        if (array_key_exists('course',$activity) && isset($activity['course']['course_type']) && $activity['course']['course_type'] === 1) {
             if (!$activity['course']['is_flexible']) {
-                $price = $activity['course']['price'] * count($activity['utilizers']);
+                $price = ($activity['course']['price'] ?? 0) * count($activity['utilizers'] ?? []);
             } else {
-                $price = $activity['course']['price'] * count($activity['dates']) * count($activity['utilizers']);
+                $price = ($activity['course']['price'] ?? 0) * count($activity['dates'] ?? []) * count($activity['utilizers'] ?? []);
             }
         } else {
-            foreach ($activity['dates'] as $date) {
-                $price += $this->calculateDatePrice($activity['course'], $date);
+            if (isset($activity['dates']) && is_array($activity['dates'])) {
+                foreach ($activity['dates'] as $date) {
+                    $price += $this->calculateDatePrice($activity['course'] ?? null, $date);
+                }
             }
         }
 
@@ -740,16 +747,21 @@ class Booking extends Model
     {
         $datePrice = 0;
 
+        // Safety checks for null inputs
+        if (!$course || !$date || !isset($date['booking_users'])) {
+            return $datePrice;
+        }
+
         if (collect($date['booking_users'])->contains('status', 1)) {
-            if ($course['course_type'] === 1) {
-                $datePrice = $course['price'];
-            } elseif ($course['is_flexible']) {
-                $duration = $date['duration'];
-                $participants = count($date['utilizers']);
-                $interval = collect($course['price_range'])->firstWhere('intervalo', $duration);
+            if (($course['course_type'] ?? 0) === 1) {
+                $datePrice = $course['price'] ?? 0;
+            } elseif ($course['is_flexible'] ?? false) {
+                $duration = $date['duration'] ?? 0;
+                $participants = count($date['utilizers'] ?? []);
+                $interval = collect($course['price_range'] ?? [])->firstWhere('intervalo', $duration);
                 $datePrice = $interval ? ($interval[$participants] ?? 0) : 0;
             } else {
-                $datePrice = $course['price'];
+                $datePrice = $course['price'] ?? 0;
             }
 
             $extrasPrice = collect($date['extras'])->sum('price');

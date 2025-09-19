@@ -301,55 +301,73 @@ class MailController extends AppBaseController
             return $recipients;
         }
 
-        $type = $config['type'] ?? 'all';
-
-        switch ($type) {
-            case 'all':
-                $clients = Client::where('user_id', $school->user_id)
-                    ->where('accepts_newsletter', true)
-                    ->get(['first_name', 'last_name', 'email']);
-
-                foreach ($clients as $client) {
-                    $recipients[] = [
-                        'type' => 'client',
-                        'name' => $client->first_name . ' ' . $client->last_name,
-                        'email' => $client->email
-                    ];
-                }
-                break;
-
-            case 'active':
-                $clients = Client::where('user_id', $school->user_id)
-                    ->where('accepts_newsletter', true)
-                    ->where('updated_at', '>=', now()->subMonths(3))
-                    ->get(['first_name', 'last_name', 'email']);
-
-                foreach ($clients as $client) {
-                    $recipients[] = [
-                        'type' => 'client',
-                        'name' => $client->first_name . ' ' . $client->last_name,
-                        'email' => $client->email
-                    ];
-                }
-                break;
-
-            case 'vip':
-                $clients = Client::where('user_id', $school->user_id)
-                    ->where('accepts_newsletter', true)
-                    ->whereHas('bookings', function ($query) {
-                        $query->where('created_at', '>=', now()->subYear());
-                    })
-                    ->get(['first_name', 'last_name', 'email']);
-
-                foreach ($clients as $client) {
-                    $recipients[] = [
-                        'type' => 'client',
-                        'name' => $client->first_name . ' ' . $client->last_name,
-                        'email' => $client->email
-                    ];
-                }
-                break;
+        // Normalize types: support legacy { type: 'all' } and new ['all','active'] formats
+        $types = [];
+        if (is_array($config)) {
+            if (array_keys($config) !== range(0, count($config) - 1)) {
+                // associative
+                $val = $config['type'] ?? 'all';
+                $types = is_array($val) ? $val : [$val];
+            } else {
+                // indexed array of types
+                $types = $config;
+            }
+        } else {
+            $types = ['all'];
         }
+
+        $types = array_unique($types);
+
+        $appendClients = function($clients) use (&$recipients) {
+            foreach ($clients as $client) {
+                $recipients[] = [
+                    'type' => 'client',
+                    'name' => $client->first_name . ' ' . $client->last_name,
+                    'email' => $client->email
+                ];
+            }
+        };
+
+        foreach ($types as $type) {
+            switch ($type) {
+                case 'all':
+                    $clients = Client::where('user_id', $school->user_id)
+                        ->where('accepts_newsletter', true)
+                        ->get(['first_name', 'last_name', 'email']);
+                    $appendClients($clients);
+                    break;
+                case 'active':
+                    // Active clients in last 3 months (heuristic)
+                    $clients = Client::where('user_id', $school->user_id)
+                        ->where('accepts_newsletter', true)
+                        ->where('updated_at', '>=', now()->subMonths(3))
+                        ->get(['first_name', 'last_name', 'email']);
+                    $appendClients($clients);
+                    break;
+                case 'inactive':
+                    $clients = Client::where('user_id', $school->user_id)
+                        ->where('accepts_newsletter', true)
+                        ->where('updated_at', '<', now()->subMonths(3))
+                        ->get(['first_name', 'last_name', 'email']);
+                    $appendClients($clients);
+                    break;
+                case 'vip':
+                    $clients = Client::where('user_id', $school->user_id)
+                        ->where('accepts_newsletter', true)
+                        ->whereHas('bookings', function ($query) {
+                            $query->where('created_at', '>=', now()->subYear());
+                        })
+                        ->get(['first_name', 'last_name', 'email']);
+                    $appendClients($clients);
+                    break;
+            }
+        }
+
+        // Deduplicate by email
+        $recipients = collect($recipients)
+            ->unique('email')
+            ->values()
+            ->all();
 
         return $recipients;
     }

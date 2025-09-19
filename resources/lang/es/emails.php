@@ -1,6 +1,16 @@
 <?php
 
 return [
+    'newsletter' => [
+        'greeting' => 'Hola :firstName,',
+        'unsubscribe_intro' => 'Si no deseas recibir más comunicaciones, puedes darte de baja en',
+        'unsubscribe_link' => 'este enlace',
+        'thanks' => 'Gracias por formar parte de nuestra comunidad.',
+        'regards' => 'Saludos cordiales,',
+        'team' => 'El equipo de Boukii',
+        'footer_unsubscribe' => 'Cancelar suscripción',
+        'footer_rights' => 'Todos los derechos reservados.'
+    ],
     'bookingCreate' =>
         ['subject' => 'Tu reserva en Boukii',
             'greeting' => 'Hola :userName,',
