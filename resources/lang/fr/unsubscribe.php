@@ -7,9 +7,9 @@ return [
     'missing_params' => 'Des paramètres obligatoires manquent ou le lien n’est pas valide.',
     'invalid_link' => 'Le lien de désabonnement est invalide ou a expiré.',
     'email_not_found' => 'Nous n’avons trouvé aucun compte associé à :email.',
-    'unsubscribed' => ''unsubscribed' => 'L’adresse :email a été désabonnée de notre newsletter.',',
+    'unsubscribed' => 'L’adresse :email a été désabonnée de notre newsletter.',
     'unsubscribed_school' => 'Votre email :email a été désabonné de la newsletter de :school.',
-    'already_unsubscribed' => ''already_unsubscribed' => 'L’adresse :email était déjà désabonnée.',',
+    'already_unsubscribed' => 'L’adresse :email était déjà désabonnée.',
     'already_unsubscribed_school' => 'Votre email :email était déjà désabonné de la newsletter de :school.',
     'problem' => 'Un problème est survenu',
     'try_later' => 'Nous ne pouvons pas traiter votre demande pour le moment. Veuillez réessayer plus tard.',
@@ -19,4 +19,3 @@ return [
     'contact' => 'Si c’était une erreur, vous pouvez nous contacter à :email.',
     'footer_rights' => 'Tous droits réservés.'
 ];
-
