@@ -108,6 +108,15 @@ class BookingUserAPIController extends AppBaseController
     {
         $input = $request->all();
 
+        // Seguridad: solo la app Teach (token con ability teach:all) puede modificar 'attended'
+        if (array_key_exists('attended', $input)) {
+            $user = $request->user();
+            $canTeach = $user && method_exists($user, 'tokenCan') && $user->tokenCan('teach:all');
+            if (!$canTeach) {
+                unset($input['attended']);
+            }
+        }
+
         $bookingUser = $this->bookingUserRepository->create($input);
 
         return $this->sendResponse($bookingUser, 'Booking User saved successfully');
@@ -204,6 +213,15 @@ class BookingUserAPIController extends AppBaseController
     public function update($id, UpdateBookingUserAPIRequest $request): JsonResponse
     {
         $input = $request->all();
+
+        // Seguridad: solo la app Teach (token con ability teach:all) puede modificar 'attended'
+        if (array_key_exists('attended', $input)) {
+            $user = $request->user();
+            $canTeach = $user && method_exists($user, 'tokenCan') && $user->tokenCan('teach:all');
+            if (!$canTeach) {
+                unset($input['attended']);
+            }
+        }
 
         /** @var BookingUser $bookingUser */
         $bookingUser = $this->bookingUserRepository->find($id, with: $request->get('with', []));

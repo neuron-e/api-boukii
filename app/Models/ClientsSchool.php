@@ -70,12 +70,16 @@ class ClientsSchool extends Model
         'client_id',
         'school_id',
         'status_updated_at',
-        'accepted_at'
+        'accepted_at',
+        'accepts_newsletter',
+        'is_vip'
     ];
 
     protected $casts = [
         'status_updated_at' => 'datetime',
-        'accepted_at' => 'datetime'
+        'accepted_at' => 'datetime',
+        'accepts_newsletter' => 'boolean',
+        'is_vip' => 'boolean',
     ];
 
     public static array $rules = [
@@ -85,7 +89,9 @@ class ClientsSchool extends Model
         'created_at' => 'nullable',
         'deleted_at' => 'nullable',
         'status_updated_at' => 'nullable',
-        'accepted_at' => 'nullable'
+        'accepted_at' => 'nullable',
+        'accepts_newsletter' => 'nullable|boolean',
+        'is_vip' => 'nullable|boolean',
     ];
 
     public function school(): \Illuminate\Database\Eloquent\Relations\BelongsTo

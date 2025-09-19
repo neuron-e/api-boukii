@@ -12,14 +12,25 @@ class ClientStatsController extends Controller
     public function index(Request $request)
     {
         try {
-            // Total clients
-            $totalClients = Client::count();
+            $user = $request->user();
+            $user->load('schools');
+            $school = $user->schools->first();
+
+            // Total clients (scoped to current school)
+            $totalClients = DB::table('clients_schools')
+                ->where('school_id', $school->id)
+                ->distinct('client_id')
+                ->count('client_id');
 
             // Active clients (those with active bookings in the last 6 months)
             $activeClients = Client::whereHas('bookingUsersActive')->count();
 
-            // VIP clients
-            $vipClients = Client::where('is_vip', true)->count();
+            // VIP clients (per current school)
+            $vipClients = DB::table('clients_schools')
+                ->where('school_id', $school->id)
+                ->where('is_vip', true)
+                ->distinct('client_id')
+                ->count('client_id');
 
             // Inactive clients (total - active)
             $inactiveClients = $totalClients - $activeClients;
@@ -46,7 +57,13 @@ class ClientStatsController extends Controller
     public function getClientsByType(Request $request, $type)
     {
         try {
-            $query = Client::query();
+            $user = $request->user();
+            $user->load('schools');
+            $school = $user->schools->first();
+
+            $query = Client::query()
+                ->join('clients_schools', 'clients_schools.client_id', '=', 'clients.id')
+                ->where('clients_schools.school_id', $school->id);
 
             switch ($type) {
                 case 'active':
@@ -56,7 +73,7 @@ class ClientStatsController extends Controller
                     $query->whereDoesntHave('bookingUsersActive');
                     break;
                 case 'vip':
-                    $query->where('is_vip', true);
+                    $query->where('clients_schools.is_vip', true);
                     break;
                 case 'all':
                 default:
@@ -64,7 +81,7 @@ class ClientStatsController extends Controller
                     break;
             }
 
-            $clients = $query->select('id', 'first_name', 'last_name', 'email', 'is_vip')
+            $clients = $query->select('clients.id', 'clients.first_name', 'clients.last_name', 'clients.email')
                            ->paginate(50);
 
             return response()->json([

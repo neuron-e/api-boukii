@@ -8,11 +8,13 @@ use App\Repositories\BaseRepository;
 class ClientsSchoolRepository extends BaseRepository
 {
     protected $fieldSearchable = [
-'id',
+        'id',
         'client_id',
         'school_id',
         'status_updated_at',
-        'accepted_at'
+        'accepted_at',
+        'accepts_newsletter',
+        'is_vip',
     ];
 
     public function getFieldsSearchable(): array

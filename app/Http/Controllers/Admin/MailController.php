@@ -331,33 +331,39 @@ class MailController extends AppBaseController
         foreach ($types as $type) {
             switch ($type) {
                 case 'all':
-                    $clients = Client::where('user_id', $school->user_id)
-                        ->where('accepts_newsletter', true)
-                        ->get(['first_name', 'last_name', 'email']);
+                    $clients = Client::query()
+                        ->join('clients_schools', 'clients_schools.client_id', '=', 'clients.id')
+                        ->where('clients_schools.school_id', $school->id)
+                        ->where('clients_schools.accepts_newsletter', true)
+                        ->get(['clients.first_name', 'clients.last_name', 'clients.email']);
                     $appendClients($clients);
                     break;
                 case 'active':
                     // Active clients in last 3 months (heuristic)
-                    $clients = Client::where('user_id', $school->user_id)
-                        ->where('accepts_newsletter', true)
-                        ->where('updated_at', '>=', now()->subMonths(3))
-                        ->get(['first_name', 'last_name', 'email']);
+                    $clients = Client::query()
+                        ->join('clients_schools', 'clients_schools.client_id', '=', 'clients.id')
+                        ->where('clients_schools.school_id', $school->id)
+                        ->where('clients_schools.accepts_newsletter', true)
+                        ->where('clients.updated_at', '>=', now()->subMonths(3))
+                        ->get(['clients.first_name', 'clients.last_name', 'clients.email']);
                     $appendClients($clients);
                     break;
                 case 'inactive':
-                    $clients = Client::where('user_id', $school->user_id)
-                        ->where('accepts_newsletter', true)
-                        ->where('updated_at', '<', now()->subMonths(3))
-                        ->get(['first_name', 'last_name', 'email']);
+                    $clients = Client::query()
+                        ->join('clients_schools', 'clients_schools.client_id', '=', 'clients.id')
+                        ->where('clients_schools.school_id', $school->id)
+                        ->where('clients_schools.accepts_newsletter', true)
+                        ->where('clients.updated_at', '<', now()->subMonths(3))
+                        ->get(['clients.first_name', 'clients.last_name', 'clients.email']);
                     $appendClients($clients);
                     break;
                 case 'vip':
-                    $clients = Client::where('user_id', $school->user_id)
-                        ->where('accepts_newsletter', true)
-                        ->whereHas('bookings', function ($query) {
-                            $query->where('created_at', '>=', now()->subYear());
-                        })
-                        ->get(['first_name', 'last_name', 'email']);
+                    $clients = Client::query()
+                        ->join('clients_schools', 'clients_schools.client_id', '=', 'clients.id')
+                        ->where('clients_schools.school_id', $school->id)
+                        ->where('clients_schools.accepts_newsletter', true)
+                        ->where('clients_schools.is_vip', true)
+                        ->get(['clients.first_name', 'clients.last_name', 'clients.email']);
                     $appendClients($clients);
                     break;
             }

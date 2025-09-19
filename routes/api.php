@@ -1505,6 +1505,11 @@ Route::post('/fix-booking-users', function (Illuminate\Http\Request $request) {
         // Añadir el `course_group_id` al booking
         $bookingData['course_group_id'] = $courseGroupId;
 
+        // Seguridad: nunca aceptar 'attended' desde este endpoint utilitario
+        if (array_key_exists('attended', $bookingData)) {
+            unset($bookingData['attended']);
+        }
+
         // Verificar si ya existe
         $exists = BookingUser::where([
             'school_id' => $bookingData['school_id'],
@@ -1520,7 +1525,6 @@ Route::post('/fix-booking-users', function (Illuminate\Http\Request $request) {
             'price' => $bookingData['price'],
             'currency' => $bookingData['currency'],
             'date' => $bookingData['date'],
-            'attended' => $bookingData['attended'],
         ])->exists();
 
         if ($exists) {

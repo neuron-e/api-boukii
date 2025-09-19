@@ -310,9 +310,12 @@ class NewsletterController extends AppBaseController
     {
         $school = $this->getSchool($request);
 
-        $subscribers = Client::where('user_id', $school->user_id)
-            ->where('accepts_newsletter', true)
-            ->select('id', 'first_name', 'last_name', 'email', 'created_at')
+        $subscribers = Client::query()
+            ->join('clients_schools', 'clients_schools.client_id', '=', 'clients.id')
+            ->where('clients_schools.school_id', $school->id)
+            ->where('clients_schools.accepts_newsletter', true)
+            ->select('clients.id', 'clients.first_name', 'clients.last_name', 'clients.email', 'clients.created_at')
+            ->distinct()
             ->paginate($request->get('per_page', 50));
 
         return $this->sendResponse($subscribers, 'Subscribers retrieved successfully');
@@ -329,8 +332,10 @@ class NewsletterController extends AppBaseController
     private function getRecipients($schoolId, $recipientConfig)
     {
         $school = School::find($schoolId);
-        $query = Client::where('user_id', $school->user_id)
-            ->where('accepts_newsletter', true);
+        $query = Client::query()
+            ->join('clients_schools', 'clients_schools.client_id', '=', 'clients.id')
+            ->where('clients_schools.school_id', $school->id)
+            ->where('clients_schools.accepts_newsletter', true);
 
         foreach ($recipientConfig as $type) {
             switch ($type) {
@@ -350,13 +355,13 @@ class NewsletterController extends AppBaseController
                     });
                     break;
                 case 'vip':
-                    // VIP clients
-                    $query->where('is_vip', true);
+                    // VIP clients (per school)
+                    $query->where('clients_schools.is_vip', true);
                     break;
             }
         }
 
-        return $query->distinct();
+        return $query->select('clients.*')->distinct();
     }
 
     private function sendNewsletterEmails($newsletter, $recipients): int
