@@ -368,7 +368,9 @@ class Booking extends Model
     {
         return LogOptions::defaults();
     }
-    protected $appends = []; // Temporarily disabled ['sport', 'bonus', 'payment_method_status', 'has_observations', 'cancellation_status', 'payment_method', 'grouped_activities', 'vouchers_used_amount']
+    // Expose minimal computed attributes needed by Admin tables.
+    // Keep this list short to avoid unnecessary N+1 queries.
+    protected $appends = ['sport'];
 
     public function getHasObservationsAttribute()
     {

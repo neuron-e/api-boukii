@@ -108,9 +108,36 @@ class CourseController extends SlugAuthController
 
             // Cache for 5 minutes (300 seconds) for course listings
             $courses = Cache::remember($cacheKey, 300, function() use ($type, $startDate, $endDate, $sportId, $clientId, $getLowerDegrees, $degreeOrderArray, $minAge, $maxAge, $highlighted, $today) {
+                $todayDate = now()->format('Y-m-d');
+
+                $hasCapacityOnCourseDate = function(int $courseDateId, int $courseType, int $maxParticipants): bool {
+                    // Colectivos (tipo 1): disponibilidad por subgrupos
+                    if ($courseType === 1) {
+                        return \App\Models\CourseSubgroup::where('course_date_id', $courseDateId)
+                            ->where(function($q) {
+                                $q->whereNull('max_participants')
+                                  ->orWhereRaw('course_subgroups.max_participants > (
+                                      SELECT COUNT(*) FROM booking_users
+                                      INNER JOIN bookings ON bookings.id = booking_users.booking_id
+                                      WHERE booking_users.course_subgroup_id = course_subgroups.id
+                                        AND booking_users.status = 1
+                                        AND bookings.status != 2
+                                        AND booking_users.deleted_at IS NULL
+                                  )');
+                            })
+                            ->exists();
+                    }
+                    // Privados (tipo 2): simplificación por fecha (nº reservas ese día < max)
+                    $count = \App\Models\BookingUser::where('course_date_id', $courseDateId)
+                        ->where('status', 1)
+                        ->whereHas('booking', function($q){ $q->where('status', '!=', 2); })
+                        ->count();
+                    return $count < $maxParticipants;
+                };
+
                 return Course::withAvailableDates($type, $startDate, $endDate, $sportId, $clientId, null, $getLowerDegrees,
                         $degreeOrderArray, $minAge, $maxAge)
-                        ->select(['id', 'name', 'description', 'price', 'max_participants', 'course_type', 'sport_id', 'school_id', 'highlighted', 'is_flexible', 'duration', 'image', 'price_range'])
+                        ->select(['id', 'name', 'description', 'price', 'max_participants', 'course_type', 'sport_id', 'school_id', 'highlighted', 'is_flexible', 'duration', 'image', 'price_range', 'settings'])
                         ->with([
                             'sport:id,name,icon_prive,icon_collective,icon_activity,icon_selected,icon_unselected',
                             'courseDates' => function($query) use ($startDate, $endDate) {
@@ -138,7 +165,43 @@ class CourseController extends SlugAuthController
                         })
                         ->orderBy('highlighted', 'desc')
                         ->orderBy('name')
-                        ->get();
+                        ->get()
+                        ->filter(function($course) use ($todayDate, $hasCapacityOnCourseDate) {
+                            // Si no hay settings o flag, no filtramos adicionalmente
+                            $settings = $course->settings ?? [];
+                            $mustStartFromFirst = is_array($settings) ? ($settings['mustStartFromFirst'] ?? false) : (json_decode($settings, true)['mustStartFromFirst'] ?? false);
+                            if (!$mustStartFromFirst) return true;
+
+                            // Con intervalos: al menos un intervalo con primera fecha válida y con capacidad
+                            $hasIntervals = is_array($settings) ? ($settings['multipleIntervals'] ?? false) : (json_decode($settings, true)['multipleIntervals'] ?? false);
+                            $intervals = is_array($settings) ? ($settings['intervals'] ?? []) : (json_decode($settings, true)['intervals'] ?? []);
+
+                            if ($hasIntervals && is_array($intervals) && count($intervals) > 0) {
+                                foreach ($intervals as $interval) {
+                                    $intervalId = is_array($interval) ? ($interval['id'] ?? null) : null;
+                                    if (!$intervalId) continue;
+                                    $firstDate = $course->courseDates()
+                                        ->where('active', 1)
+                                        ->where('interval_id', $intervalId)
+                                        ->orderBy('date', 'asc')
+                                        ->first();
+                                    if ($firstDate && $firstDate->date >= $todayDate && $hasCapacityOnCourseDate($firstDate->id, (int)$course->course_type, (int)$course->max_participants)) {
+                                        return true;
+                                    }
+                                }
+                                return false;
+                            }
+
+                            // Sin intervalos: primera fecha global válida y con capacidad
+                            $firstDate = $course->courseDates()
+                                ->where('active', 1)
+                                ->orderBy('date', 'asc')
+                                ->first();
+                            if (!$firstDate) return false;
+                            if ($firstDate->date < $todayDate) return false;
+                            return $hasCapacityOnCourseDate($firstDate->id, (int)$course->course_type, (int)$course->max_participants);
+                        })
+                        ->values();
             });
 
             return $this->sendResponse($courses, 'Courses retrieved successfully');
