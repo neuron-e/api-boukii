@@ -396,12 +396,12 @@ trait Utils
             preg_match('/(\d+)min/', $duration, $matches);
             $minutes = intval($matches[1]);
             return $minutes * 60;
-        } elseif (is_numeric($duration)) {            // Si el formato es solo números, asumimos que son minutos            $minutes = intval($duration);            return $minutes * 60;        } else {
+        } else {
             // Si el formato es "HH:mm:ss", convertirlo a segundos
             $time = explode(':', $duration);
             $hours = intval($time[0]);
-            $minutes = isset($time[1]) ? intval($time[1]) : 0;
-            $seconds = isset($time[2]) ? intval($time[2]) : 0;
+            $minutes = intval($time[1]);
+            $seconds = intval($time[2]);
             return ($hours * 3600) + ($minutes * 60) + $seconds;
         }
     }

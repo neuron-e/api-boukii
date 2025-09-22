@@ -56,7 +56,7 @@ class SeasonFinanceService
         $startTime = microtime(true);
         $optimizationLevel = $request->get('optimization_level', 'balanced');
 
-        Log::info('=== INICIANDO DASHBOARD EJECUTIVO ===', [
+        Log::debug('=== INICIANDO DASHBOARD EJECUTIVO ===', [
             'school_id' => $request->school_id,
             'optimization_level' => $optimizationLevel,
             'include_test_detection' => $request->boolean('include_test_detection', true),

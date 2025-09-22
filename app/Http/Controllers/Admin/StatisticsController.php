@@ -61,7 +61,7 @@ class StatisticsController extends AppBaseController
 
         $startTime = microtime(true);
 
-        Log::info('=== INICIANDO ANÁLISIS FINANCIERO COMPLETO ===', [
+        Log::debug('=== INICIANDO ANÁLISIS FINANCIERO COMPLETO ===', [
             'school_id' => $request->school_id,
             'date_range' => [$request->start_date, $request->end_date],
             'specific_bookings' => $request->booking_ids ? count($request->booking_ids) : null
@@ -113,7 +113,7 @@ class StatisticsController extends AppBaseController
 
                 // LOG PROGRESS CADA 100 RESERVAS
                 if ($processedCount % 100 === 0) {
-                    Log::info("Progreso del análisis: {$processedCount}/{$filteredBookings->count()}");
+                    Log::debug("Progreso del análisis: {$processedCount}/{$filteredBookings->count()}");
                 }
             }
 
@@ -2862,9 +2862,9 @@ class StatisticsController extends AppBaseController
 
         // Log de casos que deberían ser excluidos
         if (!empty($debugInfo['should_be_excluded'])) {
-            Log::info('=== RESERVAS QUE SERÁN EXCLUIDAS ===');
+            Log::debug('=== RESERVAS QUE SERÁN EXCLUIDAS ===');
             foreach ($debugInfo['should_be_excluded'] as $case) {
-                Log::info("Booking {$case['booking_id']} EXCLUIDA", $case);
+                Log::debug("Booking {$case['booking_id']} EXCLUIDA", $case);
             }
         }
 
@@ -2877,12 +2877,12 @@ class StatisticsController extends AppBaseController
         }
 
         // ✅ VERIFICACIÓN ADICIONAL: Revisar qué reservas llegan al análisis
-        Log::info('=== VERIFICACIÓN POST-FILTRADO ===');
+        Log::debug('=== VERIFICACIÓN POST-FILTRADO ===');
         $finalBookingIds = $bookings->pluck('id')->toArray();
         $excludedBookingIds = collect($debugInfo['should_be_excluded'])->pluck('booking_id')->toArray();
 
-        Log::info('IDs finales después del filtro: ' . implode(', ', $finalBookingIds));
-        Log::info('IDs que deberían estar excluidos: ' . implode(', ', $excludedBookingIds));
+        Log::debug('IDs finales después del filtro: ' . implode(', ', $finalBookingIds));
+        Log::debug('IDs que deberían estar excluidos: ' . implode(', ', $excludedBookingIds));
 
         // Verificar si alguna reserva excluida está en el resultado final
         $leakedIds = array_intersect($finalBookingIds, $excludedBookingIds);

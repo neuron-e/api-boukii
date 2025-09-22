@@ -484,3 +484,16 @@ if (app()->environment(['local', 'development'])) {
     });
 
 }
+
+// ===== COURSE TIMING MANAGEMENT - Admin Panel Integration =====
+Route::middleware(['auth:sanctum', 'ability:admin:all'])->group(function() {
+    Route::resource('course-timing', \App\Http\Controllers\Admin\CourseTimingController::class)
+        ->only(['index', 'store', 'show', 'update', 'destroy'])
+        ->names([
+            'index' => 'api.admin.course-timing.index',
+            'store' => 'api.admin.course-timing.store',
+            'show' => 'api.admin.course-timing.show',
+            'update' => 'api.admin.course-timing.update',
+            'destroy' => 'api.admin.course-timing.destroy',
+        ]);
+});

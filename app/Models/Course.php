@@ -637,6 +637,14 @@ class Course extends Model
                                                     $clientId = null, $degreeId = null, $getLowerDegrees = false,
                                                     $degreeOrders = null, $min_age = null, $max_age = null)
     {
+        // Add indexes for performance
+        $query->addSelect(['courses.*']);
+
+        if($sportId) {
+            $query->where('courses.sport_id', $sportId);
+        }
+
+        // Optimize client data retrieval with single query
         $clientAge = null;
         $clientDegreeOrder = null;
         $clientDegree = null;
@@ -644,38 +652,31 @@ class Course extends Model
         $clientLanguages = [];
         $clientAges = [];
 
-        if($sportId) {
-            $query->where('sport_id', $sportId);
-        }
-
-
-        // Si se proporcionó clientId, obtener los detalles del cliente
         if ($clientId) {
-            // Convertir $clientId a array si es un único valor
             $clientIds = is_array($clientId) ? $clientId : [$clientId];
 
-            foreach ($clientIds as $cId) {
-                $client = Client::find($cId);
-                if ($client) {
-                    $age = Carbon::parse($client->birth_date)->age;
-                    $clientAges[] = $age;
+            // Single query to get all client data
+            $clients = Client::whereIn('id', $clientIds)
+                ->select(['id', 'birth_date', 'language1_id', 'language2_id', 'language3_id', 'language4_id', 'language5_id', 'language6_id'])
+                ->get();
 
-                    // Si alguno de los clientes es adulto, marcar isAdultClient como true
-                    if ($age >= 18) {
-                        $isAdultClient = true;
-                    }
+            foreach ($clients as $client) {
+                $age = Carbon::parse($client->birth_date)->age;
+                $clientAges[] = $age;
 
-                    // Recolectar idiomas del cliente
-                    for ($i = 1; $i <= 6; $i++) {
-                        $languageField = 'language' . $i . '_id';
-                        if (!empty($client->$languageField) && !in_array($client->$languageField, $clientLanguages)) {
-                            $clientLanguages[] = $client->$languageField;
-                        }
+                if ($age >= 18) {
+                    $isAdultClient = true;
+                }
+
+                // Collect client languages efficiently
+                for ($i = 1; $i <= 6; $i++) {
+                    $languageField = 'language' . $i . '_id';
+                    if (!empty($client->$languageField) && !in_array($client->$languageField, $clientLanguages)) {
+                        $clientLanguages[] = $client->$languageField;
                     }
                 }
             }
 
-            // Si solo hay un cliente, mantener la variable $clientAge para compatibilidad
             if (count($clientAges) === 1) {
                 $clientAge = $clientAges[0];
             }

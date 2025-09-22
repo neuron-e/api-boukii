@@ -21,6 +21,9 @@ Route::middleware(['bookingPage'])->group(function () {
     Route::get('school', [\App\Http\Controllers\BookingPage\SchoolController::class, 'show'])
         ->name('api.bookings.school.show');
 
+    Route::get('degrees', [\App\Http\Controllers\BookingPage\SchoolController::class, 'getDegrees'])
+        ->name('api.bookings.degrees.index');
+
     /** Courses **/
     Route::get('courses', [\App\Http\Controllers\BookingPage\CourseController::class, 'index'])
         ->name('api.bookings.courses.index');

@@ -18,6 +18,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Response;
 use Validator;
 
@@ -89,36 +90,56 @@ class CourseController extends SlugAuthController
         $today = now(); // Obtener la fecha actual
 
         try {
-            $courses =
-                Course::withAvailableDates($type, $startDate, $endDate, $sportId, $clientId, null, $getLowerDegrees,
-                    $degreeOrderArray, $minAge, $maxAge)
-                    ->with('courseDates.courseGroups.courseSubgroups.monitor')
-                    ->where('school_id', $this->school->id)
-                    ->where('online', 1)
-                    ->where('active', 1)
-                    ->when(isset($highlighted), function ($query) use ($highlighted) {
-                        return $query->where('highlighted', $highlighted);
-                    })
-                    ->where(function($query) use ($today) {
-                        $query->where(function($subquery) use ($today) {
-                            $subquery->whereNull('date_start_res')
-                                ->whereNull('date_end_res');
-                        })
-                            ->orWhere(function($subquery) use ($today) {
-                                $subquery->whereDate('date_start_res', '<=', $today)
-                                    ->whereDate('date_end_res', '>=', $today);
-                            })
-                            ->orWhere(function($subquery) use ($today) {
-                                $subquery->whereDate('date_start_res', '=', $today)
-                                    ->whereNotNull('date_end_res');
-                            })
-                            ->orWhere(function($subquery) use ($today) {
-                                $subquery->whereNotNull('date_start_res')
-                                    ->whereDate('date_end_res', '=', $today);
-                            });
-                    })
+            // Create cache key based on request parameters
+            $cacheKey = sprintf(
+                'courses_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s',
+                $this->school->id,
+                $startDate,
+                $endDate,
+                $type ?? 'null',
+                $sportId ?? 'null',
+                $clientId ?? 'null',
+                $highlighted ?? 'null',
+                $minAge ?? 'null',
+                $maxAge ?? 'null',
+                implode(',', $degreeOrderArray),
+                $today->format('Y-m-d')
+            );
 
-                    ->get();
+            // Cache for 5 minutes (300 seconds) for course listings
+            $courses = Cache::remember($cacheKey, 300, function() use ($type, $startDate, $endDate, $sportId, $clientId, $getLowerDegrees, $degreeOrderArray, $minAge, $maxAge, $highlighted, $today) {
+                return Course::withAvailableDates($type, $startDate, $endDate, $sportId, $clientId, null, $getLowerDegrees,
+                        $degreeOrderArray, $minAge, $maxAge)
+                        ->select(['id', 'name', 'description', 'price', 'max_participants', 'course_type', 'sport_id', 'school_id', 'highlighted', 'is_flexible', 'duration', 'image', 'price_range'])
+                        ->with([
+                            'sport:id,name,icon_prive,icon_collective,icon_activity,icon_selected,icon_unselected',
+                            'courseDates' => function($query) use ($startDate, $endDate) {
+                                $query->select(['id', 'course_id', 'date', 'hour_start', 'hour_end'])
+                                      ->where('date', '>=', $startDate)
+                                      ->where('date', '<=', $endDate)
+                                      ->orderBy('date');
+                            }
+                        ])
+                        ->where('school_id', $this->school->id)
+                        ->where('online', 1)
+                        ->where('active', 1)
+                        ->when(isset($highlighted), function ($query) use ($highlighted) {
+                            return $query->where('highlighted', $highlighted);
+                        })
+                        ->where(function($query) use ($today) {
+                            $query->where(function($subquery) use ($today) {
+                                $subquery->whereNull('date_start_res')
+                                    ->whereNull('date_end_res');
+                            })
+                                ->orWhere(function($subquery) use ($today) {
+                                    $subquery->whereDate('date_start_res', '<=', $today)
+                                        ->whereDate('date_end_res', '>=', $today);
+                                });
+                        })
+                        ->orderBy('highlighted', 'desc')
+                        ->orderBy('name')
+                        ->get();
+            });
 
             return $this->sendResponse($courses, 'Courses retrieved successfully');
         } catch (\Exception $e) {

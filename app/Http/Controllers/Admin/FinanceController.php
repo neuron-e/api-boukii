@@ -55,7 +55,7 @@ class FinanceController extends AppBaseController
 
         $cacheKey = $this->generateCacheKeyFromRequest($request);
 
-        Log::info('=== INICIANDO DASHBOARD EJECUTIVO CON CLASIFICACIÓN ===', [
+        Log::debug('=== INICIANDO DASHBOARD EJECUTIVO CON CLASIFICACIÓN ===', [
             'school_id' => $request->school_id,
             'optimization_level' => $optimizationLevel,
             'include_test_detection' => $request->boolean('include_test_detection', true),

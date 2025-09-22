@@ -887,7 +887,7 @@ class PayrexxHelpers
     public static function getTransactionsByDateRange($schoolData, $startDate, $endDate)
     {
         try {
-            Log::info('=== INICIANDO getTransactionsByDateRange CON LÍMITES CORREGIDOS ===', [
+            Log::debug('=== INICIANDO getTransactionsByDateRange CON LÍMITES CORREGIDOS ===', [
                 'school_id' => $schoolData->id,
                 'start_date' => $startDate,
                 'end_date' => $endDate
@@ -911,7 +911,7 @@ class PayrexxHelpers
             $maxPages = 50; // Obtener hasta 2000 transacciones
             $totalFetched = 0;
 
-            Log::info('Iniciando paginación con límites correctos', [
+            Log::debug('Iniciando paginación con límites correctos', [
                 'limit_per_page' => $limit,
                 'max_pages' => $maxPages
             ]);
@@ -919,7 +919,7 @@ class PayrexxHelpers
             for ($page = 0; $page < $maxPages; $page++) {
                 $offset = $page * $limit;
 
-                Log::info("Obteniendo página " . ($page + 1), [
+                Log::debug("Obteniendo página " . ($page + 1), [
                     'offset' => $offset,
                     'limit' => $limit
                 ]);
@@ -932,13 +932,13 @@ class PayrexxHelpers
                 $pageCount = count($pageTransactions);
                 $totalFetched += $pageCount;
 
-                Log::info("Página " . ($page + 1) . " obtenida", [
+                Log::debug("Página " . ($page + 1) . " obtenida", [
                     'transactions_in_page' => $pageCount,
                     'total_fetched_so_far' => $totalFetched
                 ]);
 
                 if ($pageCount === 0) {
-                    Log::info('No hay más transacciones, terminando paginación');
+                    Log::debug('No hay más transacciones, terminando paginación');
                     break;
                 }
 
@@ -946,7 +946,7 @@ class PayrexxHelpers
                 foreach ($pageTransactions as $tx) {
                     $ref = $tx->getReferenceId();
                     if (str_contains($ref, '3075') || str_contains($ref, '3056')) {
-                        Log::info('🎯 BOOKING IMPORTANTE ENCONTRADO EN PÁGINA ' . ($page + 1), [
+                        Log::debug('🎯 BOOKING IMPORTANTE ENCONTRADO EN PÁGINA ' . ($page + 1), [
                             'reference' => $ref,
                             'amount' => $tx->getAmount() / 100,
                             'status' => $tx->getStatus(),
@@ -959,7 +959,7 @@ class PayrexxHelpers
 
                 // Si esta página tiene menos transacciones que el límite, es la última
                 if ($pageCount < $limit) {
-                    Log::info('Última página alcanzada (página incompleta)');
+                    Log::debug('Última página alcanzada (página incompleta)');
                     break;
                 }
             }
@@ -1016,7 +1016,7 @@ class PayrexxHelpers
 
                 // SKIP SI YA PROCESAMOS ESTE REFERENCE
                 if (in_array($reference, $processedReferences)) {
-                    Log::info("Reference {$reference} ya procesado, saltando duplicado");
+                    Log::debug("Reference {$reference} ya procesado, saltando duplicado");
                     continue;
                 }
 
@@ -1074,7 +1074,7 @@ class PayrexxHelpers
                 if ($startDate && $endDate) {
                     if ($txDate->lt($startDateTime) || $txDate->gt($endDateTime)) {
                         if (str_contains($reference, '3075') || str_contains($reference, '3056')) {
-                            Log::info("Transacción {$reference} FILTRADA POR FECHA", [
+                            Log::debug("Transacción {$reference} FILTRADA POR FECHA", [
                                 'tx_date' => $txDate->format('Y-m-d H:i:s'),
                                 'start_range' => $startDateTime->format('Y-m-d H:i:s'),
                                 'end_range' => $endDateTime->format('Y-m-d H:i:s')
@@ -1151,7 +1151,7 @@ class PayrexxHelpers
 
                 // Solo agregar si encontramos transacciones válidas
                 if ($transactionCount > 0) {
-                    Log::info("PROCESANDO REFERENCE {$reference}", [
+                    Log::debug("PROCESANDO REFERENCE {$reference}", [
                         'transactions_found' => $transactionCount,
                         'total_amount' => $totalAmount,
                         'transaction_ids' => $allTransactionIds

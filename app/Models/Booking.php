@@ -995,6 +995,9 @@ class Booking extends Model
         // Recorrer los bookingUsers para agrupar según el tipo de curso
         foreach ($bookingUsers as $bookingUser) {
             $course = $bookingUser->course;
+            if (!$course) {
+                continue;
+            }
             $groupKey = null;
 
             // Si el curso es de tipo 1, agrupar por course_id y client_id
