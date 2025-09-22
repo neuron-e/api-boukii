@@ -14,7 +14,6 @@ use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Response;
 use Validator;
@@ -28,7 +27,6 @@ use Validator;
 
 class PlannerController extends AppBaseController
 {
-    const CACHE_TTL = 600; // 10 minutes
 
     public function __construct()
     {
@@ -81,20 +79,6 @@ class PlannerController extends AppBaseController
     public function getPlanner(Request $request): JsonResponse
     {
         $schoolId = $this->getSchool($request)->id;
-/*        $cacheKey = 'planner_' . md5(json_encode([
-            'school_id'  => $schoolId,
-            'date_start' => $request->input('date_start'),
-            'date_end'   => $request->input('date_end'),
-            'monitor_id' => $request->input('monitor_id'),
-            'languages'  => $request->input('languages'),
-        ]));
-
-        $ttl = config('app.planner_cache_ttl', self::CACHE_TTL);
-
-        $data = Cache::remember($cacheKey, $ttl, function () use ($request) {
-            return $this->performPlannerQuery($request);
-        });*/
-
         return $this->sendResponse($this->performPlannerQuery($request), 'Planner retrieved successfully');
     }
 
