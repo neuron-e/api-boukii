@@ -295,9 +295,15 @@ class MailController extends AppBaseController
     private function getNewsletterRecipients($newsletter, $school)
     {
         $recipients = [];
-        $config = json_decode($newsletter->recipients_config, true);
+        // recipients_config is cast to array in the Newsletter model.
+        // Only json_decode if it's a string; otherwise use as-is.
+        $config = $newsletter->recipients_config;
+        if (is_string($config)) {
+            $decoded = json_decode($config, true);
+            $config = $decoded !== null ? $decoded : [];
+        }
 
-        if (!$config) {
+        if (empty($config)) {
             return $recipients;
         }
 
@@ -305,11 +311,11 @@ class MailController extends AppBaseController
         $types = [];
         if (is_array($config)) {
             if (array_keys($config) !== range(0, count($config) - 1)) {
-                // associative
+                // associative structure like { type: 'all' } or { type: ['all','active'] }
                 $val = $config['type'] ?? 'all';
                 $types = is_array($val) ? $val : [$val];
             } else {
-                // indexed array of types
+                // already an indexed array of types e.g. ['all', 'active']
                 $types = $config;
             }
         } else {
