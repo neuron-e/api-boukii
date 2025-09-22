@@ -381,7 +381,8 @@ class CourseController extends AppBaseController
             if (!is_array($settings)) {
                 $settings = []; // Si no es un array válido, inicializamos uno vacío
             }
-            $weekDays = $settings ? $settings['weekDays'] : null;
+            // Safely read weekDays; may be absent
+            $weekDays = $settings['weekDays'] ?? null;
 
             if ($course->course_type != 1) {
                 $periods = [];
@@ -511,7 +512,7 @@ class CourseController extends AppBaseController
         return $hours > 0 ? "{$hours}h {$minutes}min" : "{$minutes}min";
     }
 
-    private function generateCourseDates(array $courseDates, array $weekDays)
+    private function generateCourseDates(array $courseDates, ?array $weekDays)
     {
         $generatedDates = [];
         $weekDaysMap = [
@@ -529,22 +530,36 @@ class CourseController extends AppBaseController
             $endDate = new Carbon($dateInfo['date_end']);
             $hourStart = $dateInfo['hour_start'];
             $hourEnd = $dateInfo['hour_end'];
+            $applyWeekdayFilter = is_array($weekDays) && count(array_filter($weekDays)) > 0;
 
             while ($startDate->lte($endDate)) {
                 $dayOfWeek = $startDate->dayOfWeekIso; // 1 (Lunes) - 7 (Domingo)
 
-                foreach ($weekDays as $day => $isActive) {
-                    if ($isActive && $weekDaysMap[$day] == $dayOfWeek) {
-                        $generatedDates[] = [
-                            'date' => $startDate->toDateString(),
-                            'hour_start' => $hourStart,
-                            'hour_end' => $hourEnd,
-                            'duration' => array_key_exists('duration', $dateInfo) ? $dateInfo['duration'] : $this->calculateDuration($hourStart, $hourEnd),
-                            'date_end' => $startDate->toDateString(), // Ajustar si es necesario
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ];
+                if ($applyWeekdayFilter) {
+                    foreach ($weekDays as $day => $isActive) {
+                        if ($isActive && ($weekDaysMap[$day] ?? null) == $dayOfWeek) {
+                            $generatedDates[] = [
+                                'date' => $startDate->toDateString(),
+                                'hour_start' => $hourStart,
+                                'hour_end' => $hourEnd,
+                                'duration' => array_key_exists('duration', $dateInfo) ? $dateInfo['duration'] : $this->calculateDuration($hourStart, $hourEnd),
+                                'date_end' => $startDate->toDateString(), // Ajustar si es necesario
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ];
+                        }
                     }
+                } else {
+                    // No weekdays specified: include every day in the range
+                    $generatedDates[] = [
+                        'date' => $startDate->toDateString(),
+                        'hour_start' => $hourStart,
+                        'hour_end' => $hourEnd,
+                        'duration' => array_key_exists('duration', $dateInfo) ? $dateInfo['duration'] : $this->calculateDuration($hourStart, $hourEnd),
+                        'date_end' => $startDate->toDateString(), // Ajustar si es necesario
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
                 }
 
                 $startDate->addDay();
@@ -691,7 +706,8 @@ class CourseController extends AppBaseController
             if (!is_array($settings)) {
                 $settings = []; // Si no es un array válido, inicializamos uno vacío
             }
-            $weekDays = $settings ? $settings['weekDays'] : null;
+            // Safely read weekDays; may be absent
+            $weekDays = $settings['weekDays'] ?? null;
             if ($course->course_type != 1 && isset($courseData['course_dates'])) {
                 $existingDates = $course->courseDates()->pluck('date')->toArray();
                 $newDates = $this->generateCourseDates($courseData['course_dates'], $weekDays);

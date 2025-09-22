@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
-use App\Mail\NewsletterMailer;
+use AppMailNewsletterMailer;
 
 class NewsletterController extends AppBaseController
 {
@@ -368,15 +368,30 @@ class NewsletterController extends AppBaseController
     private function sendNewsletterEmails($newsletter, $recipients): int
     {
         $sentCount = 0;
-        $school = School::find($newsletter->school_id);
 
         foreach ($recipients->get() as $recipient) {
             try {
-                // Use the new Mailable class like the booking emails
-                $newsletterMailer = new NewsletterMailer($newsletter, $recipient, $school);
+                // Determine locale for recipient (fallback to app locale)
+                $recipient->loadMissing('language1', 'language2', 'language3');
+                $locale = ($recipient->language1?->code)
+                    ?? ($recipient->language2?->code)
+                    ?? ($recipient->language3?->code)
+                    ?? config('app.locale', 'en');
 
-                // Send the email using the same pattern as booking emails
-                Mail::send($newsletterMailer);
+                app()->setLocale($locale);
+
+                // Send the actual email
+                Mail::send('emails.newsletter', [
+                    'content' => $newsletter->content,
+                    'subject' => $newsletter->subject,
+                    'client' => $recipient,
+                    'newsletter' => $newsletter,
+                    'locale' => $locale,
+                ], function ($message) use ($recipient, $newsletter) {
+                    $message->to($recipient->email, $recipient->first_name . ' ' . $recipient->last_name)
+                            ->subject($newsletter->subject)
+                            ->from(config('mail.from.address'), config('mail.from.name'));
+                });
 
                 $sentCount++;
             } catch (\Exception $e) {
