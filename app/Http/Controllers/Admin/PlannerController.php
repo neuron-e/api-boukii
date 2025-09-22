@@ -81,7 +81,7 @@ class PlannerController extends AppBaseController
     public function getPlanner(Request $request): JsonResponse
     {
         $schoolId = $this->getSchool($request)->id;
-        $cacheKey = 'planner_' . md5(json_encode([
+/*        $cacheKey = 'planner_' . md5(json_encode([
             'school_id'  => $schoolId,
             'date_start' => $request->input('date_start'),
             'date_end'   => $request->input('date_end'),
@@ -93,9 +93,9 @@ class PlannerController extends AppBaseController
 
         $data = Cache::remember($cacheKey, $ttl, function () use ($request) {
             return $this->performPlannerQuery($request);
-        });
+        });*/
 
-        return $this->sendResponse($data, 'Planner retrieved successfully');
+        return $this->sendResponse($this->performPlannerQuery($request), 'Planner retrieved successfully');
     }
 
     public function performPlannerQuery(Request $request): \Illuminate\Support\Collection
