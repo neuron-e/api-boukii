@@ -126,6 +126,35 @@ class BookingController extends AppBaseController
         //TODO: Check OVERLAP
         $data = $request->all();
 
+        // VALIDACIÓN CRÍTICA: Verificar coherencia cliente-participantes
+        if (isset($data['client_main_id']) && isset($data['cart'])) {
+            $clientMainId = $data['client_main_id'];
+            $mainClient = Client::with('utilizers')->find($clientMainId);
+
+            if (!$mainClient) {
+                return $this->sendError('Cliente principal no encontrado');
+            }
+
+            // Obtener IDs válidos: cliente principal + sus utilizers
+            $validClientIds = [$clientMainId];
+            foreach ($mainClient->utilizers as $utilizer) {
+                $validClientIds[] = $utilizer->id;
+            }
+
+            // Verificar que todos los participantes sean válidos
+            foreach ($data['cart'] as $cartItem) {
+                if (!in_array($cartItem['client_id'], $validClientIds)) {
+                    $invalidClient = Client::find($cartItem['client_id']);
+                    return $this->sendError(
+                        'Error de coherencia: El participante ' .
+                        ($invalidClient->first_name ?? 'ID:' . $cartItem['client_id']) . ' ' .
+                        ($invalidClient->last_name ?? '') .
+                        ' no pertenece al cliente principal ' . $mainClient->first_name . ' ' . $mainClient->last_name
+                    );
+                }
+            }
+        }
+
         $basketData = $this->createBasket($data);
 
         $basketJson = json_encode($basketData); // Asegúrate de que no haya problemas con la conversión a JSON
