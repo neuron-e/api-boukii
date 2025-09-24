@@ -62,7 +62,7 @@ trait Utils
                 // Calcular usando agregados directos para evitar inconsistencias de relaciones
                 $dateIds = $dates->pluck('id')->all();
                 if (!empty($dateIds)) {
-                    // Reservas activas en las fechas del curso
+                    // Para cursos flexibles: cada entrada de booking_user cuenta como una reserva individual
                     $totalBookingsPlaces = DB::table('booking_users')
                         ->join('bookings','bookings.id','=','booking_users.booking_id')
                         ->where('booking_users.course_id', $course->id)
@@ -106,8 +106,10 @@ trait Utils
                             ->when($onlyWeekends, fn($q) => $q->onlyWeekends())
                             ->get();
 
-                        // Contabilizar reservas totales (no promedio por fecha)
-                        $totalBookingsPlaces += $bookings->count();
+                        // Para cursos FIJOS: contar reservas únicas por booking_id, no entradas individuales
+                        // Un cliente que reserva un curso fijo tiene 1 reserva pero múltiples booking_users (uno por fecha)
+                        $uniqueBookings = $bookings->unique('booking_id');
+                        $totalBookingsPlaces += $uniqueBookings->count();
 
                         // Para cursos NO flexibles, la capacidad es la de un dÃ­a/tanda (no multiplicar por nÂº de fechas)
                         $firstSub = $firstDate->courseSubgroups->first();
