@@ -15,6 +15,8 @@ use App\Traits\Utils;
 use App\Models\BookingUser;
 use App\Models\Course;
 use App\Models\Monitor;
+use App\Models\CourseSubgroup;
+use Illuminate\Support\Facades\Cache;
 
 
 /**
@@ -1796,5 +1798,732 @@ ORDER BY sub.period ASC";
             Log::error('Payment Details Error: ' , $e->getTrace());
             return $this->sendError('Error retrieving payment details', 500);
         }
+    }
+
+    // ==================== NUEVOS ENDPOINTS PARA ANALYTICS Y MONITORING ====================
+
+    /**
+     * ENDPOINT PRINCIPAL: Recibir eventos de analytics del frontend
+     * POST /admin/analytics/events
+     */
+    public function storeAnalyticsEvents(Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'events' => 'required|array|min:1|max:100',
+                'events.*.category' => 'required|in:booking,navigation,interaction,error,performance,system',
+                'events.*.action' => 'required|string|max:100',
+                'events.*.timestamp' => 'required|integer',
+                'events.*.sessionId' => 'required|string|max:100',
+                'events.*.metadata' => 'nullable|array'
+            ]);
+
+            $events = $request->input('events');
+            $processedCount = 0;
+            $criticalEvents = 0;
+
+            foreach ($events as $event) {
+                try {
+                    // Enriquecer evento con información del servidor
+                    $enrichedEvent = $this->enrichAnalyticsEvent($event, $request);
+
+                    // Almacenar evento
+                    $this->storeAnalyticsEvent($enrichedEvent);
+                    $processedCount++;
+
+                    // Analizar evento crítico inmediatamente
+                    if ($this->isCriticalEvent($event)) {
+                        $this->processCriticalEvent($enrichedEvent);
+                        $criticalEvents++;
+                    }
+
+                    // Actualizar métricas en tiempo real
+                    $this->updateRealTimeMetrics($event);
+
+                } catch (\Exception $e) {
+                    Log::error('ANALYTICS_EVENT_PROCESSING_FAILED', [
+                        'event' => $event,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                }
+            }
+
+            Log::info('ANALYTICS_EVENTS_BATCH_PROCESSED', [
+                'total_events' => count($events),
+                'processed_count' => $processedCount,
+                'critical_events' => $criticalEvents,
+                'session_id' => $request->input('events.0.sessionId')
+            ]);
+
+            return $this->sendResponse([
+                'processed' => $processedCount,
+                'critical' => $criticalEvents,
+                'message' => "Procesados {$processedCount} eventos correctamente"
+            ], 'Eventos de analytics procesados exitosamente');
+
+        } catch (\Exception $e) {
+            Log::error('ANALYTICS_BATCH_FAILED', [
+                'error' => $e->getMessage(),
+                'request_data' => $request->all()
+            ]);
+
+            return $this->sendError('Error procesando eventos de analytics', 500);
+        }
+    }
+
+    /**
+     * MEJORA CRÍTICA: Dashboard de métricas en tiempo real
+     * GET /admin/analytics/dashboard
+     */
+    public function getAnalyticsDashboard(Request $request): JsonResponse
+    {
+        try {
+            $cacheKey = 'admin_analytics_dashboard_metrics';
+            $metrics = Cache::remember($cacheKey, 60, function () {
+                return $this->computeAnalyticsDashboardMetrics();
+            });
+
+            return $this->sendResponse($metrics, 'Dashboard de analytics obtenido exitosamente');
+
+        } catch (\Exception $e) {
+            Log::error('ANALYTICS_DASHBOARD_FAILED', [
+                'error' => $e->getMessage()
+            ]);
+
+            return $this->sendError('Error generando dashboard de analytics', 500);
+        }
+    }
+
+    /**
+     * MEJORA CRÍTICA: Generar reporte detallado de analytics
+     * POST /admin/analytics/report
+     */
+    public function generateAnalyticsReport(Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'start_date' => 'required|date',
+                'end_date' => 'required|date|after_or_equal:start_date',
+                'category' => 'nullable|in:booking,navigation,interaction,error,performance,system',
+                'severity' => 'nullable|in:info,warning,critical',
+                'userId' => 'nullable|integer'
+            ]);
+
+            $startDate = Carbon::parse($request->start_date);
+            $endDate = Carbon::parse($request->end_date);
+
+            // Limitar rango máximo a 30 días para performance
+            if ($startDate->diffInDays($endDate) > 30) {
+                return $this->sendError('El rango máximo es de 30 días', 400);
+            }
+
+            $report = $this->generateDetailedAnalyticsReport([
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'category' => $request->category,
+                'severity' => $request->severity,
+                'userId' => $request->userId
+            ]);
+
+            Log::info('ANALYTICS_REPORT_GENERATED', [
+                'start_date' => $startDate->toDateString(),
+                'end_date' => $endDate->toDateString(),
+                'total_events' => $report['summary']['total_events']
+            ]);
+
+            return $this->sendResponse($report, 'Reporte de analytics generado exitosamente');
+
+        } catch (\Exception $e) {
+            Log::error('ANALYTICS_REPORT_FAILED', [
+                'error' => $e->getMessage(),
+                'request_data' => $request->all()
+            ]);
+
+            return $this->sendError('Error generando reporte de analytics', 500);
+        }
+    }
+
+    /**
+     * MEJORA CRÍTICA: Obtener eventos críticos recientes
+     * GET /admin/analytics/critical-events
+     */
+    public function getCriticalAnalyticsEvents(Request $request): JsonResponse
+    {
+        try {
+            $limit = min($request->input('limit', 50), 100);
+
+            $events = $this->getStoredCriticalEvents($limit);
+
+            return $this->sendResponse([
+                'events' => $events,
+                'count' => count($events)
+            ], 'Eventos críticos obtenidos exitosamente');
+
+        } catch (\Exception $e) {
+            Log::error('ANALYTICS_CRITICAL_EVENTS_FAILED', [
+                'error' => $e->getMessage()
+            ]);
+
+            return $this->sendError('Error obteniendo eventos críticos', 500);
+        }
+    }
+
+    /**
+     * MEJORA CRÍTICA: Recibir alerta crítica del frontend
+     * POST /admin/analytics/critical-alert
+     */
+    public function storeCriticalAlert(Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'type' => 'required|in:error,performance,capacity,system',
+                'severity' => 'required|in:info,warning,critical',
+                'message' => 'required|string|max:500',
+                'metadata' => 'nullable|array'
+            ]);
+
+            $alert = [
+                'type' => $request->type,
+                'severity' => $request->severity,
+                'message' => $request->message,
+                'metadata' => $request->metadata,
+                'timestamp' => now(),
+                'source' => 'frontend',
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent()
+            ];
+
+            // Almacenar alerta
+            $this->storeCriticalAlertData($alert);
+
+            // Si es crítica, enviar notificaciones inmediatas
+            if ($request->severity === 'critical') {
+                $this->sendCriticalAlertNotifications($alert);
+            }
+
+            Log::warning('CRITICAL_ALERT_RECEIVED', $alert);
+
+            return $this->sendResponse([
+                'message' => 'Alerta crítica procesada'
+            ], 'Alerta crítica procesada exitosamente');
+
+        } catch (\Exception $e) {
+            Log::error('CRITICAL_ALERT_FAILED', [
+                'error' => $e->getMessage(),
+                'request_data' => $request->all()
+            ]);
+
+            return $this->sendError('Error procesando alerta crítica', 500);
+        }
+    }
+
+    /**
+     * MEJORA CRÍTICA: Métricas de sistema en tiempo real
+     * GET /admin/analytics/system-health
+     */
+    public function getSystemHealthMetrics(Request $request): JsonResponse
+    {
+        try {
+            $health = Cache::remember('system_health_analytics', 30, function () {
+                return $this->computeSystemHealthMetrics();
+            });
+
+            return $this->sendResponse($health, 'Métricas de salud del sistema obtenidas exitosamente');
+
+        } catch (\Exception $e) {
+            Log::error('SYSTEM_HEALTH_FAILED', [
+                'error' => $e->getMessage()
+            ]);
+
+            return $this->sendError('Error obteniendo salud del sistema', 500);
+        }
+    }
+
+    // ==================== MÉTODOS PRIVADOS DE SOPORTE PARA ANALYTICS ====================
+
+    private function enrichAnalyticsEvent(array $event, Request $request): array
+    {
+        return array_merge($event, [
+            'server_timestamp' => now(),
+            'ip_address' => $request->ip(),
+            'user_agent_server' => $request->userAgent(),
+            'referer' => $request->header('referer'),
+            'environment' => app()->environment(),
+            'app_version' => config('app.version', '2.0.0')
+        ]);
+    }
+
+    private function isCriticalEvent(array $event): bool
+    {
+        return $event['category'] === 'error' ||
+               ($event['category'] === 'performance' && isset($event['value']) && $event['value'] > 5000) ||
+               (isset($event['critical']) && $event['critical'] === true);
+    }
+
+    private function storeAnalyticsEvent(array $event): void
+    {
+        // Almacenar en tabla analytics_events
+        DB::table('analytics_events')->insert([
+            'event_id' => $event['id'] ?? uniqid('evt_'),
+            'category' => $event['category'],
+            'action' => $event['action'],
+            'label' => $event['label'] ?? null,
+            'value' => $event['value'] ?? null,
+            'critical' => $event['critical'] ?? false,
+            'session_id' => $event['sessionId'],
+            'user_id' => $event['userId'] ?? null,
+            'user_agent' => $event['userAgent'] ?? null,
+            'url' => $event['url'] ?? null,
+            'ip_address' => $event['ip_address'] ?? null,
+            'metadata' => json_encode($event['metadata'] ?? []),
+            'timestamp' => Carbon::createFromTimestamp($event['timestamp'] / 1000),
+            'created_at' => now(),
+            'updated_at' => now()
+        ]);
+    }
+
+    private function processCriticalEvent(array $event): void
+    {
+        // Crear alerta automática para eventos críticos
+        $alertMessage = $this->generateAlertMessage($event);
+
+        $this->storeCriticalAlertData([
+            'type' => $event['category'],
+            'severity' => 'critical',
+            'message' => $alertMessage,
+            'metadata' => array_merge($event['metadata'] ?? [], [
+                'auto_generated' => true,
+                'source_event' => $event['action']
+            ])
+        ]);
+    }
+
+    private function generateAlertMessage(array $event): string
+    {
+        switch ($event['category']) {
+            case 'error':
+                return "Error crítico detectado: {$event['action']} - {$event['label']}";
+            case 'performance':
+                return "Performance crítica: {$event['action']} tardó {$event['value']}ms";
+            default:
+                return "Evento crítico: {$event['category']} - {$event['action']}";
+        }
+    }
+
+    private function updateRealTimeMetrics(array $event): void
+    {
+        if ($event['category'] === 'booking') {
+            $this->updateBookingAnalyticsMetrics($event);
+        }
+
+        if ($event['category'] === 'performance') {
+            $this->updatePerformanceAnalyticsMetrics($event);
+        }
+
+        if ($event['category'] === 'error') {
+            $this->updateErrorAnalyticsMetrics($event);
+        }
+    }
+
+    private function updateBookingAnalyticsMetrics(array $event): void
+    {
+        $key = 'booking_analytics_metrics';
+        $metrics = Cache::get($key, [
+            'total_today' => 0,
+            'successful_today' => 0,
+            'failed_today' => 0,
+            'last_updated' => now()
+        ]);
+
+        switch ($event['action']) {
+            case 'booking_completed':
+                $metrics['successful_today']++;
+                break;
+            case 'booking_failed':
+                $metrics['failed_today']++;
+                break;
+        }
+
+        $metrics['total_today'] = $metrics['successful_today'] + $metrics['failed_today'];
+        $metrics['last_updated'] = now();
+
+        Cache::put($key, $metrics, 3600);
+    }
+
+    private function updatePerformanceAnalyticsMetrics(array $event): void
+    {
+        $key = 'performance_analytics_metrics';
+        $metrics = Cache::get($key, [
+            'average_response_time' => 0,
+            'slow_requests_count' => 0,
+            'last_updated' => now()
+        ]);
+
+        if (isset($event['value'])) {
+            $currentAvg = $metrics['average_response_time'];
+            $metrics['average_response_time'] = ($currentAvg + $event['value']) / 2;
+
+            if ($event['value'] > 3000) {
+                $metrics['slow_requests_count']++;
+            }
+        }
+
+        $metrics['last_updated'] = now();
+        Cache::put($key, $metrics, 3600);
+    }
+
+    private function updateErrorAnalyticsMetrics(array $event): void
+    {
+        $key = 'error_analytics_metrics';
+        $metrics = Cache::get($key, [
+            'total_errors_today' => 0,
+            'critical_errors_today' => 0,
+            'last_updated' => now()
+        ]);
+
+        $metrics['total_errors_today']++;
+
+        if ($this->isCriticalEvent($event)) {
+            $metrics['critical_errors_today']++;
+        }
+
+        $metrics['last_updated'] = now();
+        Cache::put($key, $metrics, 3600);
+    }
+
+    private function computeAnalyticsDashboardMetrics(): array
+    {
+        $bookingMetrics = $this->getAnalyticsBookingMetrics();
+        $systemMetrics = $this->computeSystemHealthMetrics();
+        $errorMetrics = $this->getAnalyticsErrorMetrics();
+        $performanceMetrics = $this->getAnalyticsPerformanceMetrics();
+
+        return [
+            'system_health' => $systemMetrics,
+            'booking_metrics' => $bookingMetrics,
+            'error_metrics' => $errorMetrics,
+            'performance_metrics' => $performanceMetrics,
+            'top_errors' => $this->getTopAnalyticsErrors(),
+            'slowest_operations' => $this->getSlowestAnalyticsOperations(),
+            'user_activity' => $this->getUserAnalyticsActivity(),
+            'computed_at' => now()
+        ];
+    }
+
+    private function getAnalyticsBookingMetrics(): array
+    {
+        $today = Carbon::today();
+
+        return [
+            'total_bookings_today' => Booking::whereDate('created_at', $today)->count(),
+            'successful_bookings_today' => Booking::whereDate('created_at', $today)
+                ->where('status', '!=', 2)->count(),
+            'failed_bookings_today' => Booking::whereDate('created_at', $today)
+                ->where('status', 2)->count(),
+            'average_completion_time' => $this->getAverageAnalyticsBookingTime(),
+            'concurrent_bookings' => $this->getConcurrentAnalyticsBookings(),
+            'capacity_utilization' => $this->getAnalyticsCapacityUtilization(),
+            'last_updated' => now()
+        ];
+    }
+
+    private function computeSystemHealthMetrics(): array
+    {
+        $dbResponseTime = $this->measureDatabaseResponseTime();
+        $activeUsers = $this->getActiveAnalyticsUsers();
+        $errorRate = $this->calculateAnalyticsErrorRate();
+
+        $status = 'healthy';
+        if ($dbResponseTime > 1000 || $errorRate > 10) {
+            $status = 'degraded';
+        }
+        if ($dbResponseTime > 3000 || $errorRate > 25) {
+            $status = 'unhealthy';
+        }
+
+        return [
+            'status' => $status,
+            'response_time' => $dbResponseTime,
+            'error_rate' => $errorRate,
+            'active_users' => $activeUsers,
+            'memory_usage' => memory_get_usage(true),
+            'last_updated' => now()
+        ];
+    }
+
+    private function measureDatabaseResponseTime(): float
+    {
+        $start = microtime(true);
+        DB::select('SELECT 1');
+        return (microtime(true) - $start) * 1000;
+    }
+
+    private function getActiveAnalyticsUsers(): int
+    {
+        return Cache::remember('active_analytics_users', 300, function () {
+            return DB::table('analytics_events')
+                ->where('timestamp', '>', now()->subMinutes(15))
+                ->distinct('user_id')
+                ->count();
+        });
+    }
+
+    private function calculateAnalyticsErrorRate(): float
+    {
+        $totalRequests = Cache::get('total_analytics_requests_hour', 1);
+        $errorRequests = Cache::get('error_analytics_requests_hour', 0);
+
+        return $totalRequests > 0 ? ($errorRequests / $totalRequests) * 100 : 0;
+    }
+
+    private function getAverageAnalyticsBookingTime(): float
+    {
+        return Cache::remember('avg_analytics_booking_time', 600, function () {
+            return DB::table('analytics_events')
+                ->where('category', 'booking')
+                ->where('action', 'booking_completed')
+                ->where('timestamp', '>', now()->subHours(24))
+                ->avg(DB::raw('CAST(JSON_EXTRACT(metadata, "$.completion_time") AS DECIMAL(10,2))')) ?? 0;
+        });
+    }
+
+    private function getConcurrentAnalyticsBookings(): int
+    {
+        return Cache::remember('concurrent_analytics_bookings', 60, function () {
+            return DB::table('analytics_events')
+                ->where('category', 'booking')
+                ->where('action', 'booking_started')
+                ->where('timestamp', '>', now()->subMinutes(5))
+                ->count();
+        });
+    }
+
+    private function getAnalyticsCapacityUtilization(): float
+    {
+        return Cache::remember('analytics_capacity_utilization', 300, function () {
+            $totalCapacity = CourseSubgroup::sum('max_participants');
+            $usedCapacity = BookingUser::whereHas('booking', function ($query) {
+                $query->where('status', '!=', 2);
+            })->count();
+
+            return $totalCapacity > 0 ? ($usedCapacity / $totalCapacity) * 100 : 0;
+        });
+    }
+
+    private function getAnalyticsErrorMetrics(): array
+    {
+        $today = Carbon::today();
+
+        return Cache::remember('analytics_error_metrics', 300, function () use ($today) {
+            return [
+                'total_errors_today' => DB::table('analytics_events')
+                    ->where('category', 'error')
+                    ->whereDate('created_at', $today)
+                    ->count(),
+                'critical_errors_today' => DB::table('analytics_events')
+                    ->where('category', 'error')
+                    ->where('critical', true)
+                    ->whereDate('created_at', $today)
+                    ->count(),
+                'error_rate_trend' => $this->getAnalyticsErrorTrend(),
+                'most_common_error' => $this->getMostCommonAnalyticsError()
+            ];
+        });
+    }
+
+    private function getAnalyticsPerformanceMetrics(): array
+    {
+        return Cache::remember('analytics_performance_metrics', 300, function () {
+            return [
+                'average_response_time' => DB::table('analytics_events')
+                    ->where('category', 'performance')
+                    ->where('timestamp', '>', now()->subHour())
+                    ->avg('value') ?? 0,
+                'slow_requests_count' => DB::table('analytics_events')
+                    ->where('category', 'performance')
+                    ->where('value', '>', 3000)
+                    ->where('timestamp', '>', now()->subHour())
+                    ->count(),
+                'performance_trend' => $this->getAnalyticsPerformanceTrend()
+            ];
+        });
+    }
+
+    private function getTopAnalyticsErrors(): array
+    {
+        return Cache::remember('top_analytics_errors', 600, function () {
+            return DB::table('analytics_events')
+                ->select('action as error', DB::raw('COUNT(*) as count'))
+                ->where('category', 'error')
+                ->where('timestamp', '>', now()->subHours(24))
+                ->groupBy('action')
+                ->orderByDesc('count')
+                ->limit(10)
+                ->get()
+                ->toArray();
+        });
+    }
+
+    private function getSlowestAnalyticsOperations(): array
+    {
+        return Cache::remember('slowest_analytics_operations', 600, function () {
+            return DB::table('analytics_events')
+                ->select('action as operation', DB::raw('AVG(value) as avg_time'))
+                ->where('category', 'performance')
+                ->where('timestamp', '>', now()->subHours(24))
+                ->groupBy('action')
+                ->orderByDesc('avg_time')
+                ->limit(10)
+                ->get()
+                ->toArray();
+        });
+    }
+
+    private function getUserAnalyticsActivity(): array
+    {
+        return Cache::remember('user_analytics_activity', 600, function () {
+            $hours = [];
+            for ($i = 23; $i >= 0; $i--) {
+                $hour = now()->subHours($i)->format('H');
+                $users = DB::table('analytics_events')
+                    ->whereBetween('timestamp', [
+                        now()->subHours($i + 1),
+                        now()->subHours($i)
+                    ])
+                    ->distinct('user_id')
+                    ->count();
+
+                $hours[] = ['hour' => (int)$hour, 'users' => $users];
+            }
+            return $hours;
+        });
+    }
+
+    private function getAnalyticsErrorTrend(): array
+    {
+        return Cache::remember('analytics_error_trend', 600, function () {
+            $trend = [];
+            for ($i = 11; $i >= 0; $i--) {
+                $hour = now()->subHours($i);
+                $totalRequests = DB::table('analytics_events')
+                    ->whereBetween('timestamp', [
+                        $hour,
+                        $hour->copy()->addHour()
+                    ])
+                    ->count();
+
+                $errorRequests = DB::table('analytics_events')
+                    ->where('category', 'error')
+                    ->whereBetween('timestamp', [
+                        $hour,
+                        $hour->copy()->addHour()
+                    ])
+                    ->count();
+
+                $rate = $totalRequests > 0 ? ($errorRequests / $totalRequests) * 100 : 0;
+                $trend[] = ['hour' => $hour->format('H'), 'rate' => $rate];
+            }
+            return $trend;
+        });
+    }
+
+    private function getMostCommonAnalyticsError(): ?string
+    {
+        return Cache::remember('most_common_analytics_error', 600, function () {
+            return DB::table('analytics_events')
+                ->where('category', 'error')
+                ->where('timestamp', '>', now()->subHours(24))
+                ->groupBy('action')
+                ->orderByDesc(DB::raw('COUNT(*)'))
+                ->value('action');
+        });
+    }
+
+    private function getAnalyticsPerformanceTrend(): array
+    {
+        return Cache::remember('analytics_performance_trend', 600, function () {
+            $trend = [];
+            for ($i = 11; $i >= 0; $i--) {
+                $hour = now()->subHours($i);
+                $avgTime = DB::table('analytics_events')
+                    ->where('category', 'performance')
+                    ->whereBetween('timestamp', [
+                        $hour,
+                        $hour->copy()->addHour()
+                    ])
+                    ->avg('value') ?? 0;
+
+                $trend[] = ['hour' => $hour->format('H'), 'avg_time' => $avgTime];
+            }
+            return $trend;
+        });
+    }
+
+    private function generateDetailedAnalyticsReport(array $params): array
+    {
+        $events = DB::table('analytics_events')
+            ->whereBetween('timestamp', [$params['start_date'], $params['end_date']]);
+
+        if ($params['category']) {
+            $events->where('category', $params['category']);
+        }
+
+        if ($params['userId']) {
+            $events->where('user_id', $params['userId']);
+        }
+
+        $eventsData = $events->get();
+
+        $summary = [
+            'total_events' => $eventsData->count(),
+            'error_rate' => $eventsData->where('category', 'error')->count() / max($eventsData->count(), 1) * 100,
+            'average_response_time' => $eventsData->where('category', 'performance')->avg('value') ?? 0,
+            'top_errors' => $this->getTopAnalyticsErrors()
+        ];
+
+        return [
+            'summary' => $summary,
+            'details' => $eventsData->toArray(),
+            'time_range' => $params,
+            'generated_at' => now()
+        ];
+    }
+
+    private function getStoredCriticalEvents(int $limit): array
+    {
+        return DB::table('analytics_events')
+            ->where('critical', true)
+            ->orWhere('category', 'error')
+            ->orderByDesc('timestamp')
+            ->limit($limit)
+            ->get()
+            ->toArray();
+    }
+
+    private function storeCriticalAlertData(array $alert): void
+    {
+        DB::table('analytics_alerts')->insert([
+            'type' => $alert['type'],
+            'severity' => $alert['severity'],
+            'message' => $alert['message'],
+            'metadata' => json_encode($alert['metadata'] ?? []),
+            'source' => $alert['source'] ?? 'system',
+            'ip_address' => $alert['ip'] ?? null,
+            'user_agent' => $alert['user_agent'] ?? null,
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now()
+        ]);
+    }
+
+    private function sendCriticalAlertNotifications(array $alert): void
+    {
+        // Aquí se implementaría el envío de notificaciones críticas
+        // Por ejemplo: Slack, email, SMS, etc.
+        Log::critical('CRITICAL_ALERT_NOTIFICATION', [
+            'alert' => $alert,
+            'notification_sent' => true
+        ]);
     }
 }

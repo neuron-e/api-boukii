@@ -208,21 +208,68 @@ class BookingController extends AppBaseController
                     'group_id' => $cartItem['group_id']
                 ]);
 
-                // Verificación y asignación de subgrupos si es necesario
+                // MEJORA CRÍTICA: Verificación y asignación atómica de subgrupos para cursos colectivos
                 if ($cartItem['course_type'] == 1) {
-                    $subgroup = CourseSubgroup::where('course_date_id', $cartItem['course_date_id'])
-                        ->where('degree_id', $cartItem['degree_id'])
-                        ->whereHas('bookingUsers', function ($query) {
-                            $query->where('status', 1);
-                        }, '<', DB::raw('max_participants'))
-                        ->first();
+                    // LOGGING: Registrar intento de reserva para análisis de concurrencia
+                    Log::info('BOOKING_CONCURRENCY_ATTEMPT', [
+                        'course_date_id' => $cartItem['course_date_id'],
+                        'degree_id' => $cartItem['degree_id'],
+                        'client_id' => $cartItem['client_id'],
+                        'timestamp' => now(),
+                        'user_agent' => request()->userAgent()
+                    ]);
 
-                    if ($subgroup) {
-                        $bookingUser->course_group_id = $subgroup->course_group_id;
-                        $bookingUser->course_subgroup_id = $subgroup->id;
-                    } else {
+                    // SOLUCIÓN CONCURRENCIA: Usar transacción con lock pessimista
+                    $subgroupAssigned = DB::transaction(function () use ($cartItem, $bookingUser) {
+
+                        // 1. Obtener todos los subgrupos candidatos con LOCK FOR UPDATE
+                        $candidateSubgroups = CourseSubgroup::where('course_date_id', $cartItem['course_date_id'])
+                            ->where('degree_id', $cartItem['degree_id'])
+                            ->lockForUpdate() // ⚠️ LOCK PESSIMISTA - Previene race conditions
+                            ->get();
+
+                        // 2. Verificar disponibilidad real contando BookingUsers activos
+                        foreach ($candidateSubgroups as $subgroup) {
+                            $currentParticipants = BookingUser::where('course_subgroup_id', $subgroup->id)
+                                ->where('status', 1)
+                                ->count();
+
+                            // 3. Verificación atómica: ¿hay espacio disponible?
+                            if ($currentParticipants < $subgroup->max_participants) {
+                                // ✅ ÉXITO: Asignar inmediatamente mientras tenemos el lock
+                                $bookingUser->course_group_id = $subgroup->course_group_id;
+                                $bookingUser->course_subgroup_id = $subgroup->id;
+
+                                // LOGGING: Registro exitoso de asignación
+                                Log::info('BOOKING_CONCURRENCY_SUCCESS', [
+                                    'subgroup_id' => $subgroup->id,
+                                    'participants_before' => $currentParticipants,
+                                    'max_participants' => $subgroup->max_participants,
+                                    'client_id' => $cartItem['client_id']
+                                ]);
+
+                                return true; // Subgrupo asignado exitosamente
+                            }
+                        }
+
+                        // LOGGING: No hay subgrupos disponibles
+                        Log::warning('BOOKING_CONCURRENCY_FULL', [
+                            'course_date_id' => $cartItem['course_date_id'],
+                            'degree_id' => $cartItem['degree_id'],
+                            'total_subgroups_checked' => $candidateSubgroups->count()
+                        ]);
+
+                        return false; // No hay subgrupos disponibles
+                    });
+
+                    // 4. Verificar resultado de la asignación atómica
+                    if (!$subgroupAssigned) {
                         DB::rollBack();
-                        return $this->sendError('Not subgroups available for the degree: ' . $cartItem['degree_id']);
+                        return $this->sendError(
+                            'No hay plazas disponibles en el nivel ' . $cartItem['degree_id'] .
+                            ' para la fecha solicitada. El curso está completo.',
+                            ['course_date_id' => $cartItem['course_date_id'], 'degree_id' => $cartItem['degree_id']]
+                        );
                     }
                 }
 
@@ -397,11 +444,33 @@ class BookingController extends AppBaseController
     public function update(Request $request) {
         $school = $this->getSchool($request);
 
-        //TODO: Check OVERLAP
         $groupId = $request->group_id;
         $bookingId = $request->booking_id;
         $dates = $request->dates;
         $total = $request->total;
+
+        // MEJORA CRÍTICA: Logging del intento de actualización para auditoría
+        Log::info('BOOKING_UPDATE_ATTEMPT', [
+            'booking_id' => $bookingId,
+            'group_id' => $groupId,
+            'user_id' => auth()->id(),
+            'school_id' => $school['id'],
+            'timestamp' => now(),
+            'ip' => request()->ip()
+        ]);
+
+        // MEJORA CRÍTICA: Validar que la reserva existe y pertenece a la escuela
+        $booking = Booking::where('id', $bookingId)
+            ->where('school_id', $school['id'])
+            ->first();
+
+        if (!$booking) {
+            Log::warning('BOOKING_UPDATE_NOT_FOUND', [
+                'booking_id' => $bookingId,
+                'school_id' => $school['id']
+            ]);
+            return $this->sendError('Reserva no encontrada o sin permisos');
+        }
 
         DB::beginTransaction();
         try {
@@ -420,11 +489,59 @@ class BookingController extends AppBaseController
                     foreach ($date['booking_users'] as $bookingUserData) {
                         $requestBookingUserIds[] = $bookingUserData['id'];
 
-                        // Buscar el BookingUser
-                        $bookingUser = BookingUser::find($bookingUserData['id']);
-
+                        // MEJORA CRÍTICA: Buscar el BookingUser con relaciones para optimizar queries
+                        $bookingUser = BookingUser::with(['course', 'courseSubGroup'])
+                            ->find($bookingUserData['id']);
 
                         if ($bookingUser) {
+                            // MEJORA CRÍTICA: Si es curso colectivo y se cambia la fecha/subgrupo, validar capacidad
+                            $isChangingCriticalData = (
+                                $bookingUser->course_date_id != $date['course_date_id'] ||
+                                $bookingUser->date != $date['date']
+                            );
+
+                            if ($bookingUser->course && $bookingUser->course->course_type == 1 && $isChangingCriticalData) {
+                                Log::info('BOOKING_UPDATE_CAPACITY_CHECK', [
+                                    'booking_user_id' => $bookingUser->id,
+                                    'old_date' => $bookingUser->date,
+                                    'new_date' => $date['date'],
+                                    'old_course_date_id' => $bookingUser->course_date_id,
+                                    'new_course_date_id' => $date['course_date_id']
+                                ]);
+
+                                // SOLUCIÓN CONCURRENCIA: Validar disponibilidad con lock para curso colectivo
+                                $capacityAvailable = DB::transaction(function () use ($date, $bookingUser) {
+                                    // Buscar subgrupos candidatos con lock
+                                    $candidateSubgroups = CourseSubgroup::where('course_date_id', $date['course_date_id'])
+                                        ->where('degree_id', $bookingUser->degree_id)
+                                        ->lockForUpdate()
+                                        ->get();
+
+                                    foreach ($candidateSubgroups as $subgroup) {
+                                        $currentParticipants = BookingUser::where('course_subgroup_id', $subgroup->id)
+                                            ->where('status', 1)
+                                            ->where('id', '!=', $bookingUser->id) // Excluir este mismo usuario
+                                            ->count();
+
+                                        if ($currentParticipants < $subgroup->max_participants) {
+                                            // Asignar nuevo subgrupo
+                                            $bookingUser->course_group_id = $subgroup->course_group_id;
+                                            $bookingUser->course_subgroup_id = $subgroup->id;
+                                            return true;
+                                        }
+                                    }
+                                    return false;
+                                });
+
+                                if (!$capacityAvailable) {
+                                    DB::rollBack();
+                                    return $this->sendError(
+                                        'No hay plazas disponibles en la nueva fecha para el nivel seleccionado.',
+                                        ['date' => $date['date'], 'course_date_id' => $date['course_date_id']]
+                                    );
+                                }
+                            }
+
                             // Actualizar los campos si el BookingUser existe
                             $bookingUser->update([
                                 'date' => $date['date'],
@@ -432,7 +549,7 @@ class BookingController extends AppBaseController
                                 'hour_start' => $date['startHour'],
                                 'hour_end' => $date['endHour'],
                                 'price' => $date['price'],
-                                'monitor_id' => isset($date['monitor']) ? $date['monitor']['id'] : null,  // Verificar si monitor existe
+                                'monitor_id' => isset($date['monitor']) ? $date['monitor']['id'] : null,
                                 // Otros campos adicionales aquí
                             ]);
 
@@ -492,12 +609,47 @@ class BookingController extends AppBaseController
                 "payments",
                 "bookingLogs"
             ]);
+
+            // MEJORA CRÍTICA: Crear log de la actualización para auditoría
+            BookingLog::create([
+                'booking_id' => $bookingId,
+                'action' => 'updated via admin panel',
+                'user_id' => auth()->id(),
+                'metadata' => json_encode([
+                    'group_id' => $groupId,
+                    'dates_modified' => count($dates),
+                    'cancelled_booking_users' => $bookingUsersNotInRequest->count(),
+                    'price_change' => $newPrice - $booking->price_total
+                ])
+            ]);
+
+            // LOGGING: Éxito de la actualización
+            Log::info('BOOKING_UPDATE_SUCCESS', [
+                'booking_id' => $bookingId,
+                'group_id' => $groupId,
+                'user_id' => auth()->id(),
+                'price_change' => $newPrice - $booking->price_total,
+                'cancelled_count' => $bookingUsersNotInRequest->count(),
+                'updated_count' => count($requestBookingUserIds)
+            ]);
+
             DB::commit();
             return $this->sendResponse($booking, 'Reserva actualizada con éxito', 201);
 
         } catch (\Exception $e) {
-            Log::error('Error: ', $e->getTrace());
             DB::rollBack();
+
+            // LOGGING: Error detallado
+            Log::error('BOOKING_UPDATE_FAILED', [
+                'booking_id' => $bookingId,
+                'group_id' => $groupId,
+                'user_id' => auth()->id(),
+                'error_message' => $e->getMessage(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
+                'stack_trace' => $e->getTraceAsString()
+            ]);
+
             return $this->sendError('Error al actualizar la reserva: ' . $e->getMessage(), 500);
         }
     }
@@ -758,37 +910,147 @@ class BookingController extends AppBaseController
     public function payBooking(Request $request, $id): JsonResponse
     {
         $school = $this->getSchool($request);
-        $booking = Booking::find($id);
-        $paymentMethod = $request->get('payment_method_id') ?? $booking->payment_method_id;
 
+        // MEJORA CRÍTICA: Validación de entrada
+        $request->validate([
+            'payment_method_id' => 'sometimes|integer|in:1,2,3,4',
+        ]);
+
+        // MEJORA CRÍTICA: Validar que la reserva existe y pertenece a la escuela
+        $booking = Booking::where('id', $id)
+            ->where('school_id', $school['id'])
+            ->with(['clientMain', 'bookingUsers'])
+            ->first();
 
         if (!$booking) {
-            return $this->sendError('Booking not found', [], 404);
+            Log::warning('PAY_BOOKING_NOT_FOUND', [
+                'booking_id' => $id,
+                'school_id' => $school['id'],
+                'user_id' => auth()->id()
+            ]);
+            return $this->sendError('Booking not found or access denied', [], 404);
         }
 
-        $booking->payment_method_id = $paymentMethod;
-        $booking->save();
+        // MEJORA CRÍTICA: Verificar que la reserva no esté ya pagada
+        if ($booking->paid) {
+            Log::warning('PAY_BOOKING_ALREADY_PAID', [
+                'booking_id' => $id,
+                'user_id' => auth()->id()
+            ]);
+            return $this->sendError('Esta reserva ya está pagada');
+        }
+
+        // MEJORA CRÍTICA: Verificar que la reserva no esté cancelada
+        if ($booking->status == 2) {
+            Log::warning('PAY_BOOKING_CANCELLED', [
+                'booking_id' => $id,
+                'user_id' => auth()->id()
+            ]);
+            return $this->sendError('No se puede procesar pago de una reserva cancelada');
+        }
+
+        $paymentMethod = $request->get('payment_method_id') ?? $booking->payment_method_id;
+
+        // MEJORA CRÍTICA: Logging del intento de pago
+        Log::info('PAY_BOOKING_ATTEMPT', [
+            'booking_id' => $id,
+            'payment_method' => $paymentMethod,
+            'user_id' => auth()->id(),
+            'school_id' => $school['id'],
+            'booking_total' => $booking->price_total,
+            'client_email' => $booking->clientMain->email ?? null,
+            'timestamp' => now(),
+            'ip' => request()->ip()
+        ]);
+
+        // MEJORA CRÍTICA: Usar transacción para actualizar método de pago
+        DB::beginTransaction();
+        try {
+            $previousPaymentMethod = $booking->payment_method_id;
+            $booking->payment_method_id = $paymentMethod;
+            $booking->save();
+
+            // Crear log del cambio de método de pago
+            BookingLog::create([
+                'booking_id' => $booking->id,
+                'action' => 'payment_method_updated',
+                'user_id' => auth()->id(),
+                'metadata' => json_encode([
+                    'previous_method' => $previousPaymentMethod,
+                    'new_method' => $paymentMethod
+                ])
+            ]);
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('PAY_BOOKING_UPDATE_FAILED', [
+                'booking_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+            return $this->sendError('Error actualizando método de pago: ' . $e->getMessage(), 500);
+        }
 
 
         if ($paymentMethod == 1) {
+            Log::warning('PAY_BOOKING_UNSUPPORTED_METHOD', [
+                'booking_id' => $id,
+                'payment_method' => $paymentMethod,
+                'user_id' => auth()->id()
+            ]);
             return $this->sendError('Payment method not supported for this booking');
         }
 
         if ($paymentMethod == 2) {
+            try {
+                $payrexxLink = PayrexxHelpers::createGatewayLink(
+                    $school,
+                    $booking,
+                    $request,
+                    $booking->clientMain,
+                    'panel'
+                );
 
-            $payrexxLink = PayrexxHelpers::createGatewayLink(
-                $school,
-                $booking,
-                $request,
-                $booking->clientMain,
-                'panel'
-            );
+                if ($payrexxLink) {
+                    // LOGGING: Éxito creando link de pago
+                    Log::info('PAY_BOOKING_GATEWAY_SUCCESS', [
+                        'booking_id' => $id,
+                        'payment_method' => $paymentMethod,
+                        'user_id' => auth()->id(),
+                        'link_created' => true
+                    ]);
 
-            if ($payrexxLink) {
-                return $this->sendResponse($payrexxLink, 'Link retrieved successfully');
+                    // Crear log del enlace de pago
+                    BookingLog::create([
+                        'booking_id' => $booking->id,
+                        'action' => 'payment_gateway_link_created',
+                        'user_id' => auth()->id(),
+                        'metadata' => json_encode([
+                            'payment_method' => $paymentMethod,
+                            'link_type' => 'gateway'
+                        ])
+                    ]);
+
+                    return $this->sendResponse($payrexxLink, 'Link retrieved successfully');
+                }
+
+                Log::error('PAY_BOOKING_GATEWAY_FAILED', [
+                    'booking_id' => $id,
+                    'payment_method' => $paymentMethod,
+                    'user_id' => auth()->id(),
+                    'link_created' => false
+                ]);
+
+                return $this->sendError('Link could not be created');
+
+            } catch (\Exception $e) {
+                Log::error('PAY_BOOKING_GATEWAY_EXCEPTION', [
+                    'booking_id' => $id,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                return $this->sendError('Error creating payment link: ' . $e->getMessage(), 500);
             }
-
-            return $this->sendError('Link could not be created');
         }
 
         if ($paymentMethod == 3) {
@@ -1004,12 +1266,58 @@ class BookingController extends AppBaseController
         // Obtiene la escuela
         $school = $this->getSchool($request);
 
-        // Obtiene los BookingUsers de la solicitud
-        $bookingUsers = BookingUser::whereIn('id', $request->bookingUsers)->get();
+        // MEJORA CRÍTICA: Validación de entrada
+        $request->validate([
+            'bookingUsers' => 'required|array|min:1',
+            'bookingUsers.*' => 'integer|exists:booking_users,id',
+            'sendEmails' => 'sometimes|boolean',
+            'cancelReason' => 'sometimes|string|max:500'
+        ]);
+
+        // MEJORA CRÍTICA: Logging del intento de cancelación
+        Log::info('BOOKING_CANCEL_ATTEMPT', [
+            'booking_users_ids' => $request->bookingUsers,
+            'user_id' => auth()->id(),
+            'school_id' => $school['id'],
+            'send_emails' => $request->input('sendEmails', true),
+            'cancel_reason' => $request->input('cancelReason', 'No especificado'),
+            'timestamp' => now(),
+            'ip' => request()->ip()
+        ]);
+
+        // Obtiene los BookingUsers de la solicitud con validación de permisos
+        $bookingUsers = BookingUser::whereIn('id', $request->bookingUsers)
+            ->whereHas('booking', function($query) use ($school) {
+                $query->where('school_id', $school['id']);
+            })
+            ->get();
 
         // Verifica si existen BookingUsers
         if ($bookingUsers->isEmpty()) {
-            return $this->sendError('Booking users not found', [], 404);
+            Log::warning('BOOKING_CANCEL_NOT_FOUND', [
+                'requested_ids' => $request->bookingUsers,
+                'school_id' => $school['id']
+            ]);
+            return $this->sendError('Booking users not found or access denied', [], 404);
+        }
+
+        // MEJORA CRÍTICA: Verificar que todos los BookingUsers pertenecen a la misma reserva
+        $uniqueBookingIds = $bookingUsers->pluck('booking_id')->unique();
+        if ($uniqueBookingIds->count() > 1) {
+            Log::error('BOOKING_CANCEL_MULTIPLE_BOOKINGS', [
+                'booking_ids' => $uniqueBookingIds->toArray(),
+                'booking_users_ids' => $request->bookingUsers
+            ]);
+            return $this->sendError('Los BookingUsers deben pertenecer a la misma reserva');
+        }
+
+        // MEJORA CRÍTICA: Verificar que ningún BookingUser ya está cancelado
+        $alreadyCancelled = $bookingUsers->where('status', 2);
+        if ($alreadyCancelled->isNotEmpty()) {
+            Log::warning('BOOKING_CANCEL_ALREADY_CANCELLED', [
+                'cancelled_ids' => $alreadyCancelled->pluck('id')->toArray()
+            ]);
+            return $this->sendError('Algunos BookingUsers ya están cancelados');
         }
 
         // Obtiene la reserva asociada
@@ -1034,35 +1342,91 @@ class BookingController extends AppBaseController
             "bookingLogs"
         ]);
 
-        // Actualiza el status de los bookingUsers a cancelado (status = 2)
-        foreach ($bookingUsers as $bookingUser) {
-            $bookingUser->status = 2;
-            $bookingUser->save();
+        // MEJORA CRÍTICA: Usar transacción para operaciones atómicas
+        DB::beginTransaction();
+        try {
+            $cancelledPriceTotal = 0;
+
+            // Actualiza el status de los bookingUsers a cancelado (status = 2)
+            foreach ($bookingUsers as $bookingUser) {
+                $cancelledPriceTotal += $bookingUser->price;
+                $bookingUser->status = 2;
+                $bookingUser->save();
+
+                // MEJORA CRÍTICA: Liberar la plaza en cursos colectivos
+                if ($bookingUser->course_subgroup_id) {
+                    Log::info('BOOKING_CANCEL_CAPACITY_FREED', [
+                        'booking_user_id' => $bookingUser->id,
+                        'course_subgroup_id' => $bookingUser->course_subgroup_id,
+                        'client_id' => $bookingUser->client_id,
+                        'date' => $bookingUser->date
+                    ]);
+                }
+            }
+
+            // Verificar si quedan bookingUsers activos (status distinto de 2)
+            $activeBookingUsers = $booking->bookingUsers()->where('status', '!=', 2)->exists();
+
+            $previousStatus = $booking->status;
+
+            // Si no hay más bookingUsers activos, cambia el status de la reserva a 2 (completamente cancelada)
+            if (!$activeBookingUsers) {
+                $booking->status = 2; // Completamente cancelado
+            } else {
+                $booking->status = 3; // Parcialmente cancelado
+            }
+
+            // MEJORA CRÍTICA: Recalcular precio solo si no está pagado
+            if(!$booking->paid) {
+                $booking->reloadPrice();
+            }
+
+            $booking->save();
+
+            // MEJORA CRÍTICA: Crear log detallado de la cancelación
+            BookingLog::create([
+                'booking_id' => $booking->id,
+                'action' => 'cancelled via admin panel',
+                'user_id' => auth()->id(),
+                'metadata' => json_encode([
+                    'cancelled_booking_users' => $bookingUsers->pluck('id')->toArray(),
+                    'cancelled_price_total' => $cancelledPriceTotal,
+                    'previous_status' => $previousStatus,
+                    'new_status' => $booking->status,
+                    'cancel_reason' => $request->input('cancelReason', 'No especificado'),
+                    'send_emails' => $request->input('sendEmails', true)
+                ])
+            ]);
+
+            DB::commit();
+
+            // LOGGING: Éxito de la cancelación
+            Log::info('BOOKING_CANCEL_SUCCESS', [
+                'booking_id' => $booking->id,
+                'cancelled_booking_users' => $bookingUsers->pluck('id')->toArray(),
+                'cancelled_count' => $bookingUsers->count(),
+                'cancelled_price_total' => $cancelledPriceTotal,
+                'previous_status' => $previousStatus,
+                'new_status' => $booking->status,
+                'user_id' => auth()->id()
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            // LOGGING: Error detallado
+            Log::error('BOOKING_CANCEL_FAILED', [
+                'booking_users_ids' => $request->bookingUsers,
+                'booking_id' => $booking->id ?? null,
+                'user_id' => auth()->id(),
+                'error_message' => $e->getMessage(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
+                'stack_trace' => $e->getTraceAsString()
+            ]);
+
+            return $this->sendError('Error al cancelar la reserva: ' . $e->getMessage(), 500);
         }
-
-        // Restar el precio del primer bookingUser al price_total de la reserva
-/*        $firstBookingUserPrice = $bookingUsers[0]->price;
-        Log::debug('Payments: ', $booking->payments->toArray());
-        $lastPayment = $booking->payments->last(); // Obtener el último pago
-        if ($lastPayment && $lastPayment->status != 'no_refund') {
-            $booking->price_total -= $firstBookingUserPrice;
-        }*/
-
-        // Verificar si quedan bookingUsers activos (status distinto de 2)
-        $activeBookingUsers = $booking->bookingUsers()->where('status', '!=', 2)->exists();
-
-        // Si no hay más bookingUsers activos, cambia el status de la reserva a 2 (completamente cancelada)
-        if (!$activeBookingUsers) {
-            $booking->status = 2; // Completamente cancelado
-        } else {
-            $booking->status = 3; // Parcialmente cancelado
-        }
-
-        if(!$booking->paid) {
-            $booking->reloadPrice();
-        }
-
-        $booking->save();
 
         // Flag para enviar correos, por defecto true
         $sendEmails = $request->input('sendEmails', true);

@@ -6,8 +6,10 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes; use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Facades\Cache;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
+use App\Traits\OptimizedQueries;
 
 /**
  * @OA\Schema(
@@ -77,7 +79,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  */
 class CourseSubgroup extends Model
 {
-    use LogsActivity, SoftDeletes, HasFactory;
+    use LogsActivity, SoftDeletes, HasFactory, OptimizedQueries;
 
     public $table = 'course_subgroups';
     protected $appends = []; // Temporarily disabled ['is_full']
@@ -136,6 +138,98 @@ class CourseSubgroup extends Model
         });
 
         return $activeBookingUsers->count() >= $this->max_participants;
+    }
+
+    /**
+     * MEJORA CRÍTICA: Verificación thread-safe de disponibilidad de plazas
+     * Método específico para reservas concurrentes con conteo directo desde DB
+     *
+     * @return bool
+     */
+    public function hasAvailableSlots(): bool
+    {
+        // Verificar si hay límite de participantes
+        if (!$this->max_participants) {
+            return true; // Sin límite = siempre disponible
+        }
+
+        // Contar directamente desde DB para evitar problemas de cache
+        $currentParticipants = BookingUser::where('course_subgroup_id', $this->id)
+            ->where('status', 1)
+            ->whereHas('booking', function ($query) {
+                $query->where('status', '!=', 2); // Booking no cancelada
+            })
+            ->count();
+
+        return $currentParticipants < $this->max_participants;
+    }
+
+    /**
+     * MEJORA CRÍTICA: Obtener número exacto de plazas disponibles
+     * Versión optimizada con cache y query eficiente
+     *
+     * @return int
+     */
+    public function getAvailableSlotsCount(): int
+    {
+        if (!$this->max_participants) {
+            return 999; // Sin límite
+        }
+
+        // Cache la consulta por 30 segundos
+        return $this->cacheQuery("available_slots_{$this->id}", function() {
+            $currentParticipants = BookingUser::where('course_subgroup_id', $this->id)
+                ->where('status', 1)
+                ->whereHas('booking', function ($query) {
+                    $query->where('status', '!=', 2);
+                })
+                ->count();
+
+            return max(0, $this->max_participants - $currentParticipants);
+        }, 30);
+    }
+
+    /**
+     * MEJORA CRÍTICA: Scope optimizado para filtrar subgrupos disponibles
+     */
+    public function scopeAvailableWithOptimizedQuery(Builder $query, int $neededSlots = 1): Builder
+    {
+        return $this->optimizedEagerLoad($query, [
+                'courseDate' => ['id', 'date', 'course_id'],
+                'degree' => ['id', 'name', 'degree_order'],
+                'courseGroup' => ['id', 'age_min', 'age_max']
+            ])
+            ->availableWithCapacity()
+            ->havingRaw('available_slots >= ?', [$neededSlots])
+            ->withOptimizedIndexes()
+            ->orderBy('available_slots', 'desc');
+    }
+
+    /**
+     * MEJORA CRÍTICA: Obtener subgrupos con información de capacidad pre-calculada
+     */
+    public static function getAvailableSubgroupsWithCapacity(int $courseDateId, int $degreeId, int $neededSlots = 1): \Illuminate\Support\Collection
+    {
+        $cacheKey = "available_subgroups_{$courseDateId}_{$degreeId}_{$neededSlots}";
+
+        return Cache::remember($cacheKey, 60, function() use ($courseDateId, $degreeId, $neededSlots) {
+            return static::where('course_date_id', $courseDateId)
+                ->where('degree_id', $degreeId)
+                ->availableWithOptimizedQuery($neededSlots)
+                ->get()
+                ->map(function($subgroup) {
+                    return [
+                        'id' => $subgroup->id,
+                        'max_participants' => $subgroup->max_participants ?? 999,
+                        'current_participants' => $subgroup->current_participants ?? 0,
+                        'available_slots' => $subgroup->available_slots ?? 999,
+                        'capacity_percentage' => $subgroup->max_participants > 0 ?
+                            ($subgroup->current_participants / $subgroup->max_participants) * 100 : 0,
+                        'is_unlimited' => !$subgroup->max_participants || $subgroup->max_participants > 100,
+                        'course_group_id' => $subgroup->course_group_id
+                    ];
+                });
+        });
     }
 
     public function degree(): \Illuminate\Database\Eloquent\Relations\BelongsTo

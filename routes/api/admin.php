@@ -34,6 +34,11 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
 
     Route::get('/courses/{id}/sells/', [App\Http\Controllers\Admin\CourseController::class, 'getSellStats']);
 
+    // MEJORA CRÍTICA: Endpoints para validación de capacidad en tiempo real
+    Route::post('/courses/check-capacity', [App\Http\Controllers\Admin\CourseCapacityController::class, 'checkCapacity']);
+    Route::post('/courses/check-availability', [App\Http\Controllers\Admin\CourseCapacityController::class, 'checkAvailabilityByDate']);
+    Route::post('/courses/validate-booking', [App\Http\Controllers\Admin\CourseCapacityController::class, 'validateBookingCapacity']);
+
     Route::get('getPlanner', [\App\Http\Controllers\Admin\PlannerController::class, 'getPlanner'])
         ->name('api.admin.planner');
 
@@ -335,6 +340,35 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
         // Consultas personalizadas
         Route::post('/custom-query', [FinanceControllerRefactor::class, 'executeCustomQuery'])
             ->name('analytics.custom-query');
+
+    });
+
+    // ==================== NUEVOS ENDPOINTS PARA ANALYTICS Y MONITORING ====================
+    Route::group(['prefix' => 'analytics-monitoring'], function () {
+
+        // Recepción de eventos de analytics del frontend
+        Route::post('/events', [AnalyticsController::class, 'storeAnalyticsEvents'])
+            ->name('analytics.store-events');
+
+        // Dashboard de métricas en tiempo real
+        Route::get('/dashboard', [AnalyticsController::class, 'getAnalyticsDashboard'])
+            ->name('analytics.dashboard');
+
+        // Generar reporte detallado de analytics
+        Route::post('/report', [AnalyticsController::class, 'generateAnalyticsReport'])
+            ->name('analytics.generate-report');
+
+        // Obtener eventos críticos recientes
+        Route::get('/critical-events', [AnalyticsController::class, 'getCriticalAnalyticsEvents'])
+            ->name('analytics.critical-events');
+
+        // Recibir alerta crítica del frontend
+        Route::post('/critical-alert', [AnalyticsController::class, 'storeCriticalAlert'])
+            ->name('analytics.store-critical-alert');
+
+        // Métricas de sistema en tiempo real
+        Route::get('/system-health', [AnalyticsController::class, 'getSystemHealthMetrics'])
+            ->name('analytics.system-health');
 
     });
 
