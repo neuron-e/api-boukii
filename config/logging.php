@@ -140,12 +140,25 @@ return [
             'level' => 'debug',
             'days' => 7
         ],
+        'finance' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/finance.log'),
+            'level' => 'debug',
+            'days' => 7
+        ],
 
         'migration' => [
             'driver' => 'daily',
             'path' => storage_path('logs/migration.log'),
             'level' => 'debug',
             'days' => 7
+        ],
+
+        'nwd' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/nwd.log'),
+            'level' => 'debug',
+            'days' => 14
         ],
     ],
 

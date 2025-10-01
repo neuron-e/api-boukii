@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 namespace App\Http\Controllers\Admin;
 
@@ -8552,4 +8552,5 @@ class FinanceController extends AppBaseController
         return $testAnalysis;
     }
 }
+
 
