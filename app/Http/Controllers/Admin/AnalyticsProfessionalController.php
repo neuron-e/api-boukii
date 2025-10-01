@@ -355,12 +355,27 @@ class AnalyticsProfessionalController extends AppBaseController
         ];
 
         $cleared = 0;
+        $cacheStore = Cache::getStore();
+
         foreach ($patterns[$cacheType] as $pattern) {
-            // En producción usar Redis con pattern matching
-            $keys = Cache::getRedis()->keys($pattern);
-            foreach ($keys as $key) {
-                Cache::forget($key);
-                $cleared++;
+            try {
+                if (method_exists($cacheStore, 'getRedis')) {
+                    // Si tenemos Redis disponible, usar pattern matching
+                    $keys = $cacheStore->getRedis()->keys($pattern);
+                    foreach ($keys as $key) {
+                        Cache::forget($key);
+                        $cleared++;
+                    }
+                } else {
+                    // Fallback para otros drivers de cache
+                    Cache::forget($pattern);
+                    $cleared++;
+                }
+            } catch (\Exception $e) {
+                \Log::warning('CACHE_CLEAR_FAILED', [
+                    'pattern' => $pattern,
+                    'error' => $e->getMessage()
+                ]);
             }
         }
 
@@ -390,12 +405,30 @@ class AnalyticsProfessionalController extends AppBaseController
         ];
 
         $status = [];
+        $cacheStore = Cache::getStore();
+
         foreach ($cacheKeys as $type => $pattern) {
-            $keys = Cache::getRedis()->keys($pattern);
-            $status[$type] = [
-                'cached_queries' => count($keys),
-                'last_cached' => count($keys) > 0 ? Cache::get(end($keys) . '_timestamp') : null
-            ];
+            try {
+                if (method_exists($cacheStore, 'getRedis')) {
+                    $keys = $cacheStore->getRedis()->keys($pattern);
+                    $status[$type] = [
+                        'cached_queries' => count($keys),
+                        'last_cached' => count($keys) > 0 ? Cache::get(end($keys) . '_timestamp') : null
+                    ];
+                } else {
+                    // Para drivers sin Redis, retornar información limitada
+                    $status[$type] = [
+                        'cached_queries' => 'N/A (file cache)',
+                        'last_cached' => null
+                    ];
+                }
+            } catch (\Exception $e) {
+                $status[$type] = [
+                    'cached_queries' => 'Error',
+                    'last_cached' => null,
+                    'error' => $e->getMessage()
+                ];
+            }
         }
 
         return $this->sendResponse($status, 'Cache status retrieved successfully');

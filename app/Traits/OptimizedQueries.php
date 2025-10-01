@@ -158,14 +158,51 @@ trait OptimizedQueries
 
         $allPatterns = array_merge($defaultPatterns, $patterns);
 
-        foreach ($allPatterns as $pattern) {
-            $keys = Cache::getRedis()->keys("*{$pattern}*");
-            if (!empty($keys)) {
-                Cache::getRedis()->del($keys);
-                \Log::info('CACHE_INVALIDATED', [
-                    'pattern' => $pattern,
-                    'keys_count' => count($keys)
-                ]);
+        // Verificar si estamos usando Redis antes de intentar usar métodos específicos de Redis
+        $cacheStore = Cache::getStore();
+
+        if (method_exists($cacheStore, 'getRedis')) {
+            // Si tenemos Redis disponible, usar el método optimizado
+            foreach ($allPatterns as $pattern) {
+                try {
+                    $keys = $cacheStore->getRedis()->keys("*{$pattern}*");
+                    if (!empty($keys)) {
+                        $cacheStore->getRedis()->del($keys);
+                        \Log::info('CACHE_INVALIDATED_REDIS', [
+                            'pattern' => $pattern,
+                            'keys_count' => count($keys)
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::warning('REDIS_CACHE_INVALIDATION_FAILED', [
+                        'pattern' => $pattern,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+        } else {
+            // Fallback: invalidar tags o limpiar cache completo dependiendo del driver
+            foreach ($allPatterns as $pattern) {
+                try {
+                    // Para drivers como file, array, etc., simplemente limpiar por tags si está disponible
+                    if (method_exists(Cache::class, 'tags')) {
+                        Cache::tags([$pattern])->flush();
+                    } else {
+                        // Como último recurso, limpiar cache específicos conocidos
+                        Cache::forget($pattern);
+                        Cache::forget($pattern . '_*');
+                    }
+
+                    \Log::info('CACHE_INVALIDATED_FALLBACK', [
+                        'pattern' => $pattern,
+                        'driver' => config('cache.default')
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::warning('CACHE_INVALIDATION_FAILED', [
+                        'pattern' => $pattern,
+                        'error' => $e->getMessage()
+                    ]);
+                }
             }
         }
     }
