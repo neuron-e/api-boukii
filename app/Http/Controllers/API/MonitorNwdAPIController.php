@@ -13,7 +13,7 @@ use App\Models\MonitorNwd;
 use App\Repositories\MonitorNwdRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
+use App\Support\Facades\NwdLog as Log;
 
 /**
  * Class MonitorNwdController
@@ -59,6 +59,14 @@ class MonitorNwdAPIController extends AppBaseController
      */
     public function index(Request $request): JsonResponse
     {
+        // Log de peticiÃ³n al Ã­ndice
+        Log::info('Lista de MonitorNwds solicitada', [
+            'filters' => $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with']),
+            'search' => $request->get('search'),
+            'order' => $request->get('order', 'desc'),
+            'orderColumn' => $request->get('orderColumn', 'id')
+        ]);
+
         $monitorNwds = $this->monitorNwdRepository->all(
             $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with']),
             $request->get('search'),
@@ -109,10 +117,10 @@ class MonitorNwdAPIController extends AppBaseController
         $input = $request->all();
 
         try {
-            // Verificar si el monitor está ocupado antes de actualizar
+            // Verificar si el monitor estÃ¡ ocupado antes de actualizar
             if (Monitor::isMonitorBusy($input['monitor_id'], $input['start_date'], $input['start_time'], $input['end_time'])) {
-                // Log cuando el monitor está ocupado
-                Log::channel('nwd')->warning('Monitor ocupado al intentar crear NWD', [
+                // Log cuando el monitor estÃ¡ ocupado
+                Log::warning('Monitor ocupado al intentar crear NWD', [
                     'monitor_id' => $input['monitor_id'],
                     'start_date' => $input['start_date'],
                     'start_time' => $input['start_time'],
@@ -120,13 +128,13 @@ class MonitorNwdAPIController extends AppBaseController
                     'action' => 'create',
                     'reason' => 'monitor_busy'
                 ]);
-                return $this->sendError('El monitor está ocupado durante ese tiempo y no se puede crear el MonitorNwd', 409);
+                return $this->sendError('El monitor estÃ¡ ocupado durante ese tiempo y no se puede crear el MonitorNwd', 409);
             }
 
             $monitorNwd = $this->monitorNwdRepository->create($input);
 
             // Log exitoso
-            Log::channel('nwd')->info('MonitorNwd creado exitosamente', [
+            Log::info('MonitorNwd creado exitosamente', [
                 'nwd_id' => $monitorNwd->id,
                 'monitor_id' => $input['monitor_id'],
                 'start_date' => $input['start_date'],
@@ -137,7 +145,7 @@ class MonitorNwdAPIController extends AppBaseController
             return $this->sendResponse($monitorNwd, 'Monitor Nwd saved successfully');
         } catch (\Exception $e) {
             // Loguear el error en ambos canales
-            Log::channel('nwd')->error('Error al guardar MonitorNwd', [
+            Log::error('Error al guardar MonitorNwd', [
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
@@ -152,7 +160,7 @@ class MonitorNwdAPIController extends AppBaseController
             ]);
 
             // Retornar error al cliente
-            return $this->sendError('Ocurrió un error al guardar el Monitor Nwd. Inténtalo nuevamente.', 500);
+            return $this->sendError('OcurriÃ³ un error al guardar el Monitor Nwd. IntÃ©ntalo nuevamente.', 500);
         }
     }
 
@@ -256,10 +264,10 @@ class MonitorNwdAPIController extends AppBaseController
             return $this->sendError('Monitor Nwd not found');
         }
 
-        // Verificar si el monitor está ocupado antes de actualizar
+        // Verificar si el monitor estÃ¡ ocupado antes de actualizar
         if (Monitor::isMonitorBusy($monitorNwd->monitor_id, $input['start_date'], $input['start_time'], $input['end_time'], $id)) {
-            // Log cuando el monitor está ocupado
-            Log::channel('nwd')->warning('Monitor ocupado al intentar actualizar NWD', [
+            // Log cuando el monitor estÃ¡ ocupado
+            Log::warning('Monitor ocupado al intentar actualizar NWD', [
                 'nwd_id' => $id,
                 'monitor_id' => $monitorNwd->monitor_id,
                 'start_date' => $input['start_date'],
@@ -268,13 +276,13 @@ class MonitorNwdAPIController extends AppBaseController
                 'action' => 'update',
                 'reason' => 'monitor_busy'
             ]);
-            return $this->sendError('El monitor está ocupado durante ese tiempo y no se puede actualizar el MonitorNwd', 409);
+            return $this->sendError('El monitor estÃ¡ ocupado durante ese tiempo y no se puede actualizar el MonitorNwd', 409);
         }
 
         $monitorNwd = $this->monitorNwdRepository->update($input, $id);
 
         // Log exitoso
-        Log::channel('nwd')->info('MonitorNwd actualizado exitosamente', [
+        Log::info('MonitorNwd actualizado exitosamente', [
             'nwd_id' => $id,
             'monitor_id' => $monitorNwd->monitor_id,
             'start_date' => $input['start_date'],
@@ -335,3 +343,4 @@ class MonitorNwdAPIController extends AppBaseController
         return $this->sendSuccess('Monitor Nwd deleted successfully');
     }
 }
+
