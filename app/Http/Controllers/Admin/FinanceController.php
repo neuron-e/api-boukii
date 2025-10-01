@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Http\Controllers\Admin;
 
@@ -13,7 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use App\Support\Facades\FinanceLog as Log;
 use App\Traits\FinanceCacheKeyTrait;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -21,10 +21,10 @@ class FinanceController extends AppBaseController
 {
     use FinanceCacheKeyTrait;
 
-    // ✅ CURSOS A EXCLUIR DE LOS CÁLCULOS
+    // âœ… CURSOS A EXCLUIR DE LOS CÃLCULOS
     const EXCLUDED_COURSES = [
         260, 243,  // Cursos originales
-        277, 276, 274, 273, 271, 269, 268, 266, 265  // ✅ NUEVOS CURSOS A EXCLUIR
+        277, 276, 274, 273, 271, 269, 268, 266, 265  // âœ… NUEVOS CURSOS A EXCLUIR
     ];
 
     protected $priceCalculator;
@@ -35,7 +35,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO ACTUALIZADO: Endpoint principal usando nuevos métodos
+     * MÃ‰TODO ACTUALIZADO: Endpoint principal usando nuevos mÃ©todos
      */
     public function getSeasonFinancialDashboard(Request $request): JsonResponse
     {
@@ -55,7 +55,7 @@ class FinanceController extends AppBaseController
 
         $cacheKey = $this->generateCacheKeyFromRequest($request);
 
-        Log::debug('=== INICIANDO DASHBOARD EJECUTIVO CON CLASIFICACIÓN ===', [
+        Log::debug('=== INICIANDO DASHBOARD EJECUTIVO CON CLASIFICACIÃ“N ===', [
             'school_id' => $request->school_id,
             'optimization_level' => $optimizationLevel,
             'include_test_detection' => $request->boolean('include_test_detection', true),
@@ -67,10 +67,10 @@ class FinanceController extends AppBaseController
                 return $this->buildDashboard($request, $optimizationLevel);
             });
 
-            return $this->sendResponse($dashboard, 'Dashboard ejecutivo con clasificación generado exitosamente');
+            return $this->sendResponse($dashboard, 'Dashboard ejecutivo con clasificaciÃ³n generado exitosamente');
 
         } catch (\Exception $e) {
-            Log::error('Error en dashboard ejecutivo con clasificación: ' . $e->getMessage(), [
+            Log::error('Error en dashboard ejecutivo con clasificaciÃ³n: ' . $e->getMessage(), [
                 'school_id' => $request->school_id,
                 'file' => $e->getFile(),
                 'line' => $e->getLine()
@@ -83,16 +83,16 @@ class FinanceController extends AppBaseController
     private function buildDashboard(Request $request, string $optimizationLevel): array
     {
         $startTime = microtime(true);
-        // 1. DETERMINAR PERÍODO DE ANÁLISIS
+        // 1. DETERMINAR PERÃODO DE ANÃLISIS
         $dateRange = $this->getSeasonDateRange($request);
 
-        // 2. OBTENER RESERVAS DE LA TEMPORADA CON OPTIMIZACIÓN
+        // 2. OBTENER RESERVAS DE LA TEMPORADA CON OPTIMIZACIÃ“N
         $bookings = $this->getSeasonBookingsOptimized($request, $dateRange, $optimizationLevel);
 
-        // 3. GENERAR DASHBOARD CON CLASIFICACIÓN
+        // 3. GENERAR DASHBOARD CON CLASIFICACIÃ“N
         $dashboard = $this->generateSeasonDashboard($bookings, $dateRange, $request, $optimizationLevel);
 
-        // 4. CALCULAR TIEMPOS DE EJECUCIÓN
+        // 4. CALCULAR TIEMPOS DE EJECUCIÃ“N
         $executionTime = round((microtime(true) - $startTime) * 1000, 2);
         $dashboard['performance_metrics'] = [
             'execution_time_ms' => $executionTime,
@@ -106,7 +106,7 @@ class FinanceController extends AppBaseController
             'analysis_timestamp' => now()->toDateTimeString()
         ];
 
-        Log::info('=== DASHBOARD EJECUTIVO CON CLASIFICACIÓN COMPLETADO ===', [
+        Log::info('=== DASHBOARD EJECUTIVO CON CLASIFICACIÃ“N COMPLETADO ===', [
             'execution_time_ms' => $executionTime,
             'total_bookings' => $bookings->count(),
             'production_count' => $dashboard['season_info']['booking_classification']['production_count'],
@@ -118,12 +118,12 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * LIMPIAR CACHE ESPECÍFICO
+     * LIMPIAR CACHE ESPECÃFICO
      */
     public function clearCache(Request $request): JsonResponse
     {
         try {
-            // Limpiar cache para todos los niveles de optimización
+            // Limpiar cache para todos los niveles de optimizaciÃ³n
             $levels = ['fast', 'balanced', 'detailed'];
             $clearedKeys = [];
 
@@ -159,14 +159,14 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Determinar rango de fechas para la temporada
+     * MÃ‰TODO AUXILIAR: Determinar rango de fechas para la temporada
      */
     private function getSeasonDateRange(Request $request): array
     {
         if ($request->has('start_date') && $request->has('end_date')) {
             $startDate = Carbon::parse($request->start_date);
             $endDate = Carbon::parse($request->end_date);
-            $seasonName = 'Período personalizado';
+            $seasonName = 'PerÃ­odo personalizado';
         } elseif ($request->season_id) {
             $season = Season::findOrFail($request->season_id);
             $startDate = Carbon::parse($season->start_date);
@@ -185,19 +185,19 @@ class FinanceController extends AppBaseController
                 $endDate = Carbon::parse($season->end_date);
                 $seasonName = $season->name;
             } else {
-                // Fallback: últimos 6 meses
+                // Fallback: Ãºltimos 6 meses
                 $endDate = Carbon::now();
                 $startDate = $endDate->copy()->subMonths(6);
-                $seasonName = 'Últimos 6 meses';
+                $seasonName = 'Ãšltimos 6 meses';
             }
         }
 
-        // ✅ ESTRUCTURA UNIFORME GARANTIZADA
+        // âœ… ESTRUCTURA UNIFORME GARANTIZADA
         return [
-            'start_date' => $startDate->format('Y-m-d'),  // ✅ Clave consistente
-            'end_date' => $endDate->format('Y-m-d'),      // ✅ Clave consistente
-            'start' => $startDate->format('Y-m-d'),       // ✅ Alias para compatibilidad
-            'end' => $endDate->format('Y-m-d'),           // ✅ Alias para compatibilidad
+            'start_date' => $startDate->format('Y-m-d'),  // âœ… Clave consistente
+            'end_date' => $endDate->format('Y-m-d'),      // âœ… Clave consistente
+            'start' => $startDate->format('Y-m-d'),       // âœ… Alias para compatibilidad
+            'end' => $endDate->format('Y-m-d'),           // âœ… Alias para compatibilidad
             'start_carbon' => $startDate,
             'end_carbon' => $endDate,
             'total_days' => $startDate->diffInDays($endDate),
@@ -206,7 +206,7 @@ class FinanceController extends AppBaseController
     }
 
         /**
-     * MÉTODO AUXILIAR: Obtener reservas optimizadas según nivel de optimización
+     * MÃ‰TODO AUXILIAR: Obtener reservas optimizadas segÃºn nivel de optimizaciÃ³n
      */
     private function getSeasonBookingsOptimized(Request $request, array $dateRange, string $optimizationLevel)
     {
@@ -228,17 +228,17 @@ class FinanceController extends AppBaseController
             $q->whereBetween('date', [$dateRange['start_date'], $dateRange['end_date']]);
         });
 
-        // Aplicar límites según optimización
+        // Aplicar lÃ­mites segÃºn optimizaciÃ³n
         switch ($optimizationLevel) {
             case 'fast':
-                // Solo últimas 500 reservas para análisis rápido
+                // Solo Ãºltimas 500 reservas para anÃ¡lisis rÃ¡pido
                 $query->latest()->limit(800);
                 break;
             case 'detailed':
-                // Sin límites para análisis completo
+                // Sin lÃ­mites para anÃ¡lisis completo
                 break;
             default: // balanced
-                // Límite razonable para balance entre velocidad y completitud
+                // LÃ­mite razonable para balance entre velocidad y completitud
                 $query->latest()->limit(2000);
                 break;
         }
@@ -250,14 +250,14 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO PRINCIPAL: Generar dashboard ejecutivo completo
+     * MÃ‰TODO PRINCIPAL: Generar dashboard ejecutivo completo
      */
     /**
-     * MÉTODO ACTUALIZADO: Dashboard de temporada con clasificación real
+     * MÃ‰TODO ACTUALIZADO: Dashboard de temporada con clasificaciÃ³n real
      */
     private function generateSeasonDashboard($bookings, array $dateRange, Request $request, string $optimizationLevel): array
     {
-        // 🔍 CLASIFICAR RESERVAS CON LÓGICA CORRECTA
+        // ðŸ” CLASIFICAR RESERVAS CON LÃ“GICA CORRECTA
         $classification = $this->classifyBookings($bookings);
 
         $dashboard = [
@@ -275,46 +275,46 @@ class FinanceController extends AppBaseController
             ]
         ];
 
-        // 📊 KPIs EJECUTIVOS CON EXPECTED CORRECTO
+        // ðŸ“Š KPIs EJECUTIVOS CON EXPECTED CORRECTO
         $dashboard['executive_kpis'] = $this->calculateProductionKpis($classification, $request);
 
-        // 📱 ANÁLISIS DE SOURCES/ORÍGENES DE RESERVAS
+        // ðŸ“± ANÃLISIS DE SOURCES/ORÃGENES DE RESERVAS
         $dashboard['booking_sources'] = $this->analyzeBookingSources($bookings);
 
-        // 💳 ANÁLISIS MEJORADO DE MÉTODOS DE PAGO (solo producción)
+        // ðŸ’³ ANÃLISIS MEJORADO DE MÃ‰TODOS DE PAGO (solo producciÃ³n)
         $dashboard['payment_methods'] = $this->analyzePaymentMethodsImproved($bookings);
 
-        // 📈 MÉTRICAS POR ESTADO (solo producción que genera expected)
+        // ðŸ“ˆ MÃ‰TRICAS POR ESTADO (solo producciÃ³n que genera expected)
         $productionBookings = array_merge($classification['production_active'], $classification['production_partial']);
         $dashboard['booking_status_analysis'] = $this->analyzeBookingsByStatus($productionBookings);
 
-        // 💰 ANÁLISIS FINANCIERO (solo expected real)
+        // ðŸ’° ANÃLISIS FINANCIERO (solo expected real)
         $dashboard['financial_summary'] = $this->calculateFinancialSummary($productionBookings, $optimizationLevel);
 
-        // 🔍 PROBLEMAS CRÍTICOS (solo de expected)
+        // ðŸ” PROBLEMAS CRÃTICOS (solo de expected)
         $dashboard['critical_issues'] = $this->identifyCriticalIssues($productionBookings, $optimizationLevel);
 
-        // 🧪 ANÁLISIS SEPARADO DE TEST
+        // ðŸ§ª ANÃLISIS SEPARADO DE TEST
         if ($request->boolean('include_test_detection', true)) {
             $dashboard['test_analysis'] = $this->analyzeTestBookingsDetailed($classification['test']);
         }
 
-        // ❌ ANÁLISIS SEPARADO DE CANCELADAS (procesamiento, no expected)
+        // âŒ ANÃLISIS SEPARADO DE CANCELADAS (procesamiento, no expected)
         $dashboard['cancelled_analysis'] = $this->analyzeCancelledBookings($classification['cancelled']);
 
-        // 🔗 ANÁLISIS DE PAYREXX (usando todas las reservas para comparación)
+        // ðŸ”— ANÃLISIS DE PAYREXX (usando todas las reservas para comparaciÃ³n)
         if ($request->boolean('include_payrexx_analysis', false)) {
             $dashboard['payrexx_analysis'] = $this->analyzeSeasonPayrexx($bookings, $dateRange, $classification);
         }
 
-        // 🚨 ALERTAS BASADAS EN EXPECTED CORRECTO
+        // ðŸš¨ ALERTAS BASADAS EN EXPECTED CORRECTO
         $dashboard['executive_alerts'] = $this->generateProductionAlerts($dashboard);
         $dashboard['priority_recommendations'] = $this->generateProductionRecommendations($dashboard);
 
-        // 📊 TENDENCIAS (solo expected real)
+        // ðŸ“Š TENDENCIAS (solo expected real)
         $dashboard['trend_analysis'] = $this->calculateProductionTrends($productionBookings, $dateRange);
 
-        // 💼 RESUMEN COMPLETO PARA EXPORTACIÓN CON LÓGICA CORRECTA
+        // ðŸ’¼ RESUMEN COMPLETO PARA EXPORTACIÃ“N CON LÃ“GICA CORRECTA
         $dashboard['export_summary'] = $this->prepareExportSummary($dashboard, $classification);
 
         $dashboard['courses'] = $this->generateCourseAnalytics($bookings);
@@ -323,15 +323,15 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * NUEVO MÉTODO: Calcular cantidad de cursos vendidos por tipo
-     * Considera las diferencias entre fijos/flexibles y la lógica de cada tipo
+     * NUEVO MÃ‰TODO: Calcular cantidad de cursos vendidos por tipo
+     * Considera las diferencias entre fijos/flexibles y la lÃ³gica de cada tipo
      */
     private function calculateCourseSales($bookings)
     {
         $courseSales = [];
 
         foreach ($bookings as $booking) {
-            // Filtros estándar
+            // Filtros estÃ¡ndar
             $realStatus = $booking->getCancellationStatusAttribute();
             if ($realStatus == 'total_cancel') continue;
 
@@ -355,11 +355,11 @@ class FinanceController extends AppBaseController
                         'is_flexible' => $course->is_flexible,
                         'sport' => optional($course->sport)->name,
 
-                        // ✅ NUEVO: Cantidad de cursos vendidos
+                        // âœ… NUEVO: Cantidad de cursos vendidos
                         'courses_sold' => 0,
                         'courses_sold_detail' => [], // Para debugging
 
-                        // Métricas existentes
+                        // MÃ©tricas existentes
                         'revenue' => 0,
                         'revenue_received' => 0,
                         'revenue_pending' => 0,
@@ -368,13 +368,13 @@ class FinanceController extends AppBaseController
                     ];
                 }
 
-                // ✅ CALCULAR CURSOS VENDIDOS SEGÚN TIPO Y MODALIDAD
+                // âœ… CALCULAR CURSOS VENDIDOS SEGÃšN TIPO Y MODALIDAD
                 $salesData = $this->calculateCoursesSoldForActivity($activity, $booking);
 
                 $courseSales[$courseId]['courses_sold'] += $salesData['quantity'];
                 $courseSales[$courseId]['courses_sold_detail'][] = $salesData['detail'];
 
-                // Métricas existentes
+                // MÃ©tricas existentes
                 $revenueAssigned = $this->calculateActivityRevenue($activity, $booking);
                 $courseSales[$courseId]['revenue'] += $revenueAssigned['expected'];
                 $courseSales[$courseId]['revenue_received'] += $revenueAssigned['received'];
@@ -383,14 +383,14 @@ class FinanceController extends AppBaseController
             }
         }
 
-        // ✅ PROCESAR RESERVAS ÚNICAS PARA BOOKINGS
+        // âœ… PROCESAR RESERVAS ÃšNICAS PARA BOOKINGS
         $courseSales = $this->processUniqueBookings($courseSales, $bookings);
 
         return array_values($courseSales);
     }
 
     /**
-     * MÉTODO PRINCIPAL: Calcular cursos vendidos para una actividad específica
+     * MÃ‰TODO PRINCIPAL: Calcular cursos vendidos para una actividad especÃ­fica
      */
     private function calculateCoursesSoldForActivity($activity, $booking): array
     {
@@ -440,7 +440,7 @@ class FinanceController extends AppBaseController
 
     /**
      * COLECTIVOS FIJOS: 1 paquete = 1 curso vendido (por participante)
-     * Un paquete de X días cuenta como 1 curso vendido por cada participante
+     * Un paquete de X dÃ­as cuenta como 1 curso vendido por cada participante
      */
     private function calculateFixedCollectiveSales($activity, $booking): array
     {
@@ -462,15 +462,15 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * COLECTIVOS FLEXIBLES: Cada día = 1 unidad de curso vendida
-     * Los participantes pueden comprar 1 a X días
+     * COLECTIVOS FLEXIBLES: Cada dÃ­a = 1 unidad de curso vendida
+     * Los participantes pueden comprar 1 a X dÃ­as
      */
     private function calculateFlexibleCollectiveSales($activity, $booking): array
     {
         $participants = count($activity['utilizers'] ?? []);
         $totalDays = count($activity['dates'] ?? []);
 
-        // En flexibles, cada día por participante es una unidad vendida
+        // En flexibles, cada dÃ­a por participante es una unidad vendida
         $coursesSold = $participants * $totalDays;
 
         return [
@@ -480,7 +480,7 @@ class FinanceController extends AppBaseController
                 'calculation_method' => 'flexible_collective',
                 'participants' => $participants,
                 'days' => $totalDays,
-                'explanation' => "Colectivo flexible: {$participants} participantes × {$totalDays} días = {$coursesSold} unidades vendidas",
+                'explanation' => "Colectivo flexible: {$participants} participantes Ã— {$totalDays} dÃ­as = {$coursesSold} unidades vendidas",
                 'raw_data' => [
                     'dates' => $activity['dates'],
                     'utilizers' => $activity['utilizers']
@@ -490,15 +490,15 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * PRIVADOS FIJOS: 1 sesión = 1 curso vendido
-     * Precio fijo independientemente del número de participantes
+     * PRIVADOS FIJOS: 1 sesiÃ³n = 1 curso vendido
+     * Precio fijo independientemente del nÃºmero de participantes
      */
     private function calculateFixedPrivateSales($activity, $booking): array
     {
         $totalSessions = count($activity['dates'] ?? []);
 
         return [
-            'quantity' => $totalSessions, // 1 curso por sesión
+            'quantity' => $totalSessions, // 1 curso por sesiÃ³n
             'detail' => [
                 'booking_id' => $booking->id,
                 'calculation_method' => 'fixed_private',
@@ -514,12 +514,12 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * PRIVADOS FLEXIBLES: 1 grupo por sesión = 1 curso vendido
+     * PRIVADOS FLEXIBLES: 1 grupo por sesiÃ³n = 1 curso vendido
      * Se agrupa por monitor, fecha, hora y group_id
      */
     private function calculateFlexiblePrivateSales($activity, $booking): array
     {
-        // En privados flexibles, necesitamos agrupar por sesiones únicas
+        // En privados flexibles, necesitamos agrupar por sesiones Ãºnicas
         $uniqueSessions = [];
 
         foreach ($activity['dates'] ?? [] as $date) {
@@ -552,7 +552,7 @@ class FinanceController extends AppBaseController
                 'calculation_method' => 'flexible_private',
                 'unique_sessions' => $coursesSold,
                 'sessions_detail' => array_values($uniqueSessions),
-                'explanation' => "Privado flexible: {$coursesSold} sesiones únicas = {$coursesSold} cursos vendidos",
+                'explanation' => "Privado flexible: {$coursesSold} sesiones Ãºnicas = {$coursesSold} cursos vendidos",
                 'raw_data' => [
                     'dates' => $activity['dates'],
                     'utilizers' => $activity['utilizers']
@@ -585,7 +585,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Calcular revenue de una actividad
+     * MÃ‰TODO AUXILIAR: Calcular revenue de una actividad
      */
     private function calculateActivityRevenue($activity, $booking): array
     {
@@ -603,7 +603,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Procesar bookings únicos
+     * MÃ‰TODO AUXILIAR: Procesar bookings Ãºnicos
      */
     private function processUniqueBookings($courseSales, $bookings): array
     {
@@ -627,7 +627,7 @@ class FinanceController extends AppBaseController
                 $coursesInBooking[] = $course->id;
             }
 
-            // Contar booking único por curso
+            // Contar booking Ãºnico por curso
             foreach (array_unique($coursesInBooking) as $courseId) {
                 if (isset($courseSales[$courseId]) && !in_array($booking->id, $processedBookings[$courseId] ?? [])) {
                     $courseSales[$courseId]['bookings']++;
@@ -640,15 +640,15 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO PRINCIPAL: Generar analytics con cursos vendidos
+     * MÃ‰TODO PRINCIPAL: Generar analytics con cursos vendidos
      */
     private function generateCourseAnalyticsWithSales($bookings)
     {
         $courseAnalytics = $this->calculateCourseSales($bookings);
 
-        // Postprocesamiento con métricas adicionales
+        // Postprocesamiento con mÃ©tricas adicionales
         foreach ($courseAnalytics as &$course) {
-            // Métricas de eficiencia
+            // MÃ©tricas de eficiencia
             $course['average_price_per_course'] = $course['courses_sold'] > 0
                 ? round($course['revenue'] / $course['courses_sold'], 2)
                 : 0;
@@ -661,7 +661,7 @@ class FinanceController extends AppBaseController
                 ? round($course['revenue'] / $course['participants'], 2)
                 : 0;
 
-            // Información del tipo de curso
+            // InformaciÃ³n del tipo de curso
             $course['course_type_name'] = $course['type'];
             $course['flexibility_type'] = $course['is_flexible'] ? 'flexible' : 'fixed';
             $course['full_type_description'] = $course['course_type_name'] . ' ' . $course['flexibility_type'];
@@ -676,7 +676,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO DE VALIDACIÓN: Verificar cálculo de cursos vendidos
+     * MÃ‰TODO DE VALIDACIÃ“N: Verificar cÃ¡lculo de cursos vendidos
      */
     private function validateCourseSalesCalculation($courseAnalytics): array
     {
@@ -721,7 +721,7 @@ class FinanceController extends AppBaseController
                 ];
             }
 
-            // Análisis detallado
+            // AnÃ¡lisis detallado
             $validation['detailed_analysis'][] = [
                 'course_name' => $course['name'],
                 'type' => $courseType,
@@ -742,13 +742,13 @@ class FinanceController extends AppBaseController
         $processedBookings = [];
 
         foreach ($bookings as $booking) {
-            // ✅ SALTAR RESERVAS CANCELADAS COMPLETAMENTE
+            // âœ… SALTAR RESERVAS CANCELADAS COMPLETAMENTE
             $realStatus = $booking->getCancellationStatusAttribute();
             if ($realStatus == 'total_cancel') {
                 continue;
             }
 
-            // ✅ SALTAR RESERVAS DE TEST
+            // âœ… SALTAR RESERVAS DE TEST
             $testAnalysis = $this->isTestBooking($booking);
             if ($testAnalysis['is_test_booking'] && $testAnalysis['confidence_level'] !== 'low') {
                 continue;
@@ -762,7 +762,7 @@ class FinanceController extends AppBaseController
                 $course = $activity['course'];
                 if (!$course) continue;
 
-                // ✅ SALTAR CURSOS EXCLUIDOS
+                // âœ… SALTAR CURSOS EXCLUIDOS
                 if (in_array($course->id, self::EXCLUDED_COURSES)) {
                     continue;
                 }
@@ -777,22 +777,22 @@ class FinanceController extends AppBaseController
                         'is_flexible' => $course->is_flexible,
                         'sport' => optional($course->sport)->name,
 
-                        // ✅ MÉTRICAS FINANCIERAS
+                        // âœ… MÃ‰TRICAS FINANCIERAS
                         'revenue' => 0,
                         'revenue_received' => 0,
                         'revenue_pending' => 0,
                         'confirmed_sales' => 0,
 
-                        // ✅ MÉTRICAS DE CANTIDAD
+                        // âœ… MÃ‰TRICAS DE CANTIDAD
                         'participants' => 0,
                         'bookings' => 0,
 
-                        // ✅ NUEVO: CURSOS VENDIDOS
+                        // âœ… NUEVO: CURSOS VENDIDOS
                         'courses_sold' => 0,
                         'courses_sold_detail' => [],
                         'calculation_method' => $this->getCourseCalculationMethod($course),
 
-                        // ✅ MÉTRICAS ADICIONALES
+                        // âœ… MÃ‰TRICAS ADICIONALES
                         'payment_methods' => [
                             'cash' => 0, 'card' => 0, 'online' => 0,
                             'transfer' => 0, 'voucher' => 0, 'other' => 0
@@ -802,9 +802,9 @@ class FinanceController extends AppBaseController
                     ];
                 }
 
-                // ✅ SOLO CONTAR SI NO ESTÁ CANCELADO
+                // âœ… SOLO CONTAR SI NO ESTÃ CANCELADO
                 if ($activity['status'] !== 2) {
-                    // === CÁLCULOS FINANCIEROS ===
+                    // === CÃLCULOS FINANCIEROS ===
                     $revenueAssigned = ($activity['price'] / $totalDue) * $paidTotal;
                     $expectedRevenue = $activity['price'];
 
@@ -813,17 +813,17 @@ class FinanceController extends AppBaseController
                     $courses[$courseId]['revenue_pending'] += max(0, $expectedRevenue - $revenueAssigned);
                     $courses[$courseId]['participants'] += count($activity['utilizers'] ?? []);
 
-                    // === NUEVO: CÁLCULO DE CURSOS VENDIDOS ===
+                    // === NUEVO: CÃLCULO DE CURSOS VENDIDOS ===
                     $salesData = $this->calculateCoursesSoldForActivity($activity, $booking, $course);
                     $courses[$courseId]['courses_sold'] += $salesData['quantity'];
                     $courses[$courseId]['courses_sold_detail'][] = $salesData['detail'];
 
-                    // ✅ VENTAS CONFIRMADAS
+                    // âœ… VENTAS CONFIRMADAS
                     if (abs($expectedRevenue - $revenueAssigned) <= 0.50) {
                         $courses[$courseId]['confirmed_sales'] += $revenueAssigned;
                     }
 
-                    // === MÉTODOS DE PAGO ===
+                    // === MÃ‰TODOS DE PAGO ===
                     $methods = $this->getProportionalPaymentMethods($booking, $activity['price'], $totalDue);
                     foreach ($methods as $method => $amount) {
                         if (isset($courses[$courseId]['payment_methods'][$method])) {
@@ -848,12 +848,12 @@ class FinanceController extends AppBaseController
             }
         }
 
-        // ✅ PROCESAR BOOKINGS ÚNICOS
+        // âœ… PROCESAR BOOKINGS ÃšNICOS
         $courses = $this->processUniqueBookingsForCourses($courses, $bookings);
 
-        // ✅ POSTPROCESADO CON MÉTRICAS AVANZADAS
+        // âœ… POSTPROCESADO CON MÃ‰TRICAS AVANZADAS
         foreach ($courses as &$course) {
-            // === MÉTRICAS BÁSICAS ===
+            // === MÃ‰TRICAS BÃSICAS ===
             $course['average_price'] = $course['participants'] > 0
                 ? round($course['revenue'] / $course['participants'], 2)
                 : 0;
@@ -866,7 +866,7 @@ class FinanceController extends AppBaseController
                 ? round((($course['confirmed_sales'] > 0 ? 1 : 0) / $course['bookings']) * 100, 2)
                 : 0;
 
-            // === NUEVAS MÉTRICAS DE CURSOS VENDIDOS ===
+            // === NUEVAS MÃ‰TRICAS DE CURSOS VENDIDOS ===
             $course['average_price_per_course_sold'] = $course['courses_sold'] > 0
                 ? round($course['revenue'] / $course['courses_sold'], 2)
                 : 0;
@@ -879,7 +879,7 @@ class FinanceController extends AppBaseController
                 ? round($course['courses_sold'] / $course['bookings'], 2)
                 : 0;
 
-            // === INFORMACIÓN DESCRIPTIVA ===
+            // === INFORMACIÃ“N DESCRIPTIVA ===
             $course['course_type_name'] = $course['type'];
             $course['flexibility_type'] = $course['is_flexible'] ? 'flexible' : 'fixed';
             $course['full_type_description'] = $course['course_type_name'] . '_' . $course['flexibility_type'];
@@ -898,7 +898,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Determinar método de cálculo por tipo de curso
+     * MÃ‰TODO AUXILIAR: Determinar mÃ©todo de cÃ¡lculo por tipo de curso
      */
     private function getCourseCalculationMethod($course): string
     {
@@ -924,7 +924,7 @@ class FinanceController extends AppBaseController
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date',
             'format' => 'nullable|in:csv,excel',
-            'include_only_paid' => 'boolean' // ✅ Solo ventas completamente pagadas
+            'include_only_paid' => 'boolean' // âœ… Solo ventas completamente pagadas
         ]);*/
 
         try {
@@ -932,10 +932,10 @@ class FinanceController extends AppBaseController
             $dateRange = $this->getSeasonDateRange($request);
             $bookings = $this->getSeasonBookingsOptimized($request, $dateRange, 'detailed');
 
-            // ✅ FILTRAR: Solo reservas válidas (sin canceladas ni test)
+            // âœ… FILTRAR: Solo reservas vÃ¡lidas (sin canceladas ni test)
             $validBookings = $this->filterValidSalesBookings($bookings);
 
-            // ✅ GENERAR REPORTE DE VENTAS REALES
+            // âœ… GENERAR REPORTE DE VENTAS REALES
             $salesReport = $this->generateRealSalesReport($validBookings, $request);
 
             $format = $request->get('format', 'excel');
@@ -948,12 +948,12 @@ class FinanceController extends AppBaseController
 
         } catch (\Exception $e) {
             Log::error('Error exportando reporte de ventas reales: ' . $e->getMessage());
-            return $this->sendError('Error en exportación: ' . $e->getMessage(), 500);
+            return $this->sendError('Error en exportaciÃ³n: ' . $e->getMessage(), 500);
         }
     }
 
     /**
-     * ✅ MÉTODO AUXILIAR: Filtrar solo reservas válidas para ventas
+     * âœ… MÃ‰TODO AUXILIAR: Filtrar solo reservas vÃ¡lidas para ventas
      */
     private function filterValidSalesBookings($bookings)
     {
@@ -1004,7 +1004,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Procesar bookings únicos para evitar duplicados
+     * MÃ‰TODO AUXILIAR: Procesar bookings Ãºnicos para evitar duplicados
      */
     private function processUniqueBookingsForCourses($courses, $bookings): array
     {
@@ -1028,7 +1028,7 @@ class FinanceController extends AppBaseController
                 $coursesInBooking[] = $course->id;
             }
 
-            // Contar booking único por curso
+            // Contar booking Ãºnico por curso
             foreach (array_unique($coursesInBooking) as $courseId) {
                 if (isset($courses[$courseId]) && !in_array($booking->id, $processedBookings[$courseId] ?? [])) {
                     $courses[$courseId]['bookings']++;
@@ -1041,7 +1041,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO DE VALIDACIÓN: Verificar cálculos de cursos vendidos
+     * MÃ‰TODO DE VALIDACIÃ“N: Verificar cÃ¡lculos de cursos vendidos
      */
     private function validateCoursesSoldCalculation($courses): array
     {
@@ -1102,7 +1102,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * ✅ MÉTODO AUXILIAR: Generar reporte de ventas reales
+     * âœ… MÃ‰TODO AUXILIAR: Generar reporte de ventas reales
      */
     private function generateRealSalesReport($validBookings, Request $request): array
     {
@@ -1151,10 +1151,10 @@ class FinanceController extends AppBaseController
                 $receivedAmount = $quickAnalysis['received_amount'];
             }
 
-            // ✅ FILTRO OPCIONAL: Solo completamente pagadas
+            // âœ… FILTRO OPCIONAL: Solo completamente pagadas
             if ($request->boolean('include_only_paid', false)) {
                 if (abs($expectedAmount - $receivedAmount) > 0.50) {
-                    continue; // Saltar si no está completamente pagada
+                    continue; // Saltar si no estÃ¡ completamente pagada
                 }
             }
 
@@ -1186,7 +1186,7 @@ class FinanceController extends AppBaseController
             }
         }
 
-        // ✅ COMPLETAR RESUMEN
+        // âœ… COMPLETAR RESUMEN
         $report['summary']['total_revenue_expected'] = round($totalExpected, 2);
         $report['summary']['total_revenue_received'] = round($totalReceived, 2);
         $report['summary']['total_revenue_pending'] = round($totalExpected - $totalReceived, 2);
@@ -1203,7 +1203,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * ✅ MÉTODO AUXILIAR: Exportar a Excel detallado
+     * âœ… MÃ‰TODO AUXILIAR: Exportar a Excel detallado
      */
     private function exportSalesReportToExcel($salesReport): JsonResponse
     {
@@ -1212,7 +1212,7 @@ class FinanceController extends AppBaseController
         try {
             $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
 
-            // ✅ HOJA 1: RESUMEN EJECUTIVO
+            // âœ… HOJA 1: RESUMEN EJECUTIVO
             $summarySheet = $spreadsheet->getActiveSheet();
             $summarySheet->setTitle('Resumen Ejecutivo');
 
@@ -1225,7 +1225,7 @@ class FinanceController extends AppBaseController
             $summarySheet->setCellValue('B' . $row, $salesReport['metadata']['school_id']);
             $row++;
 
-            $summarySheet->setCellValue('A' . $row, 'Período:');
+            $summarySheet->setCellValue('A' . $row, 'PerÃ­odo:');
             $summarySheet->setCellValue('B' . $row, $salesReport['metadata']['date_range']['start'] . ' a ' . $salesReport['metadata']['date_range']['end']);
             $row++;
 
@@ -1233,21 +1233,21 @@ class FinanceController extends AppBaseController
             $summarySheet->setCellValue('B' . $row, $salesReport['metadata']['generation_date']);
             $row += 2;
 
-            // ✅ MÉTRICAS CLAVE
-            $summarySheet->setCellValue('A' . $row, 'MÉTRICAS DE VENTAS REALES');
+            // âœ… MÃ‰TRICAS CLAVE
+            $summarySheet->setCellValue('A' . $row, 'MÃ‰TRICAS DE VENTAS REALES');
             $summarySheet->getStyle('A' . $row)->getFont()->setBold(true);
             $row++;
 
             $metricsData = [
-                ['Métrica', 'Valor'],
-                ['Total Reservas Válidas', $salesReport['summary']['total_valid_bookings']],
+                ['MÃ©trica', 'Valor'],
+                ['Total Reservas VÃ¡lidas', $salesReport['summary']['total_valid_bookings']],
                 ['Ingresos Esperados', $salesReport['summary']['total_revenue_expected'] . ' CHF'],
                 ['Ingresos Recibidos', $salesReport['summary']['total_revenue_received'] . ' CHF'],
                 ['Ingresos Pendientes', $salesReport['summary']['total_revenue_pending'] . ' CHF'],
                 ['Eficiencia de Cobro', $salesReport['summary']['collection_efficiency'] . '%'],
                 ['Ventas Confirmadas (Cantidad)', $salesReport['summary']['confirmed_sales_count']],
                 ['Ventas Confirmadas (Importe)', $salesReport['summary']['confirmed_sales_amount'] . ' CHF'],
-                ['Tasa de Confirmación', $salesReport['summary']['sales_confirmation_rate'] . '%']
+                ['Tasa de ConfirmaciÃ³n', $salesReport['summary']['sales_confirmation_rate'] . '%']
             ];
 
             foreach ($metricsData as $rowData) {
@@ -1262,14 +1262,14 @@ class FinanceController extends AppBaseController
                 $row++;
             }
 
-            // ✅ HOJA 2: DETALLE DE VENTAS
+            // âœ… HOJA 2: DETALLE DE VENTAS
             $detailSheet = $spreadsheet->createSheet();
             $detailSheet->setTitle('Detalle de Ventas');
 
             $headers = [
                 'ID Reserva', 'Cliente', 'Email', 'Fecha', 'Estado', 'Cursos',
                 'Esperado (CHF)', 'Recibido (CHF)', 'Pendiente (CHF)',
-                'Venta Confirmada', 'Métodos Pago', 'Origen', 'Participantes'
+                'Venta Confirmada', 'MÃ©todos Pago', 'Origen', 'Participantes'
             ];
 
             $col = 'A';
@@ -1290,7 +1290,7 @@ class FinanceController extends AppBaseController
                 $detailSheet->setCellValue('G' . $row, $sale['revenue_expected']);
                 $detailSheet->setCellValue('H' . $row, $sale['revenue_received']);
                 $detailSheet->setCellValue('I' . $row, $sale['revenue_pending']);
-                $detailSheet->setCellValue('J' . $row, $sale['is_confirmed_sale'] ? 'SÍ' : 'NO');
+                $detailSheet->setCellValue('J' . $row, $sale['is_confirmed_sale'] ? 'SÃ' : 'NO');
                 $detailSheet->setCellValue('K' . $row, implode(', ', $sale['payment_methods']));
                 $detailSheet->setCellValue('L' . $row, $sale['source']);
                 $detailSheet->setCellValue('M' . $row, $sale['participants_count']);
@@ -1329,7 +1329,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * ✅ MÉTODO AUXILIAR: Obtener cursos de una reserva para reporte
+     * âœ… MÃ‰TODO AUXILIAR: Obtener cursos de una reserva para reporte
      */
     private function getBookingCoursesForReport($booking): array
     {
@@ -1343,7 +1343,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * ✅ MÉTODO AUXILIAR: Obtener métodos de pago de una reserva
+     * âœ… MÃ‰TODO AUXILIAR: Obtener mÃ©todos de pago de una reserva
      */
     private function getBookingPaymentMethods($booking): array
     {
@@ -1398,7 +1398,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO ACTUALIZADO: Análisis de reservas por estado (solo producción)
+     * MÃ‰TODO ACTUALIZADO: AnÃ¡lisis de reservas por estado (solo producciÃ³n)
      */
     private function analyzeProductionBookingsByStatus($productionBookings): array
     {
@@ -1411,7 +1411,7 @@ class FinanceController extends AppBaseController
         foreach ($productionBookings as $booking) {
             $statusKey = $booking->getCancellationStatusAttribute();
 
-            // Solo analizamos estados que pueden aparecer en producción
+            // Solo analizamos estados que pueden aparecer en producciÃ³n
             if (!isset($statusAnalysis[$statusKey])) {
                 $statusKey = 'active'; // Fallback
             }
@@ -1426,7 +1426,7 @@ class FinanceController extends AppBaseController
             }
         }
 
-        // Calcular porcentajes basados solo en producción
+        // Calcular porcentajes basados solo en producciÃ³n
         $totalProductionBookings = count($productionBookings);
         foreach ($statusAnalysis as $status => &$data) {
             $data['percentage'] = $totalProductionBookings > 0 ? round(($data['count'] / $totalProductionBookings) * 100, 2) : 0;
@@ -1436,7 +1436,7 @@ class FinanceController extends AppBaseController
         return $statusAnalysis;
     }
     /**
-     * MÉTODO ACTUALIZADO: Resumen financiero de producción
+     * MÃ‰TODO ACTUALIZADO: Resumen financiero de producciÃ³n
      */
     private function calculateProductionFinancialSummary($productionBookings, string $optimizationLevel): array
     {
@@ -1481,7 +1481,7 @@ class FinanceController extends AppBaseController
                 $consistentCount++;
             }
 
-            // Distribución por valor de reserva
+            // DistribuciÃ³n por valor de reserva
             $bookingValue = $quickAnalysis['calculated_amount'];
             if ($bookingValue < 100) {
                 $summary['booking_value_distribution']['under_100']++;
@@ -1493,7 +1493,7 @@ class FinanceController extends AppBaseController
                 $summary['booking_value_distribution']['over_1000']++;
             }
 
-            // Métodos de pago
+            // MÃ©todos de pago
             if ($optimizationLevel === 'detailed' || count($paymentMethodCounts) < 100) {
                 foreach ($booking->payments as $payment) {
                     $method = $this->determinePaymentMethodImproved($payment);
@@ -1505,7 +1505,7 @@ class FinanceController extends AppBaseController
                 }
             }
 
-            // Análisis de vouchers
+            // AnÃ¡lisis de vouchers
             foreach ($booking->vouchersLogs as $voucherLog) {
                 $summary['voucher_usage']['total_voucher_amount'] += $voucherLog->amount;
                 $summary['voucher_usage']['total_vouchers_used']++;
@@ -1516,7 +1516,7 @@ class FinanceController extends AppBaseController
             }
         }
 
-        // Calcular métricas finales
+        // Calcular mÃ©tricas finales
         $totalBookings = count($productionBookings);
         $summary['consistency_metrics']['consistent_bookings'] = $consistentCount;
         $summary['consistency_metrics']['inconsistent_bookings'] = $totalBookings - $consistentCount;
@@ -1537,7 +1537,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO ACTUALIZADO: Problemas críticos en producción
+     * MÃ‰TODO ACTUALIZADO: Problemas crÃ­ticos en producciÃ³n
      */
     private function identifyProductionCriticalIssues($productionBookings, string $optimizationLevel): array
     {
@@ -1548,7 +1548,7 @@ class FinanceController extends AppBaseController
             'pricing_anomalies' => []
         ];
 
-        $highValueThreshold = 50; // Reducido porque en producción queremos ser más estrictos
+        $highValueThreshold = 50; // Reducido porque en producciÃ³n queremos ser mÃ¡s estrictos
         $processed = 0;
         $maxToAnalyze = $optimizationLevel === 'fast' ? 100 : ($optimizationLevel === 'detailed' ? PHP_INT_MAX : 300);
 
@@ -1593,7 +1593,7 @@ class FinanceController extends AppBaseController
                 ];
             }
 
-            // Anomalías de precios (precios muy altos o muy bajos)
+            // AnomalÃ­as de precios (precios muy altos o muy bajos)
             if ($quickAnalysis['calculated_amount'] > 2000 || ($quickAnalysis['calculated_amount'] > 0 && $quickAnalysis['calculated_amount'] < 10)) {
                 $criticalIssues['pricing_anomalies'][] = [
                     'booking_id' => $booking->id,
@@ -1618,7 +1618,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO ACTUALIZADO: Calcular tendencias de producción
+     * MÃ‰TODO ACTUALIZADO: Calcular tendencias de producciÃ³n
      */
     private function calculateProductionTrends($productionBookings, array $dateRange): array
     {
@@ -1630,7 +1630,7 @@ class FinanceController extends AppBaseController
         ];
 
         try {
-            // Agrupar por meses solo reservas de producción
+            // Agrupar por meses solo reservas de producciÃ³n
             $monthlyData = [];
             foreach ($productionBookings as $booking) {
                 $month = Carbon::parse($booking->created_at)->format('Y-m');
@@ -1669,7 +1669,7 @@ class FinanceController extends AppBaseController
                 ];
             }
 
-            // Calcular velocidad de reservas de producción
+            // Calcular velocidad de reservas de producciÃ³n
             $recentBookings = array_filter($productionBookings, function($booking) {
                 return Carbon::parse($booking->created_at)->gt(Carbon::now()->subWeeks(4));
             });
@@ -1682,7 +1682,7 @@ class FinanceController extends AppBaseController
             ];
 
         } catch (\Exception $e) {
-            Log::warning('Error calculando tendencias de producción: ' . $e->getMessage());
+            Log::warning('Error calculando tendencias de producciÃ³n: ' . $e->getMessage());
             $trends['error'] = 'No se pudieron calcular las tendencias';
         }
 
@@ -1690,7 +1690,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * NUEVO MÉTODO: Calcular tendencia de calidad
+     * NUEVO MÃ‰TODO: Calcular tendencia de calidad
      */
     private function calculateQualityTrend(array $monthlyData): string
     {
@@ -1709,13 +1709,13 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO ACTUALIZADO: Recomendaciones específicas para producción
+     * MÃ‰TODO ACTUALIZADO: Recomendaciones especÃ­ficas para producciÃ³n
      */
     private function generateProductionRecommendations(array $dashboard): array
     {
         $recommendations = [];
 
-        // Recomendación de consistencia en producción
+        // RecomendaciÃ³n de consistencia en producciÃ³n
         $consistencyRate = $dashboard['executive_kpis']['consistency_rate'] ?? 100;
         if ($consistencyRate < 95) {
             $inconsistentCount = $dashboard['executive_kpis']['consistency_issues'] ?? 0;
@@ -1724,45 +1724,45 @@ class FinanceController extends AppBaseController
             $recommendations[] = [
                 'priority' => $severity,
                 'category' => 'production_consistency',
-                'title' => 'Optimizar Consistencia en Producción',
+                'title' => 'Optimizar Consistencia en ProducciÃ³n',
                 'description' => "El {$consistencyRate}% de consistencia en reservas reales requiere mejora",
                 'impact' => $severity,
                 'effort' => 'medium',
                 'timeline' => '1-2 semanas',
                 'actions' => [
-                    "Revisar {$inconsistentCount} reservas de producción inconsistentes",
+                    "Revisar {$inconsistentCount} reservas de producciÃ³n inconsistentes",
                     'Implementar validaciones en tiempo real',
-                    'Mejorar proceso de cálculo de precios',
-                    'Entrenar al equipo en detección de problemas'
+                    'Mejorar proceso de cÃ¡lculo de precios',
+                    'Entrenar al equipo en detecciÃ³n de problemas'
                 ],
-                'expected_benefit' => 'Reducir pérdidas financieras y mejorar precisión',
+                'expected_benefit' => 'Reducir pÃ©rdidas financieras y mejorar precisiÃ³n',
                 'affected_bookings' => $inconsistentCount
             ];
         }
 
-        // Recomendación de cobros pendientes en producción
+        // RecomendaciÃ³n de cobros pendientes en producciÃ³n
         $revenueAtRisk = $dashboard['executive_kpis']['revenue_at_risk'] ?? 0;
         if ($revenueAtRisk > 500) {
             $recommendations[] = [
                 'priority' => $revenueAtRisk > 2000 ? 'critical' : 'high',
                 'category' => 'production_collection',
-                'title' => 'Acelerar Cobros de Producción',
-                'description' => "Hay {$revenueAtRisk}€ pendientes en reservas reales",
+                'title' => 'Acelerar Cobros de ProducciÃ³n',
+                'description' => "Hay {$revenueAtRisk}â‚¬ pendientes en reservas reales",
                 'impact' => 'high',
                 'effort' => 'low',
                 'timeline' => '1 semana',
                 'actions' => [
                     'Priorizar seguimiento de reservas reales',
-                    'Implementar recordatorios automáticos urgentes',
+                    'Implementar recordatorios automÃ¡ticos urgentes',
                     'Ofrecer facilidades de pago',
                     'Contacto directo con clientes de alto valor'
                 ],
-                'expected_benefit' => "Recuperar hasta {$revenueAtRisk}€ en ingresos reales",
+                'expected_benefit' => "Recuperar hasta {$revenueAtRisk}â‚¬ en ingresos reales",
                 'potential_recovery' => $revenueAtRisk
             ];
         }
 
-        // Recomendación sobre test detectados
+        // RecomendaciÃ³n sobre test detectados
         $testCount = $dashboard['season_info']['booking_classification']['test_count'] ?? 0;
         if ($testCount > 0 && env('APP_ENV') === 'production') {
             $testRevenue = $dashboard['season_info']['booking_classification']['test_revenue'] ?? 0;
@@ -1771,23 +1771,23 @@ class FinanceController extends AppBaseController
                 'priority' => 'medium',
                 'category' => 'test_cleanup',
                 'title' => 'Limpiar Transacciones de Test',
-                'description' => "Se detectaron {$testCount} transacciones de test con {$testRevenue}€ en producción",
+                'description' => "Se detectaron {$testCount} transacciones de test con {$testRevenue}â‚¬ en producciÃ³n",
                 'impact' => 'medium',
                 'effort' => 'low',
-                'timeline' => '1-2 días',
+                'timeline' => '1-2 dÃ­as',
                 'actions' => [
                     'Identificar origen de las transacciones test',
-                    'Migrar transacciones válidas si procede',
-                    'Implementar validaciones para prevenir test en producción',
-                    'Revisar proceso de migración de datos'
+                    'Migrar transacciones vÃ¡lidas si procede',
+                    'Implementar validaciones para prevenir test en producciÃ³n',
+                    'Revisar proceso de migraciÃ³n de datos'
                 ],
-                'expected_benefit' => 'Datos más limpios y métricas más precisas',
+                'expected_benefit' => 'Datos mÃ¡s limpios y mÃ©tricas mÃ¡s precisas',
                 'test_count' => $testCount,
                 'test_revenue' => $testRevenue
             ];
         }
 
-        // Recomendación de problemas críticos específicos
+        // RecomendaciÃ³n de problemas crÃ­ticos especÃ­ficos
         if (isset($dashboard['critical_issues'])) {
             $highValueIssues = $dashboard['critical_issues']['high_value_discrepancies']['count'] ?? 0;
             if ($highValueIssues > 0) {
@@ -1798,14 +1798,14 @@ class FinanceController extends AppBaseController
                     'description' => "Hay {$highValueIssues} reservas con discrepancias significativas",
                     'impact' => 'high',
                     'effort' => 'medium',
-                    'timeline' => '3-5 días',
+                    'timeline' => '3-5 dÃ­as',
                     'actions' => [
                         'Revisar reservas con mayor discrepancia',
-                        'Verificar cálculos de precios',
+                        'Verificar cÃ¡lculos de precios',
                         'Comprobar pagos y vouchers',
-                        'Actualizar registros según corresponda'
+                        'Actualizar registros segÃºn corresponda'
                     ],
-                    'expected_benefit' => 'Eliminar discrepancias y mejorar precisión financiera',
+                    'expected_benefit' => 'Eliminar discrepancias y mejorar precisiÃ³n financiera',
                     'affected_bookings' => $highValueIssues
                 ];
             }
@@ -1821,7 +1821,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Determinar método de pago
+     * MÃ‰TODO AUXILIAR: Determinar mÃ©todo de pago
      */
     private function determinePaymentMethod($payment): string
     {
@@ -1847,33 +1847,33 @@ class FinanceController extends AppBaseController
     }
 
     /**
- * MÉTODO ACTUALIZADO: Generar alertas basadas en producción
+ * MÃ‰TODO ACTUALIZADO: Generar alertas basadas en producciÃ³n
  */
     private function generateProductionAlerts(array $dashboard): array
     {
         $alerts = [];
 
-        // Alerta de consistencia (solo producción)
+        // Alerta de consistencia (solo producciÃ³n)
         $consistencyRate = $dashboard['executive_kpis']['consistency_rate'] ?? 100;
         if ($consistencyRate < 80) {
             $alerts[] = [
                 'level' => 'critical',
                 'type' => 'production_consistency',
-                'title' => 'Problemas de Consistencia en Producción',
+                'title' => 'Problemas de Consistencia en ProducciÃ³n',
                 'description' => "Solo el {$consistencyRate}% de las reservas reales son financieramente consistentes",
                 'impact' => 'high',
                 'action_required' => true
             ];
         }
 
-        // Alerta de ingresos en riesgo (solo producción)
+        // Alerta de ingresos en riesgo (solo producciÃ³n)
         $revenueAtRisk = $dashboard['executive_kpis']['revenue_at_risk'] ?? 0;
         if ($revenueAtRisk > 1000) {
             $alerts[] = [
                 'level' => 'warning',
                 'type' => 'production_revenue_risk',
                 'title' => 'Ingresos Reales en Riesgo',
-                'description' => "Hay {$revenueAtRisk}€ de ingresos reales pendientes de cobro",
+                'description' => "Hay {$revenueAtRisk}â‚¬ de ingresos reales pendientes de cobro",
                 'impact' => 'medium',
                 'action_required' => true
             ];
@@ -1887,7 +1887,7 @@ class FinanceController extends AppBaseController
                 'level' => 'info',
                 'type' => 'test_bookings_detected',
                 'title' => 'Reservas de Test Detectadas',
-                'description' => "Se detectaron {$testCount} reservas de test con {$testRevenue}€ (excluidas del cómputo)",
+                'description' => "Se detectaron {$testCount} reservas de test con {$testRevenue}â‚¬ (excluidas del cÃ³mputo)",
                 'impact' => 'low',
                 'action_required' => false
             ];
@@ -1901,7 +1901,7 @@ class FinanceController extends AppBaseController
                     'level' => 'warning',
                     'type' => 'unprocessed_cancellations',
                     'title' => 'Cancelaciones Sin Procesar',
-                    'description' => "Hay {$unprocessedAmount}€ en cancelaciones pendientes de procesar",
+                    'description' => "Hay {$unprocessedAmount}â‚¬ en cancelaciones pendientes de procesar",
                     'impact' => 'medium',
                     'action_required' => true
                 ];
@@ -1912,7 +1912,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO ACTUALIZADO: Exportación CSV mejorada con separación
+     * MÃ‰TODO ACTUALIZADO: ExportaciÃ³n CSV mejorada con separaciÃ³n
      */
     private function generateCsvExportWithClassification(array $exportData, array $dashboardData): JsonResponse
     {
@@ -1926,16 +1926,16 @@ class FinanceController extends AppBaseController
             // Encabezado del archivo
             $csvContent .= "DASHBOARD EJECUTIVO DE TEMPORADA - VENTAS REALES\n";
             $csvContent .= "Escuela ID:," . $exportData['metadata']['school_id'] . "\n";
-            $csvContent .= "Período:," . $exportData['metadata']['period']['start'] . " a " . $exportData['metadata']['period']['end'] . "\n";
+            $csvContent .= "PerÃ­odo:," . $exportData['metadata']['period']['start'] . " a " . $exportData['metadata']['period']['end'] . "\n";
             $csvContent .= "Total Reservas:," . $exportData['metadata']['total_bookings'] . "\n";
             $csvContent .= "Generado:," . $exportData['metadata']['export_date'] . "\n";
-            $csvContent .= "Nivel Optimización:," . $exportData['metadata']['optimization_level'] . "\n\n";
+            $csvContent .= "Nivel OptimizaciÃ³n:," . $exportData['metadata']['optimization_level'] . "\n\n";
 
-            // ✅ NUEVO: Información de exclusiones para transparencia
+            // âœ… NUEVO: InformaciÃ³n de exclusiones para transparencia
             $classification = $dashboardData['season_info']['booking_classification'] ?? [];
             if (!empty($classification)) {
-                $csvContent .= "INFORMACIÓN DE EXCLUSIONES (TRANSPARENCIA)\n";
-                $csvContent .= '"Tipo de Exclusión","Cantidad","Revenue Excluido","Motivo"' . "\n";
+                $csvContent .= "INFORMACIÃ“N DE EXCLUSIONES (TRANSPARENCIA)\n";
+                $csvContent .= '"Tipo de ExclusiÃ³n","Cantidad","Revenue Excluido","Motivo"' . "\n";
                 $csvContent .= '"Reservas Canceladas","' . ($classification['cancelled_count'] ?? 0) . '","' .
                     number_format($classification['cancelled_revenue_processed'] ?? 0, 2) . ' CHF","No generan revenue real"' . "\n";
                 $csvContent .= '"Reservas de Test","' . ($classification['test_count'] ?? 0) . '","' .
@@ -1943,7 +1943,7 @@ class FinanceController extends AppBaseController
                 $csvContent .= '"Cursos Excluidos","N/A","N/A","IDs: ' . implode(', ', self::EXCLUDED_COURSES) . '"' . "\n\n";
             }
 
-            // Procesar cada sección
+            // Procesar cada secciÃ³n
             foreach ($exportData['sections'] as $sectionKey => $section) {
                 $csvContent .= strtoupper($section['title']) . "\n";
 
@@ -1958,10 +1958,10 @@ class FinanceController extends AppBaseController
                 $csvContent .= "\n";
             }
 
-            // Sección de alertas ejecutivas
+            // SecciÃ³n de alertas ejecutivas
             if (isset($dashboardData['executive_alerts']) && !empty($dashboardData['executive_alerts'])) {
                 $csvContent .= "ALERTAS EJECUTIVAS\n";
-                $csvContent .= '"Nivel","Tipo","Título","Descripción","Impacto"' . "\n";
+                $csvContent .= '"Nivel","Tipo","TÃ­tulo","DescripciÃ³n","Impacto"' . "\n";
 
                 foreach ($dashboardData['executive_alerts'] as $alert) {
                     $row = [
@@ -1979,10 +1979,10 @@ class FinanceController extends AppBaseController
                 $csvContent .= "\n";
             }
 
-            // Sección de recomendaciones
+            // SecciÃ³n de recomendaciones
             if (isset($dashboardData['priority_recommendations']) && !empty($dashboardData['priority_recommendations'])) {
                 $csvContent .= "RECOMENDACIONES PRIORITARIAS\n";
-                $csvContent .= '"Prioridad","Categoría","Título","Descripción","Impacto","Plazo","Acciones"' . "\n";
+                $csvContent .= '"Prioridad","CategorÃ­a","TÃ­tulo","DescripciÃ³n","Impacto","Plazo","Acciones"' . "\n";
 
                 foreach ($dashboardData['priority_recommendations'] as $rec) {
                     $actions = isset($rec['actions']) && is_array($rec['actions'])
@@ -2005,9 +2005,9 @@ class FinanceController extends AppBaseController
                 }
             }
 
-            // ✅ NUEVA SECCIÓN: Análisis de cursos sin canceladas
+            // âœ… NUEVA SECCIÃ“N: AnÃ¡lisis de cursos sin canceladas
             if (isset($dashboardData['courses']) && !empty($dashboardData['courses'])) {
-                $csvContent .= "\nANÁLISIS DE CURSOS (SIN CANCELADAS NI TEST)\n";
+                $csvContent .= "\nANÃLISIS DE CURSOS (SIN CANCELADAS NI TEST)\n";
                 $csvContent .= '"ID","Nombre","Tipo","Deporte","Revenue Esperado","Revenue Recibido","Revenue Pendiente","Participantes","Reservas","Tasa Cobro","Ventas Confirmadas"' . "\n";
 
                 foreach ($dashboardData['courses'] as $course) {
@@ -2056,7 +2056,7 @@ class FinanceController extends AppBaseController
                         'courses_excluded' => count(self::EXCLUDED_COURSES)
                     ]
                 ],
-                'message' => 'Exportación CSV con exclusiones correctas generada exitosamente'
+                'message' => 'ExportaciÃ³n CSV con exclusiones correctas generada exitosamente'
             ]);
 
         } catch (\Exception $e) {
@@ -2079,17 +2079,17 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO ACTUALIZADO: Preparar datos completos para exportación
+     * MÃ‰TODO ACTUALIZADO: Preparar datos completos para exportaciÃ³n
      */
     private function prepareCompleteExportSummary(array $dashboard, array $classification): array
     {
         return [
             'csv_ready_data' => [
                 'executive_summary' => [
-                    ['Métrica', 'Valor', 'Unidad'],
-                    ['=== RESERVAS DE PRODUCCIÓN ===', '', ''],
-                    ['Total Reservas Producción', $dashboard['executive_kpis']['totalgenerateSeasonDashboard_production_bookings'], 'reservas'],
-                    ['Total Clientes Únicos', $dashboard['executive_kpis']['total_clients'], 'clientes'],
+                    ['MÃ©trica', 'Valor', 'Unidad'],
+                    ['=== RESERVAS DE PRODUCCIÃ“N ===', '', ''],
+                    ['Total Reservas ProducciÃ³n', $dashboard['executive_kpis']['totalgenerateSeasonDashboard_production_bookings'], 'reservas'],
+                    ['Total Clientes Ãšnicos', $dashboard['executive_kpis']['total_clients'], 'clientes'],
                     ['Ingresos Esperados', $dashboard['executive_kpis']['revenue_expected'], 'EUR'],
                     ['Ingresos Recibidos', $dashboard['executive_kpis']['revenue_received'], 'EUR'],
                     ['Eficiencia de Cobro', $dashboard['executive_kpis']['collection_efficiency'], '%'],
@@ -2103,21 +2103,21 @@ class FinanceController extends AppBaseController
                     ['', '', ''],
                     ['=== TOTALES GENERALES ===', '', ''],
                     ['Total General Reservas', $classification['summary']['total_bookings'], 'reservas'],
-                    ['Porcentaje Producción', round(($classification['summary']['production_count'] / $classification['summary']['total_bookings']) * 100, 2), '%'],
+                    ['Porcentaje ProducciÃ³n', round(($classification['summary']['production_count'] / $classification['summary']['total_bookings']) * 100, 2), '%'],
                     ['Porcentaje Test', round(($classification['summary']['test_count'] / $classification['summary']['total_bookings']) * 100, 2), '%'],
                     ['Porcentaje Canceladas', round(($classification['summary']['cancelled_count'] / $classification['summary']['total_bookings']) * 100, 2), '%']
                 ],
 
                 'test_analysis' => [
-                    ['Análisis de Reservas Test', '', ''],
-                    ['Booking ID', 'Cliente', 'Email', 'Importe', 'Confianza', 'Razón'],
-                    // Se llenará dinámicamente en el método de exportación
+                    ['AnÃ¡lisis de Reservas Test', '', ''],
+                    ['Booking ID', 'Cliente', 'Email', 'Importe', 'Confianza', 'RazÃ³n'],
+                    // Se llenarÃ¡ dinÃ¡micamente en el mÃ©todo de exportaciÃ³n
                 ],
 
                 'cancelled_analysis' => [
-                    ['Análisis de Reservas Canceladas', '', ''],
+                    ['AnÃ¡lisis de Reservas Canceladas', '', ''],
                     ['Booking ID', 'Cliente', 'Email', 'Importe', 'Dinero Sin Procesar', 'Estado'],
-                    // Se llenará dinámicamente en el método de exportación
+                    // Se llenarÃ¡ dinÃ¡micamente en el mÃ©todo de exportaciÃ³n
                 ]
             ]
         ];
@@ -2125,16 +2125,16 @@ class FinanceController extends AppBaseController
 
 
     /**
-     * NUEVO MÉTODO: KPIs ejecutivos basados solo en reservas de producción
+     * NUEVO MÃ‰TODO: KPIs ejecutivos basados solo en reservas de producciÃ³n
      */
-    // ✅ CORRECCIÓN: FinanceController.php - calculateProductionKpis()
+    // âœ… CORRECCIÃ“N: FinanceController.php - calculateProductionKpis()
 
     /**
-     * MÉTODO CORREGIDO: calculateProductionKpis()
+     * MÃ‰TODO CORREGIDO: calculateProductionKpis()
      */
     private function calculateProductionKpis($classification, Request $request): array
     {
-        // ✅ SOLO RESERVAS DE PRODUCCIÓN (SIN CANCELADAS)
+        // âœ… SOLO RESERVAS DE PRODUCCIÃ“N (SIN CANCELADAS)
         $allProductionBookings = array_merge(
             $classification['production_active'],
             $classification['production_finished'],
@@ -2147,22 +2147,22 @@ class FinanceController extends AppBaseController
             'cancelled_bookings_excluded' => $classification['summary']['cancelled_count'],
             'test_bookings_excluded' => $classification['summary']['test_count'],
 
-            // ✅ VENTAS REALES (SIN CANCELADAS)
+            // âœ… VENTAS REALES (SIN CANCELADAS)
             'total_clients' => collect($allProductionBookings)->pluck('client_main_id')->unique()->count(),
             'total_participants' => $this->calculateTotalParticipants($allProductionBookings),
 
-            // ✅ SEPARACIÓN CLARA: ESPERADO VS PAGADO
-            'revenue_expected' => $classification['summary']['expected_revenue'], // Lo que deberían pagar
+            // âœ… SEPARACIÃ“N CLARA: ESPERADO VS PAGADO
+            'revenue_expected' => $classification['summary']['expected_revenue'], // Lo que deberÃ­an pagar
             'revenue_received' => 0,  // Lo que realmente han pagado
             'revenue_pending' => 0,   // Lo que falta por cobrar
 
-            // ✅ MÉTRICAS DE REALIDAD
-            'real_sales_amount' => 0,        // ✅ NUEVO: Ventas confirmadas (pagadas)
-            'confirmed_transactions' => 0,   // ✅ NUEVO: Transacciones confirmadas
+            // âœ… MÃ‰TRICAS DE REALIDAD
+            'real_sales_amount' => 0,        // âœ… NUEVO: Ventas confirmadas (pagadas)
+            'confirmed_transactions' => 0,   // âœ… NUEVO: Transacciones confirmadas
             'collection_efficiency' => 0,    // % de lo esperado que se ha cobrado
             'sales_conversion_rate' => 0,    // % de reservas que se confirman como ventas
 
-            // ✅ EXCLUSIONES PARA TRANSPARENCIA
+            // âœ… EXCLUSIONES PARA TRANSPARENCIA
             'cancelled_revenue_excluded' => $classification['summary']['cancelled_revenue_processed'],
             'test_revenue_excluded' => $classification['summary']['test_revenue_excluded'],
         ];
@@ -2172,11 +2172,11 @@ class FinanceController extends AppBaseController
         $confirmedSales = 0;
         $confirmedTransactions = 0;
 
-        // ✅ CALCULAR SOLO DE RESERVAS DE PRODUCCIÓN (SIN CANCELADAS)
+        // âœ… CALCULAR SOLO DE RESERVAS DE PRODUCCIÃ“N (SIN CANCELADAS)
         foreach ($allProductionBookings as $booking) {
             $realStatus = $booking->getCancellationStatusAttribute();
 
-            // ✅ IMPORTANTE: Saltar si está cancelada totalmente
+            // âœ… IMPORTANTE: Saltar si estÃ¡ cancelada totalmente
             if ($realStatus == 'total_cancel') {
                 continue;
             }
@@ -2198,20 +2198,20 @@ class FinanceController extends AppBaseController
             $totalExpected += $effectiveExpected;
             $totalReceived += $effectiveReceived;
 
-            // ✅ NUEVO: Contar ventas confirmadas (totalmente pagadas)
+            // âœ… NUEVO: Contar ventas confirmadas (totalmente pagadas)
             if (abs($effectiveReceived - $effectiveExpected) <= 0.50 && $effectiveReceived > 0) {
                 $confirmedSales += $effectiveReceived;
                 $confirmedTransactions++;
             }
         }
 
-        // ✅ ASIGNAR VALORES CALCULADOS
+        // âœ… ASIGNAR VALORES CALCULADOS
         $stats['revenue_received'] = round($totalReceived, 2);
         $stats['revenue_pending'] = round($totalExpected - $totalReceived, 2);
         $stats['real_sales_amount'] = round($confirmedSales, 2);
         $stats['confirmed_transactions'] = $confirmedTransactions;
 
-        // ✅ CALCULAR MÉTRICAS DE EFICIENCIA
+        // âœ… CALCULAR MÃ‰TRICAS DE EFICIENCIA
         $stats['collection_efficiency'] = $stats['revenue_expected'] > 0
             ? round(($stats['revenue_received'] / $stats['revenue_expected']) * 100, 2)
             : 100;
@@ -2227,7 +2227,7 @@ class FinanceController extends AppBaseController
         return $stats;
     }
 
-    // ✅ NUEVO MÉTODO: Calcular participantes únicos correctamente
+    // âœ… NUEVO MÃ‰TODO: Calcular participantes Ãºnicos correctamente
     private function calculateTotalParticipants($productionBookings): int
     {
         $uniqueParticipants = collect();
@@ -2254,7 +2254,7 @@ class FinanceController extends AppBaseController
             // Filtrar reservas que solo tienen cursos excluidos
             $filteredBookings = $this->filterBookingsWithExcludedCourses($bookings, self::EXCLUDED_COURSES);
 
-            // ✅ AGREGAR: Aplicar la misma clasificación que en los KPIs
+            // âœ… AGREGAR: Aplicar la misma clasificaciÃ³n que en los KPIs
             $classification = $this->classifyBookings($filteredBookings);
 
             $productionBookings = array_merge(
@@ -2263,7 +2263,7 @@ class FinanceController extends AppBaseController
                 $classification['production_partial']
             );
 
-            // 👇 Si se piden solo canceladas, añadir también las canceladas
+            // ðŸ‘‡ Si se piden solo canceladas, aÃ±adir tambiÃ©n las canceladas
             if ($request->boolean('only_cancelled')) {
                 $productionBookings = array_merge($productionBookings, $classification['cancelled']);
             }
@@ -2274,7 +2274,7 @@ class FinanceController extends AppBaseController
                 $quickAnalysis = $this->getQuickBookingFinancialStatus($booking);
                 $realStatus = $booking->getCancellationStatusAttribute();
 
-                // ✅ Calcular expected correcto para parciales
+                // âœ… Calcular expected correcto para parciales
                 if ($realStatus == 'partial_cancel') {
                     $expectedAmount = $this->calculateActivePortionRevenue($booking);
                     $activeProportion = $expectedAmount > 0 ? $expectedAmount / $quickAnalysis['calculated_amount'] : 0;
@@ -2286,7 +2286,7 @@ class FinanceController extends AppBaseController
 
                 $pendingAmount = $expectedAmount - $effectiveReceived;
 
-                // Filtrar según criterios (solo si realmente hay dinero pendiente)
+                // Filtrar segÃºn criterios (solo si realmente hay dinero pendiente)
                 if ($request->boolean('only_pending') && $pendingAmount <= 0.50) continue;
                 if ($request->boolean('only_cancelled') && $realStatus !== 'total_cancel') continue;
 
@@ -2295,9 +2295,9 @@ class FinanceController extends AppBaseController
                     'client_name' => $booking->clientMain->first_name . ' ' . $booking->clientMain->last_name,
                     'client_email' => $booking->clientMain->email,
                     'booking_date' => $booking->created_at->format('Y-m-d'),
-                    'amount' => round($expectedAmount, 2), // ✅ Expected correcto
-                    'received_amount' => round($effectiveReceived, 2), // ✅ Received ajustado
-                    'pending_amount' => round($pendingAmount, 2), // ✅ Pendiente real
+                    'amount' => round($expectedAmount, 2), // âœ… Expected correcto
+                    'received_amount' => round($effectiveReceived, 2), // âœ… Received ajustado
+                    'pending_amount' => round($pendingAmount, 2), // âœ… Pendiente real
                     'status' => $realStatus,
                     'status_numeric' => $booking->status,
                     'has_issues' => $quickAnalysis['has_issues'],
@@ -2305,8 +2305,8 @@ class FinanceController extends AppBaseController
                     'real_status_info' => [
                         'database_status' => $booking->status,
                         'real_status' => $realStatus,
-                        'expected_amount' => $expectedAmount, // ✅ Para debug
-                        'original_calculated' => $quickAnalysis['calculated_amount'] // ✅ Para debug
+                        'expected_amount' => $expectedAmount, // âœ… Para debug
+                        'original_calculated' => $quickAnalysis['calculated_amount'] // âœ… Para debug
                     ]
                 ];
             }
@@ -2314,7 +2314,7 @@ class FinanceController extends AppBaseController
             return $this->sendResponse([
                 'bookings' => $bookingDetails,
                 'total_count' => count($bookingDetails),
-                'classification_summary' => $classification['summary'], // ✅ Para debug
+                'classification_summary' => $classification['summary'], // âœ… Para debug
                 'filter_applied' => $request->only('only_pending', 'only_cancelled')
             ], 'Detalles de reservas obtenidos exitosamente');
 
@@ -2325,7 +2325,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO DE DEBUG: Comparar KPIs vs Listado
+     * MÃ‰TODO DE DEBUG: Comparar KPIs vs Listado
      */
     public function debugPendingDiscrepancy(Request $request): JsonResponse
     {
@@ -2341,7 +2341,7 @@ class FinanceController extends AppBaseController
             // 2. CALCULAR KPIs EXACTAMENTE IGUAL
             $kpisResult = $this->calculateProductionKpis($classification, $request);
 
-            // 3. CALCULAR LISTADO CON LA MISMA LÓGICA
+            // 3. CALCULAR LISTADO CON LA MISMA LÃ“GICA
             $allProductionBookings = array_merge(
                 $classification['production_active'],
                 $classification['production_finished'],
@@ -2357,7 +2357,7 @@ class FinanceController extends AppBaseController
                 $realStatus = $booking->getCancellationStatusAttribute();
                 $quickAnalysis = $this->getQuickBookingFinancialStatus($booking);
 
-                // ✅ USAR EXACTAMENTE LA MISMA LÓGICA QUE LOS KPIs
+                // âœ… USAR EXACTAMENTE LA MISMA LÃ“GICA QUE LOS KPIs
                 if ($realStatus == 'partial_cancel') {
                     $activeRevenue = $this->calculateActivePortionRevenue($booking);
                     $activeProportion = $activeRevenue > 0 ? $activeRevenue / $quickAnalysis['calculated_amount'] : 0;
@@ -2430,7 +2430,7 @@ class FinanceController extends AppBaseController
                 'classification_summary' => $classification['summary']
             ];
 
-            return $this->sendResponse($debug, 'Análisis de discrepancia completado');
+            return $this->sendResponse($debug, 'AnÃ¡lisis de discrepancia completado');
 
         } catch (\Exception $e) {
             Log::error('Error en debug de discrepancia: ' . $e->getMessage());
@@ -2447,7 +2447,7 @@ class FinanceController extends AppBaseController
             ->where(function ($query) use ($now) {
                 $query->where('date', '>', $now->toDateString()) // Fecha futura
                 ->orWhere(function ($subQuery) use ($now) {
-                    $subQuery->where('date', '=', $now->toDateString()) // Mismo día
+                    $subQuery->where('date', '=', $now->toDateString()) // Mismo dÃ­a
                     ->where('hour_end', '>', $now->format('H:i:s')); // Hora final posterior
                 });
             })
@@ -2477,7 +2477,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Exportar detalles de reservas
+     * MÃ‰TODO AUXILIAR: Exportar detalles de reservas
      */
     private function exportBookingDetails(Request $request, string $filename_prefix): JsonResponse
     {
@@ -2531,12 +2531,12 @@ class FinanceController extends AppBaseController
 
         } catch (\Exception $e) {
             Log::error('Error exportando detalles de reservas: ' . $e->getMessage());
-            return $this->sendError('Error en exportación: ' . $e->getMessage(), 500);
+            return $this->sendError('Error en exportaciÃ³n: ' . $e->getMessage(), 500);
         }
     }
 
     /**
-     * NUEVO MÉTODO: Análisis detallado de reservas de test
+     * NUEVO MÃ‰TODO: AnÃ¡lisis detallado de reservas de test
      */
     private function analyzeTestBookingsDetailed($testBookings): array
     {
@@ -2560,14 +2560,14 @@ class FinanceController extends AppBaseController
 
             $analysis['total_test_revenue'] += $quickAnalysis['calculated_amount'];
 
-            // Estadísticas por confianza
+            // EstadÃ­sticas por confianza
             $confidence = $testBookingAnalysis['confidence_level'];
             $analysis['confidence_breakdown'][$confidence]++;
 
             // Recopilar indicadores
             $allIndicators = array_merge($allIndicators, $testBookingAnalysis['test_indicators']);
 
-            // Estadísticas por cliente
+            // EstadÃ­sticas por cliente
             $clientId = $booking->client_main_id;
             if (!isset($clientStats[$clientId])) {
                 $clientStats[$clientId] = [
@@ -2599,16 +2599,16 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * NUEVO MÉTODO: Análisis de reservas canceladas
+     * NUEVO MÃ‰TODO: AnÃ¡lisis de reservas canceladas
      */
     private function analyzeCancelledBookings($cancelledBookings): array
     {
         $analysis = [
             'total_cancelled_bookings' => count($cancelledBookings),
-            'total_original_value' => 0,     // Lo que valían cuando se crearon
-            'money_to_process' => 0,         // Dinero que había que procesar
+            'total_original_value' => 0,     // Lo que valÃ­an cuando se crearon
+            'money_to_process' => 0,         // Dinero que habÃ­a que procesar
             'money_processed' => 0,          // Dinero ya procesado (refunds + no-refunds)
-            'money_pending' => 0,            // Dinero aún sin procesar
+            'money_pending' => 0,            // Dinero aÃºn sin procesar
             'processing_breakdown' => [
                 'refunds_issued' => 0,
                 'no_refunds_applied' => 0,
@@ -2623,9 +2623,9 @@ class FinanceController extends AppBaseController
             $receivedAmount = $quickAnalysis['received_amount'];
 
             $analysis['total_original_value'] += $originalValue;
-            $analysis['money_to_process'] += $receivedAmount; // Solo lo que realmente se había recibido
+            $analysis['money_to_process'] += $receivedAmount; // Solo lo que realmente se habÃ­a recibido
 
-            // Analizar cómo se procesó el dinero recibido
+            // Analizar cÃ³mo se procesÃ³ el dinero recibido
             $refunds = $booking->payments->whereIn('status', ['refund', 'partial_refund'])->sum('amount');
             $noRefunds = $booking->payments->where('status', 'no_refund')->sum('amount');
             $processed = $refunds + $noRefunds;
@@ -2669,7 +2669,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * NUEVO ENDPOINT: Estadísticas detalladas de un curso específico
+     * NUEVO ENDPOINT: EstadÃ­sticas detalladas de un curso especÃ­fico
      * GET /api/admin/courses/{courseId}/statistics
      */
     public function getCourseStatistics(Request $request, $courseId): JsonResponse
@@ -2699,29 +2699,29 @@ class FinanceController extends AppBaseController
             // 3. OBTENER RESERVAS DEL CURSO
             $bookings = $this->getCourseBookings($courseId, $dateRange, $request->school_id);
 
-            Log::info("Generando estadísticas para curso {$courseId}", [
+            Log::info("Generando estadÃ­sticas para curso {$courseId}", [
                 'course_name' => $course->name,
                 'bookings_found' => $bookings->count(),
                 'date_range' => $dateRange
             ]);
 
-            // 4. GENERAR ESTADÍSTICAS COMPLETAS
+            // 4. GENERAR ESTADÃSTICAS COMPLETAS
             $statistics = $this->generateDetailedCourseStatistics($course, $bookings, $dateRange, $request);
 
-            return $this->sendResponse($statistics, 'Estadísticas del curso generadas exitosamente');
+            return $this->sendResponse($statistics, 'EstadÃ­sticas del curso generadas exitosamente');
 
         } catch (\Exception $e) {
-            Log::error("Error generando estadísticas del curso {$courseId}: " . $e->getMessage(), [
+            Log::error("Error generando estadÃ­sticas del curso {$courseId}: " . $e->getMessage(), [
                 'school_id' => $request->school_id,
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return $this->sendError('Error generando estadísticas: ' . $e->getMessage(), 500);
+            return $this->sendError('Error generando estadÃ­sticas: ' . $e->getMessage(), 500);
         }
     }
 
     /**
-     * MÉTODO AUXILIAR: Obtener reservas específicas del curso
+     * MÃ‰TODO AUXILIAR: Obtener reservas especÃ­ficas del curso
      */
     private function getCourseBookings($courseId, array $dateRange, $schoolId)
     {
@@ -2749,14 +2749,14 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO PRINCIPAL: Generar estadísticas detalladas del curso
+     * MÃ‰TODO PRINCIPAL: Generar estadÃ­sticas detalladas del curso
      */
     private function generateDetailedCourseStatistics($course, $bookings, array $dateRange, Request $request): array
     {
         // Filtrar reservas que solo tienen cursos excluidos
         $filteredBookings = $this->filterBookingsWithExcludedCourses($bookings, self::EXCLUDED_COURSES);
 
-        // Clasificar reservas para usar solo las de producción
+        // Clasificar reservas para usar solo las de producciÃ³n
         $classification = $this->classifyBookings($filteredBookings);
         $productionBookings = array_merge(
             $classification['production_active'],
@@ -2784,7 +2784,7 @@ class FinanceController extends AppBaseController
             ]
         ];
 
-        // Agregar comparación con cursos similares si se solicita
+        // Agregar comparaciÃ³n con cursos similares si se solicita
         if ($request->boolean('include_comparison', true)) {
             $statistics['performance_stats']['comparison_with_similar'] =
                 $this->calculateSimilarCoursesComparison($course, $productionBookings, $request);
@@ -2794,7 +2794,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Calcular estadísticas financieras del curso
+     * MÃ‰TODO AUXILIAR: Calcular estadÃ­sticas financieras del curso
      */
     private function calculateCourseFinancialStats($course, $productionBookings, array $dateRange): array
     {
@@ -2813,7 +2813,7 @@ class FinanceController extends AppBaseController
         $totalParticipants = 0;
 
         foreach ($productionBookings as $booking) {
-            // Solo procesar booking_users de este curso específico
+            // Solo procesar booking_users de este curso especÃ­fico
             $courseBookingUsers = $booking->bookingUsers->where('course_id', $course->id);
 
             if ($courseBookingUsers->isEmpty()) continue;
@@ -2836,7 +2836,7 @@ class FinanceController extends AppBaseController
             $monthlyRevenue[$month]['revenue'] += $bookingRevenue;
             $monthlyRevenue[$month]['bookings']++;
 
-            // Analizar métodos de pago proporcionalmente
+            // Analizar mÃ©todos de pago proporcionalmente
             $proportionalPayments = $this->getProportionalPaymentMethods($booking, $bookingRevenue,
                 $this->getTotalBookingRevenue($booking));
 
@@ -2863,11 +2863,11 @@ class FinanceController extends AppBaseController
             ];
         }
 
-        // Formatear métodos de pago
+        // Formatear mÃ©todos de pago
         $totalPaymentAmount = array_sum(array_column($paymentMethodStats, 'amount'));
         foreach ($paymentMethodStats as $method => $data) {
             $financialStats['payment_methods'][$method] = [
-                'count' => $financialStats['total_bookings'], // Aproximación
+                'count' => $financialStats['total_bookings'], // AproximaciÃ³n
                 'amount' => round($data['amount'], 2),
                 'percentage' => $totalPaymentAmount > 0
                     ? round(($data['amount'] / $totalPaymentAmount) * 100, 2) : 0
@@ -2878,7 +2878,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Calcular estadísticas de participantes del curso
+     * MÃ‰TODO AUXILIAR: Calcular estadÃ­sticas de participantes del curso
      */
     private function calculateCourseParticipantStats($course, $productionBookings, array $dateRange): array
     {
@@ -2909,7 +2909,7 @@ class FinanceController extends AppBaseController
                     $cancelledParticipants++;
                 }
 
-                // ✅ CORRECCIÓN: Convertir fecha a string de forma segura
+                // âœ… CORRECCIÃ“N: Convertir fecha a string de forma segura
                 $date = null;
                 try {
                     if ($bookingUser->date) {
@@ -2927,7 +2927,7 @@ class FinanceController extends AppBaseController
                     Log::warning("Error parseando fecha en booking_user {$bookingUser->id}: " . $e->getMessage());
                 }
 
-                // Solo procesar si tenemos una fecha válida
+                // Solo procesar si tenemos una fecha vÃ¡lida
                 if ($date) {
                     // Inicializar array si no existe
                     if (!isset($dailyStats[$date])) {
@@ -2957,7 +2957,7 @@ class FinanceController extends AppBaseController
         $participantStats['completion_rate'] = $totalParticipants > 0
             ? round(($activeParticipants / $totalParticipants) * 100, 2) : 100;
 
-        // Formatear estadísticas diarias
+        // Formatear estadÃ­sticas diarias
         foreach ($dailyStats as $date => $stats) {
             $participantStats['bookings_by_date'][] = [
                 'date' => $date,
@@ -2985,7 +2985,7 @@ class FinanceController extends AppBaseController
 
 
     /**
-     * MÉTODO AUXILIAR: Calcular estadísticas de rendimiento del curso
+     * MÃ‰TODO AUXILIAR: Calcular estadÃ­sticas de rendimiento del curso
      */
     private function calculateCoursePerformanceStats($course, $productionBookings, Request $request): array
     {
@@ -2997,7 +2997,7 @@ class FinanceController extends AppBaseController
             'popularity_rank' => 0
         ];
 
-        // Calcular sesiones y tamaño promedio
+        // Calcular sesiones y tamaÃ±o promedio
         $totalSessions = 0;
         $totalParticipantsInSessions = 0;
         $maxCapacityTotal = 0;
@@ -3006,7 +3006,7 @@ class FinanceController extends AppBaseController
         foreach ($productionBookings as $booking) {
             $courseBookingUsers = $booking->bookingUsers->where('course_id', $course->id);
 
-            // Agrupar por fecha/sesión
+            // Agrupar por fecha/sesiÃ³n
             $sessionDates = $courseBookingUsers->groupBy('date');
 
             foreach ($sessionDates as $date => $sessionUsers) {
@@ -3014,14 +3014,14 @@ class FinanceController extends AppBaseController
                 $sessionParticipants = $sessionUsers->where('status', 1)->count();
                 $totalParticipantsInSessions += $sessionParticipants;
 
-                // Capacidad máxima (estimada basada en el tipo de curso)
+                // Capacidad mÃ¡xima (estimada basada en el tipo de curso)
                 $estimatedCapacity = $this->estimateCourseCapacity($course);
                 $maxCapacityTotal += $estimatedCapacity;
                 $actualOccupancyTotal += $sessionParticipants;
             }
         }
 
-        // Calcular métricas
+        // Calcular mÃ©tricas
         $performanceStats['total_sessions'] = $totalSessions;
         $performanceStats['average_class_size'] = $totalSessions > 0
             ? round($totalParticipantsInSessions / $totalSessions, 1) : 0;
@@ -3041,7 +3041,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Comparación con cursos similares
+     * MÃ‰TODO AUXILIAR: ComparaciÃ³n con cursos similares
      */
     private function calculateSimilarCoursesComparison($course, $productionBookings, Request $request): array
     {
@@ -3061,7 +3061,7 @@ class FinanceController extends AppBaseController
             ];
         }
 
-        // Calcular métricas del curso actual
+        // Calcular mÃ©tricas del curso actual
         $currentRevenue = 0;
         $currentParticipants = 0;
 
@@ -3076,7 +3076,7 @@ class FinanceController extends AppBaseController
         $currentAvgPrice = $currentParticipants > 0 ? $currentRevenue / $currentParticipants : 0;
 
         // Calcular promedios de cursos similares (simplificado)
-        $avgRevenue = $currentRevenue; // Placeholder - calcularías el promedio real
+        $avgRevenue = $currentRevenue; // Placeholder - calcularÃ­as el promedio real
         $avgParticipants = $currentParticipants; // Placeholder
         $avgPrice = $currentAvgPrice; // Placeholder
 
@@ -3088,7 +3088,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODOS AUXILIARES ADICIONALES
+     * MÃ‰TODOS AUXILIARES ADICIONALES
      */
     private function calculateCourseRevenueFromBooking($booking, $courseId): float
     {
@@ -3129,7 +3129,7 @@ class FinanceController extends AppBaseController
 
     private function estimateCourseCapacity($course): int
     {
-        // Estimación basada en tipo de curso
+        // EstimaciÃ³n basada en tipo de curso
         switch ($course->course_type) {
             case 1: // Colectivo
                 return 12;
@@ -3150,7 +3150,7 @@ class FinanceController extends AppBaseController
             $courseBookingUsers = $booking->bookingUsers->where('course_id', $course->id);
 
             foreach ($courseBookingUsers as $bookingUser) {
-                // Considerar completado si el usuario está activo y el curso ha terminado
+                // Considerar completado si el usuario estÃ¡ activo y el curso ha terminado
                 if ($bookingUser->status == 1 && Carbon::parse($bookingUser->date)->isPast()) {
                     $completed++;
                 }
@@ -3162,7 +3162,7 @@ class FinanceController extends AppBaseController
 
     private function calculateCoursePopularityRank($course, Request $request): int
     {
-        // Ranking simplificado basado en número de reservas
+        // Ranking simplificado basado en nÃºmero de reservas
         $courseBookingCount = Booking::whereHas('bookingUsers', function($q) use ($course) {
             $q->where('course_id', $course->id);
         })->where('school_id', $request->school_id)->count();
@@ -3187,7 +3187,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * NUEVO ENDPOINT: Exportar estadísticas de curso
+     * NUEVO ENDPOINT: Exportar estadÃ­sticas de curso
      * GET /api/admin/courses/{courseId}/statistics/export
      */
     public function exportCourseStatistics(Request $request, $courseId): JsonResponse
@@ -3199,7 +3199,7 @@ class FinanceController extends AppBaseController
         ]);
 
         try {
-            // Obtener estadísticas del curso
+            // Obtener estadÃ­sticas del curso
             $statisticsResponse = $this->getCourseStatistics($request, $courseId);
             $statisticsData = json_decode($statisticsResponse->content(), true)['data'];
 
@@ -3207,7 +3207,7 @@ class FinanceController extends AppBaseController
             $courseName = $statisticsData['course_info']['name'];
             $filename = 'estadisticas_' . \Str::slug($courseName) . '_' . date('Y-m-d_H-i');
 
-            // Preparar datos para exportación
+            // Preparar datos para exportaciÃ³n
             $exportData = $this->prepareCourseExportData($statisticsData);
 
             switch ($format) {
@@ -3218,17 +3218,17 @@ class FinanceController extends AppBaseController
                 case 'pdf':
                     return $this->exportCourseStatisticsAsPdf($exportData, $filename);
                 default:
-                    return $this->sendResponse($exportData, 'Datos preparados para exportación');
+                    return $this->sendResponse($exportData, 'Datos preparados para exportaciÃ³n');
             }
 
         } catch (\Exception $e) {
-            Log::error("Error exportando estadísticas del curso {$courseId}: " . $e->getMessage());
-            return $this->sendError('Error en exportación: ' . $e->getMessage(), 500);
+            Log::error("Error exportando estadÃ­sticas del curso {$courseId}: " . $e->getMessage());
+            return $this->sendError('Error en exportaciÃ³n: ' . $e->getMessage(), 500);
         }
     }
 
     /**
-     * MÉTODO AUXILIAR: Preparar datos para exportación
+     * MÃ‰TODO AUXILIAR: Preparar datos para exportaciÃ³n
      */
     private function prepareCourseExportData($statisticsData): array
     {
@@ -3241,13 +3241,13 @@ class FinanceController extends AppBaseController
                 'analysis_period' => $statisticsData['analysis_metadata']['date_range']
             ],
             'financial_summary' => [
-                ['Métrica', 'Valor'],
+                ['MÃ©trica', 'Valor'],
                 ['Ingresos Totales', number_format($statisticsData['financial_stats']['total_revenue'], 2) . ' EUR'],
                 ['Reservas Totales', $statisticsData['financial_stats']['total_bookings']],
                 ['Participantes Totales', $statisticsData['financial_stats']['total_participants']],
                 ['Precio Promedio por Participante', number_format($statisticsData['financial_stats']['average_price_per_participant'], 2) . ' EUR'],
-                ['Tasa de Ocupación', $statisticsData['performance_stats']['occupancy_rate'] . '%'],
-                ['Tasa de Finalización', $statisticsData['performance_stats']['completion_rate'] . '%']
+                ['Tasa de OcupaciÃ³n', $statisticsData['performance_stats']['occupancy_rate'] . '%'],
+                ['Tasa de FinalizaciÃ³n', $statisticsData['performance_stats']['completion_rate'] . '%']
             ],
             'monthly_trend' => array_merge(
                 [['Mes', 'Ingresos', 'Reservas']],
@@ -3256,7 +3256,7 @@ class FinanceController extends AppBaseController
                 }, $statisticsData['financial_stats']['revenue_trend'])
             ),
             'payment_methods' => array_merge(
-                [['Método de Pago', 'Cantidad', 'Porcentaje']],
+                [['MÃ©todo de Pago', 'Cantidad', 'Porcentaje']],
                 array_map(function($method, $data) {
                     return [$method, number_format($data['amount'], 2) . ' EUR', $data['percentage'] . '%'];
                 }, array_keys($statisticsData['financial_stats']['payment_methods']),
@@ -3266,12 +3266,12 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Exportar como CSV
+     * MÃ‰TODO AUXILIAR: Exportar como CSV
      */
     private function exportCourseStatisticsAsCsv($exportData, $filename): JsonResponse
     {
         $csvContent = "\xEF\xBB\xBF"; // BOM for UTF-8
-        $csvContent .= "ESTADÍSTICAS DEL CURSO: " . $exportData['metadata']['course_name'] . "\n";
+        $csvContent .= "ESTADÃSTICAS DEL CURSO: " . $exportData['metadata']['course_name'] . "\n";
         $csvContent .= "Generado: " . $exportData['metadata']['export_date'] . "\n\n";
 
         foreach ($exportData as $section => $data) {
@@ -3303,11 +3303,11 @@ class FinanceController extends AppBaseController
         ]);
     }
     /**
-     * MÉTODOS AUXILIARES ADICIONALES PARA EL DASHBOARD EJECUTIVO
+     * MÃ‰TODOS AUXILIARES ADICIONALES PARA EL DASHBOARD EJECUTIVO
      */
 
     /**
-     * Análisis de tendencias de temporada
+     * AnÃ¡lisis de tendencias de temporada
      */
     private function calculateSeasonTrends($bookings, array $dateRange): array
     {
@@ -3356,7 +3356,7 @@ class FinanceController extends AppBaseController
                 ];
             }
 
-            // Calcular velocidad de reservas (últimas 4 semanas)
+            // Calcular velocidad de reservas (Ãºltimas 4 semanas)
             $recentBookings = $bookings->filter(function($booking) {
                 return Carbon::parse($booking->created_at)->gt(Carbon::now()->subWeeks(4));
             });
@@ -3376,7 +3376,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * Dirección de la tendencia
+     * DirecciÃ³n de la tendencia
      */
     private function calculateTrendDirection(array $monthlyData): string
     {
@@ -3395,18 +3395,18 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * Análisis de Payrexx para temporada
+     * AnÃ¡lisis de Payrexx para temporada
      */
     private function analyzeSeasonPayrexx($bookings, array $dateRange, array $classification): array
     {
         try {
-            Log::info('Iniciando análisis de Payrexx con clasificación correcta', [
+            Log::info('Iniciando anÃ¡lisis de Payrexx con clasificaciÃ³n correcta', [
                 'total_bookings' => $bookings->count(),
                 'production_expected_revenue' => $classification['summary']['expected_revenue'],
                 'date_range' => $dateRange
             ]);
 
-            // Obtener análisis de Payrexx usando el nuevo método con clasificación
+            // Obtener anÃ¡lisis de Payrexx usando el nuevo mÃ©todo con clasificaciÃ³n
             $payrexxAnalysis = PayrexxHelpers::analyzeBookingsWithPayrexxExcludingTest(
                 $bookings,
                 $dateRange['start_date'],
@@ -3417,7 +3417,7 @@ class FinanceController extends AppBaseController
             $executiveSummary = [
                 'total_payrexx_transactions' => count($payrexxAnalysis['payrexx_transactions'] ?? []),
                 'expected_system_amount' => $classification['summary']['expected_revenue'], // Solo expected real
-                'total_payrexx_amount' => $payrexxAnalysis['production_payrexx_amount'] ?? 0, // Solo producción
+                'total_payrexx_amount' => $payrexxAnalysis['production_payrexx_amount'] ?? 0, // Solo producciÃ³n
                 'test_transactions_excluded' => $payrexxAnalysis['test_bookings'] ?? 0,
                 'cancelled_transactions_info' => $payrexxAnalysis['cancelled_bookings'] ?? 0,
                 'consistency_rate' => 0,
@@ -3454,7 +3454,7 @@ class FinanceController extends AppBaseController
             ];
 
         } catch (\Exception $e) {
-            Log::error('Error en análisis de Payrexx con clasificación correcta: ' . $e->getMessage());
+            Log::error('Error en anÃ¡lisis de Payrexx con clasificaciÃ³n correcta: ' . $e->getMessage());
 
             return [
                 'executive_summary' => [
@@ -3474,7 +3474,7 @@ class FinanceController extends AppBaseController
     {
         $recommendations = [];
 
-        // Recomendación de consistencia financiera
+        // RecomendaciÃ³n de consistencia financiera
         $consistencyRate = $dashboard['executive_kpis']['consistency_rate'] ?? 100;
         if ($consistencyRate < 90) {
             $severity = $consistencyRate < 70 ? 'critical' : 'high';
@@ -3484,40 +3484,40 @@ class FinanceController extends AppBaseController
                 'priority' => $severity,
                 'category' => 'financial_consistency',
                 'title' => 'Mejorar Consistencia Financiera',
-                'description' => "El {$consistencyRate}% de consistencia requiere atención inmediata",
+                'description' => "El {$consistencyRate}% de consistencia requiere atenciÃ³n inmediata",
                 'impact' => $severity,
                 'effort' => 'medium',
                 'timeline' => '1-2 semanas',
                 'actions' => [
                     "Revisar {$inconsistentCount} reservas con problemas",
-                    'Implementar validaciones automáticas',
+                    'Implementar validaciones automÃ¡ticas',
                     'Capacitar equipo en procesos financieros'
                 ],
-                'expected_benefit' => 'Reducir pérdidas y mejorar control financiero'
+                'expected_benefit' => 'Reducir pÃ©rdidas y mejorar control financiero'
             ];
         }
 
-        // Recomendación de cobros pendientes
+        // RecomendaciÃ³n de cobros pendientes
         $revenueAtRisk = $dashboard['executive_kpis']['revenue_at_risk'] ?? 0;
         if ($revenueAtRisk > 500) {
             $recommendations[] = [
                 'priority' => $revenueAtRisk > 2000 ? 'critical' : 'high',
                 'category' => 'revenue_collection',
                 'title' => 'Acelerar Cobros Pendientes',
-                'description' => "Hay {$revenueAtRisk}€ pendientes de cobro",
+                'description' => "Hay {$revenueAtRisk}â‚¬ pendientes de cobro",
                 'impact' => 'high',
                 'effort' => 'low',
                 'timeline' => '1 semana',
                 'actions' => [
                     'Contactar clientes con pagos pendientes',
-                    'Enviar recordatorios automáticos',
-                    'Revisar métodos de pago disponibles'
+                    'Enviar recordatorios automÃ¡ticos',
+                    'Revisar mÃ©todos de pago disponibles'
                 ],
-                'expected_benefit' => "Recuperar hasta {$revenueAtRisk}€ en ingresos"
+                'expected_benefit' => "Recuperar hasta {$revenueAtRisk}â‚¬ en ingresos"
             ];
         }
 
-        // Recomendación de cancelaciones sin procesar
+        // RecomendaciÃ³n de cancelaciones sin procesar
         $cancelledIssues = $dashboard['critical_issues']['cancelled_with_unprocessed_payments']['count'] ?? 0;
         if ($cancelledIssues > 5) {
             $recommendations[] = [
@@ -3527,33 +3527,33 @@ class FinanceController extends AppBaseController
                 'description' => "Hay {$cancelledIssues} cancelaciones con pagos sin procesar",
                 'impact' => 'medium',
                 'effort' => 'medium',
-                'timeline' => '2-3 días',
+                'timeline' => '2-3 dÃ­as',
                 'actions' => [
-                    'Revisar política de reembolsos',
+                    'Revisar polÃ­tica de reembolsos',
                     'Procesar refunds o aplicar no-refund',
                     'Notificar estados a clientes'
                 ],
-                'expected_benefit' => 'Clarificar situación financiera y mejorar satisfacción del cliente'
+                'expected_benefit' => 'Clarificar situaciÃ³n financiera y mejorar satisfacciÃ³n del cliente'
             ];
         }
 
-        // Recomendación de transacciones de test
+        // RecomendaciÃ³n de transacciones de test
         $testTransactions = $dashboard['test_transactions_analysis']['total_test_transactions'] ?? 0;
         if ($testTransactions > 0 && env('APP_ENV') === 'production') {
             $recommendations[] = [
                 'priority' => 'medium',
                 'category' => 'test_cleanup',
                 'title' => 'Limpiar Transacciones de Test',
-                'description' => "Se detectaron {$testTransactions} transacciones de test en producción",
+                'description' => "Se detectaron {$testTransactions} transacciones de test en producciÃ³n",
                 'impact' => 'low',
                 'effort' => 'low',
-                'timeline' => '1 día',
+                'timeline' => '1 dÃ­a',
                 'actions' => [
                     'Identificar y marcar transacciones de test',
                     'Reemplazar con transacciones reales si procede',
-                    'Implementar validaciones para prevenir test en producción'
+                    'Implementar validaciones para prevenir test en producciÃ³n'
                 ],
-                'expected_benefit' => 'Datos más limpios y reportes más precisos'
+                'expected_benefit' => 'Datos mÃ¡s limpios y reportes mÃ¡s precisos'
             ];
         }
 
@@ -3567,7 +3567,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * 🆕 NUEVO: Agregar a la exportación CSV - estructura para sources
+     * ðŸ†• NUEVO: Agregar a la exportaciÃ³n CSV - estructura para sources
      */
     private function formatBookingSourcesForExport($sourcesData): array
     {
@@ -3589,7 +3589,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * 🆕 NUEVO: Agregar a la exportación CSV - estructura para métodos de pago mejorados
+     * ðŸ†• NUEVO: Agregar a la exportaciÃ³n CSV - estructura para mÃ©todos de pago mejorados
      */
     private function formatPaymentMethodsForExport($paymentData): array
     {
@@ -3607,7 +3607,7 @@ class FinanceController extends AppBaseController
         }
 
         // Agregar resumen online vs offline
-        $csvData[] = ['', '', '', '', '', '']; // Línea vacía
+        $csvData[] = ['', '', '', '', '', '']; // LÃ­nea vacÃ­a
         $csvData[] = ['=== ONLINE VS OFFLINE ===', '', '', '', '', ''];
         $csvData[] = [
             'Online Total',
@@ -3638,11 +3638,11 @@ class FinanceController extends AppBaseController
             'revenue_breakdown' => [
                 'total_expected' => 0,        // Solo lo que realmente esperamos
                 'total_received' => 0,        // De las reservas que esperamos cobrar
-                'total_pending' => 0,         // Aún por cobrar de expected
-                'total_refunded' => 0         // Solo de producción
+                'total_pending' => 0,         // AÃºn por cobrar de expected
+                'total_refunded' => 0         // Solo de producciÃ³n
             ],
             'expected_vs_reality' => [
-                'expected_accuracy' => 0,     // Qué tan preciso es nuestro expected
+                'expected_accuracy' => 0,     // QuÃ© tan preciso es nuestro expected
                 'collection_velocity' => 0,   // Velocidad de cobro
                 'pending_risk_level' => 'low' // Nivel de riesgo de lo pendiente
             ],
@@ -3662,7 +3662,7 @@ class FinanceController extends AppBaseController
                 'consistent_bookings' => 0,
                 'inconsistent_bookings' => 0,
                 'consistency_rate' => 0,
-                'major_discrepancies' => 0    // Discrepancias > 20€
+                'major_discrepancies' => 0    // Discrepancias > 20â‚¬
             ]
         ];
 
@@ -3698,7 +3698,7 @@ class FinanceController extends AppBaseController
                 }
             }
 
-            // Distribución por valor (usar expected, no total)
+            // DistribuciÃ³n por valor (usar expected, no total)
             $expectedValue = $booking->status == 3
                 ? $this->calculateActivePortionRevenue($booking)
                 : $quickAnalysis['calculated_amount'];
@@ -3713,7 +3713,7 @@ class FinanceController extends AppBaseController
                 $summary['booking_value_distribution']['over_1000']++;
             }
 
-            // Métodos de pago (solo si no hay muchos para performance)
+            // MÃ©todos de pago (solo si no hay muchos para performance)
             if ($optimizationLevel === 'detailed' || count($paymentMethodCounts) < 100) {
                 foreach ($booking->payments as $payment) {
                     $method = $this->determinePaymentMethodImproved($payment);
@@ -3725,7 +3725,7 @@ class FinanceController extends AppBaseController
                 }
             }
 
-            // Análisis de vouchers
+            // AnÃ¡lisis de vouchers
             foreach ($booking->vouchersLogs as $voucherLog) {
                 $summary['voucher_usage']['total_voucher_amount'] += $voucherLog->amount;
                 $summary['voucher_usage']['total_vouchers_used']++;
@@ -3736,7 +3736,7 @@ class FinanceController extends AppBaseController
             }
         }
 
-        // Calcular métricas finales
+        // Calcular mÃ©tricas finales
         $totalBookings = count($productionBookings);
         $summary['consistency_metrics']['consistent_bookings'] = $consistentCount;
         $summary['consistency_metrics']['inconsistent_bookings'] = $totalBookings - $consistentCount;
@@ -3746,7 +3746,7 @@ class FinanceController extends AppBaseController
 
         $summary['revenue_breakdown']['total_pending'] = $summary['revenue_breakdown']['total_expected'] - $summary['revenue_breakdown']['total_received'];
 
-        // Métricas de expected vs realidad
+        // MÃ©tricas de expected vs realidad
         $summary['expected_vs_reality']['expected_accuracy'] = $summary['revenue_breakdown']['total_expected'] > 0
             ? round(($summary['revenue_breakdown']['total_received'] / $summary['revenue_breakdown']['total_expected']) * 100, 2)
             : 100;
@@ -3767,7 +3767,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODOS AUXILIARES NUEVOS
+     * MÃ‰TODOS AUXILIARES NUEVOS
      */
     private function calculateCollectionVelocity($productionBookings): string
     {
@@ -3837,10 +3837,10 @@ class FinanceController extends AppBaseController
             $dashboardResponse = $this->getSeasonFinancialDashboard($dashboardRequest);
             $dashboardData = json_decode($dashboardResponse->content(), true)['data'];
 
-            // 2. Preparar datos para exportación
+            // 2. Preparar datos para exportaciÃ³n
             $exportData = $this->prepareExportData($dashboardData, $request);
 
-            // 3. Generar archivo según formato
+            // 3. Generar archivo segÃºn formato
             switch ($request->input('format')) {
                 case 'csv':
                     return $this->generateCsvExport($exportData, $dashboardData);
@@ -3849,23 +3849,23 @@ class FinanceController extends AppBaseController
                 case 'excel':
                     return $this->generateExcelExport($exportData, $dashboardData);
                 default:
-                    return $this->sendError('Formato de exportación no soportado', 422);
+                    return $this->sendError('Formato de exportaciÃ³n no soportado', 422);
             }
 
         } catch (\Exception $e) {
             Log::error('Error exportando dashboard: ' . $e->getMessage());
-            return $this->sendError('Error en exportación: ' . $e->getMessage(), 500);
+            return $this->sendError('Error en exportaciÃ³n: ' . $e->getMessage(), 500);
         }
     }
 
     /**
-     * Preparar datos estructurados para exportación
+     * Preparar datos estructurados para exportaciÃ³n
      */
     private function prepareExportData(array $dashboardData, Request $request): array
     {
         $sections = $request->get('sections', ['executive_summary', 'financial_kpis', 'critical_issues']);
 
-        // ✅ FIX: Estructura correcta del período desde dashboardData
+        // âœ… FIX: Estructura correcta del perÃ­odo desde dashboardData
         $seasonInfo = $dashboardData['season_info'] ?? [];
         $dateRange = $seasonInfo['date_range'] ?? [];
 
@@ -3874,11 +3874,11 @@ class FinanceController extends AppBaseController
                 'school_id' => $request->school_id,
                 'export_date' => now()->format('Y-m-d H:i:s'),
                 'period' => [
-                    // ✅ FIX: Usar las claves correctas del array de fecha
+                    // âœ… FIX: Usar las claves correctas del array de fecha
                     'start' => $dateRange['start'] ?? ($request->start_date ?? date('Y-m-d')),
                     'end' => $dateRange['end'] ?? ($request->end_date ?? date('Y-m-d')),
                     'total_days' => $dateRange['total_days'] ?? 0,
-                    'season_name' => $seasonInfo['season_name'] ?? 'Período personalizado'
+                    'season_name' => $seasonInfo['season_name'] ?? 'PerÃ­odo personalizado'
                 ],
                 'total_bookings' => $seasonInfo['total_bookings'] ?? 0,
                 'optimization_level' => $request->get('optimization_level', 'balanced')
@@ -3886,7 +3886,7 @@ class FinanceController extends AppBaseController
             'sections' => []
         ];
 
-        // Sección: Resumen Ejecutivo
+        // SecciÃ³n: Resumen Ejecutivo
         if (in_array('executive_summary', $sections)) {
             $kpis = $dashboardData['executive_kpis'] ?? [];
             $classification = $dashboardData['season_info']['booking_classification'] ?? [];
@@ -3894,88 +3894,88 @@ class FinanceController extends AppBaseController
             $exportData['sections']['executive_summary'] = [
                 'title' => 'Resumen Ejecutivo de Temporada',
                 'data' => [
-                    ['Métrica', 'Valor', 'Unidad'],
-                    ['Período', $exportData['metadata']['period']['start'] . ' a ' . $exportData['metadata']['period']['end'], ''],
+                    ['MÃ©trica', 'Valor', 'Unidad'],
+                    ['PerÃ­odo', $exportData['metadata']['period']['start'] . ' a ' . $exportData['metadata']['period']['end'], ''],
                     ['Total Reservas', $exportData['metadata']['total_bookings'], 'reservas'],
-                    ['=== RESERVAS DE PRODUCCIÓN ===', '', ''],
-                    ['Reservas Producción', $classification['production_count'] ?? 0, 'reservas'],
+                    ['=== RESERVAS DE PRODUCCIÃ“N ===', '', ''],
+                    ['Reservas ProducciÃ³n', $classification['production_count'] ?? 0, 'reservas'],
                     ['Reservas Activas', $classification['production_active_count'] ?? 0, 'reservas'],
                     ['Reservas Terminadas', $classification['production_finished_count'] ?? 0, 'reservas'],
                     ['Reservas Parciales', $classification['production_partial_count'] ?? 0, 'reservas'],
                     ['Total Clientes', $kpis['total_clients'] ?? 0, 'clientes'],
                     ['Total Participantes', $kpis['total_participants'] ?? 0, 'personas'],
-                    ['=== MÉTRICAS FINANCIERAS ===', '', ''],
+                    ['=== MÃ‰TRICAS FINANCIERAS ===', '', ''],
                     ['Ingresos Esperados', number_format($kpis['revenue_expected'] ?? 0, 2), 'CHF'],
                     ['Ingresos Recibidos', number_format($kpis['revenue_received'] ?? 0, 2), 'CHF'],
                     ['Ingresos Pendientes', number_format($kpis['revenue_pending'] ?? 0, 2), 'CHF'],
                     ['Eficiencia de Cobro', ($kpis['collection_efficiency'] ?? 0), '%'],
                     ['Ventas Confirmadas', number_format($kpis['real_sales_amount'] ?? 0, 2), 'CHF'],
                     ['Transacciones Confirmadas', $kpis['confirmed_transactions'] ?? 0, 'ventas'],
-                    ['Tasa de Conversión', ($kpis['sales_conversion_rate'] ?? 0), '%'],
+                    ['Tasa de ConversiÃ³n', ($kpis['sales_conversion_rate'] ?? 0), '%'],
                     ['=== EXCLUSIONES ===', '', ''],
                     ['Reservas Canceladas (Excluidas)', $classification['cancelled_count'] ?? 0, 'reservas'],
                     ['Revenue Canceladas (Excluido)', number_format($classification['cancelled_revenue_processed'] ?? 0, 2), 'CHF'],
                     ['Reservas Test (Excluidas)', $classification['test_count'] ?? 0, 'reservas'],
                     ['Revenue Test (Excluido)', number_format($classification['test_revenue_excluded'] ?? 0, 2), 'CHF'],
                     ['=== RATIOS ===', '', ''],
-                    ['% Reservas Producción', round((($classification['production_count'] ?? 0) / max($exportData['metadata']['total_bookings'], 1)) * 100, 2), '%'],
+                    ['% Reservas ProducciÃ³n', round((($classification['production_count'] ?? 0) / max($exportData['metadata']['total_bookings'], 1)) * 100, 2), '%'],
                     ['% Reservas Canceladas', round((($classification['cancelled_count'] ?? 0) / max($exportData['metadata']['total_bookings'], 1)) * 100, 2), '%'],
                     ['% Reservas Test', round((($classification['test_count'] ?? 0) / max($exportData['metadata']['total_bookings'], 1)) * 100, 2), '%']
                 ]
             ];
         }
 
-        // Sección: KPIs Financieros
+        // SecciÃ³n: KPIs Financieros
         if (in_array('financial_kpis', $sections)) {
             $exportData['sections']['financial_kpis'] = [
-                'title' => 'Análisis Financiero Detallado',
+                'title' => 'AnÃ¡lisis Financiero Detallado',
                 'data' => $this->formatFinancialKpisForExport($dashboardData['financial_summary'] ?? [])
             ];
         }
 
-        // Sección: Análisis por Estado
+        // SecciÃ³n: AnÃ¡lisis por Estado
         if (in_array('booking_analysis', $sections)) {
             $exportData['sections']['booking_analysis'] = [
-                'title' => 'Distribución por Estado de Reserva',
+                'title' => 'DistribuciÃ³n por Estado de Reserva',
                 'data' => $this->formatBookingAnalysisForExport($dashboardData['booking_status_analysis'] ?? [])
             ];
         }
 
-        // Sección: Problemas Críticos
+        // SecciÃ³n: Problemas CrÃ­ticos
         if (in_array('critical_issues', $sections)) {
             $exportData['sections']['critical_issues'] = [
-                'title' => 'Problemas Críticos Detectados',
+                'title' => 'Problemas CrÃ­ticos Detectados',
                 'data' => $this->formatCriticalIssuesForExport($dashboardData['critical_issues'] ?? [])
             ];
         }
 
-        // Sección: Análisis de Test
+        // SecciÃ³n: AnÃ¡lisis de Test
         if (in_array('test_analysis', $sections) && isset($dashboardData['test_analysis'])) {
             $exportData['sections']['test_analysis'] = [
-                'title' => 'Análisis de Transacciones de Test',
+                'title' => 'AnÃ¡lisis de Transacciones de Test',
                 'data' => $this->formatTestAnalysisForExport($dashboardData['test_analysis'])
             ];
         }
 
-        // Sección: Análisis de Payrexx
+        // SecciÃ³n: AnÃ¡lisis de Payrexx
         if (in_array('payrexx_analysis', $sections) && isset($dashboardData['payrexx_analysis'])) {
             $exportData['sections']['payrexx_analysis'] = [
-                'title' => 'Análisis de Consistencia con Payrexx',
+                'title' => 'AnÃ¡lisis de Consistencia con Payrexx',
                 'data' => $this->formatPayrexxAnalysisForExport($dashboardData['payrexx_analysis'])
             ];
         }
 
         if (in_array('booking_sources', $sections)) {
             $exportData['sections']['booking_sources'] = [
-                'title' => 'Análisis de Orígenes de Reservas',
+                'title' => 'AnÃ¡lisis de OrÃ­genes de Reservas',
                 'data' => $this->formatBookingSourcesForExport($dashboardData['booking_sources'] ?? [])
             ];
         }
 
-        // Sección: Métodos de Pago Mejorados
+        // SecciÃ³n: MÃ©todos de Pago Mejorados
         if (in_array('payment_methods', $sections)) {
             $exportData['sections']['payment_methods'] = [
-                'title' => 'Análisis Detallado de Métodos de Pago',
+                'title' => 'AnÃ¡lisis Detallado de MÃ©todos de Pago',
                 'data' => $this->formatPaymentMethodsForExport($dashboardData['payment_methods'] ?? [])
             ];
         }
@@ -3986,12 +3986,12 @@ class FinanceController extends AppBaseController
 
     private function generateCsvExport(array $exportData, array $dashboardData): JsonResponse
     {
-        // Usar el método mejorado con clasificación
+        // Usar el mÃ©todo mejorado con clasificaciÃ³n
         return $this->generateCsvExportWithClassification($exportData, $dashboardData);
     }
 
     /**
-     * Generar exportación CSV
+     * Generar exportaciÃ³n CSV
      */
     private function generateCsvExportold(array $exportData, array $dashboardData): JsonResponse
     {
@@ -4004,11 +4004,11 @@ class FinanceController extends AppBaseController
         // Encabezado del archivo
         $csvContent .= "DASHBOARD EJECUTIVO DE TEMPORADA\n";
         $csvContent .= "Escuela ID:," . $exportData['metadata']['school_id'] . "\n";
-        $csvContent .= "Período:," . $exportData['metadata']['period']['start'] . " a " . $exportData['metadata']['period']['end'] . "\n";
+        $csvContent .= "PerÃ­odo:," . $exportData['metadata']['period']['start'] . " a " . $exportData['metadata']['period']['end'] . "\n";
         $csvContent .= "Total Reservas:," . $exportData['metadata']['total_bookings'] . "\n";
         $csvContent .= "Generado:," . $exportData['metadata']['export_date'] . "\n\n";
 
-        // Procesar cada sección
+        // Procesar cada secciÃ³n
         foreach ($exportData['sections'] as $sectionKey => $section) {
             $csvContent .= strtoupper($section['title']) . "\n";
 
@@ -4023,10 +4023,10 @@ class FinanceController extends AppBaseController
             $csvContent .= "\n";
         }
 
-        // Sección de alertas ejecutivas
+        // SecciÃ³n de alertas ejecutivas
         if (isset($dashboardData['executive_alerts']) && !empty($dashboardData['executive_alerts'])) {
             $csvContent .= "ALERTAS EJECUTIVAS\n";
-            $csvContent .= '"Nivel","Tipo","Título","Descripción","Impacto"' . "\n";
+            $csvContent .= '"Nivel","Tipo","TÃ­tulo","DescripciÃ³n","Impacto"' . "\n";
 
             foreach ($dashboardData['executive_alerts'] as $alert) {
                 $row = [
@@ -4044,10 +4044,10 @@ class FinanceController extends AppBaseController
             $csvContent .= "\n";
         }
 
-        // Sección de recomendaciones
+        // SecciÃ³n de recomendaciones
         if (isset($dashboardData['priority_recommendations']) && !empty($dashboardData['priority_recommendations'])) {
             $csvContent .= "RECOMENDACIONES PRIORITARIAS\n";
-            $csvContent .= '"Prioridad","Categoría","Título","Descripción","Impacto","Plazo","Acciones"' . "\n";
+            $csvContent .= '"Prioridad","CategorÃ­a","TÃ­tulo","DescripciÃ³n","Impacto","Plazo","Acciones"' . "\n";
 
             foreach ($dashboardData['priority_recommendations'] as $rec) {
                 $actions = isset($rec['actions']) && is_array($rec['actions'])
@@ -4089,13 +4089,13 @@ class FinanceController extends AppBaseController
                 'size' => strlen($csvContent),
                 'download_url' => route('finance.download-export', ['filename' => $filename])
             ],
-            'message' => 'Exportación CSV generada exitosamente'
+            'message' => 'ExportaciÃ³n CSV generada exitosamente'
         ]);
     }
 
 
     /**
-     * Formatear KPIs financieros para exportación
+     * Formatear KPIs financieros para exportaciÃ³n
      */
     private function formatFinancialKpisForExport(array $financialSummary): array
     {
@@ -4113,14 +4113,14 @@ class FinanceController extends AppBaseController
             $vu = $financialSummary['voucher_usage'];
             $data[] = ['Vouchers Utilizados', $vu['total_vouchers_used'], 'vouchers'];
             $data[] = ['Importe Total Vouchers', number_format($vu['total_voucher_amount'], 2), 'EUR'];
-            $data[] = ['Vouchers Únicos', $vu['unique_vouchers'], 'códigos'];
+            $data[] = ['Vouchers Ãšnicos', $vu['unique_vouchers'], 'cÃ³digos'];
         }
 
         return $data;
     }
 
     /**
-     * ✅ FIX: Método auxiliar para formatear análisis de reservas (SEGURO)
+     * âœ… FIX: MÃ©todo auxiliar para formatear anÃ¡lisis de reservas (SEGURO)
      */
     private function formatBookingAnalysisForExport(array $bookingAnalysis): array
     {
@@ -4142,11 +4142,11 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * ✅ FIX: Método auxiliar para formatear problemas críticos (SEGURO)
+     * âœ… FIX: MÃ©todo auxiliar para formatear problemas crÃ­ticos (SEGURO)
      */
     private function formatCriticalIssuesForExport(array $criticalIssues): array
     {
-        $data = [['Tipo de Problema', 'Cantidad', 'Booking ID', 'Cliente', 'Importe', 'Descripción']];
+        $data = [['Tipo de Problema', 'Cantidad', 'Booking ID', 'Cliente', 'Importe', 'DescripciÃ³n']];
 
         foreach ($criticalIssues as $issueType => $issueData) {
             $count = 0;
@@ -4190,12 +4190,12 @@ class FinanceController extends AppBaseController
         return $data;
     }
     /**
-     * Formatear análisis de test para exportación
+     * Formatear anÃ¡lisis de test para exportaciÃ³n
      */
     private function formatTestAnalysisForExport(array $testAnalysis): array
     {
         $data = [
-            ['Métrica de Test', 'Valor'],
+            ['MÃ©trica de Test', 'Valor'],
             ['Reservas con Test', $testAnalysis['total_bookings_with_test']],
             ['Total Transacciones Test', $testAnalysis['total_test_transactions']],
             ['Importe Total Test', number_format($testAnalysis['test_amount_total'], 2) . ' EUR'],
@@ -4204,9 +4204,9 @@ class FinanceController extends AppBaseController
             ['Confianza Baja', $testAnalysis['confidence_distribution']['low']]
         ];
 
-        // Añadir indicadores más comunes
+        // AÃ±adir indicadores mÃ¡s comunes
         if (!empty($testAnalysis['test_indicators_summary'])) {
-            $data[] = ['', '']; // Fila vacía
+            $data[] = ['', '']; // Fila vacÃ­a
             $data[] = ['Indicadores Principales', 'Frecuencia'];
 
             $indicators = $testAnalysis['test_indicators_summary'];
@@ -4221,14 +4221,14 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * Formatear análisis de Payrexx para exportación
+     * Formatear anÃ¡lisis de Payrexx para exportaciÃ³n
      */
     private function formatPayrexxAnalysisForExport(array $payrexxAnalysis): array
     {
         $summary = $payrexxAnalysis['executive_summary'] ?? [];
 
         return [
-            ['Métrica Payrexx', 'Valor'],
+            ['MÃ©trica Payrexx', 'Valor'],
             ['Transacciones Payrexx', $summary['total_payrexx_transactions'] ?? 0],
             ['Importe Sistema', number_format($summary['total_system_amount'] ?? 0, 2) . ' EUR'],
             ['Importe Payrexx', number_format($summary['total_payrexx_amount'] ?? 0, 2) . ' EUR'],
@@ -4241,14 +4241,14 @@ class FinanceController extends AppBaseController
 
 
     /**
-     * Generar exportación Excel usando PhpSpreadsheet
+     * Generar exportaciÃ³n Excel usando PhpSpreadsheet
      */
     private function generateExcelExport(array $exportData, array $dashboardData): JsonResponse
     {
         try {
-            // Verificar si PhpSpreadsheet está disponible
+            // Verificar si PhpSpreadsheet estÃ¡ disponible
             if (!class_exists('\PhpOffice\PhpSpreadsheet\Spreadsheet')) {
-                return $this->sendError('PhpSpreadsheet no está instalado. Use: composer require phpoffice/phpspreadsheet', 500);
+                return $this->sendError('PhpSpreadsheet no estÃ¡ instalado. Use: composer require phpoffice/phpspreadsheet', 500);
             }
 
             $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
@@ -4266,7 +4266,7 @@ class FinanceController extends AppBaseController
             $sheet->setCellValue('B' . $currentRow, $exportData['metadata']['school_id']);
             $currentRow++;
 
-            $sheet->setCellValue('A' . $currentRow, 'Período:');
+            $sheet->setCellValue('A' . $currentRow, 'PerÃ­odo:');
             $sheet->setCellValue('B' . $currentRow, $exportData['metadata']['period']['start'] . ' a ' . $exportData['metadata']['period']['end']);
             $currentRow++;
 
@@ -4278,9 +4278,9 @@ class FinanceController extends AppBaseController
             $sheet->setCellValue('B' . $currentRow, $exportData['metadata']['export_date']);
             $currentRow += 2;
 
-            // Procesar cada sección
+            // Procesar cada secciÃ³n
             foreach ($exportData['sections'] as $sectionKey => $section) {
-                // Título de sección
+                // TÃ­tulo de secciÃ³n
                 $sheet->setCellValue('A' . $currentRow, strtoupper($section['title']));
                 $sheet->getStyle('A' . $currentRow)->getFont()->setBold(true)->setSize(14);
                 $sheet->getStyle('A' . $currentRow . ':' . $this->getColumnLetter(count($section['data'][0] ?? [1])) . $currentRow)
@@ -4288,7 +4288,7 @@ class FinanceController extends AppBaseController
                     ->getStartColor()->setRGB('E6E6E6');
                 $currentRow++;
 
-                // Datos de la sección
+                // Datos de la secciÃ³n
                 foreach ($section['data'] as $rowIndex => $row) {
                     $col = 'A';
                     foreach ($row as $cell) {
@@ -4313,7 +4313,7 @@ class FinanceController extends AppBaseController
                 $currentRow++;
 
                 // Encabezados de alertas
-                $alertHeaders = ['Nivel', 'Tipo', 'Título', 'Descripción', 'Impacto'];
+                $alertHeaders = ['Nivel', 'Tipo', 'TÃ­tulo', 'DescripciÃ³n', 'Impacto'];
                 $col = 'A';
                 foreach ($alertHeaders as $header) {
                     $sheet->setCellValue($col . $currentRow, $header);
@@ -4341,7 +4341,7 @@ class FinanceController extends AppBaseController
                 $currentRow++;
 
                 // Encabezados de recomendaciones
-                $recHeaders = ['Prioridad', 'Categoría', 'Título', 'Descripción', 'Impacto', 'Plazo'];
+                $recHeaders = ['Prioridad', 'CategorÃ­a', 'TÃ­tulo', 'DescripciÃ³n', 'Impacto', 'Plazo'];
                 $col = 'A';
                 foreach ($recHeaders as $header) {
                     $sheet->setCellValue($col . $currentRow, $header);
@@ -4388,7 +4388,7 @@ class FinanceController extends AppBaseController
                     'size' => filesize($tempPath),
                     'download_url' => route('finance.download-export', ['filename' => $filename])
                 ],
-                'message' => 'Exportación Excel generada exitosamente'
+                'message' => 'ExportaciÃ³n Excel generada exitosamente'
             ]);
 
         } catch (\Exception $e) {
@@ -4404,23 +4404,23 @@ class FinanceController extends AppBaseController
                     'filename' => str_replace('.xlsx', '.csv', $filename ?? 'export.csv'),
                     'content_type' => 'text/csv',
                     'fallback' => true,
-                    'message' => 'Excel falló, generando CSV como alternativa',
+                    'message' => 'Excel fallÃ³, generando CSV como alternativa',
                     'csv_data' => $csvData
                 ],
-                'message' => 'Exportación generada como CSV (Excel no disponible)'
+                'message' => 'ExportaciÃ³n generada como CSV (Excel no disponible)'
             ]);
         }
     }
 
     /**
-     * Generar exportación PDF usando DomPDF
+     * Generar exportaciÃ³n PDF usando DomPDF
      */
     private function generatePdfExport(array $exportData, array $dashboardData): JsonResponse
     {
         try {
-            // Verificar si DomPDF está disponible
+            // Verificar si DomPDF estÃ¡ disponible
             if (!class_exists('\Dompdf\Dompdf')) {
-                return $this->sendError('DomPDF no está instalado. Use: composer require dompdf/dompdf', 500);
+                return $this->sendError('DomPDF no estÃ¡ instalado. Use: composer require dompdf/dompdf', 500);
             }
 
             $dompdf = new \Dompdf\Dompdf();
@@ -4454,7 +4454,7 @@ class FinanceController extends AppBaseController
                     'size' => filesize($tempPath),
                     'download_url' => route('finance.download-export', ['filename' => $filename])
                 ],
-                'message' => 'Exportación PDF generada exitosamente'
+                'message' => 'ExportaciÃ³n PDF generada exitosamente'
             ]);
 
         } catch (\Exception $e) {
@@ -4506,17 +4506,17 @@ class FinanceController extends AppBaseController
     <body>
         <div class="header">
             <h1>Dashboard Ejecutivo de Temporada</h1>
-            <p>Análisis Financiero Completo</p>
+            <p>AnÃ¡lisis Financiero Completo</p>
         </div>
 
         <div class="metadata">
             <strong>Escuela ID:</strong> ' . $exportData['metadata']['school_id'] . '<br>
-            <strong>Período:</strong> ' . $exportData['metadata']['period']['start'] . ' a ' . $exportData['metadata']['period']['end'] . '<br>
+            <strong>PerÃ­odo:</strong> ' . $exportData['metadata']['period']['start'] . ' a ' . $exportData['metadata']['period']['end'] . '<br>
             <strong>Total Reservas:</strong> ' . $exportData['metadata']['total_bookings'] . '<br>
             <strong>Generado:</strong> ' . $exportData['metadata']['export_date'] . '
         </div>';
 
-        // Agregar cada sección
+        // Agregar cada secciÃ³n
         foreach ($exportData['sections'] as $sectionKey => $section) {
             $html .= '<div class="section">';
             $html .= '<div class="section-title">' . strtoupper($section['title']) . '</div>';
@@ -4567,8 +4567,8 @@ class FinanceController extends AppBaseController
             foreach ($dashboardData['priority_recommendations'] as $rec) {
                 $html .= '<div class="recommendation">';
                 $html .= '<strong>Prioridad ' . strtoupper($rec['priority'] ?? '') . ': ' . ($rec['title'] ?? '') . '</strong><br>';
-                $html .= '<strong>Categoría:</strong> ' . ($rec['category'] ?? '') . '<br>';
-                $html .= '<strong>Descripción:</strong> ' . ($rec['description'] ?? '') . '<br>';
+                $html .= '<strong>CategorÃ­a:</strong> ' . ($rec['category'] ?? '') . '<br>';
+                $html .= '<strong>DescripciÃ³n:</strong> ' . ($rec['description'] ?? '') . '<br>';
                 $html .= '<strong>Impacto:</strong> ' . ($rec['impact'] ?? '') . '<br>';
                 $html .= '<strong>Plazo:</strong> ' . ($rec['timeline'] ?? '') . '<br>';
 
@@ -4588,7 +4588,7 @@ class FinanceController extends AppBaseController
 
         $html .= '
         <div class="footer">
-            <p>Reporte generado automáticamente - ' . date('Y-m-d H:i:s') . '</p>
+            <p>Reporte generado automÃ¡ticamente - ' . date('Y-m-d H:i:s') . '</p>
         </div>
     </body>
     </html>';
@@ -4597,7 +4597,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * Método auxiliar para obtener letra de columna Excel
+     * MÃ©todo auxiliar para obtener letra de columna Excel
      */
     private function getColumnLetter($index): string
     {
@@ -4622,7 +4622,7 @@ class FinanceController extends AppBaseController
             abort(404, 'Archivo no encontrado');
         }
 
-        // Determinar content type basado en extensión
+        // Determinar content type basado en extensiÃ³n
         $extension = pathinfo($filename, PATHINFO_EXTENSION);
         $contentTypes = [
             'csv' => 'text/csv',
@@ -4655,7 +4655,7 @@ class FinanceController extends AppBaseController
 
                 foreach ($files as $file) {
                     if (is_file($file)) {
-                        // Eliminar archivos de más de 1 hora
+                        // Eliminar archivos de mÃ¡s de 1 hora
                         if ($now - filemtime($file) > 3600) {
                             unlink($file);
                             $cleaned++;
@@ -4679,7 +4679,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Calcular KPIs ejecutivos principales
+     * MÃ‰TODO AUXILIAR: Calcular KPIs ejecutivos principales
      */
     private function calculateExecutiveKpis($bookings, Request $request): array
     {
@@ -4698,7 +4698,7 @@ class FinanceController extends AppBaseController
             'payrexx_consistency_rate' => null
         ];
 
-        // Análisis financiero optimizado
+        // AnÃ¡lisis financiero optimizado
         $financialStats = $this->calculateQuickFinancialStats($bookings);
         $stats = array_merge($stats, $financialStats);
 
@@ -4717,28 +4717,28 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Análisis rápido de estados de reserva
+     * MÃ‰TODO AUXILIAR: AnÃ¡lisis rÃ¡pido de estados de reserva
      */
     /**
-     * MÉTODO CORREGIDO: Análisis por estado con expected correcto
+     * MÃ‰TODO CORREGIDO: AnÃ¡lisis por estado con expected correcto
      */
     private function analyzeBookingsByStatus($productionBookings): array
     {
         $statusAnalysis = [
             'active' => ['count' => 0, 'expected_revenue' => 0, 'received_revenue' => 0, 'issues' => 0],
-            'finished' => ['count' => 0, 'expected_revenue' => 0, 'received_revenue' => 0, 'issues' => 0], // ✅ NUEVO
+            'finished' => ['count' => 0, 'expected_revenue' => 0, 'received_revenue' => 0, 'issues' => 0], // âœ… NUEVO
             'partial_cancel' => ['count' => 0, 'expected_revenue' => 0, 'received_revenue' => 0, 'issues' => 0]
         ];
 
         foreach ($productionBookings as $booking) {
             $realStatus = $booking->getCancellationStatusAttribute();
 
-            // ✅ MAPEAR CORRECTAMENTE LOS ESTADOS
+            // âœ… MAPEAR CORRECTAMENTE LOS ESTADOS
             $statusKey = 'active'; // default
             if ($realStatus === 'partial_cancel') {
                 $statusKey = 'partial_cancel';
             } elseif ($realStatus === 'finished') {
-                $statusKey = 'finished';  // ✅ NUEVO ESTADO
+                $statusKey = 'finished';  // âœ… NUEVO ESTADO
             }
 
             $statusAnalysis[$statusKey]['count']++;
@@ -4753,7 +4753,7 @@ class FinanceController extends AppBaseController
                 $statusAnalysis[$statusKey]['expected_revenue'] += $activeRevenue;
                 $statusAnalysis[$statusKey]['received_revenue'] += $quickAnalysis['received_amount'] * $activeProportion;
             } else {
-                // ✅ Para activas Y FINISHED, contar todo
+                // âœ… Para activas Y FINISHED, contar todo
                 $statusAnalysis[$statusKey]['expected_revenue'] += $quickAnalysis['calculated_amount'];
                 $statusAnalysis[$statusKey]['received_revenue'] += $quickAnalysis['received_amount'];
             }
@@ -4763,7 +4763,7 @@ class FinanceController extends AppBaseController
             }
         }
 
-        // Calcular porcentajes y métricas
+        // Calcular porcentajes y mÃ©tricas
         $totalProductionBookings = count($productionBookings);
         foreach ($statusAnalysis as $status => &$data) {
             $data['percentage'] = $totalProductionBookings > 0 ? round(($data['count'] / $totalProductionBookings) * 100, 2) : 0;
@@ -4778,7 +4778,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Análisis financiero rápido para dashboard
+     * MÃ‰TODO AUXILIAR: AnÃ¡lisis financiero rÃ¡pido para dashboard
      */
     private function calculateQuickFinancialStats($bookings): array
     {
@@ -4819,7 +4819,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Análisis financiero rápido de una reserva individual
+     * MÃ‰TODO AUXILIAR: AnÃ¡lisis financiero rÃ¡pido de una reserva individual
      */
     private function getQuickBookingFinancialStatus($booking): array
     {
@@ -4831,7 +4831,7 @@ class FinanceController extends AppBaseController
         ];
 
         try {
-            // Usar grouped activities del modelo para cálculo rápido
+            // Usar grouped activities del modelo para cÃ¡lculo rÃ¡pido
             $groupedActivities = $booking->getGroupedActivitiesAttribute();
 
             foreach ($groupedActivities as $activity) {
@@ -4842,7 +4842,7 @@ class FinanceController extends AppBaseController
                     continue;
                 }
 
-                // Solo sumar si no está completamente cancelado
+                // Solo sumar si no estÃ¡ completamente cancelado
                 if ($activity['status'] !== 2) {
                     $status['calculated_amount'] += $activity['total'];
                 }
@@ -4861,7 +4861,7 @@ class FinanceController extends AppBaseController
 
                 $logAmount = abs(floatval($log->amount));
 
-                // Si hay un log de refund → tratamos este uso como devolución
+                // Si hay un log de refund â†’ tratamos este uso como devoluciÃ³n
                 if ($hasVoucherRefundLog) {
                     $voucherRefunded += $logAmount;
                     continue;
@@ -4878,13 +4878,13 @@ class FinanceController extends AppBaseController
                 }
             }
 
-            // Calcular dinero recibido rápidamente
+            // Calcular dinero recibido rÃ¡pidamente
             $status['received_amount'] = $booking->payments->where('status', 'paid')->sum('amount')
                 - $booking->payments->where('status', 'refund')->sum('amount')
                 - $booking->payments->where('status', 'partial_refund')->sum('amount')
                 + $voucherPaid - $voucherRefunded;
 
-            // Detectar problemas básicos
+            // Detectar problemas bÃ¡sicos
             $difference = abs($status['calculated_amount'] - $status['received_amount']);
 
             if ($difference > 0.50) {
@@ -4898,7 +4898,7 @@ class FinanceController extends AppBaseController
             }
 
         } catch (\Exception $e) {
-            Log::warning("Error en análisis rápido de booking {$booking->id}: " . $e->getMessage());
+            Log::warning("Error en anÃ¡lisis rÃ¡pido de booking {$booking->id}: " . $e->getMessage());
             $status['has_issues'] = true;
             $status['issue_types'][] = 'analysis_error';
         }
@@ -4907,7 +4907,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Detectar problemas críticos en la temporada
+     * MÃ‰TODO AUXILIAR: Detectar problemas crÃ­ticos en la temporada
      */
     private function identifyCriticalIssues($bookings, string $optimizationLevel): array
     {
@@ -4915,10 +4915,10 @@ class FinanceController extends AppBaseController
             'high_expected_discrepancies' => [],     // Discrepancias en expected
             'expected_collection_issues' => [],      // Problemas de cobro en expected
             'expected_voucher_issues' => [],         // Problemas de vouchers en expected
-            'expected_pricing_anomalies' => []       // Anomalías de precio en expected
+            'expected_pricing_anomalies' => []       // AnomalÃ­as de precio en expected
         ];
 
-        $highValueThreshold = 30; // Para expected, ser más estricto
+        $highValueThreshold = 30; // Para expected, ser mÃ¡s estricto
         $processed = 0;
         $maxToAnalyze = $optimizationLevel === 'fast' ? 100 : ($optimizationLevel === 'detailed' ? PHP_INT_MAX : 300);
 
@@ -4974,7 +4974,7 @@ class FinanceController extends AppBaseController
                 ];
             }
 
-            // Anomalías en expected (valores muy altos o muy bajos)
+            // AnomalÃ­as en expected (valores muy altos o muy bajos)
             if ($expectedRevenue > 2000 || ($expectedRevenue > 0 && $expectedRevenue < 5)) {
                 $criticalIssues['expected_pricing_anomalies'][] = [
                     'booking_id' => $booking->id,
@@ -5000,7 +5000,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Análisis de transacciones de test en la temporada
+     * MÃ‰TODO AUXILIAR: AnÃ¡lisis de transacciones de test en la temporada
      */
     private function analyzeTestTransactions($bookings): array
     {
@@ -5024,7 +5024,7 @@ class FinanceController extends AppBaseController
             $payrexxPayments = $booking->payments()->whereNotNull('payrexx_reference')->get();
 
             foreach ($payrexxPayments as $payment) {
-                // Simular detección de test básica (sin llamar a Payrexx para dashboard rápido)
+                // Simular detecciÃ³n de test bÃ¡sica (sin llamar a Payrexx para dashboard rÃ¡pido)
                 $isTest = $this->quickTestDetection($payment);
 
                 if ($isTest['is_test']) {
@@ -5065,7 +5065,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Detección rápida de test sin llamar a Payrexx
+     * MÃ‰TODO AUXILIAR: DetecciÃ³n rÃ¡pida de test sin llamar a Payrexx
      */
     private function quickTestDetection($payment): array
     {
@@ -5098,7 +5098,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Generar alertas ejecutivas
+     * MÃ‰TODO AUXILIAR: Generar alertas ejecutivas
      */
     private function generateExecutiveAlerts(array $dashboard): array
     {
@@ -5124,21 +5124,21 @@ class FinanceController extends AppBaseController
                 'level' => 'warning',
                 'type' => 'revenue_at_risk',
                 'title' => 'Ingresos en Riesgo',
-                'description' => "Hay {$revenueAtRisk}€ de ingresos pendientes de cobro",
+                'description' => "Hay {$revenueAtRisk}â‚¬ de ingresos pendientes de cobro",
                 'impact' => 'medium',
                 'action_required' => true
             ];
         }
 
-        // Alerta de transacciones de test en producción
+        // Alerta de transacciones de test en producciÃ³n
         if (env('APP_ENV') === 'production' &&
             ($dashboard['test_transactions_analysis']['total_test_transactions'] ?? 0) > 0) {
             $testCount = $dashboard['test_transactions_analysis']['total_test_transactions'];
             $alerts[] = [
                 'level' => 'warning',
                 'type' => 'test_transactions_in_production',
-                'title' => 'Transacciones de Test en Producción',
-                'description' => "Se detectaron {$testCount} transacciones de test en ambiente de producción",
+                'title' => 'Transacciones de Test en ProducciÃ³n',
+                'description' => "Se detectaron {$testCount} transacciones de test en ambiente de producciÃ³n",
                 'impact' => 'medium',
                 'action_required' => true
             ];
@@ -5148,17 +5148,17 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Preparar datos para exportación
+     * MÃ‰TODO AUXILIAR: Preparar datos para exportaciÃ³n
      */
     private function prepareExportSummary(array $dashboard, array $classification): array
     {
         return [
             'csv_ready_data' => [
                 'executive_summary' => [
-                    ['Métrica', 'Valor', 'Unidad'],
-                    ['=== RESERVAS DE PRODUCCIÓN ===', '', ''],
-                    ['Total Reservas Producción', $dashboard['executive_kpis']['total_production_bookings'] ?? $classification['summary']['production_count'], 'reservas'],
-                    ['Total Clientes Únicos', $dashboard['executive_kpis']['total_clients'] ?? 0, 'clientes'],
+                    ['MÃ©trica', 'Valor', 'Unidad'],
+                    ['=== RESERVAS DE PRODUCCIÃ“N ===', '', ''],
+                    ['Total Reservas ProducciÃ³n', $dashboard['executive_kpis']['total_production_bookings'] ?? $classification['summary']['production_count'], 'reservas'],
+                    ['Total Clientes Ãšnicos', $dashboard['executive_kpis']['total_clients'] ?? 0, 'clientes'],
                     ['Ingresos Esperados', $dashboard['executive_kpis']['revenue_expected'] ?? $classification['summary']['expected_revenue'], 'EUR'],
                     ['Ingresos Recibidos', $dashboard['executive_kpis']['revenue_received'] ?? 0, 'EUR'],
                     ['Eficiencia de Cobro', $dashboard['executive_kpis']['collection_efficiency'] ?? 0, '%'],
@@ -5172,7 +5172,7 @@ class FinanceController extends AppBaseController
                     ['', '', ''],
                     ['=== TOTALES GENERALES ===', '', ''],
                     ['Total General Reservas', $classification['summary']['total_bookings'], 'reservas'],
-                    ['Porcentaje Producción', round(($classification['summary']['production_count'] / max($classification['summary']['total_bookings'], 1)) * 100, 2), '%'],
+                    ['Porcentaje ProducciÃ³n', round(($classification['summary']['production_count'] / max($classification['summary']['total_bookings'], 1)) * 100, 2), '%'],
                     ['Porcentaje Test', round(($classification['summary']['test_count'] / max($classification['summary']['total_bookings'], 1)) * 100, 2), '%'],
                     ['Porcentaje Canceladas', round(($classification['summary']['cancelled_count'] / max($classification['summary']['total_bookings'], 1)) * 100, 2), '%']
                 ],
@@ -5180,36 +5180,36 @@ class FinanceController extends AppBaseController
                 'critical_issues_summary' => $this->formatCriticalIssuesForCsv($dashboard['critical_issues'] ?? []),
 
                 'test_analysis' => [
-                    ['Análisis de Reservas Test', '', ''],
-                    ['Booking ID', 'Cliente', 'Email', 'Importe', 'Confianza', 'Razón'],
-                    // Se llenará dinámicamente en el método de exportación
+                    ['AnÃ¡lisis de Reservas Test', '', ''],
+                    ['Booking ID', 'Cliente', 'Email', 'Importe', 'Confianza', 'RazÃ³n'],
+                    // Se llenarÃ¡ dinÃ¡micamente en el mÃ©todo de exportaciÃ³n
                 ],
 
                 'cancelled_analysis' => [
-                    ['Análisis de Reservas Canceladas', '', ''],
+                    ['AnÃ¡lisis de Reservas Canceladas', '', ''],
                     ['Booking ID', 'Cliente', 'Email', 'Importe', 'Dinero Sin Procesar', 'Estado'],
-                    // Se llenará dinámicamente en el método de exportación
+                    // Se llenarÃ¡ dinÃ¡micamente en el mÃ©todo de exportaciÃ³n
                 ]
             ],
 
             'pdf_sections' => [
                 'executive_summary' => 'Resumen Ejecutivo',
-                'financial_kpis' => 'KPIs Financieros (Solo Producción)',
-                'booking_analysis' => 'Análisis por Estado de Reserva',
-                'critical_issues' => 'Problemas Críticos',
+                'financial_kpis' => 'KPIs Financieros (Solo ProducciÃ³n)',
+                'booking_analysis' => 'AnÃ¡lisis por Estado de Reserva',
+                'critical_issues' => 'Problemas CrÃ­ticos',
                 'test_analysis' => 'Reservas de Test Detectadas',
-                'cancelled_analysis' => 'Análisis de Cancelaciones',
+                'cancelled_analysis' => 'AnÃ¡lisis de Cancelaciones',
                 'recommendations' => 'Recomendaciones Prioritarias'
             ]
         ];
     }
 
     /**
-     * MÉTODO AUXILIAR: Formatear problemas críticos para CSV
+     * MÃ‰TODO AUXILIAR: Formatear problemas crÃ­ticos para CSV
      */
     private function formatCriticalIssuesForCsv(array $criticalIssues): array
     {
-        $csvData = [['Tipo de Problema', 'Booking ID', 'Cliente', 'Importe', 'Descripción']];
+        $csvData = [['Tipo de Problema', 'Booking ID', 'Cliente', 'Importe', 'DescripciÃ³n']];
 
         foreach ($criticalIssues as $issueType => $issueData) {
             if (isset($issueData['items'])) {
@@ -5229,22 +5229,22 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Obtener descripción del problema
+     * MÃ‰TODO AUXILIAR: Obtener descripciÃ³n del problema
      */
     private function getIssueDescription(string $issueType, array $item): string
     {
         switch ($issueType) {
             case 'high_value_discrepancies':
-                return "Diferencia de {$item['difference_amount']}€ entre calculado y recibido";
+                return "Diferencia de {$item['difference_amount']}â‚¬ entre calculado y recibido";
             case 'cancelled_with_unprocessed_payments':
-                return "Reserva cancelada con {$item['unprocessed_amount']}€ sin procesar";
+                return "Reserva cancelada con {$item['unprocessed_amount']}â‚¬ sin procesar";
             default:
                 return 'Problema detectado';
         }
     }
 
     /**
-     * ENDPOINT PRINCIPAL: Análisis financiero detallado de una reserva específica
+     * ENDPOINT PRINCIPAL: AnÃ¡lisis financiero detallado de una reserva especÃ­fica
      * GET /api/admin/bookings/{id}/financial-debug
      */
     public function getBookingFinancialDebug(Request $request, $bookingId)
@@ -5281,7 +5281,7 @@ class FinanceController extends AppBaseController
                 'recommendations' => []
             ];
 
-            // ANÁLISIS PASO A PASO SI SE SOLICITA
+            // ANÃLISIS PASO A PASO SI SE SOLICITA
             if ($request->boolean('include_step_by_step', true)) {
                 $debug['step_by_step'] = $this->getDetailedStepByStep($booking);
             }
@@ -5296,7 +5296,7 @@ class FinanceController extends AppBaseController
                 $debug['logs'] = $this->getBookingLogs($booking);
             }
 
-            // ✨ NUEVO: VERIFICACIÓN DE PAYREXX SI SE SOLICITA
+            // âœ¨ NUEVO: VERIFICACIÃ“N DE PAYREXX SI SE SOLICITA
             if ($request->boolean('include_payrexx_verification', true)) {
                 $debug['payrexx_verification'] = PayrexxHelpers::verifyBookingPayrexxTransactions($booking);
             }
@@ -5306,16 +5306,16 @@ class FinanceController extends AppBaseController
                 $debug['recommendations'] = $this->getActionableRecommendations($debug);
             }
 
-            return $this->sendResponse($debug, 'Análisis de debug completado');
+            return $this->sendResponse($debug, 'AnÃ¡lisis de debug completado');
 
         } catch (\Exception $e) {
             Log::error("Error en debug de booking {$bookingId}: " . $e->getLine());
-            return $this->sendError('Error en análisis: ' . $e->getMessage(), 500);
+            return $this->sendError('Error en anÃ¡lisis: ' . $e->getMessage(), 500);
         }
     }
 
     /**
-     * MÉTODO AUXILIAR ACTUALIZADO: Recomendaciones accionables con Payrexx
+     * MÃ‰TODO AUXILIAR ACTUALIZADO: Recomendaciones accionables con Payrexx
      */
     private function getActionableRecommendations($debugData): array
     {
@@ -5328,7 +5328,7 @@ class FinanceController extends AppBaseController
                 'priority' => 'low',
                 'title' => 'Reserva Financieramente Consistente',
                 'description' => 'No se detectaron problemas financieros en esta reserva',
-                'action' => 'No se requiere acción'
+                'action' => 'No se requiere acciÃ³n'
             ];
 
             // VERIFICAR PAYREXX AUN SI NO HAY DISCREPANCIAS FINANCIERAS
@@ -5349,7 +5349,7 @@ class FinanceController extends AppBaseController
                 'type' => 'warning',
                 'priority' => $severity === 'high' ? 'high' : 'medium',
                 'title' => 'Dinero Pendiente de Cobro',
-                'description' => "Faltan " . abs($difference) . "€ por cobrar en esta reserva",
+                'description' => "Faltan " . abs($difference) . "â‚¬ por cobrar en esta reserva",
                 'action' => 'Contactar al cliente para completar el pago o revisar si hay descuentos aplicados'
             ];
         } elseif ($type === 'overpaid') {
@@ -5357,17 +5357,17 @@ class FinanceController extends AppBaseController
                 'type' => 'error',
                 'priority' => 'high',
                 'title' => 'Sobrepago Detectado',
-                'description' => "El cliente ha pagado " . abs($difference) . "€ de más",
-                'action' => 'Revisar si procede reembolso o crédito para futuras reservas'
+                'description' => "El cliente ha pagado " . abs($difference) . "â‚¬ de mÃ¡s",
+                'action' => 'Revisar si procede reembolso o crÃ©dito para futuras reservas'
             ];
         }
 
-        // RECOMENDACIONES ESPECÍFICAS BASADAS EN LAS CAUSAS IDENTIFICADAS
+        // RECOMENDACIONES ESPECÃFICAS BASADAS EN LAS CAUSAS IDENTIFICADAS
         foreach ($discrepancy['possible_causes'] as $cause) {
             $recommendations[] = $this->getRecommendationForCause($cause);
         }
 
-        // ✨ NUEVO: RECOMENDACIONES DE PAYREXX
+        // âœ¨ NUEVO: RECOMENDACIONES DE PAYREXX
         if (isset($debugData['payrexx_verification'])) {
             $payrexxRecommendations = $this->getPayrexxRecommendations($debugData['payrexx_verification']);
             $recommendations = array_merge($recommendations, $payrexxRecommendations);
@@ -5377,7 +5377,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * NUEVO MÉTODO: Generar recomendaciones específicas de Payrexx - ACTUALIZADO CON TEST DETECTION
+     * NUEVO MÃ‰TODO: Generar recomendaciones especÃ­ficas de Payrexx - ACTUALIZADO CON TEST DETECTION
      */
     private function getPayrexxRecommendations($payrexxVerification): array
     {
@@ -5390,7 +5390,7 @@ class FinanceController extends AppBaseController
         $status = $payrexxVerification['overall_status'];
         $summary = $payrexxVerification['verification_summary'];
 
-        // 🔍 ANALIZAR TRANSACCIONES DE TEST
+        // ðŸ” ANALIZAR TRANSACCIONES DE TEST
         $testTransactions = 0;
         $testDetails = [];
 
@@ -5407,7 +5407,7 @@ class FinanceController extends AppBaseController
             }
         }
 
-        // ⚠️ RECOMENDACIÓN ESPECÍFICA PARA TRANSACCIONES DE TEST
+        // âš ï¸ RECOMENDACIÃ“N ESPECÃFICA PARA TRANSACCIONES DE TEST
         if ($testTransactions > 0) {
             $priority = $testTransactions === $summary['total_checked'] ? 'high' : 'medium';
             $type = $testTransactions === $summary['total_checked'] ? 'warning' : 'info';
@@ -5416,9 +5416,9 @@ class FinanceController extends AppBaseController
                 'type' => $type,
                 'priority' => $priority,
                 'title' => 'Transacciones de Test Detectadas',
-                'description' => "Se detectaron {$testTransactions} transacción(es) realizadas con tarjetas de test",
+                'description' => "Se detectaron {$testTransactions} transacciÃ³n(es) realizadas con tarjetas de test",
                 'action' => $testTransactions === $summary['total_checked']
-                    ? 'ATENCIÓN: Todas las transacciones son de test - verificar en producción'
+                    ? 'ATENCIÃ“N: Todas las transacciones son de test - verificar en producciÃ³n'
                     : 'Verificar si las transacciones de test son intencionales',
                 'details' => [
                     'test_transactions_count' => $testTransactions,
@@ -5428,7 +5428,7 @@ class FinanceController extends AppBaseController
             ];
         }
 
-        // RECOMENDACIONES EXISTENTES SEGÚN ESTADO
+        // RECOMENDACIONES EXISTENTES SEGÃšN ESTADO
         switch ($status) {
             case 'all_verified':
                 if ($testTransactions === 0) {
@@ -5436,15 +5436,15 @@ class FinanceController extends AppBaseController
                         'type' => 'success',
                         'priority' => 'low',
                         'title' => 'Pagos de Payrexx Verificados',
-                        'description' => "Todos los pagos de Payrexx ({$summary['found_in_payrexx']}) están correctamente verificados con transacciones reales",
-                        'action' => 'No se requiere acción para Payrexx'
+                        'description' => "Todos los pagos de Payrexx ({$summary['found_in_payrexx']}) estÃ¡n correctamente verificados con transacciones reales",
+                        'action' => 'No se requiere acciÃ³n para Payrexx'
                     ];
                 } else {
                     $recommendations[] = [
                         'type' => 'info',
                         'priority' => 'low',
                         'title' => 'Pagos de Payrexx Verificados',
-                        'description' => "Todos los pagos están verificados, pero {$testTransactions} son transacciones de test",
+                        'description' => "Todos los pagos estÃ¡n verificados, pero {$testTransactions} son transacciones de test",
                         'action' => 'Verificar si las transacciones de test son apropiadas para este contexto'
                     ];
                 }
@@ -5474,9 +5474,9 @@ class FinanceController extends AppBaseController
                 $recommendations[] = [
                     'type' => 'error',
                     'priority' => 'high',
-                    'title' => 'Error de Verificación de Payrexx',
+                    'title' => 'Error de VerificaciÃ³n de Payrexx',
                     'description' => 'No se pudo conectar con Payrexx para verificar las transacciones',
-                    'action' => 'Verificar configuración de Payrexx e intentar nuevamente'
+                    'action' => 'Verificar configuraciÃ³n de Payrexx e intentar nuevamente'
                 ];
                 break;
 
@@ -5485,13 +5485,13 @@ class FinanceController extends AppBaseController
                     'type' => 'warning',
                     'priority' => 'medium',
                     'title' => 'Problemas Parciales en Payrexx',
-                    'description' => 'Algunos pagos de Payrexx requieren revisión',
-                    'action' => 'Revisar detalles específicos en la sección de verificación de Payrexx'
+                    'description' => 'Algunos pagos de Payrexx requieren revisiÃ³n',
+                    'action' => 'Revisar detalles especÃ­ficos en la secciÃ³n de verificaciÃ³n de Payrexx'
                 ];
                 break;
         }
 
-        // RECOMENDACIONES ESPECÍFICAS POR TIPO DE PROBLEMA
+        // RECOMENDACIONES ESPECÃFICAS POR TIPO DE PROBLEMA
         foreach ($payrexxVerification['issues_detected'] as $issue) {
             if ($issue['type'] === 'amount_mismatch') {
                 $recommendations[] = [
@@ -5504,7 +5504,7 @@ class FinanceController extends AppBaseController
             }
         }
 
-        // 🎯 RECOMENDACIONES ESPECÍFICAS PARA TARJETAS DE TEST DETECTADAS
+        // ðŸŽ¯ RECOMENDACIONES ESPECÃFICAS PARA TARJETAS DE TEST DETECTADAS
         foreach ($testDetails as $testDetail) {
             $cardInfo = $testDetail['card_type'] ? " (Tipo: {$testDetail['card_type']})" : '';
 
@@ -5513,8 +5513,8 @@ class FinanceController extends AppBaseController
                     'type' => 'warning',
                     'priority' => 'medium',
                     'title' => 'Tarjeta de Test Confirmada',
-                    'description' => "El pago #{$testDetail['payment_id']} se realizó con una tarjeta de test conocida{$cardInfo}",
-                    'action' => 'Verificar si esta transacción debería ser reemplazada por una transacción real',
+                    'description' => "El pago #{$testDetail['payment_id']} se realizÃ³ con una tarjeta de test conocida{$cardInfo}",
+                    'action' => 'Verificar si esta transacciÃ³n deberÃ­a ser reemplazada por una transacciÃ³n real',
                     'technical_details' => [
                         'confidence' => $testDetail['confidence'],
                         'indicators' => $testDetail['indicators']
@@ -5525,7 +5525,7 @@ class FinanceController extends AppBaseController
                     'type' => 'info',
                     'priority' => 'low',
                     'title' => 'Posible Tarjeta de Test',
-                    'description' => "El pago #{$testDetail['payment_id']} muestra indicadores de ser una transacción de test{$cardInfo}",
+                    'description' => "El pago #{$testDetail['payment_id']} muestra indicadores de ser una transacciÃ³n de test{$cardInfo}",
                     'action' => 'Revisar manualmente en el panel de Payrexx para confirmar',
                     'technical_details' => [
                         'confidence' => $testDetail['confidence'],
@@ -5539,7 +5539,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Información básica de la reserva
+     * MÃ‰TODO AUXILIAR: InformaciÃ³n bÃ¡sica de la reserva
      */
     private function getBasicBookingInfo($booking): array
     {
@@ -5561,13 +5561,13 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Cálculo paso a paso detallado
+     * MÃ‰TODO AUXILIAR: CÃ¡lculo paso a paso detallado
      */
     private function getStepByStepCalculation($booking): array
     {
         $excludedCourses = array_map('intval', self::EXCLUDED_COURSES);
 
-        // USAR EL MÉTODO EXISTENTE DEL MODELO PARA OBTENER GRUPOS
+        // USAR EL MÃ‰TODO EXISTENTE DEL MODELO PARA OBTENER GRUPOS
         $groupedActivities = $booking->getGroupedActivitiesAttribute();
 
         $calculation = [
@@ -5601,13 +5601,13 @@ class FinanceController extends AppBaseController
             if ($isExcluded) {
                 $activityCalc['financial_detail'] = [
                     'status' => 'excluded',
-                    'reason' => 'Curso excluido del análisis financiero',
+                    'reason' => 'Curso excluido del anÃ¡lisis financiero',
                     'price_base' => 0,
                     'extra_price' => 0,
                     'total_price' => 0
                 ];
             } else {
-                // USAR LOS CÁLCULOS YA HECHOS POR EL MODELO
+                // USAR LOS CÃLCULOS YA HECHOS POR EL MODELO
                 $activityCalc['financial_detail'] = [
                     'status' => 'calculated',
                     'price_base' => $activity['price_base'],
@@ -5617,13 +5617,13 @@ class FinanceController extends AppBaseController
                     'extras_breakdown' => $activity['extras'] ?? []
                 ];
 
-                // SOLO SUMAR SI NO ESTÁ CANCELADO COMPLETAMENTE
+                // SOLO SUMAR SI NO ESTÃ CANCELADO COMPLETAMENTE
                 if ($activity['status'] !== 2) {
                     $calculation['totals']['should_cost'] += $activity['total'];
                 }
             }
 
-            // INFORMACIÓN ADICIONAL PARA DEBUG
+            // INFORMACIÃ“N ADICIONAL PARA DEBUG
             $activityCalc['dates'] = array_map(function($date) {
                 return [
                     'date' => $date['date'],
@@ -5673,7 +5673,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Análisis de discrepancias
+     * MÃ‰TODO AUXILIAR: AnÃ¡lisis de discrepancias
      */
     private function getDiscrepancyAnalysis($booking): array
     {
@@ -5698,13 +5698,13 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Timeline de eventos de la reserva
+     * MÃ‰TODO AUXILIAR: Timeline de eventos de la reserva
      */
     private function getBookingTimeline($booking): array
     {
         $timeline = [];
 
-        // Creación de la reserva
+        // CreaciÃ³n de la reserva
         $timeline[] = [
             'timestamp' => $booking->created_at->format('Y-m-d H:i:s'),
             'event' => 'booking_created',
@@ -5717,7 +5717,7 @@ class FinanceController extends AppBaseController
             $timeline[] = [
                 'timestamp' => $payment->created_at->format('Y-m-d H:i:s'),
                 'event' => 'payment_received',
-                'description' => "Pago recibido: {$payment->amount}€",
+                'description' => "Pago recibido: {$payment->amount}â‚¬",
                 'data' => [
                     'amount' => $payment->amount,
                     'method' => $payment->method ?? 'N/A',
@@ -5731,7 +5731,7 @@ class FinanceController extends AppBaseController
             $timeline[] = [
                 'timestamp' => $voucherLog->created_at->format('Y-m-d H:i:s'),
                 'event' => 'voucher_used',
-                'description' => "Voucher aplicado: {$voucherLog->amount}€",
+                'description' => "Voucher aplicado: {$voucherLog->amount}â‚¬",
                 'data' => [
                     'amount' => $voucherLog->amount,
                     'voucher_code' => $voucherLog->voucher->code ?? 'N/A'
@@ -5758,7 +5758,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Severidad de la discrepancia
+     * MÃ‰TODO AUXILIAR: Severidad de la discrepancia
      */
     private function getDiscrepancySeverity($amount): string
     {
@@ -5768,7 +5768,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Identificar posibles causas
+     * MÃ‰TODO AUXILIAR: Identificar posibles causas
      */
     private function identifyPossibleCauses($booking, $stepByStep): array
     {
@@ -5811,7 +5811,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Calcular precio base de un booking user
+     * MÃ‰TODO AUXILIAR: Calcular precio base de un booking user
      */
     private function calculateBasePrice($bookingUser): float
     {
@@ -5821,7 +5821,7 @@ class FinanceController extends AppBaseController
             return 0;
         }
 
-        // Usar el servicio de cálculo
+        // Usar el servicio de cÃ¡lculo
         if ($course->course_type === 1) {
             // Colectivo
             return $this->priceCalculator->calculateCollectivePrice(collect([$bookingUser]), $course);
@@ -5835,7 +5835,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Calcular precio de extras
+     * MÃ‰TODO AUXILIAR: Calcular precio de extras
      */
     private function calculateExtrasPrice($bookingUser): float
     {
@@ -5845,7 +5845,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Desglose de extras
+     * MÃ‰TODO AUXILIAR: Desglose de extras
      */
     private function getExtrasBreakdown($bookingUser): array
     {
@@ -5862,7 +5862,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Desglose del dinero recibido
+     * MÃ‰TODO AUXILIAR: Desglose del dinero recibido
      */
     private function getReceivedAmountBreakdown($booking): array
     {
@@ -5910,16 +5910,16 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Análisis detallado paso a paso
+     * MÃ‰TODO AUXILIAR: AnÃ¡lisis detallado paso a paso
      */
     private function getDetailedStepByStep($booking): array
     {
         $steps = [];
 
-        // PASO 1: Identificación
+        // PASO 1: IdentificaciÃ³n
         $steps[] = [
             'step' => 1,
-            'title' => 'Identificación de la Reserva',
+            'title' => 'IdentificaciÃ³n de la Reserva',
             'description' => "Analizando reserva #{$booking->id}",
             'data' => [
                 'booking_id' => $booking->id,
@@ -5930,7 +5930,7 @@ class FinanceController extends AppBaseController
             'result' => 'success'
         ];
 
-        // PASO 2: Análisis de cursos
+        // PASO 2: AnÃ¡lisis de cursos
         $excludedCourses = array_map('intval', self::EXCLUDED_COURSES);
         $coursesAnalysis = [];
         $totalCalculated = 0;
@@ -5966,7 +5966,7 @@ class FinanceController extends AppBaseController
 
         $steps[] = [
             'step' => 2,
-            'title' => 'Análisis de Cursos y Precios',
+            'title' => 'AnÃ¡lisis de Cursos y Precios',
             'description' => 'Calculando precios base y extras para cada booking user',
             'data' => [
                 'courses_analysis' => $coursesAnalysis,
@@ -5976,25 +5976,25 @@ class FinanceController extends AppBaseController
             'result' => 'success'
         ];
 
-        // PASO 3: Análisis de dinero recibido
+        // PASO 3: AnÃ¡lisis de dinero recibido
         $receivedBreakdown = $this->getReceivedAmountBreakdown($booking);
 
         $steps[] = [
             'step' => 3,
-            'title' => 'Análisis de Dinero Recibido',
+            'title' => 'AnÃ¡lisis de Dinero Recibido',
             'description' => 'Sumando pagos y vouchers aplicados',
             'data' => $receivedBreakdown,
             'result' => 'success'
         ];
 
-        // PASO 4: Comparación final
+        // PASO 4: ComparaciÃ³n final
         $difference = $totalCalculated - $receivedBreakdown['total'];
         $hasDiscrepancy = abs($difference) > 0.01;
 
         $steps[] = [
             'step' => 4,
-            'title' => 'Comparación Final',
-            'description' => 'Comparando lo que debería costar vs lo recibido',
+            'title' => 'ComparaciÃ³n Final',
+            'description' => 'Comparando lo que deberÃ­a costar vs lo recibido',
             'data' => [
                 'should_cost' => $totalCalculated,
                 'received' => $receivedBreakdown['total'],
@@ -6009,7 +6009,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Logs de la reserva
+     * MÃ‰TODO AUXILIAR: Logs de la reserva
      */
     private function getBookingLogs($booking): array
     {
@@ -6018,7 +6018,7 @@ class FinanceController extends AppBaseController
         foreach ($booking->bookingLogs as $log) {
             $logs[] = [
                 'id' => $log->id,
-                'description' => $log->description ?? 'Sin descripción',
+                'description' => $log->description ?? 'Sin descripciÃ³n',
                 'data' => $log->data ? json_decode($log->data, true) : null,
                 'created_at' => $log->created_at->format('Y-m-d H:i:s')
             ];
@@ -6028,7 +6028,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Identificar problemas específicos
+     * MÃ‰TODO AUXILIAR: Identificar problemas especÃ­ficos
      */
     private function identifySpecificIssues($booking, $stepByStep): array
     {
@@ -6040,26 +6040,26 @@ class FinanceController extends AppBaseController
                 $issues[] = [
                     'type' => 'excluded_course',
                     'severity' => 'info',
-                    'description' => "El curso {$user['course_info']['name']} está excluido del análisis financiero",
+                    'description' => "El curso {$user['course_info']['name']} estÃ¡ excluido del anÃ¡lisis financiero",
                     'booking_user_id' => $user['booking_user_id']
                 ];
             }
         }
 
-        // Verificar estado de cancelación
+        // Verificar estado de cancelaciÃ³n
         if ($booking->status == 3) {
             $totalReceived = $stepByStep['totals']['received_amount'];
             if ($totalReceived > 0) {
                 $issues[] = [
                     'type' => 'cancelled_with_payments',
                     'severity' => 'high',
-                    'description' => "Reserva cancelada pero aún tiene {$totalReceived}€ sin procesar",
+                    'description' => "Reserva cancelada pero aÃºn tiene {$totalReceived}â‚¬ sin procesar",
                     'amount' => $totalReceived
                 ];
             }
         }
 
-        // Verificar pagos duplicados o extraños
+        // Verificar pagos duplicados o extraÃ±os
         $payments = $stepByStep['received_breakdown']['payments'];
         $paymentAmounts = array_column($payments, 'amount');
         $duplicateAmounts = array_filter(array_count_values($paymentAmounts), function($count) {
@@ -6079,7 +6079,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Recomendación para causa específica
+     * MÃ‰TODO AUXILIAR: RecomendaciÃ³n para causa especÃ­fica
      */
     private function getRecommendationForCause($cause): array
     {
@@ -6088,22 +6088,22 @@ class FinanceController extends AppBaseController
                 'type' => 'info',
                 'priority' => 'low',
                 'title' => 'Cursos Excluidos',
-                'description' => 'La reserva contiene cursos excluidos del análisis financiero',
+                'description' => 'La reserva contiene cursos excluidos del anÃ¡lisis financiero',
                 'action' => 'Verificar si es correcto excluir estos cursos'
             ],
             'cancelled_booking' => [
                 'type' => 'warning',
                 'priority' => 'high',
                 'title' => 'Reserva Cancelada',
-                'description' => 'Esta reserva está cancelada pero puede tener dinero sin procesar',
-                'action' => 'Revisar si procede reembolso o si ya se procesó'
+                'description' => 'Esta reserva estÃ¡ cancelada pero puede tener dinero sin procesar',
+                'action' => 'Revisar si procede reembolso o si ya se procesÃ³'
             ],
             'booking_extras' => [
                 'type' => 'info',
                 'priority' => 'low',
                 'title' => 'Reserva con Extras',
                 'description' => 'La reserva incluye extras que afectan el precio final',
-                'action' => 'Verificar que los extras están correctamente facturados'
+                'action' => 'Verificar que los extras estÃ¡n correctamente facturados'
             ]
         ];
 
@@ -6111,13 +6111,13 @@ class FinanceController extends AppBaseController
             'type' => 'info',
             'priority' => 'low',
             'title' => 'Causa Desconocida',
-            'description' => "Se identificó la causa: {$cause}",
+            'description' => "Se identificÃ³ la causa: {$cause}",
             'action' => 'Revisar manualmente'
         ];
     }
 
     /**
-     * MÉTODO AUXILIAR: Nombre del estado
+     * MÃ‰TODO AUXILIAR: Nombre del estado
      */
     private function getStatusName($status): string
     {
@@ -6134,7 +6134,7 @@ class FinanceController extends AppBaseController
 
 
     /**
-     * ENDPOINT PRINCIPAL: Análisis completo de realidad financiera
+     * ENDPOINT PRINCIPAL: AnÃ¡lisis completo de realidad financiera
      */
     public function getCompleteFinancialAnalysis(Request $request): JsonResponse
     {
@@ -6158,30 +6158,30 @@ class FinanceController extends AppBaseController
         ->where('school_id', $request->school_id)   // Fecha de fin mayor o igual a hoy
         ->first();
 
-        // Utiliza start_date y end_date de la request si están presentes, sino usa las fechas de la temporada
+        // Utiliza start_date y end_date de la request si estÃ¡n presentes, sino usa las fechas de la temporada
         $startDate = $startDate ?? $season->start_date;
         $endDate = $request->end_date ?? $season->end_date;
 
-        Log::info('=== INICIANDO ANÁLISIS FINANCIERO COMPLETO ===', [
+        Log::info('=== INICIANDO ANÃLISIS FINANCIERO COMPLETO ===', [
             'school_id' => $request->school_id,
             'date_range' => [$startDate, $endDate],
             'include_payrexx' => $request->boolean('include_payrexx_comparison', false)
         ]);
 
         try {
-            // OBTENER RESERVAS SEGÚN CRITERIOS
+            // OBTENER RESERVAS SEGÃšN CRITERIOS
             $bookings = $this->getBookingsForAnalysis($request, $startDate, $endDate);
 
             // FILTRAR RESERVAS QUE SOLO TIENEN CURSOS EXCLUIDOS
             $excludedCourses = array_map('intval', self::EXCLUDED_COURSES);
             $filteredBookings = $this->filterBookingsWithExcludedCourses($bookings, $excludedCourses);
 
-            Log::info('Reservas filtradas para análisis', [
+            Log::info('Reservas filtradas para anÃ¡lisis', [
                 'total_bookings_before_filter' => $bookings->count(),
                 'total_bookings_after_filter' => $filteredBookings->count()
             ]);
 
-            // ANÁLISIS CON PAYREXX SI SE SOLICITA
+            // ANÃLISIS CON PAYREXX SI SE SOLICITA
             $payrexxAnalysis = null;
             if ($request->boolean('include_payrexx_comparison', false)) {
                 $payrexxAnalysis = PayrexxHelpers::analyzeBookingsWithPayrexx(
@@ -6191,7 +6191,7 @@ class FinanceController extends AppBaseController
                 );
             }
 
-            // INICIALIZAR ESTADÍSTICAS GLOBALES
+            // INICIALIZAR ESTADÃSTICAS GLOBALES
             $globalStats = $this->initializeGlobalStats();
 
             // PROCESAR CADA RESERVA
@@ -6201,7 +6201,7 @@ class FinanceController extends AppBaseController
 
             foreach ($filteredBookings as $booking) {
                 if ($processedCount >= $maxResults) {
-                    Log::info("Límite de resultados alcanzado: {$maxResults}");
+                    Log::info("LÃ­mite de resultados alcanzado: {$maxResults}");
                     break;
                 }
 
@@ -6209,7 +6209,7 @@ class FinanceController extends AppBaseController
                     'exclude_courses' => $excludedCourses
                 ]);
 
-                // AÑADIR COMPARACIÓN CON PAYREXX SI DISPONIBLE
+                // AÃ‘ADIR COMPARACIÃ“N CON PAYREXX SI DISPONIBLE
                 if ($payrexxAnalysis) {
                     //TODO: Payrexx comparision
                 }
@@ -6219,7 +6219,7 @@ class FinanceController extends AppBaseController
                     continue;
                 }
 
-                // ACUMULAR ESTADÍSTICAS GLOBALES
+                // ACUMULAR ESTADÃSTICAS GLOBALES
                 $this->accumulateGlobalStats($globalStats, $analysis, $payrexxAnalysis);
 
                 // AGREGAR A RESULTADOS DETALLADOS
@@ -6227,11 +6227,11 @@ class FinanceController extends AppBaseController
                 $processedCount++;
 
                 if ($processedCount % 100 === 0) {
-                    Log::info("Progreso del análisis: {$processedCount}/{$filteredBookings->count()}");
+                    Log::info("Progreso del anÃ¡lisis: {$processedCount}/{$filteredBookings->count()}");
                 }
             }
 
-            // CALCULAR MÉTRICAS FINALES
+            // CALCULAR MÃ‰TRICAS FINALES
             $this->calculateFinalMetrics($globalStats, $processedCount);
 
             $executionTime = round((microtime(true) - $startTime) * 1000, 2);
@@ -6269,26 +6269,26 @@ class FinanceController extends AppBaseController
                 'payrexx_analysis' => $payrexxAnalysis
             ];
 
-            Log::info('=== ANÁLISIS FINANCIERO COMPLETO FINALIZADO ===', [
+            Log::info('=== ANÃLISIS FINANCIERO COMPLETO FINALIZADO ===', [
                 'processed_bookings' => $processedCount,
                 'execution_time_ms' => $executionTime,
                 'inconsistent_bookings' => $globalStats['issues']['total_with_financial_issues']
             ]);
 
-            return $this->sendResponse($response, 'Análisis completo de realidad financiera completado exitosamente');
+            return $this->sendResponse($response, 'AnÃ¡lisis completo de realidad financiera completado exitosamente');
 
         } catch (\Exception $e) {
-            Log::error('Error en análisis financiero completo: ' . $e->getMessage(), [
+            Log::error('Error en anÃ¡lisis financiero completo: ' . $e->getMessage(), [
                 'school_id' => $request->school_id,
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return $this->sendError('Error en análisis financiero: ' . $e->getMessage(), 500);
+            return $this->sendError('Error en anÃ¡lisis financiero: ' . $e->getMessage(), 500);
         }
     }
 
     /**
-     * ENDPOINT: Análisis de una reserva individual
+     * ENDPOINT: AnÃ¡lisis de una reserva individual
      */
     public function getBookingFinancialAnalysis(Request $request, $bookingId): JsonResponse
     {
@@ -6313,13 +6313,13 @@ class FinanceController extends AppBaseController
                 'exclude_courses' => self::EXCLUDED_COURSES
             ]);
 
-            // COMPARACIÓN CON PAYREXX SI SE SOLICITA
+            // COMPARACIÃ“N CON PAYREXX SI SE SOLICITA
             if ($request->boolean('include_payrexx_comparison', false)) {
                 $payrexxComparison = PayrexxHelpers::compareBookingWithPayrexx($booking);
                 $analysis['payrexx_comparison'] = $payrexxComparison;
             }
 
-            /*            // INFORMACIÓN ADICIONAL
+            /*            // INFORMACIÃ“N ADICIONAL
                         if ($request->boolean('include_timeline', false)) {
                             $analysis['detailed_timeline'] = $this->getDetailedTimeline($booking);
                         }
@@ -6328,11 +6328,11 @@ class FinanceController extends AppBaseController
                             $analysis['actionable_recommendations'] = $this->getActionableRecommendations($analysis);
                         }*/
 
-            return $this->sendResponse($analysis, 'Análisis financiero individual completado');
+            return $this->sendResponse($analysis, 'AnÃ¡lisis financiero individual completado');
 
         } catch (\Exception $e) {
-            Log::error("Error en análisis individual booking {$bookingId}: " . $e->getMessage());
-            return $this->sendError('Error en análisis de reserva: ' . $e->getMessage(), 500);
+            Log::error("Error en anÃ¡lisis individual booking {$bookingId}: " . $e->getMessage());
+            return $this->sendError('Error en anÃ¡lisis de reserva: ' . $e->getMessage(), 500);
         }
     }
 
@@ -6363,7 +6363,7 @@ class FinanceController extends AppBaseController
             'include_payrexx_comparison' => $request->boolean('include_payrexx', false)
         ]);
 
-        // OBTENER ANÁLISIS COMPLETO
+        // OBTENER ANÃLISIS COMPLETO
         $analysisResponse = $this->getCompleteFinancialAnalysis($tempRequest);
         $analysisData = json_decode($analysisResponse->content(), true)['data'];
 
@@ -6400,7 +6400,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * ENDPOINT: Análisis específico de Payrexx
+     * ENDPOINT: AnÃ¡lisis especÃ­fico de Payrexx
      */
     public function getPayrexxAnalysis(Request $request): JsonResponse
     {
@@ -6415,20 +6415,20 @@ class FinanceController extends AppBaseController
             $bookings = $this->getBookingsForAnalysis($request);
             $filteredBookings = $this->filterBookingsWithExcludedCourses($bookings, self::EXCLUDED_COURSES);
 
-            // ANÁLISIS COMPLETO DE PAYREXX
+            // ANÃLISIS COMPLETO DE PAYREXX
             $payrexxAnalysis = PayrexxHelpers::analyzeBookingsWithPayrexx(
                 $filteredBookings,
                 $request->start_date,
                 $request->end_date
             );
 
-            // ESTADÍSTICAS DETALLADAS
+            // ESTADÃSTICAS DETALLADAS
             $detailedStats = $this->generatePayrexxDetailedStats($payrexxAnalysis);
 
-            // TRANSACCIONES PROBLEMÁTICAS
+            // TRANSACCIONES PROBLEMÃTICAS
             $problematicTransactions = $this->identifyProblematicPayrexxTransactions($payrexxAnalysis);
 
-            // RECOMENDACIONES ESPECÍFICAS DE PAYREXX
+            // RECOMENDACIONES ESPECÃFICAS DE PAYREXX
             $payrexxRecommendations = $this->generatePayrexxRecommendations($payrexxAnalysis);
 
             $response = [
@@ -6443,15 +6443,15 @@ class FinanceController extends AppBaseController
                 ]
             ];
 
-            return $this->sendResponse($response, 'Análisis de Payrexx completado exitosamente');
+            return $this->sendResponse($response, 'AnÃ¡lisis de Payrexx completado exitosamente');
 
         } catch (\Exception $e) {
-            Log::error('Error en análisis de Payrexx: ' . $e->getMessage());
-            return $this->sendError('Error en análisis de Payrexx: ' . $e->getMessage(), 500);
+            Log::error('Error en anÃ¡lisis de Payrexx: ' . $e->getMessage());
+            return $this->sendError('Error en anÃ¡lisis de Payrexx: ' . $e->getMessage(), 500);
         }
     }
     /**
-     * MÉTODO MEJORADO: Generar estadísticas detalladas de Payrexx
+     * MÃ‰TODO MEJORADO: Generar estadÃ­sticas detalladas de Payrexx
      */
     private static function generatePayrexxDetailedStats($payrexxAnalysis): array
     {
@@ -6492,7 +6492,7 @@ class FinanceController extends AppBaseController
             );
         }
 
-        // Calcular tasa de verificación
+        // Calcular tasa de verificaciÃ³n
         $totalVerifications = $stats['verification_quality']['successful_verifications'] +
             $stats['verification_quality']['failed_verifications'];
 
@@ -6502,7 +6502,7 @@ class FinanceController extends AppBaseController
             );
         }
 
-        // Estadísticas de transacciones
+        // EstadÃ­sticas de transacciones
         foreach ($payrexxAnalysis['booking_comparisons'] ?? [] as $comparison) {
             $stats['transaction_distribution']['total_system_transactions'] +=
                 count($comparison['verified_payments'] ?? []);
@@ -6518,7 +6518,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO FALTANTE: Identificar transacciones problemáticas en Payrexx
+     * MÃ‰TODO FALTANTE: Identificar transacciones problemÃ¡ticas en Payrexx
      */
     private static function identifyProblematicPayrexxTransactions($payrexxAnalysis): array
     {
@@ -6594,7 +6594,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO FALTANTE: Generar recomendaciones específicas de Payrexx
+     * MÃ‰TODO FALTANTE: Generar recomendaciones especÃ­ficas de Payrexx
      */
     private static function generatePayrexxRecommendations($payrexxAnalysis): array
     {
@@ -6605,7 +6605,7 @@ class FinanceController extends AppBaseController
         $totalDiscrepancies = $payrexxAnalysis['total_discrepancies'] ?? 0;
         $missingTransactions = $payrexxAnalysis['missing_transactions'] ?? 0;
 
-        // Recomendación para discrepancias altas
+        // RecomendaciÃ³n para discrepancias altas
         $amountDifference = abs($totalSystemAmount - $totalPayrexxAmount);
         if ($amountDifference > 100) {
             $priority = $amountDifference > 1000 ? 'critical' : 'high';
@@ -6614,7 +6614,7 @@ class FinanceController extends AppBaseController
                 'type' => 'amount_reconciliation',
                 'priority' => $priority,
                 'title' => 'Reconciliar Diferencias de Importes con Payrexx',
-                'description' => "Hay una diferencia de {$amountDifference}€ entre el sistema y Payrexx",
+                'description' => "Hay una diferencia de {$amountDifference}â‚¬ entre el sistema y Payrexx",
                 'impact' => $priority,
                 'actions' => [
                     'Revisar transacciones con mayor discrepancia',
@@ -6623,11 +6623,11 @@ class FinanceController extends AppBaseController
                     'Contactar soporte de Payrexx si es necesario'
                 ],
                 'estimated_effort' => 'medium',
-                'timeline' => '1-2 días'
+                'timeline' => '1-2 dÃ­as'
             ];
         }
 
-        // Recomendación para transacciones faltantes
+        // RecomendaciÃ³n para transacciones faltantes
         if ($missingTransactions > 0) {
             $recommendations[] = [
                 'type' => 'missing_transactions',
@@ -6637,47 +6637,47 @@ class FinanceController extends AppBaseController
                 'impact' => 'medium',
                 'actions' => [
                     'Verificar referencias en el panel de Payrexx',
-                    'Revisar si las transacciones están en otro período',
-                    'Comprobar configuración de credenciales',
+                    'Revisar si las transacciones estÃ¡n en otro perÃ­odo',
+                    'Comprobar configuraciÃ³n de credenciales',
                     'Verificar filtros de fecha aplicados'
                 ],
                 'estimated_effort' => 'low',
-                'timeline' => '1 día'
+                'timeline' => '1 dÃ­a'
             ];
         }
 
-        // Recomendación para múltiples discrepancias
+        // RecomendaciÃ³n para mÃºltiples discrepancias
         if ($totalDiscrepancies > 20) {
             $recommendations[] = [
                 'type' => 'systematic_review',
                 'priority' => 'medium',
-                'title' => 'Revisión Sistemática de Payrexx',
-                'description' => "Se detectaron {$totalDiscrepancies} discrepancias que sugieren un problema sistemático",
+                'title' => 'RevisiÃ³n SistemÃ¡tica de Payrexx',
+                'description' => "Se detectaron {$totalDiscrepancies} discrepancias que sugieren un problema sistemÃ¡tico",
                 'impact' => 'medium',
                 'actions' => [
-                    'Revisar configuración de Payrexx',
-                    'Verificar proceso de sincronización',
+                    'Revisar configuraciÃ³n de Payrexx',
+                    'Verificar proceso de sincronizaciÃ³n',
                     'Analizar patrones en las discrepancias',
-                    'Implementar monitoreo automático'
+                    'Implementar monitoreo automÃ¡tico'
                 ],
                 'estimated_effort' => 'high',
                 'timeline' => '1 semana'
             ];
         }
 
-        // Recomendación para optimización si todo está bien
+        // RecomendaciÃ³n para optimizaciÃ³n si todo estÃ¡ bien
         if ($amountDifference < 10 && $missingTransactions === 0 && $totalDiscrepancies < 5) {
             $recommendations[] = [
                 'type' => 'optimization',
                 'priority' => 'low',
-                'title' => 'Optimizar Integración con Payrexx',
-                'description' => 'La integración funciona bien, considerar mejoras de eficiencia',
+                'title' => 'Optimizar IntegraciÃ³n con Payrexx',
+                'description' => 'La integraciÃ³n funciona bien, considerar mejoras de eficiencia',
                 'impact' => 'low',
                 'actions' => [
-                    'Implementar verificación automática diaria',
+                    'Implementar verificaciÃ³n automÃ¡tica diaria',
                     'Crear alertas para discrepancias',
                     'Optimizar consultas a la API',
-                    'Documentar procesos de reconciliación'
+                    'Documentar procesos de reconciliaciÃ³n'
                 ],
                 'estimated_effort' => 'medium',
                 'timeline' => '2-3 semanas'
@@ -6688,7 +6688,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Comparar métodos financieros individuales
+     * MÃ‰TODO AUXILIAR: Comparar mÃ©todos financieros individuales
      */
     private static function compareIndividualBookingMethods($booking): array
     {
@@ -6701,7 +6701,7 @@ class FinanceController extends AppBaseController
                 ->calculateBookingTotal($booking, ['exclude_courses' => [260, 243]]);
             $calculatedTotal = $calculatedData['total_final'];
 
-            // Obtener análisis de realidad financiera
+            // Obtener anÃ¡lisis de realidad financiera
             $realityAnalysis = app(\App\Http\Services\BookingPriceCalculatorService::class)
                 ->analyzeFinancialReality($booking, ['exclude_courses' => [260, 243]]);
 
@@ -6723,14 +6723,14 @@ class FinanceController extends AppBaseController
                     'calculated_method' => [
                         'total' => $calculatedTotal,
                         'source' => 'BookingPriceCalculatorService',
-                        'description' => 'Precio calculado dinámicamente',
+                        'description' => 'Precio calculado dinÃ¡micamente',
                         'breakdown' => $calculatedData
                     ],
                     'reality_method' => [
                         'total' => $realityAnalysis['calculated_total'],
                         'net_balance' => $realityAnalysis['financial_reality']['net_balance'],
                         'source' => 'Financial reality analysis',
-                        'description' => 'Análisis de realidad financiera',
+                        'description' => 'AnÃ¡lisis de realidad financiera',
                         'is_consistent' => $realityAnalysis['reality_check']['is_consistent']
                     ]
                 ],
@@ -6751,7 +6751,7 @@ class FinanceController extends AppBaseController
             ];
 
         } catch (\Exception $e) {
-            Log::error("Error comparando métodos para booking {$booking->id}: " . $e->getMessage());
+            Log::error("Error comparando mÃ©todos para booking {$booking->id}: " . $e->getMessage());
 
             return [
                 'booking_id' => $booking->id,
@@ -6763,7 +6763,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO AUXILIAR: Comparar métodos financieros globales
+     * MÃ‰TODO AUXILIAR: Comparar mÃ©todos financieros globales
      */
     private static function compareGlobalFinancialMethods($request): array
     {
@@ -6824,7 +6824,7 @@ class FinanceController extends AppBaseController
                     $globalComparison['discrepancy_analysis']['total_discrepancy_amount'] +=
                         abs($comparison['discrepancies']['stored_vs_reality']);
 
-                    // Guardar muestra de comparaciones problemáticas
+                    // Guardar muestra de comparaciones problemÃ¡ticas
                     if (!$comparison['consistency_analysis']['overall_consistent'] &&
                         count($globalComparison['sample_comparisons']) < 10) {
                         $globalComparison['sample_comparisons'][] = $comparison;
@@ -6855,7 +6855,7 @@ class FinanceController extends AppBaseController
             return $globalComparison;
 
         } catch (\Exception $e) {
-            Log::error('Error en comparación global de métodos: ' . $e->getMessage());
+            Log::error('Error en comparaciÃ³n global de mÃ©todos: ' . $e->getMessage());
 
             return [
                 'error' => true,
@@ -6866,7 +6866,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * ✅ MÉTODO COMPLEMENTARIO: Exportar ventas reales a CSV
+     * âœ… MÃ‰TODO COMPLEMENTARIO: Exportar ventas reales a CSV
      */
     private function exportSalesReportToCsv($salesReport): JsonResponse
     {
@@ -6875,38 +6875,38 @@ class FinanceController extends AppBaseController
         try {
             $csvContent = "\xEF\xBB\xBF"; // BOM for UTF-8
 
-            // ✅ ENCABEZADO DEL REPORTE
+            // âœ… ENCABEZADO DEL REPORTE
             $csvContent .= "REPORTE DE VENTAS REALES - CUENTAS FINALES\n";
             $csvContent .= "Escuela ID:," . $salesReport['metadata']['school_id'] . "\n";
-            $csvContent .= "Período:," . $salesReport['metadata']['date_range']['start'] . " a " . $salesReport['metadata']['date_range']['end'] . "\n";
+            $csvContent .= "PerÃ­odo:," . $salesReport['metadata']['date_range']['start'] . " a " . $salesReport['metadata']['date_range']['end'] . "\n";
             $csvContent .= "Generado:," . $salesReport['metadata']['generation_date'] . "\n\n";
 
-            // ✅ RESUMEN EJECUTIVO
+            // âœ… RESUMEN EJECUTIVO
             $csvContent .= "RESUMEN EJECUTIVO DE VENTAS\n";
-            $csvContent .= '"Métrica","Valor","Unidad"' . "\n";
-            $csvContent .= '"Total Reservas Válidas","' . $salesReport['summary']['total_valid_bookings'] . '","reservas"' . "\n";
+            $csvContent .= '"MÃ©trica","Valor","Unidad"' . "\n";
+            $csvContent .= '"Total Reservas VÃ¡lidas","' . $salesReport['summary']['total_valid_bookings'] . '","reservas"' . "\n";
             $csvContent .= '"Ingresos Esperados","' . number_format($salesReport['summary']['total_revenue_expected'], 2) . '","CHF"' . "\n";
             $csvContent .= '"Ingresos Recibidos","' . number_format($salesReport['summary']['total_revenue_received'], 2) . '","CHF"' . "\n";
             $csvContent .= '"Ingresos Pendientes","' . number_format($salesReport['summary']['total_revenue_pending'], 2) . '","CHF"' . "\n";
             $csvContent .= '"Eficiencia de Cobro","' . $salesReport['summary']['collection_efficiency'] . '","%"' . "\n";
             $csvContent .= '"Ventas Confirmadas (Cantidad)","' . $salesReport['summary']['confirmed_sales_count'] . '","ventas"' . "\n";
             $csvContent .= '"Ventas Confirmadas (Importe)","' . number_format($salesReport['summary']['confirmed_sales_amount'], 2) . '","CHF"' . "\n";
-            $csvContent .= '"Tasa de Confirmación","' . $salesReport['summary']['sales_confirmation_rate'] . '","%"' . "\n\n";
+            $csvContent .= '"Tasa de ConfirmaciÃ³n","' . $salesReport['summary']['sales_confirmation_rate'] . '","%"' . "\n\n";
 
-            // ✅ CRITERIOS DE FILTRADO
+            // âœ… CRITERIOS DE FILTRADO
             $csvContent .= "CRITERIOS DE FILTRADO APLICADOS\n";
             $csvContent .= '"Criterio","Estado"' . "\n";
-            $csvContent .= '"Reservas Canceladas Excluidas","SÍ"' . "\n";
-            $csvContent .= '"Reservas de Test Excluidas","SÍ"' . "\n";
+            $csvContent .= '"Reservas Canceladas Excluidas","SÃ"' . "\n";
+            $csvContent .= '"Reservas de Test Excluidas","SÃ"' . "\n";
             $csvContent .= '"Cursos Excluidos","' . implode(', ', self::EXCLUDED_COURSES) . '"' . "\n";
             if ($salesReport['metadata']['filter_criteria']['only_paid']) {
-                $csvContent .= '"Solo Completamente Pagadas","SÍ"' . "\n";
+                $csvContent .= '"Solo Completamente Pagadas","SÃ"' . "\n";
             }
             $csvContent .= "\n";
 
-            // ✅ DETALLE DE VENTAS
+            // âœ… DETALLE DE VENTAS
             $csvContent .= "DETALLE DE VENTAS REALES\n";
-            $csvContent .= '"ID Reserva","Cliente","Email","Fecha Reserva","Estado","Cursos","Esperado (CHF)","Recibido (CHF)","Pendiente (CHF)","Venta Confirmada","Métodos Pago","Origen","Participantes"' . "\n";
+            $csvContent .= '"ID Reserva","Cliente","Email","Fecha Reserva","Estado","Cursos","Esperado (CHF)","Recibido (CHF)","Pendiente (CHF)","Venta Confirmada","MÃ©todos Pago","Origen","Participantes"' . "\n";
 
             foreach ($salesReport['detailed_sales'] as $sale) {
                 $row = [
@@ -6919,7 +6919,7 @@ class FinanceController extends AppBaseController
                     number_format($sale['revenue_expected'], 2),
                     number_format($sale['revenue_received'], 2),
                     number_format($sale['revenue_pending'], 2),
-                    $sale['is_confirmed_sale'] ? 'SÍ' : 'NO',
+                    $sale['is_confirmed_sale'] ? 'SÃ' : 'NO',
                     implode('; ', $sale['payment_methods']),
                     $sale['source'],
                     $sale['participants_count']
@@ -6932,8 +6932,8 @@ class FinanceController extends AppBaseController
                 $csvContent .= implode(',', $escapedRow) . "\n";
             }
 
-            // ✅ ANÁLISIS POR ESTADO
-            $csvContent .= "\nANÁLISIS POR ESTADO DE RESERVA\n";
+            // âœ… ANÃLISIS POR ESTADO
+            $csvContent .= "\nANÃLISIS POR ESTADO DE RESERVA\n";
             $csvContent .= '"Estado","Cantidad","Ingresos Esperados","Ingresos Recibidos","Eficiencia"' . "\n";
 
             $statusBreakdown = $this->calculateStatusBreakdown($salesReport['detailed_sales']);
@@ -6952,7 +6952,7 @@ class FinanceController extends AppBaseController
                 $csvContent .= implode(',', $escapedRow) . "\n";
             }
 
-            // ✅ GUARDAR ARCHIVO
+            // âœ… GUARDAR ARCHIVO
             $tempPath = storage_path('temp/' . $filename);
             if (!file_exists(dirname($tempPath))) {
                 mkdir(dirname($tempPath), 0755, true);
@@ -6979,7 +6979,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * ✅ MÉTODO AUXILIAR: Calcular breakdown por estado
+     * âœ… MÃ‰TODO AUXILIAR: Calcular breakdown por estado
      */
     private function calculateStatusBreakdown($detailedSales): array
     {
@@ -7005,7 +7005,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * ENDPOINT: Comparar métodos de análisis financiero
+     * ENDPOINT: Comparar mÃ©todos de anÃ¡lisis financiero
      */
     public function compareFinancialMethods(Request $request): JsonResponse
     {
@@ -7016,19 +7016,19 @@ class FinanceController extends AppBaseController
 
         try {
             if ($request->booking_id) {
-                // Comparación individual
+                // ComparaciÃ³n individual
                 $booking = Booking::findOrFail($request->booking_id);
                 $comparison = $this->compareIndividualBookingMethods($booking);
             } else {
-                // Comparación global para la escuela
+                // ComparaciÃ³n global para la escuela
                 $comparison = $this->compareGlobalFinancialMethods($request);
             }
 
-            return $this->sendResponse($comparison, 'Comparación de métodos financieros completada');
+            return $this->sendResponse($comparison, 'ComparaciÃ³n de mÃ©todos financieros completada');
 
         } catch (\Exception $e) {
-            Log::error('Error en comparación de métodos: ' . $e->getMessage());
-            return $this->sendError('Error en comparación: ' . $e->getMessage(), 500);
+            Log::error('Error en comparaciÃ³n de mÃ©todos: ' . $e->getMessage());
+            return $this->sendError('Error en comparaciÃ³n: ' . $e->getMessage(), 500);
         }
     }
 
@@ -7047,7 +7047,7 @@ class FinanceController extends AppBaseController
         try {
             $format = $request->get('format', 'json');
 
-            // Obtener análisis completo
+            // Obtener anÃ¡lisis completo
             $analysisRequest = new Request([
                 'school_id' => $request->school_id,
                 'start_date' => $request->start_date,
@@ -7058,7 +7058,7 @@ class FinanceController extends AppBaseController
             $analysisResponse = $this->getCompleteFinancialAnalysis($analysisRequest);
             $analysisData = json_decode($analysisResponse->content(), true)['data'];
 
-            // Procesar datos para exportación
+            // Procesar datos para exportaciÃ³n
             $exportData = $this->prepareExportData($analysisData, $request);
 
             switch ($format) {
@@ -7071,12 +7071,12 @@ class FinanceController extends AppBaseController
             }
 
         } catch (\Exception $e) {
-            Log::error('Error en exportación de reporte: ' . $e->getMessage());
-            return $this->sendError('Error en exportación: ' . $e->getMessage(), 500);
+            Log::error('Error en exportaciÃ³n de reporte: ' . $e->getMessage());
+            return $this->sendError('Error en exportaciÃ³n: ' . $e->getMessage(), 500);
         }
     }
 
-    // === MÉTODOS AUXILIARES IMPLEMENTADOS ===
+    // === MÃ‰TODOS AUXILIARES IMPLEMENTADOS ===
 
     private function getAppliedFilters(Request $request): array
     {
@@ -7135,7 +7135,7 @@ class FinanceController extends AppBaseController
                 'type' => 'critical',
                 'category' => 'consistency',
                 'title' => 'Problemas de Consistencia',
-                'description' => "Solo el {$consistencyRate}% de las reservas son consistentes - requiere atención inmediata",
+                'description' => "Solo el {$consistencyRate}% de las reservas son consistentes - requiere atenciÃ³n inmediata",
                 'score' => 'poor'
             ];
         }
@@ -7150,7 +7150,7 @@ class FinanceController extends AppBaseController
                 'type' => 'critical',
                 'category' => 'revenue_risk',
                 'title' => 'Alto Riesgo de Ingresos',
-                'description' => "El {$riskPercentage}% de los ingresos esperados están en riesgo",
+                'description' => "El {$riskPercentage}% de los ingresos esperados estÃ¡n en riesgo",
                 'amount_at_risk' => $totalCalculated - $totalReceived,
                 'score' => 'poor'
             ];
@@ -7174,7 +7174,7 @@ class FinanceController extends AppBaseController
                 'type' => 'warning',
                 'category' => 'active_bookings',
                 'title' => 'Problemas en Reservas Activas',
-                'description' => "Las reservas activas tienen más problemas que las canceladas - revisar proceso de cobro",
+                'description' => "Las reservas activas tienen mÃ¡s problemas que las canceladas - revisar proceso de cobro",
                 'score' => 'fair'
             ];
         }
@@ -7200,7 +7200,7 @@ class FinanceController extends AppBaseController
     {
         $recommendations = [];
 
-        // RECOMENDACIÓN: Mejorar consistencia
+        // RECOMENDACIÃ“N: Mejorar consistencia
         $inconsistentCount = $globalStats['consistency']['inconsistent_bookings'];
         if ($inconsistentCount > 0) {
             $priority = $inconsistentCount > 50 ? 'high' : ($inconsistentCount > 20 ? 'medium' : 'low');
@@ -7213,15 +7213,15 @@ class FinanceController extends AppBaseController
                 'actions' => [
                     'Revisar reservas con mayor discrepancia',
                     'Actualizar precios almacenados incorrectos',
-                    'Verificar cálculos de vouchers y seguros',
-                    'Implementar validaciones automáticas'
+                    'Verificar cÃ¡lculos de vouchers y seguros',
+                    'Implementar validaciones automÃ¡ticas'
                 ],
                 'estimated_impact' => 'high',
                 'affected_bookings' => $inconsistentCount
             ];
         }
 
-        // RECOMENDACIÓN: Procesar cancelaciones
+        // RECOMENDACIÃ“N: Procesar cancelaciones
         $unprocessedCancellations = 0;
         foreach ($globalStats['issues']['issues_by_type'] as $type => $count) {
             if (str_contains($type, 'unprocessed')) {
@@ -7236,9 +7236,9 @@ class FinanceController extends AppBaseController
                 'title' => 'Procesar Cancelaciones Pendientes',
                 'description' => "Hay {$unprocessedCancellations} cancelaciones sin procesar",
                 'actions' => [
-                    'Revisar política de reembolsos',
+                    'Revisar polÃ­tica de reembolsos',
                     'Procesar refunds pendientes',
-                    'Aplicar no-refunds según política',
+                    'Aplicar no-refunds segÃºn polÃ­tica',
                     'Notificar a clientes sobre estado'
                 ],
                 'estimated_impact' => 'medium',
@@ -7246,26 +7246,26 @@ class FinanceController extends AppBaseController
             ];
         }
 
-        // RECOMENDACIÓN: Optimizar cobros
+        // RECOMENDACIÃ“N: Optimizar cobros
         $totalPending = $globalStats['totals']['total_pending_amount'];
         if ($totalPending > 1000) {
             $recommendations[] = [
                 'type' => 'collection_optimization',
                 'priority' => 'medium',
                 'title' => 'Optimizar Proceso de Cobros',
-                'description' => "Hay {$totalPending}€ pendientes de cobro",
+                'description' => "Hay {$totalPending}â‚¬ pendientes de cobro",
                 'actions' => [
-                    'Implementar recordatorios automáticos',
-                    'Ofrecer métodos de pago alternativos',
+                    'Implementar recordatorios automÃ¡ticos',
+                    'Ofrecer mÃ©todos de pago alternativos',
                     'Seguimiento proactivo de pagos pendientes',
-                    'Revisar términos de pago'
+                    'Revisar tÃ©rminos de pago'
                 ],
                 'estimated_impact' => 'high',
                 'potential_recovery' => $totalPending
             ];
         }
 
-        // RECOMENDACIÓN: Automatización de procesos
+        // RECOMENDACIÃ“N: AutomatizaciÃ³n de procesos
         $manualIssues = $globalStats['issues']['medium_priority_count'] + $globalStats['issues']['low_priority_count'];
         if ($manualIssues > 10) {
             $recommendations[] = [
@@ -7274,7 +7274,7 @@ class FinanceController extends AppBaseController
                 'title' => 'Automatizar Procesos Financieros',
                 'description' => "Se pueden automatizar {$manualIssues} tareas de bajo y medio impacto",
                 'actions' => [
-                    'Implementar validaciones automáticas',
+                    'Implementar validaciones automÃ¡ticas',
                     'Crear alertas proactivas',
                     'Automatizar actualizaciones de precios',
                     'Desarrollar dashboard de monitoreo'
@@ -7381,7 +7381,7 @@ class FinanceController extends AppBaseController
         return round(max($consistency, 0), 2);
     }
 
-    // === MÉTODOS AUXILIARES ADICIONALES ===
+    // === MÃ‰TODOS AUXILIARES ADICIONALES ===
 
     private function getBookingsForAnalysis(Request $request, $startDate = null, $endDate = null)
     {
@@ -7422,7 +7422,7 @@ class FinanceController extends AppBaseController
         });
     }
 
-    // ... [Continúa con el resto de métodos auxiliares]
+    // ... [ContinÃºa con el resto de mÃ©todos auxiliares]
 
     private function initializeGlobalStats(): array
     {
@@ -7574,16 +7574,16 @@ class FinanceController extends AppBaseController
         return $statusMap[$status] ?? 'unknown';
     }
 
-    // Métodos auxiliares para trends y análisis
+    // MÃ©todos auxiliares para trends y anÃ¡lisis
     private function calculateConsistencyTrend($results): array
     {
-        // Implementar análisis de tendencia de consistencia a lo largo del tiempo
+        // Implementar anÃ¡lisis de tendencia de consistencia a lo largo del tiempo
         return ['trend' => 'stable', 'direction' => 'neutral'];
     }
 
     private function calculateAmountTrends($results): array
     {
-        // Implementar análisis de tendencias de montos
+        // Implementar anÃ¡lisis de tendencias de montos
         return ['average_amount' => 0, 'trend' => 'stable'];
     }
 
@@ -7613,14 +7613,14 @@ class FinanceController extends AppBaseController
     private function getPriorityReason($result): string
     {
         if ($result['discrepancy_amount'] > 50) {
-            return 'Discrepancia alta: ' . $result['discrepancy_amount'] . '€';
+            return 'Discrepancia alta: ' . $result['discrepancy_amount'] . 'â‚¬';
         }
 
         if ($result['confidence_score'] < 50) {
-            return 'Baja confianza en el análisis';
+            return 'Baja confianza en el anÃ¡lisis';
         }
 
-        return 'Revisión estándar requerida';
+        return 'RevisiÃ³n estÃ¡ndar requerida';
     }
 
     private function analyzeVoucherIssues($voucherAnalysis): array
@@ -7632,7 +7632,7 @@ class FinanceController extends AppBaseController
                 'type' => 'voucher_inconsistency',
                 'priority' => 'medium',
                 'title' => 'Inconsistencias en vouchers',
-                'description' => 'Los vouchers muestran inconsistencias que requieren revisión',
+                'description' => 'Los vouchers muestran inconsistencias que requieren revisiÃ³n',
                 'actions' => ['Verificar estado de vouchers', 'Revisar logs de voucher']
             ];
         }
@@ -7646,13 +7646,13 @@ class FinanceController extends AppBaseController
         $realityConsistent = $realityAnalysis['reality_check']['is_consistent'];
 
         if ($storedVsCalculated && $realityConsistent) {
-            return "✅ Ambos métodos coinciden - reserva consistente";
+            return "âœ… Ambos mÃ©todos coinciden - reserva consistente";
         } elseif (!$storedVsCalculated && $realityConsistent) {
-            return "🔄 Actualizar price_total almacenado";
+            return "ðŸ”„ Actualizar price_total almacenado";
         } elseif ($storedVsCalculated && !$realityConsistent) {
-            return "⚠️ Revisar movimientos de dinero reales";
+            return "âš ï¸ Revisar movimientos de dinero reales";
         } else {
-            return "🚨 Múltiples inconsistencias - revisar completamente";
+            return "ðŸš¨ MÃºltiples inconsistencias - revisar completamente";
         }
     }
 
@@ -7677,12 +7677,12 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODOS PARA DETECTAR Y MANEJAR RESERVAS DE TEST
+     * MÃ‰TODOS PARA DETECTAR Y MANEJAR RESERVAS DE TEST
      * Agregar al FinanceController.php
      */
 
     /**
-     * MÉTODO PRINCIPAL: Detectar si una reserva completa es de test
+     * MÃ‰TODO PRINCIPAL: Detectar si una reserva completa es de test
      */
     private function isTestBooking($booking): array
     {
@@ -7750,7 +7750,7 @@ class FinanceController extends AppBaseController
             $testAnalysis['is_test_booking'] = $this->determineIfTestBooking($testAnalysis, $payrexxPayments->count());
             $testAnalysis['confidence_level'] = $this->calculateTestConfidence($testAnalysis);
 
-            Log::info("Análisis de test para booking {$booking->id}", [
+            Log::info("AnÃ¡lisis de test para booking {$booking->id}", [
                 'is_test' => $testAnalysis['is_test_booking'],
                 'confidence' => $testAnalysis['confidence_level'],
                 'test_transactions' => $testTransactions,
@@ -7761,7 +7761,7 @@ class FinanceController extends AppBaseController
         } catch (\Exception $e) {
             Log::warning("Error analizando test booking {$booking->id}: " . $e->getMessage());
             $testAnalysis['test_indicators'][] = 'analysis_error';
-            $testAnalysis['reasons'][] = 'Error en análisis: ' . $e->getMessage();
+            $testAnalysis['reasons'][] = 'Error en anÃ¡lisis: ' . $e->getMessage();
         }
 
         return $testAnalysis;
@@ -7769,14 +7769,14 @@ class FinanceController extends AppBaseController
 
 
     /**
-     * NUEVO MÉTODO: Calcular el revenue original de una reserva (incluso si está cancelada)
+     * NUEVO MÃ‰TODO: Calcular el revenue original de una reserva (incluso si estÃ¡ cancelada)
      */
     private function getOriginalBookingRevenue($booking): float
     {
         $originalRevenue = 0;
         $excludedCourses = array_map('intval', self::EXCLUDED_COURSES);
 
-        // Para reservas canceladas, necesitamos calcular lo que valían ANTES de cancelarse
+        // Para reservas canceladas, necesitamos calcular lo que valÃ­an ANTES de cancelarse
         $groupedActivities = $booking->getGroupedActivitiesAttribute();
 
         foreach ($groupedActivities as $activity) {
@@ -7796,22 +7796,22 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * NUEVO MÉTODO: Clasificar reservas por tipo real
+     * NUEVO MÃ‰TODO: Clasificar reservas por tipo real
      */
-    // ✅ CORRECCIÓN URGENTE: FinanceController.php - classifyBookings()
+    // âœ… CORRECCIÃ“N URGENTE: FinanceController.php - classifyBookings()
 
     private function classifyBookings($bookings): array
     {
         $classification = [
             'production_active' => [],      // Reservas activas
-            'production_finished' => [],   // ✅ NUEVA: Reservas terminadas (pero válidas)
+            'production_finished' => [],   // âœ… NUEVA: Reservas terminadas (pero vÃ¡lidas)
             'production_partial' => [],    // Reservas parcialmente canceladas
             'test' => [],                  // Reservas de test (excluidas)
             'cancelled' => [],             // Reservas canceladas (NO cuentan)
             'summary' => [
                 'total_bookings' => $bookings->count(),
                 'production_active_count' => 0,
-                'production_finished_count' => 0,  // ✅ NUEVA
+                'production_finished_count' => 0,  // âœ… NUEVA
                 'production_partial_count' => 0,
                 'test_count' => 0,
                 'cancelled_count' => 0,
@@ -7835,7 +7835,7 @@ class FinanceController extends AppBaseController
                 continue;
             }
 
-            // 2. ✅ CLASIFICAR CORRECTAMENTE POR ESTADO REAL
+            // 2. âœ… CLASIFICAR CORRECTAMENTE POR ESTADO REAL
             $realStatus = $booking->getCancellationStatusAttribute();
 
             switch ($realStatus) {
@@ -7845,10 +7845,10 @@ class FinanceController extends AppBaseController
                     $classification['summary']['expected_revenue'] += $totalRevenue;
                     break;
 
-                case 'finished': // ✅ TERMINADA PERO VÁLIDA
+                case 'finished': // âœ… TERMINADA PERO VÃLIDA
                     $classification['production_finished'][] = $booking;
                     $classification['summary']['production_finished_count']++;
-                    // ✅ SEGUIR CONTANDO PARA EXPECTED (puede tener dinero pendiente)
+                    // âœ… SEGUIR CONTANDO PARA EXPECTED (puede tener dinero pendiente)
                     $classification['summary']['expected_revenue'] += $totalRevenue;
                     break;
 
@@ -7861,7 +7861,7 @@ class FinanceController extends AppBaseController
                     $classification['summary']['partial_cancelled_revenue'] += $cancelledRevenue;
                     break;
 
-                case 'total_cancel': // ✅ SOLO ESTAS VAN A CANCELLED
+                case 'total_cancel': // âœ… SOLO ESTAS VAN A CANCELLED
                     $classification['cancelled'][] = $booking;
                     $classification['summary']['cancelled_count']++;
                     $originalRevenue = $this->getOriginalBookingRevenue($booking);
@@ -7878,10 +7878,10 @@ class FinanceController extends AppBaseController
             }
         }
 
-        // ✅ CALCULAR CONTEO TOTAL DE PRODUCCIÓN CORRECTAMENTE
+        // âœ… CALCULAR CONTEO TOTAL DE PRODUCCIÃ“N CORRECTAMENTE
         $classification['summary']['production_count'] =
             $classification['summary']['production_active_count'] +
-            $classification['summary']['production_finished_count'] +  // ✅ INCLUIR FINISHED
+            $classification['summary']['production_finished_count'] +  // âœ… INCLUIR FINISHED
             $classification['summary']['production_partial_count'];
 
         $classification['summary']['production_revenue'] = $classification['summary']['expected_revenue'];
@@ -7893,12 +7893,12 @@ class FinanceController extends AppBaseController
             $classification['summary'][$key] = round($classification['summary'][$key], 2);
         }
 
-        Log::info('✅ Clasificación CORREGIDA de reservas completada', [
+        Log::info('âœ… ClasificaciÃ³n CORREGIDA de reservas completada', [
             'total_bookings' => $classification['summary']['total_bookings'],
             'production_active' => $classification['summary']['production_active_count'],
-            'production_finished' => $classification['summary']['production_finished_count'], // ✅ NUEVA
+            'production_finished' => $classification['summary']['production_finished_count'], // âœ… NUEVA
             'production_partial' => $classification['summary']['production_partial_count'],
-            'expected_revenue' => $classification['summary']['expected_revenue'], // ✅ Ahora incluye finished
+            'expected_revenue' => $classification['summary']['expected_revenue'], // âœ… Ahora incluye finished
             'cancelled_excluded' => $classification['summary']['cancelled_revenue_processed'],
             'test_excluded' => $classification['summary']['test_revenue_excluded']
         ]);
@@ -7908,7 +7908,7 @@ class FinanceController extends AppBaseController
 
 
     /**
-     * 🆕 NUEVO MÉTODO: Análisis de sources/orígenes de reservas
+     * ðŸ†• NUEVO MÃ‰TODO: AnÃ¡lisis de sources/orÃ­genes de reservas
      */
     private function analyzeBookingSources($bookings): array
     {
@@ -7951,7 +7951,7 @@ class FinanceController extends AppBaseController
             }
         }
 
-        // Procesar estadísticas
+        // Procesar estadÃ­sticas
         foreach ($sourceStats as $source => $stats) {
             $uniqueClients = count(array_unique($stats['clients']));
             $avgBookingValue = $stats['count'] > 0 ? $stats['revenue'] / $stats['count'] : 0;
@@ -8005,7 +8005,7 @@ class FinanceController extends AppBaseController
             }
         }
 
-        // Procesar estadísticas
+        // Procesar estadÃ­sticas
         $processedStats = [];
         foreach ($paymentMethodStats as $method => $stats) {
             $processedStats[] = [
@@ -8034,7 +8034,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * 🆕 MÉTODO AUXILIAR: Calcular ratio online vs offline
+     * ðŸ†• MÃ‰TODO AUXILIAR: Calcular ratio online vs offline
      */
     private function calculateOnlineOfflineRatio($methodStats): array
     {
@@ -8076,13 +8076,13 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * 🆕 MÉTODO AUXILIAR: Nombres display para métodos de pago
+     * ðŸ†• MÃ‰TODO AUXILIAR: Nombres display para mÃ©todos de pago
      */
     private function getPaymentMethodDisplayName($method): string
     {
         $names = [
             'boukii_direct' => 'BoukiiPay (Pasarela Directa)',
-            'online_link' => 'Online (Vía Link)',
+            'online_link' => 'Online (VÃ­a Link)',
             'cash' => 'Efectivo',
             'card_offline' => 'Tarjeta (Offline)',
             'transfer' => 'Transferencia',
@@ -8095,7 +8095,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * 🔧 MÉTODO MEJORADO: Determinar método de pago con distinción link vs pasarela
+     * ðŸ”§ MÃ‰TODO MEJORADO: Determinar mÃ©todo de pago con distinciÃ³n link vs pasarela
      */
     private function determinePaymentMethodImproved($payment): string
     {
@@ -8106,11 +8106,11 @@ class FinanceController extends AppBaseController
             if ($payment->booking->payment_method_id == Booking::ID_BOUKIIPAY) {
                 return 'boukii_direct';  // Pasarela directa en la plataforma
             } else {
-                return 'online_link';    // Vía link de email
+                return 'online_link';    // VÃ­a link de email
             }
         }
 
-        // Métodos offline basados en notas
+        // MÃ©todos offline basados en notas
         if (str_contains($notes, 'cash') || str_contains($notes, 'efectivo')) {
             return 'cash';
         }
@@ -8137,7 +8137,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * NUEVO MÉTODO: Calcular solo la parte activa de una reserva parcialmente cancelada
+     * NUEVO MÃ‰TODO: Calcular solo la parte activa de una reserva parcialmente cancelada
      */
     private function calculateActivePortionRevenue($booking): float
     {
@@ -8187,19 +8187,19 @@ class FinanceController extends AppBaseController
     {
         if (!$client) return false;
 
-        // 🎯 CLIENTES TEST CONFIRMADOS 100%
+        // ðŸŽ¯ CLIENTES TEST CONFIRMADOS 100%
         $confirmedTestClientIds = [18956, 14479, 13583, 13524];
 
-        // 🤔 CLIENTES PROBABLEMENTE TEST
+        // ðŸ¤” CLIENTES PROBABLEMENTE TEST
         $likelyTestClientIds = [10358, 10735];
 
-        // Verificar por ID (más confiable)
+        // Verificar por ID (mÃ¡s confiable)
         if (in_array($client->id, $confirmedTestClientIds)) {
             return true;
         }
 
         if (in_array($client->id, $likelyTestClientIds)) {
-            return true; // Los incluimos como test también
+            return true; // Los incluimos como test tambiÃ©n
         }
 
         // Verificaciones por patrones en datos (mantener las existentes)
@@ -8215,7 +8215,7 @@ class FinanceController extends AppBaseController
             stripos($client->last_name ?? '', 'test') !== false,
             stripos($client->first_name ?? '', 'demo') !== false,
 
-            // Patrones específicos
+            // Patrones especÃ­ficos
             $client->email === 'test@test.com',
             $client->first_name === 'Test',
             $client->last_name === 'User'
@@ -8263,11 +8263,11 @@ class FinanceController extends AppBaseController
                 }
             }
 
-            // Importes típicos de test
+            // Importes tÃ­picos de test
             $testAmounts = [1, 5, 10, 50, 100, 1.00, 5.00, 10.00, 50.00, 100.00];
             if (in_array($totalCalculated, $testAmounts)) {
                 $patterns['indicators'][] = 'test_amount_pattern';
-                $patterns['reasons'][] = "Importe sospechoso de test: {$totalCalculated}€";
+                $patterns['reasons'][] = "Importe sospechoso de test: {$totalCalculated}â‚¬";
             }
 
             // 4. VERIFICAR CURSOS DE TEST
@@ -8295,21 +8295,21 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * Determinar si es reserva de test basado en análisis
+     * Determinar si es reserva de test basado en anÃ¡lisis
      */
     private function determineIfTestBooking($testAnalysis, $totalTransactions): bool
     {
-        // REGLA 1: Si TODAS las transacciones de Payrexx son de test → es test
+        // REGLA 1: Si TODAS las transacciones de Payrexx son de test â†’ es test
         if ($totalTransactions > 0 && $testAnalysis['test_transactions_count'] === $totalTransactions) {
             return true;
         }
 
-        // REGLA 2: Si más del 80% del dinero es de test → es test
+        // REGLA 2: Si mÃ¡s del 80% del dinero es de test â†’ es test
         if ($testAnalysis['test_amount_percentage'] > 80) {
             return true;
         }
 
-        // REGLA 3: Si hay indicadores específicos → es test
+        // REGLA 3: Si hay indicadores especÃ­ficos â†’ es test
         $strongIndicators = [
             'test_client',
             'test_course_name',
@@ -8322,7 +8322,7 @@ class FinanceController extends AppBaseController
             }
         }
 
-        // REGLA 4: Si hay múltiples indicadores débiles → es test
+        // REGLA 4: Si hay mÃºltiples indicadores dÃ©biles â†’ es test
         $weakIndicators = [
             'development_environment',
             'unusual_creation_time',
@@ -8340,7 +8340,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * Calcular nivel de confianza del análisis
+     * Calcular nivel de confianza del anÃ¡lisis
      */
     private function calculateTestConfidence($testAnalysis): string
     {
@@ -8375,7 +8375,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO ACTUALIZADO: Análisis financiero excluyendo reservas de test
+     * MÃ‰TODO ACTUALIZADO: AnÃ¡lisis financiero excluyendo reservas de test
      */
     private function calculateQuickFinancialStatsExcludingTest($bookings): array
     {
@@ -8399,13 +8399,13 @@ class FinanceController extends AppBaseController
             $testAnalysis = $this->isTestBooking($booking);
 
             if ($testAnalysis['is_test_booking'] && $testAnalysis['confidence_level'] !== 'low') {
-                // EXCLUIR RESERVAS DE TEST DE LOS CÁLCULOS PRINCIPALES
+                // EXCLUIR RESERVAS DE TEST DE LOS CÃLCULOS PRINCIPALES
                 $quickAnalysis = $this->getQuickBookingFinancialStatus($booking);
 
                 $stats['test_bookings_detected']++;
                 $stats['test_revenue_excluded'] += $quickAnalysis['calculated_amount'];
 
-                Log::info("Reserva de test excluida del cálculo financiero", [
+                Log::info("Reserva de test excluida del cÃ¡lculo financiero", [
                     'booking_id' => $booking->id,
                     'excluded_amount' => $quickAnalysis['calculated_amount'],
                     'confidence' => $testAnalysis['confidence_level'],
@@ -8415,7 +8415,7 @@ class FinanceController extends AppBaseController
                 continue; // SALTAR ESTA RESERVA
             }
 
-            // PROCESAR SOLO RESERVAS DE PRODUCCIÓN
+            // PROCESAR SOLO RESERVAS DE PRODUCCIÃ“N
             $productionBookings++;
             $quickAnalysis = $this->getQuickBookingFinancialStatus($booking);
 
@@ -8446,7 +8446,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * MÉTODO ACTUALIZADO: KPIs ejecutivos excluyendo test
+     * MÃ‰TODO ACTUALIZADO: KPIs ejecutivos excluyendo test
      */
     private function calculateExecutiveKpisExcludingTest($bookings, Request $request): array
     {
@@ -8469,11 +8469,11 @@ class FinanceController extends AppBaseController
             'test_revenue_excluded' => 0
         ];
 
-        // Análisis financiero EXCLUYENDO test
+        // AnÃ¡lisis financiero EXCLUYENDO test
         $financialStats = $this->calculateQuickFinancialStatsExcludingTest($bookings);
         $stats = array_merge($stats, $financialStats);
 
-        // Calcular ratios basados SOLO en reservas de producción
+        // Calcular ratios basados SOLO en reservas de producciÃ³n
         $stats['collection_efficiency'] = $stats['revenue_expected'] > 0
             ? round(($stats['revenue_received'] / $stats['revenue_expected']) * 100, 2)
             : 100;
@@ -8484,7 +8484,7 @@ class FinanceController extends AppBaseController
 
         $stats['revenue_at_risk'] = $stats['revenue_expected'] - $stats['revenue_received'];
 
-        // Métricas adicionales
+        // MÃ©tricas adicionales
         $stats['test_bookings_count'] = $stats['test_bookings_detected'];
         $stats['test_percentage'] = $stats['total_bookings'] > 0
             ? round(($stats['test_bookings_count'] / $stats['total_bookings']) * 100, 2)
@@ -8494,7 +8494,7 @@ class FinanceController extends AppBaseController
     }
 
     /**
-     * Análisis completo de reservas de test
+     * AnÃ¡lisis completo de reservas de test
      */
     private function analyzeTestBookingsComplete($bookings): array
     {
@@ -8552,3 +8552,4 @@ class FinanceController extends AppBaseController
         return $testAnalysis;
     }
 }
+
