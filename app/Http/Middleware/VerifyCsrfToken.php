@@ -34,16 +34,27 @@ class VerifyCsrfToken extends Middleware
         'api/vouchers-logs',       // Logs de vouchers
         'api/bookings',            // Gestión de reservas
         
-        // Endpoints CRUD genéricos usados por admin
+        // Endpoints CRUD genéricos usados por admin y teach app
         'api/clients',
-        'api/courses', 
-        'api/monitors',
+        'api/client-sports',       // Deportes de clientes
+        'api/courses',
         'api/course-dates',
         'api/course-groups',
         'api/course-subgroups',
+        'api/monitors',
+        'api/monitor-nwds',        // NWDs de monitores
+        'api/monitor-sports-degrees', // Títulos de monitores
+        'api/monitors-schools',    // Relación monitores-escuelas
         'api/stations',
+        'api/stations-schools',    // Relación estaciones-escuelas
         'api/sports',
         'api/degrees',
+        'api/degrees-school-sport-goals', // Objetivos de deportes
         'api/evaluations',
+        'api/evaluation-files',    // Archivos de evaluación
+        'api/evaluation-fulfilled-goals', // Objetivos cumplidos
+        'api/seasons',            // Temporadas
+        'api/forgot-password',    // Reset de contraseña (público)
+        'api/reset-password',     // Reset de contraseña (público)
     ];
 }
