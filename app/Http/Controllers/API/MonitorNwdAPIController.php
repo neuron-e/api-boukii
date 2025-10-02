@@ -117,34 +117,96 @@ class MonitorNwdAPIController extends AppBaseController
         $input = $request->all();
 
         try {
-            // Verificar si el monitor está ocupado antes de actualizar
-            if (Monitor::isMonitorBusy($input['monitor_id'], $input['start_date'], $input['start_time'], $input['end_time'])) {
-                // Log cuando el monitor está ocupado
-                Log::warning('Monitor ocupado al intentar crear NWD', [
-                    'monitor_id' => $input['monitor_id'],
-                    'start_date' => $input['start_date'],
-                    'start_time' => $input['start_time'],
-                    'end_time' => $input['end_time'],
-                    'action' => 'create',
-                    'reason' => 'monitor_busy'
-                ]);
-                return $this->sendError('El monitor está ocupado durante ese tiempo y no se puede crear el MonitorNwd', 409);
+            $startDate = new \DateTime($input['start_date']);
+            $endDate = new \DateTime($input['end_date']);
+            $createdNwds = [];
+            $skippedDates = [];
+
+            // Iterar por cada día del rango
+            $currentDate = clone $startDate;
+            while ($currentDate <= $endDate) {
+                $dateStr = $currentDate->format('Y-m-d');
+
+                // Verificar si el monitor está ocupado en esta fecha específica
+                $isBusy = Monitor::isMonitorBusy(
+                    $input['monitor_id'],
+                    $dateStr,
+                    $input['start_time'] ?? null,
+                    $input['end_time'] ?? null
+                );
+
+                if (!$isBusy) {
+                    // Crear NWD para este día
+                    $nwdData = [
+                        'monitor_id' => $input['monitor_id'],
+                        'school_id' => $input['school_id'] ?? null,
+                        'station_id' => $input['station_id'] ?? null,
+                        'start_date' => $dateStr,
+                        'end_date' => $dateStr,
+                        'start_time' => $input['start_time'] ?? null,
+                        'end_time' => $input['end_time'] ?? null,
+                        'full_day' => $input['full_day'] ?? false,
+                        'title' => $input['title'] ?? null,
+                    ];
+
+                    $monitorNwd = $this->monitorNwdRepository->create($nwdData);
+                    $createdNwds[] = $monitorNwd;
+
+                    Log::info('MonitorNwd creado para fecha específica', [
+                        'nwd_id' => $monitorNwd->id,
+                        'monitor_id' => $input['monitor_id'],
+                        'date' => $dateStr,
+                    ]);
+                } else {
+                    // Guardar fecha omitida
+                    $skippedDates[] = $dateStr;
+
+                    Log::warning('Fecha omitida por solapamiento', [
+                        'monitor_id' => $input['monitor_id'],
+                        'date' => $dateStr,
+                        'start_time' => $input['start_time'],
+                        'end_time' => $input['end_time'],
+                    ]);
+                }
+
+                $currentDate->modify('+1 day');
             }
 
-            $monitorNwd = $this->monitorNwdRepository->create($input);
+            // Determinar el mensaje de respuesta
+            $totalRequested = $startDate->diff($endDate)->days + 1;
+            $totalCreated = count($createdNwds);
+            $totalSkipped = count($skippedDates);
 
-            // Log exitoso
-            Log::info('MonitorNwd creado exitosamente', [
-                'nwd_id' => $monitorNwd->id,
-                'monitor_id' => $input['monitor_id'],
-                'start_date' => $input['start_date'],
-                'start_time' => $input['start_time'],
-                'end_time' => $input['end_time']
-            ]);
+            if ($totalCreated === 0) {
+                // No se creó ningún NWD
+                return $this->sendError('No se pudo crear ninguna indisponibilidad. Todas las fechas tienen solapamientos.', 409);
+            } elseif ($totalSkipped > 0) {
+                // Se crearon algunos NWDs pero otros se omitieron
+                $response = [
+                    'created' => $createdNwds,
+                    'skipped_dates' => $skippedDates,
+                    'summary' => [
+                        'total_requested' => $totalRequested,
+                        'total_created' => $totalCreated,
+                        'total_skipped' => $totalSkipped
+                    ]
+                ];
 
-            return $this->sendResponse($monitorNwd, 'Monitor Nwd saved successfully');
+                return $this->sendResponse(
+                    $response,
+                    "Se crearon {$totalCreated} indisponibilidad(es). {$totalSkipped} fecha(s) omitida(s) por solapamientos.",
+                    206 // 206 Partial Content
+                );
+            } else {
+                // Se crearon todos los NWDs solicitados
+                return $this->sendResponse(
+                    ['created' => $createdNwds],
+                    'Indisponibilidad(es) guardada(s) exitosamente'
+                );
+            }
+
         } catch (\Exception $e) {
-            // Loguear el error en ambos canales
+            // Loguear el error
             Log::error('Error al guardar MonitorNwd', [
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
@@ -152,14 +214,6 @@ class MonitorNwdAPIController extends AppBaseController
                 'input' => $input
             ]);
 
-            Log::error('Error al guardar MonitorNwd:', [
-                'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            // Retornar error al cliente
             return $this->sendError('Ocurrió un error al guardar el Monitor Nwd. Inténtalo nuevamente.', 500);
         }
     }

@@ -271,6 +271,7 @@ class Course extends Model
     public $fillable = [
         'course_type',
         'is_flexible',
+        'intervals_config_mode',
         'sport_id',
         'school_id',
         'station_id',
@@ -485,6 +486,12 @@ class Course extends Model
     {
         return $this->hasMany(\App\Models\CourseSubgroup::class, 'course_id')
             ->whereHas('courseGroup');
+    }
+
+    public function courseIntervals(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\CourseInterval::class, 'course_id')
+            ->orderBy('display_order');
     }
 
     protected $appends = ['icon', 'minPrice', 'minDuration', 'typeString'];

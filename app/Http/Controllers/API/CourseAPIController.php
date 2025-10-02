@@ -176,7 +176,14 @@ class CourseAPIController extends AppBaseController
     public function show($id, Request $request): JsonResponse
     {
         /** @var Course $course */
-        $course = $this->courseRepository->find($id, with: $request->get('with', []));
+        $with = $request->get('with', []);
+
+        // Always include courseIntervals in the response
+        if (!in_array('courseIntervals', $with)) {
+            $with[] = 'courseIntervals';
+        }
+
+        $course = $this->courseRepository->find($id, with: $with);
 
         if (empty($course)) {
             return $this->sendError('Course not found');

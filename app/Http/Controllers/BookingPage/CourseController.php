@@ -137,14 +137,17 @@ class CourseController extends SlugAuthController
 
                 return Course::withAvailableDates($type, $startDate, $endDate, $sportId, $clientId, null, $getLowerDegrees,
                         $degreeOrderArray, $minAge, $maxAge)
-                        ->select(['id', 'name', 'description', 'price', 'max_participants', 'course_type', 'sport_id', 'school_id', 'highlighted', 'is_flexible', 'duration', 'image', 'price_range', 'settings'])
+                        ->select(['id', 'name', 'description', 'price', 'max_participants', 'course_type', 'sport_id', 'school_id', 'highlighted', 'is_flexible', 'duration', 'image', 'price_range', 'settings', 'intervals_config_mode'])
                         ->with([
                             'sport:id,name,icon_prive,icon_collective,icon_activity,icon_selected,icon_unselected',
                             'courseDates' => function($query) use ($startDate, $endDate) {
-                                $query->select(['id', 'course_id', 'date', 'hour_start', 'hour_end'])
+                                $query->select(['id', 'course_id', 'date', 'hour_start', 'hour_end', 'interval_id', 'course_interval_id'])
                                       ->where('date', '>=', $startDate)
                                       ->where('date', '<=', $endDate)
                                       ->orderBy('date');
+                            },
+                            'courseIntervals' => function ($query) {
+                                $query->ordered();
                             }
                         ])
                         ->where('school_id', $this->school->id)
@@ -291,6 +294,9 @@ class CourseController extends SlugAuthController
                 $query->with(['courseSubgroups' => function ($subQuery) {
                     $subQuery->withCount('bookingUsers')->with('degree');
                 }]);
+            },
+            'courseIntervals' => function ($query) {
+                $query->ordered();
             }
         ])->where('school_id', $this->school->id)
             ->where('online', 1)

@@ -87,6 +87,7 @@ class CourseDate extends Model
 
     public $fillable = [
         'course_id',
+        'course_interval_id',
         'date',
         'hour_start',
         'hour_end',
@@ -176,6 +177,11 @@ class CourseDate extends Model
     public function course(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(\App\Models\Course::class, 'course_id');
+    }
+
+    public function courseInterval(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\App\Models\CourseInterval::class, 'course_interval_id');
     }
 
     public function bookingUsers(): \Illuminate\Database\Eloquent\Relations\HasMany

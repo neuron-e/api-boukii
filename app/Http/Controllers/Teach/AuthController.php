@@ -72,4 +72,28 @@ class AuthController extends AppBaseController
 
     }
 
+    /**
+     * Change password for authenticated monitor
+     */
+    public function changePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => 'required',
+            'new_password' => 'required|min:6|confirmed',
+        ]);
+
+        $user = $request->user();
+
+        // Verify current password
+        if (!\Hash::check($request->current_password, $user->password)) {
+            return $this->sendError('Current password is incorrect', 400);
+        }
+
+        // Update password
+        $user->password = \Hash::make($request->new_password);
+        $user->save();
+
+        return $this->sendResponse([], 'Password changed successfully');
+    }
+
 }

@@ -1593,6 +1593,18 @@ Route::prefix('weather')
     ->group(base_path('routes/api/weather.php'));
 /* WEATHER */
 
+/* COURSE INTERVALS API */
+Route::prefix('course-intervals')->group(function () {
+    Route::get('/', [App\Http\Controllers\API\CourseIntervalAPIController::class, 'index']);
+    Route::post('/', [App\Http\Controllers\API\CourseIntervalAPIController::class, 'store']);
+    Route::get('/{id}', [App\Http\Controllers\API\CourseIntervalAPIController::class, 'show']);
+    Route::put('/{id}', [App\Http\Controllers\API\CourseIntervalAPIController::class, 'update']);
+    Route::delete('/{id}', [App\Http\Controllers\API\CourseIntervalAPIController::class, 'destroy']);
+    Route::post('/reorder', [App\Http\Controllers\API\CourseIntervalAPIController::class, 'reorder']);
+    Route::post('/{id}/generate-dates', [App\Http\Controllers\API\CourseIntervalAPIController::class, 'generateDates']);
+});
+/* COURSE INTERVALS API */
+
 /* EXTERNAL */
 Route::prefix('external')
     ->group(base_path('routes/api/external.php'));
