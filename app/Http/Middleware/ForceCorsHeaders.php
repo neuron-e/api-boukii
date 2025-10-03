@@ -17,7 +17,7 @@ class ForceCorsHeaders
             return response('', 200)
                 ->header('Access-Control-Allow-Origin', $request->header('Origin') ?? '*')
                 ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
-                ->header('Access-Control-Allow-Headers', 'Accept, Authorization, Content-Type, X-Requested-With, X-School-Slug, X-CSRF-TOKEN, X-Socket-ID, slug')
+                ->header('Access-Control-Allow-Headers', 'Accept, Authorization, Content-Type, X-Requested-With, X-School-Slug, X-CSRF-TOKEN, X-Socket-ID, slug, Cache-Control, Pragma, Expires')
                 ->header('Access-Control-Allow-Credentials', 'true')
                 ->header('Access-Control-Max-Age', '86400');
         }
@@ -29,7 +29,7 @@ class ForceCorsHeaders
         if ($origin) {
             $response->headers->set('Access-Control-Allow-Origin', $origin);
             $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-            $response->headers->set('Access-Control-Allow-Headers', 'Accept, Authorization, Content-Type, X-Requested-With, X-School-Slug, X-CSRF-TOKEN, X-Socket-ID, slug');
+            $response->headers->set('Access-Control-Allow-Headers', 'Accept, Authorization, Content-Type, X-Requested-With, X-School-Slug, X-CSRF-TOKEN, X-Socket-ID, slug, Cache-Control, Pragma, Expires');
             $response->headers->set('Access-Control-Allow-Credentials', 'true');
             $response->headers->set('Access-Control-Max-Age', '86400');
         }

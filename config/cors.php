@@ -53,6 +53,9 @@ return [
         'X-School-Slug',
         'X-CSRF-TOKEN',
         'X-Socket-ID',
+        'Cache-Control',
+        'Pragma',
+        'Expires',
     ],
 
     'exposed_headers' => [
