@@ -146,7 +146,10 @@ class MonitorNwdAPIController extends AppBaseController
                         'start_time' => $input['start_time'] ?? null,
                         'end_time' => $input['end_time'] ?? null,
                         'full_day' => $input['full_day'] ?? false,
-                        'title' => $input['title'] ?? null,
+                        'title' => $input['title'] ?? $input['description'] ?? null,
+                        'description' => $input['description'] ?? null,
+                        'color' => $input['color'] ?? '#89add1',
+                        'user_nwd_subtype_id' => $input['user_nwd_subtype_id'] ?? 1,
                     ];
 
                     $monitorNwd = $this->monitorNwdRepository->create($nwdData);

@@ -104,6 +104,30 @@ class CourseSubgroupAPIController extends AppBaseController
     {
         $input = $request->all();
 
+        // Si se está asignando un monitor, verificar que no tenga NWDs en las fechas del curso
+        if (isset($input['monitor_id']) && isset($input['course_date_id'])) {
+            $courseDate = \App\Models\CourseDate::find($input['course_date_id']);
+
+            if ($courseDate) {
+                $date = $courseDate->date;
+                $startTime = $courseDate->hour_start;
+                $endTime = $courseDate->hour_end;
+
+                // Verificar si el monitor está ocupado
+                if (\App\Models\Monitor::isMonitorBusy($input['monitor_id'], $date, $startTime, $endTime)) {
+                    \Illuminate\Support\Facades\Log::warning('Intento de crear subgrupo con monitor ocupado', [
+                        'monitor_id' => $input['monitor_id'],
+                        'course_date_id' => $input['course_date_id'],
+                        'date' => $date,
+                        'start_time' => $startTime,
+                        'end_time' => $endTime
+                    ]);
+
+                    return $this->sendError('El monitor no está disponible en este horario (tiene reservas, NWDs u otros cursos asignados)', 409);
+                }
+            }
+        }
+
         $courseSubgroup = $this->courseSubgroupRepository->create($input);
 
         return $this->sendResponse($courseSubgroup, 'Course Subgroup saved successfully');
@@ -206,6 +230,30 @@ class CourseSubgroupAPIController extends AppBaseController
 
         if (empty($courseSubgroup)) {
             return $this->sendError('Course Subgroup not found');
+        }
+
+        // Si se está asignando un monitor, verificar que no tenga NWDs en las fechas del curso
+        if (isset($input['monitor_id']) && $input['monitor_id'] != $courseSubgroup->monitor_id) {
+            $courseSubgroup->load('courseDate');
+
+            if ($courseSubgroup->courseDate) {
+                $date = $courseSubgroup->courseDate->date;
+                $startTime = $courseSubgroup->courseDate->hour_start;
+                $endTime = $courseSubgroup->courseDate->hour_end;
+
+                // Verificar si el monitor está ocupado
+                if (\App\Models\Monitor::isMonitorBusy($input['monitor_id'], $date, $startTime, $endTime)) {
+                    \Illuminate\Support\Facades\Log::warning('Intento de asignar monitor ocupado a subgrupo', [
+                        'subgroup_id' => $id,
+                        'monitor_id' => $input['monitor_id'],
+                        'date' => $date,
+                        'start_time' => $startTime,
+                        'end_time' => $endTime
+                    ]);
+
+                    return $this->sendError('El monitor no está disponible en este horario (tiene reservas, NWDs u otros cursos asignados)', 409);
+                }
+            }
         }
 
         $courseSubgroup = $this->courseSubgroupRepository->update($input, $id);
