@@ -50,6 +50,10 @@ use Payrexx\Payrexx;
 |
 */
 
+
+// App Version Check - Public endpoint (no auth required)
+Route::get('/app-version', [App\Http\Controllers\Api\AppVersionController::class, 'getVersion']);
+
 // ENDPOINT ASEGURADO: Solo superadmin puede ejecutar comandos del sistema
 Route::any('/users-permissions', function () {
     // Verificar autenticación y permisos de superadmin
