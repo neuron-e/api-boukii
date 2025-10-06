@@ -435,6 +435,12 @@ class Monitor extends Model
             ->with(['sport', 'degree']); // Cargar deportes y niveles relacionados
     }
 
+    public function monitorTrainings(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(MonitorTraining::class, 'monitor_id')
+            ->with(['sport', 'school']); // Cargar deportes y escuelas relacionadas
+    }
+
     // ...
 
     public function getMonitorSportsDegreesDetailsAttribute()
