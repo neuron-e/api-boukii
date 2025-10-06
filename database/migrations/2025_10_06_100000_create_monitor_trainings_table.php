@@ -17,7 +17,7 @@ return new class extends Migration
             $table->integer('sport_id')->unsigned();
             $table->integer('school_id')->unsigned();
             $table->string('training_name');
-            $table->text('training_proof')->nullable(); // PDF file stored as base64 or file path
+            $table->longText('training_proof')->nullable(); // PDF file stored as base64 or file path
             $table->timestamps();
             $table->softDeletes();
 
