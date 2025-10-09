@@ -71,7 +71,7 @@ class CourseController extends AppBaseController
     {
         $school = $this->getSchool($request);
         $courses = $this->courseRepository->all(
-            searchArray: $request->except(['skip', 'limit', 'search', 'exclude', 'active', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with']),
+            searchArray: $request->except(['skip', 'limit', 'search', 'exclude', 'active', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with', 'include_archived']),
             search: $request->get('search'),
             skip: $request->get('skip'),
             limit: $request->get('limit'),
@@ -85,6 +85,11 @@ class CourseController extends AppBaseController
                 // Obtén el ID de la escuela y añádelo a los parámetros de búsqueda
 
                 $query->where('school_id', $school->id);
+
+                // Excluir cursos archivados por defecto (a menos que se pida explícitamente incluirlos)
+                if (!$request->get('include_archived', false)) {
+                    $query->whereNull('archived_at');
+                }
 
                 $query->when($request->has('course_types') && is_array($request->course_types), function ($query) use ($request) {
                     $query->whereIn('course_type', $request->course_types);

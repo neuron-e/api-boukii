@@ -52,6 +52,7 @@ class VerifyCsrfToken extends Middleware
         'api/monitor-observations*',// Observaciones de monitores (todos los métodos)
         'api/monitor-sports-degrees*', // Títulos de monitores (todos los métodos)
         'api/monitor-sport-authorized-degrees*', // Grados autorizados (todos los métodos)
+        'api/monitor-trainings*',   // Formaciones de monitores (todos los métodos)
         'api/monitors-schools*',    // Relación monitores-escuelas (todos los métodos)
         'api/stations*',            // Gestión de estaciones (todos los métodos)
         'api/stations-schools*',    // Relación estaciones-escuelas (todos los métodos)

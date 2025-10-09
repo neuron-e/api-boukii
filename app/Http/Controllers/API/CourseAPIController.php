@@ -57,7 +57,7 @@ class CourseAPIController extends AppBaseController
     public function index(Request $request): JsonResponse
     {
         $courses = $this->courseRepository->all(
-            $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with']),
+            $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with', 'include_archived']),
             $request->get('search'),
             $request->get('skip'),
             $request->get('limit'),
@@ -66,6 +66,11 @@ class CourseAPIController extends AppBaseController
             $request->get('order', 'desc'),
             $request->get('orderColumn', 'id'),
             additionalConditions: function ($query) use ($request) {
+                // Excluir cursos archivados por defecto (a menos que se pida explícitamente incluirlos)
+                if (!$request->get('include_archived', false)) {
+                    $query->whereNull('archived_at');
+                }
+
                 if ($request->has('courseType')) {
                     $courseTypes = explode(',', $request->courseType); // Dividir en un array por comas
 
@@ -314,8 +319,68 @@ class CourseAPIController extends AppBaseController
             return $this->sendError('Course not found');
         }
 
+        // Verificar si tiene reservas activas
+        if ($course->hasActiveBookings()) {
+            return $this->sendError(
+                'No se puede eliminar el curso porque tiene reservas activas. Cancela o anula todas las reservas primero.',
+                400
+            );
+        }
+
+        // Si tiene solo reservas anuladas, archivar en lugar de eliminar
+        if ($course->hasOnlyCancelledBookings()) {
+            $course->archive();
+            return $this->sendResponse(
+                $course,
+                'El curso tiene reservas anuladas y ha sido archivado para mantener la trazabilidad. Puedes restaurarlo desde la lista de cursos archivados.'
+            );
+        }
+
+        // Si no tiene reservas, eliminar normalmente (soft delete)
         $course->delete();
 
         return $this->sendSuccess('Course deleted successfully');
+    }
+
+    /**
+     * Archiva un curso manualmente
+     */
+    public function archive($id): JsonResponse
+    {
+        /** @var Course $course */
+        $course = $this->courseRepository->find($id);
+
+        if (empty($course)) {
+            return $this->sendError('Course not found');
+        }
+
+        if ($course->isArchived()) {
+            return $this->sendError('El curso ya está archivado');
+        }
+
+        $course->archive();
+
+        return $this->sendResponse($course, 'Curso archivado exitosamente');
+    }
+
+    /**
+     * Restaura un curso archivado
+     */
+    public function unarchive($id): JsonResponse
+    {
+        /** @var Course $course */
+        $course = $this->courseRepository->find($id);
+
+        if (empty($course)) {
+            return $this->sendError('Course not found');
+        }
+
+        if (!$course->isArchived()) {
+            return $this->sendError('El curso no está archivado');
+        }
+
+        $course->unarchive();
+
+        return $this->sendResponse($course, 'Curso restaurado exitosamente');
     }
 }

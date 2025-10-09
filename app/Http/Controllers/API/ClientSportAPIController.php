@@ -104,6 +104,17 @@ class ClientSportAPIController extends AppBaseController
     {
         $input = $request->all();
 
+        // Check if this combination already exists (prevent duplicates)
+        $existing = ClientSport::where('client_id', $input['client_id'])
+            ->where('sport_id', $input['sport_id'])
+            ->where('school_id', $input['school_id'])
+            ->first();
+
+        if ($existing) {
+            // If it exists, return the existing record instead of creating a duplicate
+            return $this->sendResponse(new ClientSportResource($existing), 'Client Sport already exists');
+        }
+
         $clientSport = $this->clientSportRepository->create($input);
 
         return $this->sendResponse(new ClientSportResource($clientSport), 'Client Sport saved successfully');

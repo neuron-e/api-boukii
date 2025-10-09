@@ -104,6 +104,17 @@ class MonitorSportsDegreeAPIController extends AppBaseController
     {
         $input = $request->all();
 
+        // Check if this combination already exists (prevent duplicates)
+        $existing = MonitorSportsDegree::where('monitor_id', $input['monitor_id'])
+            ->where('sport_id', $input['sport_id'])
+            ->where('school_id', $input['school_id'])
+            ->first();
+
+        if ($existing) {
+            // If it exists, return the existing record instead of creating a duplicate
+            return $this->sendResponse($existing, 'Monitor Sports Degree already exists');
+        }
+
         $monitorSportsDegree = $this->monitorSportsDegreeRepository->create($input);
 
         return $this->sendResponse($monitorSportsDegree, 'Monitor Sports Degree saved successfully');

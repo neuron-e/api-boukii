@@ -304,6 +304,7 @@ class Course extends Model
         'settings',
         'highlighted', // Nuevo campo
         'claim_text', // Nuevo campo
+        'archived_at', // Campo para archivar cursos con reservas
     ];
 
     protected $casts = [
@@ -330,7 +331,8 @@ class Course extends Model
         'price_range' => 'json',
         'discounts' => 'json',
         'settings' => 'json',
-        'highlighted' => 'boolean'
+        'highlighted' => 'boolean',
+        'archived_at' => 'datetime'
     ];
 
     public static function rules($isUpdate = false): array
@@ -897,5 +899,83 @@ class Course extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults();
+    }
+
+    /**
+     * Verifica si el curso está archivado
+     */
+    public function isArchived(): bool
+    {
+        return $this->archived_at !== null;
+    }
+
+    /**
+     * Archiva el curso (para cursos con reservas que no se pueden eliminar)
+     */
+    public function archive(): bool
+    {
+        $this->archived_at = now();
+        return $this->save();
+    }
+
+    /**
+     * Restaura un curso archivado
+     */
+    public function unarchive(): bool
+    {
+        $this->archived_at = null;
+        return $this->save();
+    }
+
+    /**
+     * Verifica si el curso tiene reservas activas (no anuladas)
+     */
+    public function hasActiveBookings(): bool
+    {
+        return $this->bookingUsers()
+            ->where('status', '!=', 'cancelled')
+            ->where('status', '!=', 'anulado')
+            ->exists();
+    }
+
+    /**
+     * Verifica si el curso solo tiene reservas anuladas
+     */
+    public function hasOnlyCancelledBookings(): bool
+    {
+        $totalBookings = $this->bookingUsers()->count();
+        if ($totalBookings === 0) {
+            return false;
+        }
+
+        $cancelledBookings = $this->bookingUsers()
+            ->whereIn('status', ['cancelled', 'anulado'])
+            ->count();
+
+        return $cancelledBookings === $totalBookings;
+    }
+
+    /**
+     * Scope para excluir cursos archivados
+     */
+    public function scopeNotArchived($query)
+    {
+        return $query->whereNull('archived_at');
+    }
+
+    /**
+     * Scope para solo cursos archivados
+     */
+    public function scopeOnlyArchived($query)
+    {
+        return $query->whereNotNull('archived_at');
+    }
+
+    /**
+     * Scope para incluir cursos archivados
+     */
+    public function scopeWithArchived($query)
+    {
+        return $query; // No hace nada, pero es explícito
     }
 }

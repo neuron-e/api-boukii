@@ -249,10 +249,12 @@
                                                     </tr>
                                                 </table>
                                             </td>
-                                            <td valign="top" width="110" class="left-on-narrow">
-{{--
-                                                <img src="data:image/png;base64,{{ base64_encode(\QrCode::format('png')->size(110)->generate($booking->client_id)) }}" alt="QR Code" style="width: 110px; height: 110px;">
---}}
+                                            <td valign="top" width="110" class="left-on-narrow" align="center">
+                                                @php
+                                                    // Generar QR code con los IDs de booking_users para esta actividad
+                                                    $bookingUserIds = collect($course['booking_users'])->pluck('id')->implode(',');
+                                                @endphp
+                                                <img src="data:image/png;base64,{{ base64_encode(\QrCode::format('png')->size(110)->generate($bookingUserIds)) }}" alt="QR Code" style="width: 110px; height: 110px;">
                                             </td>
                                         </tr>
                                     </table>

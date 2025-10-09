@@ -82,6 +82,10 @@ Route::middleware(['guest'])->group(function () {
             'destroy' => 'api.courses.destroy',
         ]);
 
+    // Rutas para archivar/restaurar cursos
+    Route::post('courses/{id}/archive', [App\Http\Controllers\API\CourseAPIController::class, 'archive']);
+    Route::post('courses/{id}/unarchive', [App\Http\Controllers\API\CourseAPIController::class, 'unarchive']);
+
     Route::resource('course-dates', App\Http\Controllers\API\CourseDateAPIController::class)
         ->except(['create', 'edit']);
 

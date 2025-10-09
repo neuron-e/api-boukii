@@ -36,10 +36,14 @@ class NewsletterController extends AppBaseController
     {
         $school = $this->getSchool($request);
 
-        // Total subscribers (clients that accept newsletter)
-        $totalSubscribers = Client::where('user_id', $school->user_id)
-            ->where('accepts_newsletter', true)
-            ->count();
+        // Total subscribers (clients that accept newsletter per school)
+        // IMPORTANT: Use the clients_schools pivot table, not the clients table directly
+        $totalSubscribers = Client::query()
+            ->join('clients_schools', 'clients_schools.client_id', '=', 'clients.id')
+            ->where('clients_schools.school_id', $school->id)
+            ->where('clients_schools.accepts_newsletter', true)
+            ->distinct('clients.id')
+            ->count('clients.id');
 
         // Total sent newsletters
         $totalSent = Newsletter::forSchool($school->id)
@@ -299,9 +303,66 @@ class NewsletterController extends AppBaseController
         }
 
         $school = $this->getSchool($request);
-        $count = $this->calculateRecipients($school->id, $request->recipients);
 
-        return $this->sendResponse(['count' => $count], 'Subscriber count calculated');
+        // Get detailed count by type
+        $counts = $this->getDetailedRecipientCount($school->id, $request->recipients);
+
+        return $this->sendResponse($counts, 'Subscriber count calculated');
+    }
+
+    /**
+     * Get detailed recipient count by type
+     */
+    private function getDetailedRecipientCount($schoolId, $recipientConfig): array
+    {
+        $counts = [
+            'total' => 0,
+            'by_type' => []
+        ];
+
+        $addedEmails = []; // Track unique emails
+
+        foreach ($recipientConfig as $type) {
+            $query = Client::query()
+                ->join('clients_schools', 'clients_schools.client_id', '=', 'clients.id')
+                ->where('clients_schools.school_id', $schoolId)
+                ->where('clients_schools.accepts_newsletter', true);
+
+            switch ($type) {
+                case 'all':
+                    // No additional filtering
+                    break;
+                case 'active':
+                    $query->whereHas('bookingUsers', function ($q) {
+                        $q->where('created_at', '>=', Carbon::now()->subMonths(6));
+                    });
+                    break;
+                case 'inactive':
+                    $query->whereDoesntHave('bookingUsers', function ($q) {
+                        $q->where('created_at', '>=', Carbon::now()->subMonths(6));
+                    });
+                    break;
+                case 'vip':
+                    $query->where('clients_schools.is_vip', true);
+                    break;
+            }
+
+            $emails = $query->select('clients.email')->distinct()->pluck('email')->toArray();
+            $typeCount = count($emails);
+
+            // Add to unique tracking
+            foreach ($emails as $email) {
+                if (!in_array($email, $addedEmails)) {
+                    $addedEmails[] = $email;
+                }
+            }
+
+            $counts['by_type'][$type] = $typeCount;
+        }
+
+        $counts['total'] = count($addedEmails);
+
+        return $counts;
     }
 
     /**
