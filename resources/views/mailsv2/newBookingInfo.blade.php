@@ -430,11 +430,11 @@
                                         <tr>
                                             <td align="left" style="font-size:14px; line-height:19px; padding:0px 0px;" >
                                                 <font face="Arial, Helvetica, sans-serif" style="font-size:14px; line-height:19px; color:#222222;">
-                                                    {{ __('emails.bookingCreate.boukii_care') }}</font>
+                                                    {{-- BOUKII CARE DESACTIVADO -                                                     {{ __('emails.bookingCreate.boukii_care') }}</font> --}}
                                             </td>
                                             <td width="200" align="right" style="font-size:14px; line-height:19px; padding:0px 0px;" >
                                                 <font face="Arial, Helvetica, sans-serif" style="font-size:14px; line-height:19px; color:#222222;">
-                                                    {{$booking->price_boukii_care}}</font>
+                                                    {{-- BOUKII CARE DESACTIVADO -                                                     {{$booking->price_boukii_care}}</font> --}}
                                             </td>
                                         </tr>
                                     @endif

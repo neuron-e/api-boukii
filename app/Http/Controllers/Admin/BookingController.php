@@ -171,13 +171,13 @@ class BookingController extends AppBaseController
                 'user_id' => $data['user_id'],
                 'client_main_id' => $data['client_main_id'],
                 'has_tva' => $data['has_tva'],
-                'has_boukii_care' => $data['has_boukii_care'],
+                // BOUKII CARE DESACTIVADO -                 'has_boukii_care' => $data['has_boukii_care'],
                 'has_cancellation_insurance' => $data['has_cancellation_insurance'],
                 'has_reduction' => $data['has_reduction'],
                 'price_total' => $data['price_total'],
                 'price_reduction' => $data['price_reduction'],
                 'price_tva' => $data['price_tva'],
-                'price_boukii_care' => $data['price_boukii_care'],
+                // BOUKII CARE DESACTIVADO -                 'price_boukii_care' => $data['price_boukii_care'],
                 'price_cancellation_insurance' => $data['price_cancellation_insurance'],
                 'payment_method_id' => $data['payment_method_id'],
                 'paid_total' => $data['paid_total'],
@@ -774,11 +774,11 @@ class BookingController extends AppBaseController
         }
 
         // Agregar "Boukii Care" al "basket"
-        if (isset($basket[0]['boukii_care']['name'])) {
+        // BOUKII CARE DESACTIVADO -         if (isset($basket[0]['boukii_care']['name'])) {
             $finalBasket[] = [
-                'name' => [1 => $basket[0]['boukii_care']['name']],
-                'quantity' => $basket[0]['boukii_care']['quantity'],
-                'amount' => $basket[0]['boukii_care']['price'] * 100, // Convertir el precio a centavos
+        // BOUKII CARE DESACTIVADO -                 'name' => [1 => $basket[0]['boukii_care']['name']],
+        // BOUKII CARE DESACTIVADO -                 'quantity' => $basket[0]['boukii_care']['quantity'],
+        // BOUKII CARE DESACTIVADO -                 'amount' => $basket[0]['boukii_care']['price'] * 100, // Convertir el precio a centavos
             ];
         }
 

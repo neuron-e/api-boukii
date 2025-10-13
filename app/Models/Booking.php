@@ -155,14 +155,14 @@ use Spatie\Activitylog\Traits\LogsActivity;
  *           example=1
  *       ),
  *      @OA\Property(
- *           property="has_boukii_care",
+ *          // BOUKII CARE DESACTIVADO -  *           property="has_boukii_care",
  *           description="",
  *           readOnly=false,
  *           nullable=false,
  *           type="boolean",
  *       ),
  *     @OA\Property(
- *           property="price_boukii_care",
+ *          // BOUKII CARE DESACTIVADO -  *           property="price_boukii_care",
  *           description="",
  *           readOnly=false,
  *           nullable=false,
@@ -260,8 +260,8 @@ class Booking extends Model
         'paxes',
         'status',
         'old_id',
-        'has_boukii_care',
-        'price_boukii_care',
+        // BOUKII CARE DESACTIVADO -         'has_boukii_care',
+        // BOUKII CARE DESACTIVADO -         'price_boukii_care',
         'has_tva',
         'price_tva',
         'has_reduction',
@@ -281,9 +281,9 @@ class Booking extends Model
         'source' => 'string',
         'currency' => 'string',
         'paid_total' => 'decimal:2',
-        'price_boukii_care' => 'decimal:2',
+        // BOUKII CARE DESACTIVADO -         'price_boukii_care' => 'decimal:2',
         'paid' => 'boolean',
-        'has_boukii_care' => 'boolean',
+        // BOUKII CARE DESACTIVADO -         'has_boukii_care' => 'boolean',
         'payrexx_reference' => 'string',
         'payrexx_transaction' => 'string',
         'attendance' => 'boolean',
@@ -616,10 +616,10 @@ class Booking extends Model
                 "quantity" => 1,
                 "price" => -($bookingData['price_reduction'] ?? 0)
             ],
-            "boukii_care" => [
-                "name" => "Boukii Care",
-                "quantity" => 1,
-                "price" => $bookingData['price_boukii_care'] ?? 0
+            // BOUKII CARE DESACTIVADO -             // BOUKII CARE DESACTIVADO -             "boukii_care" => [
+            // BOUKII CARE DESACTIVADO -             // BOUKII CARE DESACTIVADO -                 "name" => "Boukii Care",
+            // BOUKII CARE DESACTIVADO -             // BOUKII CARE DESACTIVADO -                 "quantity" => 1,
+            // BOUKII CARE DESACTIVADO -             // BOUKII CARE DESACTIVADO -                 "price" => $bookingData['price_boukii_care'] ?? 0
             ],
             "cancellation_insurance" => [
                 "name" => "Cancellation Insurance",
@@ -1569,8 +1569,8 @@ class Booking extends Model
                 'price_cancellation_insurance' => $this->price_cancellation_insurance,
                 'has_reduction' => $this->has_reduction,
                 'price_reduction' => $this->price_reduction,
-                'has_boukii_care' => $this->has_boukii_care,
-                'price_boukii_care' => $this->price_boukii_care,
+                // BOUKII CARE DESACTIVADO -                 'has_boukii_care' => $this->has_boukii_care,
+                // BOUKII CARE DESACTIVADO -                 'price_boukii_care' => $this->price_boukii_care,
                 'has_tva' => $this->has_tva,
                 'price_tva' => $this->price_tva
             ],
