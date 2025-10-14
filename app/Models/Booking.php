@@ -620,7 +620,7 @@ class Booking extends Model
             // BOUKII CARE DESACTIVADO -             // BOUKII CARE DESACTIVADO -                 "name" => "Boukii Care",
             // BOUKII CARE DESACTIVADO -             // BOUKII CARE DESACTIVADO -                 "quantity" => 1,
             // BOUKII CARE DESACTIVADO -             // BOUKII CARE DESACTIVADO -                 "price" => $bookingData['price_boukii_care'] ?? 0
-            ],
+            // BOUKII CARE DESACTIVADO -             ],
             "cancellation_insurance" => [
                 "name" => "Cancellation Insurance",
                 "quantity" => 1,
