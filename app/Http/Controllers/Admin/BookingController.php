@@ -774,13 +774,13 @@ class BookingController extends AppBaseController
         }
 
         // Agregar "Boukii Care" al "basket"
-        // BOUKII CARE DESACTIVADO -         if (isset($basket[0]['boukii_care']['name'])) {
-            $finalBasket[] = [
-        // BOUKII CARE DESACTIVADO -                 'name' => [1 => $basket[0]['boukii_care']['name']],
-        // BOUKII CARE DESACTIVADO -                 'quantity' => $basket[0]['boukii_care']['quantity'],
-        // BOUKII CARE DESACTIVADO -                 'amount' => $basket[0]['boukii_care']['price'] * 100, // Convertir el precio a centavos
-            ];
-        }
+        // BOUKII CARE DESACTIVADO -         // BOUKII CARE DESACTIVADO -         if (isset($basket[0]['boukii_care']['name'])) {
+        // BOUKII CARE DESACTIVADO -             $finalBasket[] = [
+        // BOUKII CARE DESACTIVADO -         // BOUKII CARE DESACTIVADO -                 'name' => [1 => $basket[0]['boukii_care']['name']],
+        // BOUKII CARE DESACTIVADO -         // BOUKII CARE DESACTIVADO -                 'quantity' => $basket[0]['boukii_care']['quantity'],
+        // BOUKII CARE DESACTIVADO -         // BOUKII CARE DESACTIVADO -                 'amount' => $basket[0]['boukii_care']['price'] * 100, // Convertir el precio a centavos
+        // BOUKII CARE DESACTIVADO -             ];
+        // BOUKII CARE DESACTIVADO -         }
 
         // Agregar "Cancellation Insurance" al "basket"
         if (isset($basket[0]['cancellation_insurance']['name'])) {
