@@ -15,6 +15,7 @@ class CourseCapacityController extends AppBaseController
 {
     /**
      * ENDPOINT: Verificar capacidad de múltiples subgrupos en tiempo real
+     * ACTUALIZADO: Soporte para intervalos vía parámetro 'date'
      *
      * @param Request $request
      * @return JsonResponse
@@ -24,11 +25,13 @@ class CourseCapacityController extends AppBaseController
         $request->validate([
             'subgroup_ids' => 'required|array',
             'subgroup_ids.*' => 'integer|exists:course_subgroups,id',
-            'needed_participants' => 'required|integer|min:1'
+            'needed_participants' => 'required|integer|min:1',
+            'date' => 'nullable|date_format:Y-m-d' // NUEVO: parámetro opcional para intervalos
         ]);
 
         $subgroupIds = $request->input('subgroup_ids');
         $neededParticipants = $request->input('needed_participants');
+        $date = $request->input('date'); // NUEVO
 
         $capacityData = [];
 
@@ -39,14 +42,26 @@ class CourseCapacityController extends AppBaseController
                 continue;
             }
 
+            // NUEVO: Si se proporciona fecha, usar métodos con soporte de intervalos
+            if ($date) {
+                $maxParticipants = $subgroup->getMaxParticipantsForDate($date);
+                $availableSlots = $subgroup->getAvailableSlotsForDate($date);
+                $hasCapacity = $subgroup->hasAvailabilityForDate($date, $neededParticipants);
+            } else {
+                // Backward compatible: usar métodos antiguos si no hay fecha
+                $maxParticipants = $subgroup->max_participants;
+                $availableSlots = $subgroup->getAvailableSlotsCount();
+                $hasCapacity = $subgroup->hasAvailableSlots() && $availableSlots >= $neededParticipants;
+            }
+
             $capacityData[] = [
                 'id' => $subgroup->id,
-                'max_participants' => $subgroup->max_participants ?? 999,
+                'max_participants' => $maxParticipants ?? 999,
                 'current_bookings' => $subgroup->bookingUsers()->count(),
-                'available_slots' => $subgroup->getAvailableSlotsCount(),
-                'has_capacity' => $subgroup->hasAvailableSlots() &&
-                                $subgroup->getAvailableSlotsCount() >= $neededParticipants,
-                'is_unlimited' => !$subgroup->max_participants || $subgroup->max_participants > 100,
+                'available_slots' => $availableSlots,
+                'has_capacity' => $hasCapacity,
+                'is_unlimited' => !$maxParticipants || $maxParticipants > 100,
+                'date' => $date, // NUEVO: incluir fecha en respuesta
                 'updated_at' => now()->toISOString()
             ];
         }
@@ -96,6 +111,7 @@ class CourseCapacityController extends AppBaseController
 
     /**
      * ENDPOINT: Validar si una reserva específica es posible antes de crearla
+     * ACTUALIZADO: Soporte para intervalos vía campo 'date' en cada cart item
      *
      * @param Request $request
      * @return JsonResponse
@@ -108,7 +124,8 @@ class CourseCapacityController extends AppBaseController
             'cart.*.client_id' => 'required|integer|exists:clients,id',
             'cart.*.course_date_id' => 'required|integer|exists:course_dates,id',
             'cart.*.degree_id' => 'required|integer|exists:degrees,id',
-            'cart.*.course_type' => 'required|integer|in:1,2'
+            'cart.*.course_type' => 'required|integer|in:1,2',
+            'cart.*.date' => 'nullable|date_format:Y-m-d' // NUEVO: fecha opcional para intervalos
         ]);
 
         $cart = $request->input('cart');
@@ -131,13 +148,25 @@ class CourseCapacityController extends AppBaseController
 
             $hasAvailability = false;
             $availableSubgroups = [];
+            $date = $cartItem['date'] ?? null; // NUEVO: obtener fecha del cart item
 
             foreach ($subgroups as $subgroup) {
-                if ($subgroup->hasAvailableSlots()) {
+                // NUEVO: Si hay fecha, usar métodos con soporte de intervalos
+                if ($date) {
+                    $hasSlots = $subgroup->hasAvailabilityForDate($date, 1);
+                    $availableSlots = $subgroup->getAvailableSlotsForDate($date);
+                } else {
+                    // Backward compatible
+                    $hasSlots = $subgroup->hasAvailableSlots();
+                    $availableSlots = $subgroup->getAvailableSlotsCount();
+                }
+
+                if ($hasSlots) {
                     $hasAvailability = true;
                     $availableSubgroups[] = [
                         'id' => $subgroup->id,
-                        'available_slots' => $subgroup->getAvailableSlotsCount()
+                        'available_slots' => $availableSlots,
+                        'date' => $date // NUEVO
                     ];
                 }
             }

@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Services\CourseAvailabilityService;
+use App\Services\CourseMonitorService;
+use App\Models\CourseDate;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -189,6 +192,133 @@ class CourseSubgroup extends Model
         }, 30);
     }
 
+    // ==================================================================================
+    // NUEVOS MÉTODOS CON SOPORTE DE INTERVALOS
+    // ==================================================================================
+
+    /**
+     * NUEVO: Obtener max_participants considerando intervalos
+     *
+     * @param string $date Fecha en formato Y-m-d
+     * @return int|null Max participants para esa fecha, null = sin límite
+     */
+    public function getMaxParticipantsForDate(string $date): ?int
+    {
+        $service = app(CourseAvailabilityService::class);
+        return $service->getMaxParticipants($this, $date);
+    }
+
+    /**
+     * NUEVO: Verificar disponibilidad para una fecha específica
+     * Reemplaza hasAvailableSlots() pero con soporte de intervalos
+     *
+     * @param string $date Fecha en formato Y-m-d
+     * @param int $needed Número de plazas necesarias (default: 1)
+     * @return bool
+     */
+    public function hasAvailabilityForDate(string $date, int $needed = 1): bool
+    {
+        $service = app(CourseAvailabilityService::class);
+        return $service->hasAvailability($this, $date, $needed);
+    }
+
+    /**
+     * NUEVO: Obtener plazas disponibles para una fecha específica
+     * Reemplaza getAvailableSlotsCount() pero con soporte de intervalos
+     *
+     * @param string $date Fecha en formato Y-m-d
+     * @return int Número de plazas disponibles
+     */
+    public function getAvailableSlotsForDate(string $date): int
+    {
+        $service = app(CourseAvailabilityService::class);
+        return $service->getAvailableSlots($this, $date);
+    }
+
+    /**
+     * NUEVO: Obtener disponibilidad para múltiples fechas
+     *
+     * @param array $dates Array de fechas en formato Y-m-d
+     * @return array ['date' => available_slots]
+     */
+    public function getAvailabilityForDates(array $dates): array
+    {
+        $service = app(CourseAvailabilityService::class);
+        return $service->getAvailabilityForDates($this, $dates);
+    }
+
+    /**
+     * NUEVO: Invalidar cache de disponibilidad
+     * Útil cuando se crea/cancela una reserva
+     *
+     * @param string|null $date Fecha específica o null para todas
+     */
+    public function invalidateAvailabilityCache(?string $date = null): void
+    {
+        $service = app(CourseAvailabilityService::class);
+        $service->invalidateCache($this, $date);
+    }
+
+    // ==================================================================================
+    // MÉTODOS CON SOPORTE DE MONITORES POR INTERVALO
+    // ==================================================================================
+
+    /**
+     * NUEVO: Obtener monitor para una fecha específica
+     * Considera asignaciones por intervalo
+     *
+     * @param string $date Fecha en formato Y-m-d
+     * @return Monitor|null
+     */
+    public function getMonitorForDate(string $date): ?Monitor
+    {
+        $service = app(CourseMonitorService::class);
+        return $service->getMonitorForDate($this, $date);
+    }
+
+    /**
+     * NUEVO: Obtener ID del monitor para una fecha específica
+     *
+     * @param string $date Fecha en formato Y-m-d
+     * @return int|null
+     */
+    public function getMonitorIdForDate(string $date): ?int
+    {
+        $service = app(CourseMonitorService::class);
+        return $service->getMonitorIdForDate($this, $date);
+    }
+
+    /**
+     * NUEVO: Obtener detalles completos del monitor para una fecha
+     *
+     * @param string $date Fecha en formato Y-m-d
+     * @return array ['monitor', 'source', 'interval_id', 'notes']
+     */
+    public function getMonitorDetailsForDate(string $date): array
+    {
+        $service = app(CourseMonitorService::class);
+        return $service->getMonitorDetailsForDate($this, $date);
+    }
+
+    /**
+     * NUEVO: Invalidar cache de monitores
+     *
+     * @param string|null $date Fecha específica o null para todas
+     */
+    public function invalidateMonitorCache(?string $date = null): void
+    {
+        $service = app(CourseMonitorService::class);
+        $service->invalidateCache($this, $date);
+    }
+
+    /**
+     * NUEVO: Relación con asignaciones de monitores por intervalo
+     */
+    public function intervalMonitorAssignments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(CourseIntervalMonitor::class, 'course_subgroup_id');
+    }
+
     /**
      * MEJORA CRÍTICA: Scope optimizado para filtrar subgrupos disponibles
      */
@@ -210,25 +340,50 @@ class CourseSubgroup extends Model
      */
     public static function getAvailableSubgroupsWithCapacity(int $courseDateId, int $degreeId, int $neededSlots = 1): \Illuminate\Support\Collection
     {
-        $cacheKey = "available_subgroups_{$courseDateId}_{$degreeId}_{$neededSlots}";
+        $courseDate = CourseDate::find($courseDateId);
+        $referenceDate = $courseDate ? Carbon::parse($courseDate->date)->format('Y-m-d') : null;
+        $cacheKeyDate = $referenceDate ?? 'no-date';
+        $cacheKey = "available_subgroups_{$courseDateId}_{$degreeId}_{$neededSlots}_{$cacheKeyDate}";
 
-        return Cache::remember($cacheKey, 60, function() use ($courseDateId, $degreeId, $neededSlots) {
+        return Cache::remember($cacheKey, 60, function() use ($courseDateId, $degreeId, $neededSlots, $referenceDate) {
+            $service = app(CourseAvailabilityService::class);
+
             return static::where('course_date_id', $courseDateId)
                 ->where('degree_id', $degreeId)
-                ->availableWithOptimizedQuery($neededSlots)
+                ->with('courseDate')
                 ->get()
-                ->map(function($subgroup) {
+                ->map(function($subgroup) use ($service, $referenceDate) {
+                    $date = $referenceDate ?? optional($subgroup->courseDate)->date;
+                    $date = $date ? Carbon::parse($date)->format('Y-m-d') : null;
+
+                    if ($date) {
+                        $maxParticipants = $service->getMaxParticipants($subgroup, $date);
+                        $availableSlots = $service->getAvailableSlots($subgroup, $date);
+                        $currentParticipants = $maxParticipants === null ? null : max(0, $maxParticipants - $availableSlots);
+                    } else {
+                        $maxParticipants = $subgroup->max_participants;
+                        $availableSlots = $subgroup->getAvailableSlotsCount();
+                        $currentParticipants = $maxParticipants === null ? null : max(0, $maxParticipants - $availableSlots);
+                    }
+
+                    $capacityPercentage = ($maxParticipants && $maxParticipants > 0 && $currentParticipants !== null)
+                        ? ($currentParticipants / $maxParticipants) * 100
+                        : 0;
+
                     return [
                         'id' => $subgroup->id,
-                        'max_participants' => $subgroup->max_participants ?? 999,
-                        'current_participants' => $subgroup->current_participants ?? 0,
-                        'available_slots' => $subgroup->available_slots ?? 999,
-                        'capacity_percentage' => $subgroup->max_participants > 0 ?
-                            ($subgroup->current_participants / $subgroup->max_participants) * 100 : 0,
-                        'is_unlimited' => !$subgroup->max_participants || $subgroup->max_participants > 100,
+                        'max_participants' => $maxParticipants ?? 999,
+                        'current_participants' => $currentParticipants ?? 0,
+                        'available_slots' => $availableSlots,
+                        'capacity_percentage' => round($capacityPercentage, 2),
+                        'is_unlimited' => $maxParticipants === null,
                         'course_group_id' => $subgroup->course_group_id
                     ];
-                });
+                })
+                ->filter(function ($data) use ($neededSlots) {
+                    return $data['available_slots'] >= $neededSlots;
+                })
+                ->values();
         });
     }
 

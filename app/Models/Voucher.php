@@ -107,23 +107,41 @@ class Voucher extends Model
 
     public $fillable = [
         'code',
+        'name',
+        'description',
         'quantity',
         'remaining_balance',
         'payed',
         'is_gift',
+        'is_transferable',
         'client_id',
         'school_id',
+        'course_type_id',
+        'expires_at',
+        'max_uses',
+        'uses_count',
+        'transferred_to_client_id',
+        'transferred_at',
         'payrexx_reference',
         'payrexx_transaction',
+        'created_by',
+        'notes',
         'old_id'
     ];
 
     protected $casts = [
         'code' => 'string',
+        'name' => 'string',
+        'description' => 'string',
         'quantity' => 'float',
         'remaining_balance' => 'float',
         'payed' => 'boolean',
         'is_gift' => 'boolean',
+        'is_transferable' => 'boolean',
+        'expires_at' => 'datetime',
+        'max_uses' => 'integer',
+        'uses_count' => 'integer',
+        'transferred_at' => 'datetime',
         'payrexx_reference' => 'string',
         'payrexx_transaction' => 'string',
     ];
@@ -161,5 +179,210 @@ class Voucher extends Model
     public function getActivitylogOptions(): LogOptions
     {
          return LogOptions::defaults();
+    }
+
+    public function transferredToClient(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Client::class, 'transferred_to_client_id');
+    }
+
+    /**
+     * Verifica si el bono es genérico (sin cliente asignado)
+     */
+    public function isGeneric(): bool
+    {
+        return $this->client_id === null;
+    }
+
+    /**
+     * Verifica si el bono ha expirado
+     */
+    public function isExpired(): bool
+    {
+        if (!$this->expires_at) {
+            return false;
+        }
+
+        return now() > $this->expires_at;
+    }
+
+    /**
+     * Verifica si el bono tiene saldo disponible
+     */
+    public function hasBalance(): bool
+    {
+        return $this->remaining_balance > 0;
+    }
+
+    /**
+     * Verifica si el bono ha alcanzado el máximo de usos
+     */
+    public function hasReachedMaxUses(): bool
+    {
+        if ($this->max_uses === null) {
+            return false;
+        }
+
+        return $this->uses_count >= $this->max_uses;
+    }
+
+    /**
+     * Verifica si el bono puede ser usado
+     */
+    public function canBeUsed(): bool
+    {
+        return !$this->isExpired()
+            && $this->hasBalance()
+            && !$this->hasReachedMaxUses()
+            && !$this->trashed();
+    }
+
+    /**
+     * Verifica si el bono puede ser usado por un cliente específico
+     */
+    public function canBeUsedByClient(?int $clientId): bool
+    {
+        if (!$this->canBeUsed()) {
+            return false;
+        }
+
+        // Si el bono es genérico, cualquier cliente puede usarlo
+        if ($this->isGeneric()) {
+            return true;
+        }
+
+        // Si tiene cliente asignado, solo ese cliente puede usarlo
+        if ($this->client_id && $this->client_id !== $clientId) {
+            return false;
+        }
+
+        // Si fue transferido, solo el destinatario puede usarlo
+        if ($this->transferred_to_client_id && $this->transferred_to_client_id !== $clientId) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Verifica si el bono es válido para un tipo de curso
+     */
+    public function isValidForCourseType(?int $courseTypeId): bool
+    {
+        // Si no tiene restricción de tipo, es válido para cualquier tipo
+        if ($this->course_type_id === null) {
+            return true;
+        }
+
+        return $this->course_type_id === $courseTypeId;
+    }
+
+    /**
+     * Transferir bono a otro cliente
+     */
+    public function transferTo(int $clientId): bool
+    {
+        if (!$this->is_transferable) {
+            return false;
+        }
+
+        if (!$this->canBeUsed()) {
+            return false;
+        }
+
+        $this->transferred_to_client_id = $clientId;
+        $this->transferred_at = now();
+
+        return $this->save();
+    }
+
+    /**
+     * Usar una cantidad del bono
+     */
+    public function use(float $amount): bool
+    {
+        if (!$this->canBeUsed()) {
+            return false;
+        }
+
+        if ($amount > $this->remaining_balance) {
+            return false;
+        }
+
+        $this->remaining_balance -= $amount;
+        $this->uses_count++;
+
+        return $this->save();
+    }
+
+    /**
+     * Revertir el uso de una cantidad del bono (para cancelaciones)
+     */
+    public function refund(float $amount): bool
+    {
+        $this->remaining_balance += $amount;
+        $this->uses_count = max(0, $this->uses_count - 1);
+
+        return $this->save();
+    }
+
+    /**
+     * Obtener el cliente efectivo que puede usar el bono
+     */
+    public function getEffectiveClientId(): ?int
+    {
+        // Si fue transferido, el cliente efectivo es el destinatario
+        if ($this->transferred_to_client_id) {
+            return $this->transferred_to_client_id;
+        }
+
+        // Si no, es el cliente original
+        return $this->client_id;
+    }
+
+    /**
+     * Generar código único de bono
+     */
+    public static function generateUniqueCode(string $prefix = 'VOUCHER'): string
+    {
+        do {
+            $code = strtoupper($prefix . '-' . substr(md5(uniqid(rand(), true)), 0, 8));
+        } while (self::where('code', $code)->exists());
+
+        return $code;
+    }
+
+    /**
+     * Obtener resumen del estado del bono
+     */
+    public function getSummary(): array
+    {
+        return [
+            'id' => $this->id,
+            'code' => $this->code,
+            'name' => $this->name,
+            'description' => $this->description,
+            'is_generic' => $this->isGeneric(),
+            'client_id' => $this->client_id,
+            'transferred_to_client_id' => $this->transferred_to_client_id,
+            'effective_client_id' => $this->getEffectiveClientId(),
+            'quantity' => $this->quantity,
+            'remaining_balance' => $this->remaining_balance,
+            'used_amount' => $this->quantity - $this->remaining_balance,
+            'usage_percentage' => $this->quantity > 0
+                ? round((($this->quantity - $this->remaining_balance) / $this->quantity) * 100, 2)
+                : 0,
+            'expires_at' => $this->expires_at?->format('Y-m-d H:i:s'),
+            'is_expired' => $this->isExpired(),
+            'max_uses' => $this->max_uses,
+            'uses_count' => $this->uses_count,
+            'has_reached_max_uses' => $this->hasReachedMaxUses(),
+            'can_be_used' => $this->canBeUsed(),
+            'is_transferable' => $this->is_transferable,
+            'is_gift' => $this->is_gift,
+            'payed' => $this->payed,
+            'school_id' => $this->school_id,
+            'course_type_id' => $this->course_type_id,
+        ];
     }
 }

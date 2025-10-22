@@ -55,18 +55,61 @@ class VoucherAPIController extends AppBaseController
      */
     public function index(Request $request): JsonResponse
     {
-        $vouchers = $this->voucherRepository->all(
-            $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with']),
-            $request->get('search'),
-            $request->get('skip'),
-            $request->get('limit'),
-            $request->perPage,
-            $request->get('with', []),
-            $request->get('order', 'desc'),
-            $request->get('orderColumn', 'id'),
-            null,
-            $request->get('onlyTrashed', false)
-        );
+        // Prepare filters, removing special filter parameters
+        $filters = $request->except([
+            'skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with',
+            'has_transferred_to_client_id', 'is_expired', 'school_id'
+        ]);
+
+        // Handle special filters with custom query
+        $query = Voucher::query();
+
+        // Apply school filter if present (required by multi-tenant system)
+        if ($request->has('school_id')) {
+            $query->where('school_id', $request->get('school_id'));
+        }
+
+        // Apply standard filters
+        foreach ($filters as $key => $value) {
+            if ($value !== null && $value !== '') {
+                $query->where($key, $value);
+            }
+        }
+
+        // Filter by transferred vouchers
+        if ($request->get('has_transferred_to_client_id') == '1') {
+            $query->whereNotNull('transferred_to_client_id');
+        }
+
+        // Filter by expired vouchers
+        if ($request->get('is_expired') == '1') {
+            $query->where('expires_at', '<', now())
+                  ->whereNotNull('expires_at');
+        }
+
+        // Apply search
+        if ($request->get('search')) {
+            $searchTerm = $request->get('search');
+            $query->where(function($q) use ($searchTerm) {
+                $q->where('code', 'like', "%{$searchTerm}%")
+                  ->orWhere('name', 'like', "%{$searchTerm}%");
+            });
+        }
+
+        // Apply relationships
+        if ($request->get('with')) {
+            $with = is_array($request->get('with')) ? $request->get('with') : [$request->get('with')];
+            $query->with($with);
+        }
+
+        // Apply ordering
+        $order = $request->get('order', 'desc');
+        $orderColumn = $request->get('orderColumn', 'id');
+        $query->orderBy($orderColumn, $order);
+
+        // Paginate
+        $perPage = $request->get('perPage', 10);
+        $vouchers = $query->paginate($perPage);
 
         return $this->sendResponse($vouchers, 'Vouchers retrieved successfully');
     }
@@ -319,5 +362,142 @@ class VoucherAPIController extends AppBaseController
         $voucher->delete();
 
         return $this->sendSuccess('Voucher deleted successfully');
+    }
+
+    /**
+     * Transfer voucher to another client
+     * POST /api/vouchers/{id}/transfer
+     */
+    public function transfer(int $id, Request $request): JsonResponse
+    {
+        $request->validate([
+            'client_id' => 'required|integer|exists:clients,id'
+        ]);
+
+        $voucher = Voucher::find($id);
+
+        if (!$voucher) {
+            return $this->sendError('Voucher not found', null, 404);
+        }
+
+        if (!$voucher->is_transferable) {
+            return $this->sendError('Este bono no es transferible', null, 400);
+        }
+
+        if (!$voucher->canBeUsed()) {
+            return $this->sendError('Este bono no puede ser usado (expirado o sin saldo)', null, 400);
+        }
+
+        $success = $voucher->transferTo($request->input('client_id'));
+
+        if ($success) {
+            return $this->sendResponse($voucher->load('transferredToClient'), 'Bono transferido correctamente');
+        }
+
+        return $this->sendError('Error al transferir el bono', null, 500);
+    }
+
+    /**
+     * Get voucher summary with usage stats
+     * GET /api/vouchers/{id}/summary
+     */
+    public function summary(int $id): JsonResponse
+    {
+        $voucher = Voucher::with(['client', 'school', 'transferredToClient'])->find($id);
+
+        if (!$voucher) {
+            return $this->sendError('Voucher not found', null, 404);
+        }
+
+        return $this->sendResponse($voucher->getSummary(), 'Voucher summary retrieved successfully');
+    }
+
+    /**
+     * Get generic vouchers (no client assigned)
+     * GET /api/vouchers/generic
+     */
+    public function generic(Request $request): JsonResponse
+    {
+        $query = Voucher::whereNull('client_id')
+            ->where('payed', true);
+
+        if ($request->has('school_id')) {
+            $query->where('school_id', $request->input('school_id'));
+        }
+
+        if ($request->has('available_only') && $request->input('available_only')) {
+            $query->where('remaining_balance', '>', 0)
+                ->where(function($q) {
+                    $q->whereNull('expires_at')
+                      ->orWhere('expires_at', '>', now());
+                });
+        }
+
+        $vouchers = $query->with(['school'])->get();
+
+        return $this->sendResponse($vouchers, 'Generic vouchers retrieved successfully');
+    }
+
+    /**
+     * Check if voucher can be used by a specific client
+     * POST /api/vouchers/{id}/check-availability
+     */
+    public function checkAvailability(int $id, Request $request): JsonResponse
+    {
+        $request->validate([
+            'client_id' => 'nullable|integer|exists:clients,id',
+            'course_type_id' => 'nullable|integer'
+        ]);
+
+        $voucher = Voucher::find($id);
+
+        if (!$voucher) {
+            return $this->sendError('Voucher not found', null, 404);
+        }
+
+        $clientId = $request->input('client_id');
+        $courseTypeId = $request->input('course_type_id');
+
+        $canBeUsed = $voucher->canBeUsedByClient($clientId);
+        $validForCourseType = $voucher->isValidForCourseType($courseTypeId);
+
+        $reasons = [];
+
+        if (!$voucher->canBeUsed()) {
+            if ($voucher->isExpired()) {
+                $reasons[] = 'Bono expirado';
+            }
+            if (!$voucher->hasBalance()) {
+                $reasons[] = 'Sin saldo disponible';
+            }
+            if ($voucher->hasReachedMaxUses()) {
+                $reasons[] = 'Máximo de usos alcanzado';
+            }
+        }
+
+        if (!$canBeUsed && $clientId) {
+            $reasons[] = 'El bono no puede ser usado por este cliente';
+        }
+
+        if (!$validForCourseType && $courseTypeId) {
+            $reasons[] = 'El bono no es válido para este tipo de curso';
+        }
+
+        $available = $canBeUsed && $validForCourseType;
+
+        return $this->sendResponse([
+            'available' => $available,
+            'can_be_used' => $canBeUsed,
+            'valid_for_course_type' => $validForCourseType,
+            'reasons' => $reasons,
+            'voucher' => [
+                'id' => $voucher->id,
+                'code' => $voucher->code,
+                'name' => $voucher->name,
+                'remaining_balance' => $voucher->remaining_balance,
+                'expires_at' => $voucher->expires_at?->format('Y-m-d H:i:s'),
+                'is_transferable' => $voucher->is_transferable
+            ]
+        ], $available ? 'Bono disponible' : 'Bono no disponible');
     }
 }

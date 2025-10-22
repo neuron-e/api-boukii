@@ -51,6 +51,23 @@ Route::middleware(['bookingPage'])->group(function () {
     Route::get('clients/mains', [\App\Http\Controllers\BookingPage\ClientController::class, 'getMains']);
 
 
+
+    // Discount codes & gift vouchers
+    Route::post('discount-codes/validate', [\App\Http\Controllers\API\DiscountCodeAPIController::class, 'validateCode'])
+        ->name('api.bookings.discount-codes.validate');
+
+    Route::get('discount-codes/active', [\App\Http\Controllers\API\DiscountCodeAPIController::class, 'active'])
+        ->name('api.bookings.discount-codes.active');
+
+    Route::post('gift-vouchers', [\App\Http\Controllers\API\GiftVoucherAPIController::class, 'store'])
+        ->name('api.bookings.gift-vouchers.store');
+    Route::get('gift-vouchers/templates', [\App\Http\Controllers\API\GiftVoucherAPIController::class, 'templates'])
+        ->name('api.bookings.gift-vouchers.templates');
+    Route::get('gift-vouchers/{id}/summary', [\App\Http\Controllers\API\GiftVoucherAPIController::class, 'summary'])
+        ->name('api.bookings.gift-vouchers.summary');
+    Route::get('gift-vouchers/{id}', [\App\Http\Controllers\API\GiftVoucherAPIController::class, 'show'])
+        ->name('api.bookings.gift-vouchers.show');
+
     /** Booking **/
     Route::post('bookings/checkbooking',
         [\App\Http\Controllers\BookingPage\BookingController::class, 'checkClientBookingOverlap'])

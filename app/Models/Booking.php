@@ -266,6 +266,8 @@ class Booking extends Model
         'price_tva',
         'has_reduction',
         'price_reduction',
+        'discount_code_id',
+        'discount_code_value',
         'color',
         'basket'
     ];
@@ -278,6 +280,7 @@ class Booking extends Model
         'price_cancellation_insurance' => 'decimal:2',
         'price_reduction' => 'decimal:2',
         'price_tva' => 'decimal:2',
+        'discount_code_value' => 'decimal:2',
         'source' => 'string',
         'currency' => 'string',
         'paid_total' => 'decimal:2',
@@ -362,6 +365,11 @@ class Booking extends Model
     public function payments(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\App\Models\Payment::class, 'booking_id');
+    }
+
+    public function discountCode(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\App\Models\DiscountCode::class, 'discount_code_id');
     }
 
     public function getActivitylogOptions(): LogOptions

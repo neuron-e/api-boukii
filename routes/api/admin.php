@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\AnalyticsProfessionalController;
+use App\Http\Controllers\Admin\CourseIntervalMonitorController;
 use App\Http\Controllers\Admin\FinanceController;
 use App\Http\Controllers\Admin\FinanceControllerRefactor;
 use App\Http\Controllers\Admin\StatisticsController;
@@ -38,6 +39,27 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
     Route::post('/courses/check-capacity', [App\Http\Controllers\Admin\CourseCapacityController::class, 'checkCapacity']);
     Route::post('/courses/check-availability', [App\Http\Controllers\Admin\CourseCapacityController::class, 'checkAvailabilityByDate']);
     Route::post('/courses/validate-booking', [App\Http\Controllers\Admin\CourseCapacityController::class, 'validateBookingCapacity']);
+
+    // NUEVO: Endpoints para asignación de monitores por intervalo
+    Route::get('/course-subgroups/{subgroupId}/monitor', [CourseIntervalMonitorController::class, 'getMonitorForDate'])
+        ->name('api.admin.subgroups.monitor.date');
+
+    Route::get('/course-subgroups/{subgroupId}/monitor-assignments', [CourseIntervalMonitorController::class, 'getSubgroupAssignments'])
+        ->name('api.admin.subgroups.monitor.assignments');
+
+    Route::get('/courses/{courseId}/monitor-schedule', [CourseIntervalMonitorController::class, 'getSchedule'])
+        ->name('api.admin.courses.monitor.schedule');
+
+    Route::prefix('course-intervals/{intervalId}/monitors')->group(function () {
+        Route::get('/', [CourseIntervalMonitorController::class, 'index'])
+            ->name('api.admin.intervals.monitors.index');
+
+        Route::post('/', [CourseIntervalMonitorController::class, 'store'])
+            ->name('api.admin.intervals.monitors.store');
+
+        Route::delete('/{subgroupId}', [CourseIntervalMonitorController::class, 'destroy'])
+            ->name('api.admin.intervals.monitors.destroy');
+    });
 
     Route::get('getPlanner', [\App\Http\Controllers\Admin\PlannerController::class, 'getPlanner'])
         ->name('api.admin.planner');

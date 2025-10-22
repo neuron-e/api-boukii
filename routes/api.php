@@ -1609,6 +1609,17 @@ Route::prefix('course-intervals')->group(function () {
 });
 /* COURSE INTERVALS API */
 
+/* COURSE INTERVAL GROUPS API */
+Route::prefix('course-interval-groups')->group(function () {
+    Route::get('/interval/{intervalId}', [App\Http\Controllers\API\CourseIntervalGroupAPIController::class, 'indexForInterval']);
+    Route::get('/course/{courseId}', [App\Http\Controllers\API\CourseIntervalGroupAPIController::class, 'indexForCourse']);
+    Route::post('/interval', [App\Http\Controllers\API\CourseIntervalGroupAPIController::class, 'storeForInterval']);
+    Route::post('/apply-global', [App\Http\Controllers\API\CourseIntervalGroupAPIController::class, 'applyGlobalGroups']);
+    Route::delete('/interval/{intervalId}', [App\Http\Controllers\API\CourseIntervalGroupAPIController::class, 'deleteForInterval']);
+    Route::get('/has-interval-groups/{courseId}', [App\Http\Controllers\API\CourseIntervalGroupAPIController::class, 'hasIntervalGroups']);
+});
+/* COURSE INTERVAL GROUPS API */
+
 /* EXTERNAL */
 Route::prefix('external')
     ->group(base_path('routes/api/external.php'));

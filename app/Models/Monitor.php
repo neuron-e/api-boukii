@@ -486,6 +486,14 @@ class Monitor extends Model
     }
 
     /**
+     * NUEVO: Asignaciones de monitores por intervalo
+     */
+    public function intervalAssignments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\CourseIntervalMonitor::class, 'monitor_id');
+    }
+
+    /**
      * Scope to filter monitors by spoken languages.
      */
     public function scopeWithLanguages($query, array $languages)

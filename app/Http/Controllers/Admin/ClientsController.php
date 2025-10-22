@@ -64,6 +64,7 @@ class ClientsController extends AppBaseController
 
         // Obtén el ID de la escuela y añádelo a los parámetros de búsqueda
         $school = $this->getSchool($request);
+        $this->clientRepository->setContextSchoolId($school->id);
         $searchParameters =
             array_merge($request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order',
                 'orderColumn', 'page', 'with']), ['school_id' => $school->id]);
@@ -127,6 +128,7 @@ class ClientsController extends AppBaseController
 
         // Obtén el ID de la escuela y añádelo a los parámetros de búsqueda
         $school = $this->getSchool($request);
+        $this->clientRepository->setContextSchoolId($school->id);
         $searchParameters = array_merge(
             $request->except([
                 'skip', 'limit', 'search', 'exclude', 'user', 'active',

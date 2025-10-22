@@ -18,14 +18,14 @@ use App\Models\CourseSubgroup;
 use App\Models\Degree;
 use App\Models\MonitorNwd;
 use App\Models\MonitorSportsDegree;
-use App\Models\Voucher;
+use App\\Models\\Voucher;\nuse App\\Models\\DiscountCode;
 use App\Models\VouchersLog;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Response;
+use Response;\nuse App\\Services\\DiscountCodeService;\nuse Illuminate\\Support\\Arr;
 use Validator;
 
 ;
@@ -77,21 +77,27 @@ class BookingController extends SlugAuthController
         try {
             $data = $request->all();
 
+            $grossPriceTotal = (float) Arr::get($data, 'price_total', 0);
+            $discountCodeId = Arr::get($data, 'discount_code_id');
+            $discountCodeAmount = (float) Arr::get($data, 'discount_code_amount', 0);
+
             // Crear la reserva (Booking)
             $booking = Booking::create([
-                'school_id' => $data['school_id'],
-                'client_main_id' => $data['client_main_id'],
-                'price_total' => $data['price_total'],
-                'has_tva' => $data['has_tva'],
-                'price_tva' => $data['price_tva'],
-                'has_boukii_care' => $data['has_boukii_care'],
-                'price_boukii_care' => $data['price_boukii_care'],
-                'has_cancellation_insurance' => $data['has_cancellation_insurance'],
-                'price_cancellation_insurance' => $data['price_cancellation_insurance'],
-                'basket' => $data['basket'],
-                'source' => $data['source'],
+                'school_id' => Arr::get($data, 'school_id'),
+                'client_main_id' => Arr::get($data, 'client_main_id'),
+                'price_total' => $grossPriceTotal,
+                'has_tva' => Arr::get($data, 'has_tva'),
+                'price_tva' => Arr::get($data, 'price_tva'),
+                'has_boukii_care' => Arr::get($data, 'has_boukii_care'),
+                'price_boukii_care' => Arr::get($data, 'price_boukii_care'),
+                'has_cancellation_insurance' => Arr::get($data, 'has_cancellation_insurance'),
+                'price_cancellation_insurance' => Arr::get($data, 'price_cancellation_insurance'),
+                'basket' => Arr::get($data, 'basket'),
+                'source' => Arr::get($data, 'source'),
                 'status' => 1,
                 'currency' => 'CHF',
+                'discount_code_id' => $discountCodeId,
+                'discount_code_value' => $discountCodeAmount,
             ]);
 
             // Crear BookingUser para cada detalle
@@ -162,7 +168,7 @@ class BookingController extends SlugAuthController
                         ]);
                     }
                 }
-                if ($data['voucherAmount'] >= $data['price_total']) {
+                if (Arr::get($data, 'voucherAmount', 0) >= max(0, $grossPriceTotal - $discountCodeAmount)) {
                     $booking->deleted_at = null;
 
                     $booking->paid = true;
@@ -174,6 +180,14 @@ class BookingController extends SlugAuthController
             }
             $booking->save();
             $client = Client::find($data['client_main_id'])->load('user');
+
+            if ($discountCodeId) {
+                $userId = $client->user->id ?? null;
+                if ($userId) {
+                    app(DiscountCodeService::class)->recordCodeUsage($discountCodeId, $userId, $booking->id, $discountCodeAmount);
+                }
+            }
+
             BookingLog::create([
                 'booking_id' => $booking->id,
                 'action' => 'page_created',
@@ -661,3 +675,5 @@ class BookingController extends SlugAuthController
     }
 
 }
+
+

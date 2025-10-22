@@ -182,14 +182,48 @@ Route::middleware(['guest'])->group(function () {
     Route::resource('monitor-trainings', App\Http\Controllers\API\MonitorTrainingAPIController::class)
         ->except(['create', 'edit']);
 
+    // Vouchers - custom routes first (before resource)
+    Route::get('vouchers/generic', [App\Http\Controllers\API\VoucherAPIController::class, 'generic'])
+        ->name('api.vouchers.generic');
+
     Route::post('vouchers/{id}/restore', [App\Http\Controllers\API\VoucherAPIController::class, 'restore'])
         ->name('api.vouchers.restore');
 
     Route::resource('vouchers', App\Http\Controllers\API\VoucherAPIController::class)
         ->except(['create', 'edit']);
 
+    // Vouchers - additional routes (after resource)
+    Route::post('vouchers/{id}/transfer', [App\Http\Controllers\API\VoucherAPIController::class, 'transfer'])
+        ->name('api.vouchers.transfer');
+
+    Route::get('vouchers/{id}/summary', [App\Http\Controllers\API\VoucherAPIController::class, 'summary'])
+        ->name('api.vouchers.summary');
+
+    Route::post('vouchers/{id}/check-availability', [App\Http\Controllers\API\VoucherAPIController::class, 'checkAvailability'])
+        ->name('api.vouchers.checkAvailability');
+
     Route::resource('vouchers-logs', App\Http\Controllers\API\VouchersLogAPIController::class)
         ->except(['create', 'edit']);
+
+    // Gift Vouchers - custom routes first (before resource)
+    Route::get('gift-vouchers/templates', [App\Http\Controllers\API\GiftVoucherAPIController::class, 'templates'])
+        ->name('api.gift-vouchers.templates');
+
+    Route::get('gift-vouchers/pending-delivery', [App\Http\Controllers\API\GiftVoucherAPIController::class, 'pendingDelivery'])
+        ->name('api.gift-vouchers.pending-delivery');
+
+    Route::resource('gift-vouchers', App\Http\Controllers\API\GiftVoucherAPIController::class)
+        ->except(['create', 'edit']);
+
+    // Gift Vouchers - additional routes (after resource)
+    Route::post('gift-vouchers/{id}/redeem', [App\Http\Controllers\API\GiftVoucherAPIController::class, 'redeem'])
+        ->name('api.gift-vouchers.redeem');
+
+    Route::post('gift-vouchers/{id}/deliver', [App\Http\Controllers\API\GiftVoucherAPIController::class, 'deliver'])
+        ->name('api.gift-vouchers.deliver');
+
+    Route::get('gift-vouchers/{id}/summary', [App\Http\Controllers\API\GiftVoucherAPIController::class, 'summary'])
+        ->name('api.gift-vouchers.summary');
 
     Route::resource('booking-logs', App\Http\Controllers\API\BookingLogAPIController::class)
         ->except(['create', 'edit']);
@@ -200,8 +234,17 @@ Route::middleware(['guest'])->group(function () {
     Route::resource('evaluation-files', App\Http\Controllers\API\EvaluationFileAPIController::class)
         ->except(['create', 'edit']);
 
+    // Discount codes - custom routes first (before resource)
+    Route::post('discount-codes/validate', [App\Http\Controllers\API\DiscountCodeAPIController::class, 'validateCode'])
+        ->name('api.discount-codes.validate');
+    Route::get('discount-codes/active', [App\Http\Controllers\API\DiscountCodeAPIController::class, 'active'])
+        ->name('api.discount-codes.active');
+
     Route::resource('discount-codes', App\Http\Controllers\API\DiscountCodeAPIController::class)
         ->except(['create', 'edit']);
+
+    Route::get('discount-codes/{id}/stats', [App\Http\Controllers\API\DiscountCodeAPIController::class, 'stats'])
+        ->name('api.discount-codes.stats');
 
     Route::post('bookings/smart-create', [\App\Http\Controllers\API\SmartBookingController::class, 'smartCreate']);
     Route::post('bookings/drafts', [\App\Http\Controllers\API\SmartBookingController::class, 'storeDraft']);
@@ -228,3 +271,4 @@ Route::prefix('v4')->group(function () {
     Route::get('courses/{course}/timing/summary', [\App\Http\Controllers\API\TimingController::class, 'courseSummary']);
     Route::get('courses/{course}/timing/export.csv', [\App\Http\Controllers\API\TimingController::class, 'courseExportCsv']);
 });
+

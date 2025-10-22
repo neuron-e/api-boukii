@@ -47,6 +47,22 @@ class CourseInterval extends Model
     }
 
     /**
+     * NUEVO: Get the monitor assignments for this interval.
+     */
+    public function monitorAssignments()
+    {
+        return $this->hasMany(CourseIntervalMonitor::class, 'course_interval_id');
+    }
+
+    /**
+     * NUEVO: Get the group configurations for this interval.
+     */
+    public function intervalGroups()
+    {
+        return $this->hasMany(CourseIntervalGroup::class, 'course_interval_id');
+    }
+
+    /**
      * Scope to get intervals for a specific course.
      */
     public function scopeForCourse($query, $courseId)

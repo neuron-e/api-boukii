@@ -271,6 +271,7 @@ class Course extends Model
     public $fillable = [
         'course_type',
         'is_flexible',
+        'use_interval_groups',
         'intervals_config_mode',
         'sport_id',
         'school_id',
@@ -309,6 +310,7 @@ class Course extends Model
 
     protected $casts = [
         'is_flexible' => 'boolean',
+        'use_interval_groups' => 'boolean',
         'name' => 'string',
         'short_description' => 'string',
         'description' => 'string',
@@ -730,134 +732,408 @@ class Course extends Model
                 $isAdultClient, $clientLanguages, $clientId
             ) {
                 $subQuery->where('date', '>=', $startDate)
-                    ->where('date', '<=', $endDate)
-                    ->whereHas('courseSubgroups',
-                        function (Builder $subQuery) use (
-                            $clientDegree, $clientAge, $clientAges, $getLowerDegrees, $min_age, $max_age, $degreeOrders,
-                            $isAdultClient, $clientLanguages, $clientId
-                        ) {
-                            // Verificamos que haya al menos un subgrupo con capacidad disponible
-                            $subQuery->whereRaw('max_participants > (
-                            SELECT COUNT(*)
-                            FROM booking_users
-                            JOIN bookings ON booking_users.booking_id = bookings.id
-                            WHERE booking_users.course_subgroup_id = course_subgroups.id
-                                AND booking_users.status = 1
-                                AND booking_users.deleted_at IS NULL
-                                AND bookings.deleted_at IS NULL
-                                 )');
+                    ->where('date', '<=', $endDate);
 
-                            // Si se proporcionó clientId
-                            if (!is_null($clientId)) {
-                                // Convertir $clientId a array si es un único valor
-                                $clientIds = is_array($clientId) ? $clientId : [$clientId];
+                // Aplicar lógica de subgrupos según si usa grupos por intervalo o no
+                $this->applySubgroupAvailabilityFilters(
+                    $subQuery,
+                    $clientDegree,
+                    $clientAge,
+                    $clientAges,
+                    $getLowerDegrees,
+                    $min_age,
+                    $max_age,
+                    $degreeOrders,
+                    $isAdultClient,
+                    $clientLanguages,
+                    $clientId
+                );
+            });
+    }
 
-                                foreach ($clientIds as $cId) {
-                                    $subQuery->whereDoesntHave('courseDate', function (Builder $dateQuery) use ($cId) {
-                                        $dateQuery->whereHas('bookingUsers', function (Builder $bookingUserQuery) use ($cId) {
-                                            $bookingUserQuery->where('client_id', $cId)
-                                                ->where(function ($query) {
-                                                    $query->where(function ($subQuery) {
-                                                        // Excluir si hay solapamiento
-                                                        $subQuery->whereColumn('hour_start', '<', 'course_dates.hour_end')
-                                                            ->whereColumn('hour_end', '>', 'course_dates.hour_start');
-                                                    })->orWhere(function ($subQuery) {
-                                                        // Excluir si son horarios idénticos
-                                                        $subQuery->whereColumn('hour_start', '=', 'course_dates.hour_start')
-                                                            ->whereColumn('hour_end', '=', 'course_dates.hour_end');
-                                                    });
-                                                });
+    /**
+     * Aplica los filtros de disponibilidad de subgrupos.
+     * Usa grupos de intervalo si use_interval_groups = true, caso contrario usa grupos globales.
+     */
+    private function applySubgroupAvailabilityFilters(
+        Builder $dateQuery,
+        $clientDegree,
+        $clientAge,
+        $clientAges,
+        $getLowerDegrees,
+        $min_age,
+        $max_age,
+        $degreeOrders,
+        $isAdultClient,
+        $clientLanguages,
+        $clientId
+    ) {
+        if ($this->use_interval_groups) {
+            // Usar grupos de intervalo
+            $this->applyIntervalGroupFilters(
+                $dateQuery,
+                $clientDegree,
+                $clientAge,
+                $clientAges,
+                $getLowerDegrees,
+                $min_age,
+                $max_age,
+                $degreeOrders,
+                $isAdultClient,
+                $clientLanguages,
+                $clientId
+            );
+        } else {
+            // Usar grupos globales (lógica original)
+            $this->applyGlobalGroupFilters(
+                $dateQuery,
+                $clientDegree,
+                $clientAge,
+                $clientAges,
+                $getLowerDegrees,
+                $min_age,
+                $max_age,
+                $degreeOrders,
+                $isAdultClient,
+                $clientLanguages,
+                $clientId
+            );
+        }
+    }
+
+    /**
+     * Aplica filtros usando grupos de intervalo
+     */
+    private function applyIntervalGroupFilters(
+        Builder $dateQuery,
+        $clientDegree,
+        $clientAge,
+        $clientAges,
+        $getLowerDegrees,
+        $min_age,
+        $max_age,
+        $degreeOrders,
+        $isAdultClient,
+        $clientLanguages,
+        $clientId
+    ) {
+        $courseId = $this->id;
+
+        $dateQuery->where(function (Builder $query) use (
+            $courseId,
+            $clientDegree,
+            $clientAge,
+            $clientAges,
+            $getLowerDegrees,
+            $min_age,
+            $max_age,
+            $degreeOrders,
+            $isAdultClient,
+            $clientLanguages,
+            $clientId
+        ) {
+            // Verificar que exista al menos un subgrupo de intervalo activo con capacidad
+            $query->whereExists(function ($subQuery) use (
+                $courseId,
+                $clientDegree,
+                $clientAge,
+                $clientAges,
+                $getLowerDegrees,
+                $min_age,
+                $max_age,
+                $degreeOrders,
+                $isAdultClient,
+                $clientLanguages,
+                $clientId
+            ) {
+                $subQuery->select(\DB::raw(1))
+                    ->from('course_interval_subgroups as cis')
+                    ->join('course_interval_groups as cig', 'cis.course_interval_group_id', '=', 'cig.id')
+                    ->join('course_subgroups as cs', 'cis.course_subgroup_id', '=', 'cs.id')
+                    ->join('course_groups as cg', 'cs.course_group_id', '=', 'cg.id')
+                    ->whereColumn('cig.course_interval_id', 'course_dates.course_interval_id')
+                    ->where('cig.course_id', $courseId)
+                    ->where('cig.active', true)
+                    ->where('cis.active', true)
+                    ->where('cs.course_id', $courseId)
+
+                    // Verificar capacidad disponible usando max_participants del intervalo si existe
+                    ->whereRaw('COALESCE(cis.max_participants, cig.max_participants, cs.max_participants) > (
+                        SELECT COUNT(*)
+                        FROM booking_users
+                        JOIN bookings ON booking_users.booking_id = bookings.id
+                        WHERE booking_users.course_subgroup_id = cs.id
+                            AND booking_users.status = 1
+                            AND booking_users.deleted_at IS NULL
+                            AND bookings.deleted_at IS NULL
+                    )');
+
+                // Verificar solapamiento de horarios si se proporcionó clientId
+                if (!is_null($clientId)) {
+                    $clientIds = is_array($clientId) ? $clientId : [$clientId];
+
+                    foreach ($clientIds as $cId) {
+                        $subQuery->whereNotExists(function ($overlapQuery) use ($cId) {
+                            $overlapQuery->select(\DB::raw(1))
+                                ->from('booking_users as bu')
+                                ->join('course_dates as cd_overlap', 'bu.course_date_id', '=', 'cd_overlap.id')
+                                ->where('bu.client_id', $cId)
+                                ->whereColumn('cd_overlap.date', 'course_dates.date')
+                                ->where(function ($timeQuery) {
+                                    $timeQuery->where(function ($subTimeQuery) {
+                                        // Solapamiento
+                                        $subTimeQuery->whereColumn('cd_overlap.hour_start', '<', 'course_dates.hour_end')
+                                            ->whereColumn('cd_overlap.hour_end', '>', 'course_dates.hour_start');
+                                    })->orWhere(function ($subTimeQuery) {
+                                        // Horarios idénticos
+                                        $subTimeQuery->whereColumn('cd_overlap.hour_start', '=', 'course_dates.hour_start')
+                                            ->whereColumn('cd_overlap.hour_end', '=', 'course_dates.hour_end');
+                                    });
+                                });
+                        });
+                    }
+                }
+
+                // Filtros de grupo (age, degree)
+                $this->applyGroupConstraints($subQuery, 'cg', $clientDegree, $clientAge, $clientAges, $getLowerDegrees, $min_age, $max_age, $degreeOrders);
+
+                // Filtros de monitor
+                $this->applyMonitorConstraints($subQuery, 'cs', $isAdultClient, $clientLanguages);
+            });
+        });
+    }
+
+    /**
+     * Aplica filtros usando grupos globales (lógica original)
+     */
+    private function applyGlobalGroupFilters(
+        Builder $dateQuery,
+        $clientDegree,
+        $clientAge,
+        $clientAges,
+        $getLowerDegrees,
+        $min_age,
+        $max_age,
+        $degreeOrders,
+        $isAdultClient,
+        $clientLanguages,
+        $clientId
+    ) {
+        $dateQuery->whereHas('courseSubgroups',
+            function (Builder $subQuery) use (
+                $clientDegree, $clientAge, $clientAges, $getLowerDegrees, $min_age, $max_age, $degreeOrders,
+                $isAdultClient, $clientLanguages, $clientId
+            ) {
+                // Verificamos que haya al menos un subgrupo con capacidad disponible
+                $subQuery->whereRaw('max_participants > (
+                SELECT COUNT(*)
+                FROM booking_users
+                JOIN bookings ON booking_users.booking_id = bookings.id
+                WHERE booking_users.course_subgroup_id = course_subgroups.id
+                    AND booking_users.status = 1
+                    AND booking_users.deleted_at IS NULL
+                    AND bookings.deleted_at IS NULL
+                     )');
+
+                // Si se proporcionó clientId
+                if (!is_null($clientId)) {
+                    // Convertir $clientId a array si es un único valor
+                    $clientIds = is_array($clientId) ? $clientId : [$clientId];
+
+                    foreach ($clientIds as $cId) {
+                        $subQuery->whereDoesntHave('courseDate', function (Builder $dateQuery) use ($cId) {
+                            $dateQuery->whereHas('bookingUsers', function (Builder $bookingUserQuery) use ($cId) {
+                                $bookingUserQuery->where('client_id', $cId)
+                                    ->where(function ($query) {
+                                        $query->where(function ($subQuery) {
+                                            // Excluir si hay solapamiento
+                                            $subQuery->whereColumn('hour_start', '<', 'course_dates.hour_end')
+                                                ->whereColumn('hour_end', '>', 'course_dates.hour_start');
+                                        })->orWhere(function ($subQuery) {
+                                            // Excluir si son horarios idénticos
+                                            $subQuery->whereColumn('hour_start', '=', 'course_dates.hour_start')
+                                                ->whereColumn('hour_end', '=', 'course_dates.hour_end');
                                         });
                                     });
-                                }
-                            }
-
-                            $subQuery->whereHas('courseGroup',
-                                function (Builder $groupQuery) use (
-                                    $clientDegree, $clientAge, $clientAges, $getLowerDegrees, $min_age, $max_age, $degreeOrders,
-                                    $isAdultClient, $clientLanguages
-                                ) {
-
-                                    // Comprobación de degree_order y rango de edad
-                                    if ($clientDegree !== null && $getLowerDegrees) {
-                                        $groupQuery->whereHas('degree',
-                                            function (Builder $degreeQuery) use ($clientDegree) {
-                                                $degreeQuery->where('degree_order', '<=',
-                                                    $clientDegree->degree_order);
-                                            });
-                                    } else if ($clientDegree !== null && !$getLowerDegrees) {
-                                        //TODO: Fix degree
-                                        /*$groupQuery->whereHas('degree',
-                                             function (Builder $degreeQuery) use ($clientDegree) {
-                                                 $degreeQuery->orWhere('id', $clientDegree->id);
-                                             });*/
-                                    }
-
-                                    // Filtrar por edad
-                                    if (count($clientAges) > 0) {
-                                        // Si tenemos múltiples edades, debemos encontrar cursos que sean adecuados para todos los clientes
-                                        $groupQuery->where(function($query) use ($clientAges) {
-                                            foreach ($clientAges as $age) {
-                                                $query->where('age_min', '<=', $age)
-                                                    ->where('age_max', '>=', $age);
-                                            }
-                                        });
-                                    } else if ($clientAge !== null) {
-                                        // Filtrado por la edad del cliente si está disponible (para compatibilidad)
-                                        $groupQuery->where('age_min', '<=', $clientAge)
-                                            ->where('age_max', '>=', $clientAge);
-                                    } else {
-                                        // Filtrado por min_age y max_age si clientId no está disponible
-                                        if ($max_age !== null) {
-                                            $groupQuery->where('age_min', '<=', $max_age);
-                                        }
-                                        if ($min_age !== null) {
-                                            $groupQuery->where('age_max', '>=', $min_age);
-                                        }
-                                    }
-
-                                    // Comprobación de degree_order y rango de edad
-                                    if (!empty($degreeOrders)) {
-                                        $groupQuery->whereHas('degree',
-                                            function (Builder $degreeQuery) use ($degreeOrders, $getLowerDegrees
-                                            ) {
-                                                if ($getLowerDegrees) {
-                                                    // Si se pide obtener grados inferiores, compara con el menor grado
-                                                    $degreeQuery->where('degree_order', '<=',
-                                                        min($degreeOrders));
-                                                } else {
-                                                    // En caso contrario, filtra por los grados específicos
-                                                    $degreeQuery->whereIn('degree_order', $degreeOrders);
-                                                }
-                                            });
-                                    }
-
-                                });
-                            $subQuery->where(function ($query) use ($isAdultClient, $clientLanguages) {
-                                $query->doesntHave('monitor') // Subgrupo sin monitor asignado
-                                ->orWhereHas('monitor', function (Builder $monitorQuery) use ($isAdultClient, $clientLanguages) {
-                                    // Si el subgrupo tiene monitor, comprobar si permite adultos y los idiomas
-                                    if ($isAdultClient) {
-                                        $monitorQuery->whereHas('monitorSportsDegrees', function ($query) {
-                                            $query->where('allow_adults', true);
-                                        });
-                                    }
-
-                                    // Verificación de idiomas
-                                    if (!empty($clientLanguages)) {
-                                        $monitorQuery->where(function ($query) use ($clientLanguages) {
-                                            $query->whereIn('language1_id', $clientLanguages)
-                                                ->orWhereIn('language2_id', $clientLanguages)
-                                                ->orWhereIn('language3_id', $clientLanguages)
-                                                ->orWhereIn('language4_id', $clientLanguages)
-                                                ->orWhereIn('language5_id', $clientLanguages)
-                                                ->orWhereIn('language6_id', $clientLanguages);
-                                        });
-                                    }
-                                });
                             });
                         });
+                    }
+                }
+
+                $subQuery->whereHas('courseGroup',
+                    function (Builder $groupQuery) use (
+                        $clientDegree, $clientAge, $clientAges, $getLowerDegrees, $min_age, $max_age, $degreeOrders,
+                        $isAdultClient, $clientLanguages
+                    ) {
+
+                        // Comprobación de degree_order y rango de edad
+                        if ($clientDegree !== null && $getLowerDegrees) {
+                            $groupQuery->whereHas('degree',
+                                function (Builder $degreeQuery) use ($clientDegree) {
+                                    $degreeQuery->where('degree_order', '<=',
+                                        $clientDegree->degree_order);
+                                });
+                        } else if ($clientDegree !== null && !$getLowerDegrees) {
+                            //TODO: Fix degree
+                            /*$groupQuery->whereHas('degree',
+                                 function (Builder $degreeQuery) use ($clientDegree) {
+                                     $degreeQuery->orWhere('id', $clientDegree->id);
+                                 });*/
+                        }
+
+                        // Filtrar por edad
+                        if (count($clientAges) > 0) {
+                            // Si tenemos múltiples edades, debemos encontrar cursos que sean adecuados para todos los clientes
+                            $groupQuery->where(function($query) use ($clientAges) {
+                                foreach ($clientAges as $age) {
+                                    $query->where('age_min', '<=', $age)
+                                        ->where('age_max', '>=', $age);
+                                }
+                            });
+                        } else if ($clientAge !== null) {
+                            // Filtrado por la edad del cliente si está disponible (para compatibilidad)
+                            $groupQuery->where('age_min', '<=', $clientAge)
+                                ->where('age_max', '>=', $clientAge);
+                        } else {
+                            // Filtrado por min_age y max_age si clientId no está disponible
+                            if ($max_age !== null) {
+                                $groupQuery->where('age_min', '<=', $max_age);
+                            }
+                            if ($min_age !== null) {
+                                $groupQuery->where('age_max', '>=', $min_age);
+                            }
+                        }
+
+                        // Comprobación de degree_order y rango de edad
+                        if (!empty($degreeOrders)) {
+                            $groupQuery->whereHas('degree',
+                                function (Builder $degreeQuery) use ($degreeOrders, $getLowerDegrees
+                                ) {
+                                    if ($getLowerDegrees) {
+                                        // Si se pide obtener grados inferiores, compara con el menor grado
+                                        $degreeQuery->where('degree_order', '<=',
+                                            min($degreeOrders));
+                                    } else {
+                                        // En caso contrario, filtra por los grados específicos
+                                        $degreeQuery->whereIn('degree_order', $degreeOrders);
+                                    }
+                                });
+                        }
+
+                    });
+                $subQuery->where(function ($query) use ($isAdultClient, $clientLanguages) {
+                    $query->doesntHave('monitor') // Subgrupo sin monitor asignado
+                    ->orWhereHas('monitor', function (Builder $monitorQuery) use ($isAdultClient, $clientLanguages) {
+                        // Si el subgrupo tiene monitor, comprobar si permite adultos y los idiomas
+                        if ($isAdultClient) {
+                            $monitorQuery->whereHas('monitorSportsDegrees', function ($query) {
+                                $query->where('allow_adults', true);
+                            });
+                        }
+
+                        // Verificación de idiomas
+                        if (!empty($clientLanguages)) {
+                            $monitorQuery->where(function ($query) use ($clientLanguages) {
+                                $query->whereIn('language1_id', $clientLanguages)
+                                    ->orWhereIn('language2_id', $clientLanguages)
+                                    ->orWhereIn('language3_id', $clientLanguages)
+                                    ->orWhereIn('language4_id', $clientLanguages)
+                                    ->orWhereIn('language5_id', $clientLanguages)
+                                    ->orWhereIn('language6_id', $clientLanguages);
+                            });
+                        }
+                    });
+                });
             });
+    }
+
+    /**
+     * Aplica restricciones de grupo (age, degree) a una consulta
+     */
+    private function applyGroupConstraints($query, $groupTableAlias, $clientDegree, $clientAge, $clientAges, $getLowerDegrees, $min_age, $max_age, $degreeOrders)
+    {
+        // Comprobación de degree_order
+        if ($clientDegree !== null && $getLowerDegrees) {
+            $query->whereExists(function ($degreeQuery) use ($groupTableAlias, $clientDegree) {
+                $degreeQuery->select(\DB::raw(1))
+                    ->from('degrees as d')
+                    ->whereColumn('d.id', "$groupTableAlias.degree_id")
+                    ->where('d.degree_order', '<=', $clientDegree->degree_order);
+            });
+        }
+
+        // Filtrar por edad
+        if (count($clientAges) > 0) {
+            foreach ($clientAges as $age) {
+                $query->where("$groupTableAlias.age_min", '<=', $age)
+                    ->where("$groupTableAlias.age_max", '>=', $age);
+            }
+        } else if ($clientAge !== null) {
+            $query->where("$groupTableAlias.age_min", '<=', $clientAge)
+                ->where("$groupTableAlias.age_max", '>=', $clientAge);
+        } else {
+            if ($max_age !== null) {
+                $query->where("$groupTableAlias.age_min", '<=', $max_age);
+            }
+            if ($min_age !== null) {
+                $query->where("$groupTableAlias.age_max", '>=', $min_age);
+            }
+        }
+
+        // Comprobación de degree orders
+        if (!empty($degreeOrders)) {
+            $query->whereExists(function ($degreeQuery) use ($groupTableAlias, $degreeOrders, $getLowerDegrees) {
+                $degreeQuery->select(\DB::raw(1))
+                    ->from('degrees as d')
+                    ->whereColumn('d.id', "$groupTableAlias.degree_id");
+
+                if ($getLowerDegrees) {
+                    $degreeQuery->where('d.degree_order', '<=', min($degreeOrders));
+                } else {
+                    $degreeQuery->whereIn('d.degree_order', $degreeOrders);
+                }
+            });
+        }
+    }
+
+    /**
+     * Aplica restricciones de monitor a una consulta
+     */
+    private function applyMonitorConstraints($query, $subgroupTableAlias, $isAdultClient, $clientLanguages)
+    {
+        $query->where(function ($monitorQuery) use ($subgroupTableAlias, $isAdultClient, $clientLanguages) {
+            // Caso 1: Subgrupo sin monitor
+            $monitorQuery->whereNull("$subgroupTableAlias.monitor_id")
+
+                // Caso 2: Subgrupo con monitor que cumple requisitos
+                ->orWhereExists(function ($monitorExistsQuery) use ($subgroupTableAlias, $isAdultClient, $clientLanguages) {
+                    $monitorExistsQuery->select(\DB::raw(1))
+                        ->from('monitors as m')
+                        ->whereColumn('m.id', "$subgroupTableAlias.monitor_id");
+
+                    // Verificar adultos si es necesario
+                    if ($isAdultClient) {
+                        $monitorExistsQuery->whereExists(function ($adultQuery) {
+                            $adultQuery->select(\DB::raw(1))
+                                ->from('monitor_sports_degrees as msd')
+                                ->whereColumn('msd.monitor_id', 'm.id')
+                                ->where('msd.allow_adults', true);
+                        });
+                    }
+
+                    // Verificar idiomas
+                    if (!empty($clientLanguages)) {
+                        $monitorExistsQuery->where(function ($langQuery) use ($clientLanguages) {
+                            $langQuery->whereIn('m.language1_id', $clientLanguages)
+                                ->orWhereIn('m.language2_id', $clientLanguages)
+                                ->orWhereIn('m.language3_id', $clientLanguages)
+                                ->orWhereIn('m.language4_id', $clientLanguages)
+                                ->orWhereIn('m.language5_id', $clientLanguages)
+                                ->orWhereIn('m.language6_id', $clientLanguages);
+                        });
+                    }
+                });
+        });
     }
 
     // Método auxiliar para aplicar filtros de tipos 2 y 3
