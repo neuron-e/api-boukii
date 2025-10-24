@@ -26,9 +26,14 @@ class CourseIntervalAPIController extends Controller
         }
 
         $intervals = CourseInterval::where('course_id', $courseId)
-            ->with(['courseDates' => function($query) {
-                $query->orderBy('date');
-            }])
+            ->with([
+                'courseDates' => function ($query) {
+                    $query->orderBy('date');
+                },
+                'discounts' => function ($query) {
+                    $query->active()->orderBy('min_days');
+                },
+            ])
             ->ordered()
             ->get();
 
@@ -98,7 +103,13 @@ class CourseIntervalAPIController extends Controller
      */
     public function show(string $id)
     {
-        $interval = CourseInterval::with(['course', 'courseDates'])->find($id);
+        $interval = CourseInterval::with([
+            'course',
+            'courseDates',
+            'discounts' => function ($query) {
+                $query->active()->orderBy('min_days');
+            },
+        ])->find($id);
 
         if (!$interval) {
             return response()->json([

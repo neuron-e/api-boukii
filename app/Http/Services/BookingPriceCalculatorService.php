@@ -5,6 +5,7 @@ namespace App\Http\Services;
 use App\Models\Booking;
 use App\Models\BookingUser;
 use App\Models\VouchersLog;
+use App\Support\IntervalDiscountHelper;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -387,28 +388,7 @@ class BookingPriceCalculatorService
      */
     private function calculateFlexibleCollectiveForClient(Collection $clientBookingUsers, $course): float
     {
-        $dates = $clientBookingUsers->pluck('date')->unique();
-        $totalPrice = 0;
-
-        $discounts = $this->parseDiscounts($course->discounts);
-
-        foreach ($dates as $index => $date) {
-            $price = $course->price;
-
-            // Aplicar descuentos por fecha
-            if (!empty($discounts)) {
-                foreach ($discounts as $discount) {
-                    if (($index + 1) == $discount['date']) {
-                        $price -= ($price * $discount['percentage'] / 100);
-                        break;
-                    }
-                }
-            }
-
-            $totalPrice += $price;
-        }
-
-        return $totalPrice;
+        return IntervalDiscountHelper::calculateFlexibleCollectivePrice($course, $clientBookingUsers);
     }
 
     /**

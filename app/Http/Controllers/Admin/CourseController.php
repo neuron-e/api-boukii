@@ -11,6 +11,7 @@ use App\Models\Course;
 use App\Models\CourseDate;
 use App\Models\Season;
 use App\Repositories\CourseRepository;
+use App\Support\IntervalDiscountHelper;
 use App\Traits\Utils;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -1234,31 +1235,16 @@ class CourseController extends AppBaseController
     function calculateFlexibleCollectivePrice($bookingUser)
     {
         $course = $bookingUser->course;
-        $dates = BookingUser::where('course_id', $course->id)
-            ->where('client_id', $bookingUser->client_id)
-            ->pluck('date');
-
-        $totalPrice = 0;
-
-        foreach ($dates as $index => $date) {
-            $price = $course->price;
-
-            // Verificar si $course->discounts ya es un array, si no, decodificarlo
-            $discounts = is_array($course->discounts) ? $course->discounts : json_decode($course->discounts, true);
-
-            if (!empty($discounts)) {
-                foreach ($discounts as $discount) {
-                    if ($index + 1 == $discount['day']) {
-                        $price -= ($price * $discount['reduccion'] / 100);
-                        break;
-                    }
-                }
-            }
-
-            $totalPrice += $price;
+        if (!$course) {
+            return 0;
         }
 
-        return $totalPrice;
+        $clientBookingUsers = BookingUser::where('course_id', $course->id)
+            ->where('client_id', $bookingUser->client_id)
+            ->where('status', '!=', 2)
+            ->get();
+
+        return IntervalDiscountHelper::calculateFlexibleCollectivePrice($course, $clientBookingUsers);
     }
 
     function calculatePrivatePrice($bookingUser, $priceRange)

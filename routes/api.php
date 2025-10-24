@@ -26,6 +26,7 @@ use App\Models\OldModels\UserSport;
 use App\Models\Station;
 use App\Models\StationService;
 use App\Models\User;
+use App\Support\IntervalDiscountHelper;
 use App\Traits\Utils;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -1275,30 +1276,16 @@ if (!function_exists('calculateFlexibleCollectivePrice')) {
 function calculateFlexibleCollectivePrice($bookingUser)
 {
     $course = $bookingUser->course;
-    $dates = BookingUser::where('course_id', $course->id)
-        ->where('client_id', $bookingUser->client_id)
-        ->pluck('date');
-
-    $totalPrice = 0;
-
-    foreach ($dates as $index => $date) {
-        $price = $course->price;
-
-        // Aplicar descuentos según el campo "discounts"
-        $discounts = json_decode($course->discounts, true);
-        if($discounts) {
-            foreach ($discounts as $discount) {
-                if ($index + 1 == $discount['day']) {
-                    $price -= ($price * $discount['reduccion'] / 100);
-                    break;
-                }
-            }
-        }
-
-        $totalPrice += $price;
+    if (!$course) {
+        return 0;
     }
 
-    return $totalPrice;
+    $clientBookingUsers = BookingUser::where('course_id', $course->id)
+        ->where('client_id', $bookingUser->client_id)
+        ->where('status', '!=', 2)
+        ->get();
+
+    return IntervalDiscountHelper::calculateFlexibleCollectivePrice($course, $clientBookingUsers);
 }
 }
 
@@ -1606,6 +1593,8 @@ Route::prefix('course-intervals')->group(function () {
     Route::delete('/{id}', [App\Http\Controllers\API\CourseIntervalAPIController::class, 'destroy']);
     Route::post('/reorder', [App\Http\Controllers\API\CourseIntervalAPIController::class, 'reorder']);
     Route::post('/{id}/generate-dates', [App\Http\Controllers\API\CourseIntervalAPIController::class, 'generateDates']);
+    Route::get('/{id}/discounts', [App\Http\Controllers\API\CourseIntervalDiscountAPIController::class, 'index']);
+    Route::put('/{id}/discounts', [App\Http\Controllers\API\CourseIntervalDiscountAPIController::class, 'upsert']);
 });
 /* COURSE INTERVALS API */
 
@@ -1629,3 +1618,4 @@ Route::prefix('external')
 Route::prefix('system')
     ->group(base_path('routes/api/system.php'));
 /* SYSTEM */
+

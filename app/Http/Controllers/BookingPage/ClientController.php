@@ -57,15 +57,113 @@ class ClientController extends SlugAuthController
      */
     public function getVoucherByCode($id, $code, Request $request): JsonResponse
     {
+        $voucher = $this->findVoucherForCurrentSchool($code);
 
-        $voucher =
-            Voucher::where('school_id', $this->school->id)->where('client_id', $id)->where('code', $code)->first();
-
-        if(!$voucher) {
-            return $this->sendError( 'Voucher not found');
+        if (!$voucher) {
+            return $this->sendError('Voucher not found', null, 404);
         }
 
+        $clientId = (int) $id;
+        $validation = $this->evaluateVoucherUsage($voucher, $clientId);
+
+        if (!$validation['valid']) {
+            return $this->sendError(
+                'Voucher cannot be used',
+                ['reasons' => $validation['reasons']],
+                400
+            );
+        }
+
+        $voucher->setAttribute('is_generic', $voucher->isGeneric());
+
         return $this->sendResponse($voucher, 'Voucher returned successfully');
+    }
+
+    /**
+     * Busca un bono por código sin necesidad de un cliente específico.
+     * Permite validar bonos genéricos para cualquier cuenta.
+     */
+    public function findVoucherByCode($code, Request $request): JsonResponse
+    {
+        $voucher = $this->findVoucherForCurrentSchool($code);
+
+        if (!$voucher) {
+            return $this->sendError('Voucher not found', null, 404);
+        }
+
+        $clientId = $request->input('client_id');
+        $clientId = $clientId !== null && $clientId !== '' ? (int) $clientId : null;
+
+        $validation = $this->evaluateVoucherUsage($voucher, $clientId);
+
+        if (!$validation['valid']) {
+            return $this->sendError(
+                'Voucher cannot be used',
+                ['reasons' => $validation['reasons']],
+                400
+            );
+        }
+
+        $voucher->setAttribute('is_generic', $voucher->isGeneric());
+
+        return $this->sendResponse($voucher, 'Voucher returned successfully');
+    }
+
+    /**
+     * Normaliza la búsqueda por código para la escuela actual.
+     */
+    private function findVoucherForCurrentSchool(string $code): ?Voucher
+    {
+        $normalizedCode = Str::upper(trim($code));
+
+        return Voucher::where('school_id', $this->school->id)
+            ->whereRaw('UPPER(code) = ?', [$normalizedCode])
+            ->first();
+    }
+
+    /**
+     * Valida si un bono puede ser usado por el cliente indicado.
+     */
+    private function evaluateVoucherUsage(Voucher $voucher, ?int $clientId): array
+    {
+        $reasons = [];
+
+        if (!$voucher->canBeUsed()) {
+            if ($voucher->isExpired()) {
+                $reasons[] = 'Voucher expired';
+            }
+            if (!$voucher->hasBalance()) {
+                $reasons[] = 'Voucher has no available balance';
+            }
+            if ($voucher->hasReachedMaxUses()) {
+                $reasons[] = 'Voucher maximum uses reached';
+            }
+            if ($voucher->trashed()) {
+                $reasons[] = 'Voucher is not active';
+            }
+        }
+
+        if ($voucher->isGeneric()) {
+            if ($clientId !== null && !$voucher->canBeUsedByClient($clientId)) {
+                $reasons[] = 'Voucher cannot be used by this client';
+            }
+        } else {
+            if ($clientId === null) {
+                $reasons[] = 'Voucher is assigned to a specific client';
+            } elseif (!$voucher->canBeUsedByClient($clientId)) {
+                $effectiveClient = $voucher->getEffectiveClientId();
+                if ($effectiveClient && $effectiveClient !== $clientId) {
+                    $reasons[] = 'Voucher is assigned to a different client';
+                } else {
+                    $reasons[] = 'Voucher cannot be used by this client';
+                }
+            }
+        }
+
+        return [
+            'valid' => empty($reasons),
+            'reasons' => array_values(array_unique($reasons)),
+        ];
     }
 
     /**

@@ -46,6 +46,35 @@ class CourseResource extends JsonResource
             'sport' => $this->sport,
             'course_dates' => CourseDateResource::collection($this->whenLoaded('courseDates')),
             'course_extras' => $this->courseExtras,
+            'course_intervals' => $this->whenLoaded('courseIntervals', function () {
+                return $this->courseIntervals->map(function ($interval) {
+                    return [
+                        'id' => $interval->id,
+                        'course_id' => $interval->course_id,
+                        'name' => $interval->name,
+                        'start_date' => optional($interval->start_date)->format('Y-m-d'),
+                        'end_date' => optional($interval->end_date)->format('Y-m-d'),
+                        'display_order' => $interval->display_order,
+                        'config_mode' => $interval->config_mode,
+                        'date_generation_method' => $interval->date_generation_method,
+                        'consecutive_days_count' => $interval->consecutive_days_count,
+                        'weekly_pattern' => $interval->weekly_pattern,
+                        'booking_mode' => $interval->booking_mode,
+                        'discounts' => $interval->relationLoaded('discounts')
+                            ? $interval->discounts->map(function ($discount) {
+                                return [
+                                    'id' => $discount->id,
+                                    'days' => (int) ($discount->min_days ?? 0),
+                                    'type' => $discount->discount_type === 'fixed_amount' ? 'fixed' : 'percentage',
+                                    'value' => (float) $discount->discount_value,
+                                    'priority' => $discount->priority,
+                                    'active' => (bool) $discount->active,
+                                ];
+                            })
+                            : [],
+                    ];
+                });
+            }),
             'total_reservations' => $this->total_reservations,
             'total_available_places' => $this->total_available_places,
             'created_at' => $this->created_at,

@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Response;
 use Validator;
+use App\Support\IntervalDiscountHelper;
 use App\Traits\Utils;
 
 /**
@@ -5653,42 +5654,24 @@ class StatisticsController extends AppBaseController
     {
         $course = $bookingUser->course;
 
-        // Filtrar fechas solo del cliente actual
-        $dates = $bookingGroupedUsers
-            ?  $bookingGroupedUsers
-                ->pluck('date')
-                ->unique()
-                ->sort()
-                ->values()
-            : BookingUser::where('course_id', $course->id)
+        if (!$course) {
+            return 0.0;
+        }
+
+        if ($bookingGroupedUsers) {
+            $clientBookingUsers = collect($bookingGroupedUsers)
+                ->filter(function ($item) use ($bookingUser) {
+                    return $item instanceof BookingUser && $item->client_id === $bookingUser->client_id;
+                });
+        } else {
+            $clientBookingUsers = BookingUser::where('course_id', $course->id)
                 ->where('status', '!=', 2)
                 ->where('client_id', $bookingUser->client_id)
                 ->where('booking_id', $bookingUser->booking_id)
-                ->pluck('date')
-                ->unique()
-                ->sort()
-                ->values();
-
-        $totalPrice = 0;
-
-        $discounts = is_array($course->discounts) ? $course->discounts : json_decode($course->discounts, true);
-        //Log::debug('Dates de la booking cliente: '.$bookingUser->booking_id, [json_encode($dates->all())]);
-        foreach ($dates as $index => $date) {
-            $price = $course->price;
-
-            if (!empty($discounts)) {
-                foreach ($discounts as $discount) {
-                    if ($index + 1 == $discount['day']) {
-                        $price -= ($price * $discount['reduccion'] / 100);
-                        break;
-                    }
-                }
-            }
-
-            $totalPrice += $price ;
+                ->get();
         }
 
-        return round($totalPrice, 2);
+        return IntervalDiscountHelper::calculateFlexibleCollectivePrice($course, collect($clientBookingUsers));
     }
 
     function calculatePrivatePrice($bookingUser, $priceRange)

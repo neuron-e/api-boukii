@@ -1442,6 +1442,37 @@ class Booking extends Model
     public function getFinancialSummary()
     {
         $realityAnalysis = $this->checkFinancialReality();
+        $voucherLogs = $this->vouchersLogs()->with('voucher')->get();
+
+        $totalUsed = $voucherLogs->filter(fn($log) => $log->amount > 0)->sum('amount');
+        $totalRefunded = $voucherLogs->filter(fn($log) => $log->amount < 0)->sum('amount');
+
+        $voucherUsage = [
+            'has_vouchers' => $voucherLogs->isNotEmpty(),
+            'count' => $voucherLogs->count(),
+            'total_used' => (float) $totalUsed,
+            'total_refunded' => (float) abs($totalRefunded),
+            'total_applied' => (float) $totalUsed,
+            'currency' => $this->currency,
+            'codes' => $voucherLogs->map(function ($log) {
+                return $log->voucher->code ?? null;
+            })->filter()->values()->toArray(),
+            'items' => $voucherLogs->map(function ($log) {
+                $voucher = $log->voucher;
+
+                return [
+                    'log_id' => $log->id,
+                    'voucher_id' => $log->voucher_id,
+                    'code' => $voucher->code ?? null,
+                    'amount' => (float) $log->amount,
+                    'status' => $log->status,
+                    'remaining_balance' => $voucher ? (float) $voucher->remaining_balance : null,
+                    'initial_amount' => $voucher ? (float) $voucher->quantity : null,
+                    'is_generic' => $voucher ? $voucher->isGeneric() : null,
+                    'updated_at' => $log->updated_at,
+                ];
+            })->values()->toArray(),
+        ];
 
         return [
             'booking_id' => $this->id,
@@ -1461,7 +1492,8 @@ class Booking extends Model
             ],
             'analysis_method' => 'financial_reality',
             'created_at' => $this->created_at,
-            'currency' => $this->currency
+            'currency' => $this->currency,
+            'voucher_usage' => $voucherUsage
         ];
     }
 

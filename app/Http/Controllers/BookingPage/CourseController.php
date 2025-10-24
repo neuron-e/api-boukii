@@ -147,7 +147,11 @@ class CourseController extends SlugAuthController
                                       ->orderBy('date');
                             },
                             'courseIntervals' => function ($query) {
-                                $query->ordered();
+                                $query->ordered()->with([
+                                    'discounts' => function ($inner) {
+                                        $inner->active()->orderBy('min_days');
+                                    },
+                                ]);
                             }
                         ])
                         ->where('school_id', $this->school->id)

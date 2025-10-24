@@ -187,6 +187,9 @@ class CourseAPIController extends AppBaseController
         if (!in_array('courseIntervals', $with)) {
             $with[] = 'courseIntervals';
         }
+        if (!in_array('courseIntervals.discounts', $with)) {
+            $with[] = 'courseIntervals.discounts';
+        }
 
         $course = $this->courseRepository->find($id, with: $with);
 

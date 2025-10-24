@@ -10,7 +10,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 /**
  * @OA\Schema(
  *      schema="Voucher",
- *      required={"code","quantity","remaining_balance","payed","client_id","school_id"},
+ *      required={"code","quantity","remaining_balance","payed","school_id"},
  *      @OA\Property(
  *          property="code",
  *          description="The voucher code",
@@ -152,7 +152,7 @@ class Voucher extends Model
         'remaining_balance' => 'numeric',
         'payed' => 'boolean',
         'is_gift' => 'boolean',
-        'client_id' => 'numeric',
+        'client_id' => 'nullable|numeric',
         'school_id' => 'numeric',
         'payrexx_reference' => 'nullable|string|max:65535',
         'payrexx_transaction' => 'nullable|string|max:65535',
@@ -305,12 +305,21 @@ class Voucher extends Model
             return false;
         }
 
+        if ($amount <= 0) {
+            return false;
+        }
+
         if ($amount > $this->remaining_balance) {
             return false;
         }
 
-        $this->remaining_balance -= $amount;
+        $this->remaining_balance = round($this->remaining_balance - $amount, 2);
+        if ($this->remaining_balance < 0) {
+            $this->remaining_balance = 0;
+        }
+
         $this->uses_count++;
+        $this->payed = $this->remaining_balance <= 0;
 
         return $this->save();
     }
@@ -320,8 +329,13 @@ class Voucher extends Model
      */
     public function refund(float $amount): bool
     {
-        $this->remaining_balance += $amount;
+        $this->remaining_balance = round($this->remaining_balance + $amount, 2);
+        if ($this->remaining_balance > $this->quantity) {
+            $this->remaining_balance = $this->quantity;
+        }
+
         $this->uses_count = max(0, $this->uses_count - 1);
+        $this->payed = $this->remaining_balance <= 0;
 
         return $this->save();
     }

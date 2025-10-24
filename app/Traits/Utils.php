@@ -6,6 +6,7 @@ use App\Models\BookingUser;
 use App\Models\Monitor;
 use App\Models\MonitorNwd;
 use App\Models\Season;
+use App\Support\IntervalDiscountHelper;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
@@ -525,30 +526,21 @@ trait Utils
     {
         $course = $bookingUser->course;
 
-        $dates = $bookingGroupedUsers
-            ? $bookingGroupedUsers->where('client_id', $bookingUser->client_id)->pluck('date')->unique()
-            : BookingUser::where('course_id', $course->id)
-                ->where('client_id', $bookingUser->client_id)
-                ->pluck('date')
-                ->unique();
-
-        $discounts = is_array($course->discounts) ? $course->discounts : json_decode($course->discounts ?? '[]', true);
-
-        $total = 0;
-        foreach ($dates as $i => $date) {
-            $price = $course->price;
-
-            foreach ($discounts as $discount) {
-                if (($i + 1) === (int) $discount['day']) {
-                    $price -= ($price * ((float)$discount['reduccion'] / 100));
-                    break;
-                }
-            }
-
-            $total += $price;
+        if (!$course) {
+            return 0.0;
         }
 
-        return $total;
+        if ($bookingGroupedUsers instanceof Collection) {
+            $clientBookingUsers = $bookingGroupedUsers
+                ->where('client_id', $bookingUser->client_id);
+        } else {
+            $clientBookingUsers = BookingUser::where('course_id', $course->id)
+                ->where('client_id', $bookingUser->client_id)
+                ->where('status', '!=', 2)
+                ->get();
+        }
+
+        return IntervalDiscountHelper::calculateFlexibleCollectivePrice($course, collect($clientBookingUsers));
     }
 
     public function calculatePrivatePrice(BookingUser $bookingUser, array $priceRange): float

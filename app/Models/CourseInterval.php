@@ -63,6 +63,14 @@ class CourseInterval extends Model
     }
 
     /**
+     * Interval-specific discount rules.
+     */
+    public function discounts()
+    {
+        return $this->hasMany(CourseIntervalDiscount::class, 'course_interval_id');
+    }
+
+    /**
      * Scope to get intervals for a specific course.
      */
     public function scopeForCourse($query, $courseId)

@@ -39,6 +39,10 @@ Route::middleware(['bookingPage'])->group(function () {
         [\App\Http\Controllers\BookingPage\ClientController::class, 'getVoucherByCode'])
         ->name('api.bookings.client.voucher');
 
+    Route::get('vouchers/code/{code}',
+        [\App\Http\Controllers\BookingPage\ClientController::class, 'findVoucherByCode'])
+        ->name('api.bookings.vouchers.by-code');
+
     Route::post('client/{id}/utilizers', [\App\Http\Controllers\BookingPage\ClientController::class, 'storeUtilizers'])
         ->name('api.bookings.client.utilizers.create');
 

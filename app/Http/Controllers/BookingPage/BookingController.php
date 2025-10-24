@@ -18,14 +18,15 @@ use App\Models\CourseSubgroup;
 use App\Models\Degree;
 use App\Models\MonitorNwd;
 use App\Models\MonitorSportsDegree;
-use App\\Models\\Voucher;\nuse App\\Models\\DiscountCode;
+use App\Models\Voucher;
 use App\Models\VouchersLog;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Response;\nuse App\\Services\\DiscountCodeService;\nuse Illuminate\\Support\\Arr;
+use App\Services\DiscountCodeService;
+use Illuminate\Support\Arr;
 use Validator;
 
 ;
@@ -155,23 +156,108 @@ class BookingController extends SlugAuthController
             $booking->deleted_at = now();
 
             if (!empty($data['vouchers'])) {
+                $voucherApplications = [];
+                $voucherErrors = [];
+                $totalVoucherApplied = 0.0;
+
                 foreach ($data['vouchers'] as $voucherData) {
-                    $voucher = Voucher::find($voucherData['id']);
-                    if ($voucher) {
-                        $remaining_balance = $voucher->remaining_balance - $voucherData['reducePrice'];
-                        $voucher->update(['remaining_balance' => $remaining_balance, 'payed' => $remaining_balance <= 0]);
+                    $voucherId = Arr::get($voucherData, 'id');
+                    $voucherCode = Arr::get($voucherData, 'code', (string) $voucherId);
+                    $amount = (float) Arr::get($voucherData, 'reducePrice', 0);
 
-                        VouchersLog::create([
-                            'voucher_id' => $voucher->id,
-                            'booking_id' => $booking->id,
-                            'amount' => $voucherData['reducePrice']
-                        ]);
+                    if (!$voucherId) {
+                        $voucherErrors[] = 'Voucher identifier missing';
+                        continue;
                     }
-                }
-                if (Arr::get($data, 'voucherAmount', 0) >= max(0, $grossPriceTotal - $discountCodeAmount)) {
-                    $booking->deleted_at = null;
 
+                    /** @var Voucher|null $voucher */
+                    $voucher = Voucher::where('id', $voucherId)->lockForUpdate()->first();
+                    if (!$voucher) {
+                        $voucherErrors[] = sprintf('Voucher %s not found', $voucherCode);
+                        continue;
+                    }
+
+                    $currentErrors = [];
+
+                    if ((int) $voucher->school_id !== (int) $booking->school_id) {
+                        $currentErrors[] = sprintf('Voucher %s belongs to a different school', $voucher->code);
+                    }
+
+                    if ($amount <= 0) {
+                        $currentErrors[] = sprintf('Voucher %s must be applied with an amount greater than zero', $voucher->code);
+                    }
+
+                    if ($amount > $voucher->remaining_balance) {
+                        $currentErrors[] = sprintf(
+                            'Voucher %s does not have enough balance (requested %s, available %s)',
+                            $voucher->code,
+                            number_format($amount, 2, '.', ''),
+                            number_format($voucher->remaining_balance, 2, '.', '')
+                        );
+                    }
+
+                    if (!$voucher->canBeUsed()) {
+                        if ($voucher->isExpired()) {
+                            $currentErrors[] = sprintf('Voucher %s is expired', $voucher->code);
+                        }
+                        if (!$voucher->hasBalance()) {
+                            $currentErrors[] = sprintf('Voucher %s has no remaining balance', $voucher->code);
+                        }
+                        if ($voucher->hasReachedMaxUses()) {
+                            $currentErrors[] = sprintf('Voucher %s reached its maximum uses', $voucher->code);
+                        }
+                        if ($voucher->trashed()) {
+                            $currentErrors[] = sprintf('Voucher %s is inactive', $voucher->code);
+                        }
+                    } elseif (!$voucher->canBeUsedByClient($booking->client_main_id)) {
+                        $currentErrors[] = sprintf('Voucher %s cannot be used by this client', $voucher->code);
+                    }
+
+                    if (!empty($currentErrors)) {
+                        $voucherErrors = array_merge($voucherErrors, $currentErrors);
+                        continue;
+                    }
+
+                    $voucherApplications[] = [
+                        'voucher' => $voucher,
+                        'amount' => $amount,
+                    ];
+                    $totalVoucherApplied += $amount;
+                }
+
+                if (!empty($voucherErrors)) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'Voucher validation failed',
+                        'errors' => array_values(array_unique($voucherErrors)),
+                    ], 422);
+                }
+
+                foreach ($voucherApplications as $application) {
+                    /** @var Voucher $voucher */
+                    $voucher = $application['voucher'];
+                    $amount = $application['amount'];
+
+                    if (!$voucher->use($amount)) {
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => 'Unable to apply voucher',
+                            'errors' => [sprintf('Voucher %s could not be used', $voucher->code)],
+                        ], 500);
+                    }
+
+                    VouchersLog::create([
+                        'voucher_id' => $voucher->id,
+                        'booking_id' => $booking->id,
+                        'amount' => $amount,
+                        'status' => 'used',
+                    ]);
+                }
+
+                if ($totalVoucherApplied >= max(0, $grossPriceTotal - $discountCodeAmount)) {
+                    $booking->deleted_at = null;
                     $booking->paid = true;
+
                     foreach ($bookingUsers as $bookingUser) {
                         $bookingUser->deleted_at = null;
                         $bookingUser->save();
