@@ -708,6 +708,159 @@ class GiftVoucherAPIController extends AppBaseController
     }
 
     /**
+     * @OA\Post(
+     *      path="/gift-vouchers/{id}/send-email",
+     *      summary="sendGiftVoucherEmail",
+     *      tags={"GiftVoucher"},
+     *      description="Send (or resend) gift voucher email to recipient",
+     *      @OA\Parameter(
+     *          name="id",
+     *          description="id of GiftVoucher",
+     *           @OA\Schema(
+     *             type="integer"
+     *          ),
+     *          required=true,
+     *          in="path"
+     *      ),
+     *      @OA\RequestBody(
+     *        required=false,
+     *        @OA\JsonContent(
+     *            @OA\Property(
+     *                property="force",
+     *                type="boolean",
+     *                description="Force resend even if already delivered",
+     *                example=false
+     *            ),
+     *            @OA\Property(
+     *                property="send_to_buyer",
+     *                type="boolean",
+     *                description="Also send email to buyer",
+     *                example=true
+     *            )
+     *        )
+     *      ),
+     *      @OA\Response(
+     *          response=200,
+     *          description="successful operation",
+     *          @OA\JsonContent(
+     *              type="object",
+     *              @OA\Property(
+     *                  property="success",
+     *                  type="boolean"
+     *              ),
+     *              @OA\Property(
+     *                  property="data",
+     *                  type="object",
+     *                  @OA\Property(property="sent_to_recipient", type="boolean"),
+     *                  @OA\Property(property="sent_to_buyer", type="boolean"),
+     *                  @OA\Property(property="gift_voucher", ref="#/components/schemas/GiftVoucher")
+     *              ),
+     *              @OA\Property(
+     *                  property="message",
+     *                  type="string"
+     *              )
+     *          )
+     *      ),
+     *      @OA\Response(
+     *          response=400,
+     *          description="Gift Voucher not paid or invalid"
+     *      ),
+     *      @OA\Response(
+     *          response=404,
+     *          description="Gift Voucher not found"
+     *      )
+     * )
+     */
+    public function sendEmail(int $id, Request $request): JsonResponse
+    {
+        $request->validate([
+            'force' => 'sometimes|boolean',
+            'send_to_buyer' => 'sometimes|boolean'
+        ]);
+
+        $giftVoucher = GiftVoucher::with(['school', 'voucher', 'purchasedBy'])->find($id);
+
+        if (!$giftVoucher) {
+            return $this->sendError('Gift Voucher not found', null, 404);
+        }
+
+        if (!$giftVoucher->is_paid) {
+            return $this->sendError('Gift voucher must be paid before sending email', null, 400);
+        }
+
+        $force = $request->input('force', false);
+        $sendToBuyer = $request->input('send_to_buyer', true);
+
+        // Verificar si ya fue entregado y no se fuerza el reenvío
+        if ($giftVoucher->is_delivered && !$force) {
+            return $this->sendError(
+                'Gift voucher has already been delivered. Use "force": true to resend.',
+                null,
+                400
+            );
+        }
+
+        if (!$giftVoucher->recipient_email) {
+            return $this->sendError('Gift voucher has no recipient email', null, 400);
+        }
+
+        try {
+            $recipientSent = false;
+            $buyerSent = false;
+            $recipientLocale = $giftVoucher->recipient_locale ?? $giftVoucher->buyer_locale ?? config('app.locale', 'en');
+
+            // Enviar al destinatario
+            Mail::to($giftVoucher->recipient_email)->send(
+                new GiftVoucherDeliveredMail($giftVoucher, $giftVoucher->school, $recipientLocale)
+            );
+            $recipientSent = true;
+
+            // Enviar al comprador si se solicita y el email es diferente
+            if ($sendToBuyer && $giftVoucher->buyer_email && $giftVoucher->buyer_email !== $giftVoucher->recipient_email) {
+                $buyerLocale = $giftVoucher->buyer_locale ?? $recipientLocale;
+                Mail::to($giftVoucher->buyer_email)->send(
+                    new GiftVoucherDeliveredMail($giftVoucher, $giftVoucher->school, $buyerLocale)
+                );
+                $buyerSent = true;
+            }
+
+            // Marcar como entregado solo si no lo estaba antes
+            if (!$giftVoucher->is_delivered) {
+                $giftVoucher->markAsDelivered();
+            }
+
+            Log::info('Gift voucher email sent successfully', [
+                'gift_voucher_id' => $giftVoucher->id,
+                'recipient_email' => $giftVoucher->recipient_email,
+                'buyer_email' => $giftVoucher->buyer_email,
+                'sent_to_recipient' => $recipientSent,
+                'sent_to_buyer' => $buyerSent,
+                'forced' => $force
+            ]);
+
+            return $this->sendResponse([
+                'sent_to_recipient' => $recipientSent,
+                'sent_to_buyer' => $buyerSent,
+                'gift_voucher' => new GiftVoucherResource($giftVoucher->fresh(['school', 'voucher', 'purchasedBy']))
+            ], $force ? 'Gift voucher email resent successfully' : 'Gift voucher email sent successfully');
+
+        } catch (\Throwable $exception) {
+            Log::error('Error sending gift voucher email', [
+                'gift_voucher_id' => $giftVoucher->id,
+                'recipient_email' => $giftVoucher->recipient_email,
+                'error' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString()
+            ]);
+
+            return $this->sendError(
+                'Error sending gift voucher email',
+                ['error' => $exception->getMessage()],
+                500
+            );
+        }
+    }
+
+    /**
      * Send the gift voucher email to the recipient (and optionally to the buyer)
      */
     private function sendGiftVoucherEmail(GiftVoucher $giftVoucher, School $school): void
