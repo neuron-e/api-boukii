@@ -226,6 +226,9 @@ Route::middleware(['guest'])->group(function () {
     Route::post('gift-vouchers/{id}/deliver', [App\Http\Controllers\API\GiftVoucherAPIController::class, 'deliver'])
         ->name('api.gift-vouchers.deliver');
 
+    Route::post('gift-vouchers/{id}/send-email', [App\Http\Controllers\API\GiftVoucherAPIController::class, 'sendEmail'])
+        ->name('api.gift-vouchers.send-email');
+
     Route::get('gift-vouchers/{id}/summary', [App\Http\Controllers\API\GiftVoucherAPIController::class, 'summary'])
         ->name('api.gift-vouchers.summary');
 
