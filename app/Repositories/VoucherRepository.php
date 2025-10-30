@@ -15,6 +15,10 @@ class VoucherRepository extends BaseRepository
         'payed',
         'is_gift',
         'client_id',
+        'buyer_name',
+        'buyer_email',
+        'recipient_name',
+        'recipient_email',
         'school_id',
         'payrexx_reference',
         'payrexx_transaction'

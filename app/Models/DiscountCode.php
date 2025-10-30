@@ -19,6 +19,13 @@ use Spatie\Activitylog\Traits\LogsActivity;
  *          type="string",
  *      ),
  *      @OA\Property(
+ *          property="name",
+ *          description="Friendly name for the discount code",
+ *          readOnly=false,
+ *          nullable=true,
+ *          type="string",
+ *      ),
+ *      @OA\Property(
  *          property="quantity",
  *          description="",
  *          readOnly=false,
@@ -348,4 +355,3 @@ class DiscountCode extends Model
         ];
     }
 }
-

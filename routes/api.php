@@ -836,6 +836,20 @@ Route::get('payrexx/finish', function (Request $request) {
     return response()->make('Payrexx close ' . $request->status, 200);
 })->name('api.payrexx.finish');
 
+// Public Gift Voucher Routes (sin autenticación)
+Route::prefix('public')->group(function () {
+    Route::post('gift-vouchers/purchase', [\App\Http\Controllers\API\PublicGiftVoucherController::class, 'purchase'])
+        ->name('api.public.gift-vouchers.purchase');
+    Route::get('gift-vouchers/verify/{code}', [\App\Http\Controllers\API\PublicGiftVoucherController::class, 'verify'])
+        ->name('api.public.gift-vouchers.verify');
+    Route::get('gift-vouchers/templates', [\App\Http\Controllers\API\PublicGiftVoucherController::class, 'templates'])
+        ->name('api.public.gift-vouchers.templates');
+});
+
+// Webhook para confirmación de pago de Gift Vouchers (sin auth, validación interna)
+Route::post('webhooks/payrexx/gift-voucher', [\App\Http\Controllers\API\PublicGiftVoucherController::class, 'payrexxWebhook'])
+    ->name('api.webhooks.payrexx.gift-voucher');
+
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });

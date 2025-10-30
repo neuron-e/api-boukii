@@ -205,9 +205,22 @@ class VoucherAPIController extends AppBaseController
     {
         $input = $request->all();
 
+        if (empty($input['client_id'])) {
+            if (empty($input['buyer_name']) || empty($input['buyer_email'])) {
+                return $this->sendError('Buyer name and email are required when no client is assigned', [
+                    'buyer_name' => ['required'],
+                    'buyer_email' => ['required']
+                ], 422);
+            }
+        }
+
+        if (!isset($input['remaining_balance']) && isset($input['quantity'])) {
+            $input['remaining_balance'] = $input['quantity'];
+        }
+
         $voucher = $this->voucherRepository->create($input);
 
-        return $this->sendResponse($voucher, 'Voucher saved successfully');
+        return $this->sendResponse(new VoucherResource($voucher), 'Voucher saved successfully');
     }
 
     /**
@@ -307,6 +320,15 @@ class VoucherAPIController extends AppBaseController
 
         if (empty($voucher)) {
             return $this->sendError('Voucher not found');
+        }
+
+        if (array_key_exists('client_id', $input) && empty($input['client_id'])) {
+            if (empty($input['buyer_name']) || empty($input['buyer_email'])) {
+                return $this->sendError('Buyer name and email are required when no client is assigned', [
+                    'buyer_name' => ['required'],
+                    'buyer_email' => ['required']
+                ], 422);
+            }
         }
 
         $voucher = $this->voucherRepository->update($input, $id);

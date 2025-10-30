@@ -5,19 +5,26 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\AppBaseController;
 use App\Http\Requests\API\CreateGiftVoucherAPIRequest;
 use App\Http\Requests\API\UpdateGiftVoucherAPIRequest;
+use App\Http\Requests\API\PurchaseGiftVoucherRequest;
 use App\Http\Resources\API\GiftVoucherResource;
+use App\Mail\GiftVoucherDeliveredMail;
 use App\Models\GiftVoucher;
+use App\Models\School;
+use App\Models\Voucher;
 use App\Repositories\GiftVoucherRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Class GiftVoucherAPIController
  */
 class GiftVoucherAPIController extends AppBaseController
 {
-    /** @var  GiftVoucherRepository */
-    private $giftVoucherRepository;
+    /** @var GiftVoucherRepository */
+    private GiftVoucherRepository $giftVoucherRepository;
 
     public function __construct(GiftVoucherRepository $giftVoucherRepo)
     {
@@ -102,6 +109,102 @@ class GiftVoucherAPIController extends AppBaseController
         $templates = GiftVoucher::getAvailableTemplates();
 
         return $this->sendResponse($templates, 'Templates retrieved successfully');
+    }
+
+    /**
+     * Initialize a public gift voucher purchase (no authentication required)
+     */
+    public function publicPurchase(PurchaseGiftVoucherRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+
+        $supportedLocales = ['es', 'en', 'fr', 'de', 'it'];
+        $buyerLocale = strtolower(substr($data['buyer_locale'] ?? $request->getPreferredLanguage($supportedLocales) ?? config('app.locale', 'en'), 0, 2));
+        if (!in_array($buyerLocale, $supportedLocales, true)) {
+            $buyerLocale = 'en';
+        }
+
+        $recipientLocale = strtolower(substr($data['recipient_locale'] ?? $buyerLocale, 0, 2));
+        if (!in_array($recipientLocale, $supportedLocales, true)) {
+            $recipientLocale = $buyerLocale;
+        }
+
+        $currency = strtoupper($data['currency']);
+
+        $school = School::findOrFail($data['school_id']);
+
+        try {
+            $giftVoucher = DB::transaction(function () use ($data, $currency, $buyerLocale, $recipientLocale, $school) {
+                $giftVoucherPayload = [
+                    'code' => GiftVoucher::generateUniqueCode(),
+                    'amount' => $data['amount'],
+                    'balance' => $data['amount'],
+                    'currency' => $currency,
+                    'personal_message' => $data['personal_message'] ?? null,
+                    'sender_name' => $data['buyer_name'],
+                    'buyer_name' => $data['buyer_name'],
+                    'buyer_email' => $data['buyer_email'],
+                    'buyer_phone' => $data['buyer_phone'] ?? null,
+                    'buyer_locale' => $buyerLocale,
+                    'recipient_email' => $data['recipient_email'],
+                    'recipient_name' => $data['recipient_name'],
+                    'recipient_phone' => $data['recipient_phone'] ?? null,
+                    'recipient_locale' => $recipientLocale,
+                    'template' => $data['template'] ?? 'default',
+                    'delivery_date' => $data['delivery_date'] ?? null,
+                    'school_id' => $school->id,
+                    'status' => 'active',
+                    'is_paid' => true,
+                    'is_delivered' => false,
+                    'is_redeemed' => false,
+                    'notes' => 'Public purchase'
+                ];
+
+                /** @var GiftVoucher $giftVoucher */
+                $giftVoucher = $this->giftVoucherRepository->create($giftVoucherPayload);
+
+                $voucher = Voucher::create([
+                    'code' => Voucher::generateUniqueCode('GIFT'),
+                    'name' => $data['recipient_name'] . ' Gift Voucher',
+                    'description' => $data['personal_message'] ?? null,
+                    'quantity' => $data['amount'],
+                    'remaining_balance' => $data['amount'],
+                    'payed' => true,
+                    'is_gift' => true,
+                    'is_transferable' => false,
+                    'client_id' => null,
+                    'buyer_name' => $data['buyer_name'],
+                    'buyer_email' => $data['buyer_email'],
+                    'buyer_phone' => $data['buyer_phone'] ?? null,
+                    'recipient_name' => $data['recipient_name'],
+                    'recipient_email' => $data['recipient_email'],
+                    'recipient_phone' => $data['recipient_phone'] ?? null,
+                    'school_id' => $school->id,
+                    'created_by' => 'public-purchase',
+                ]);
+
+                $giftVoucher->voucher_id = $voucher->id;
+                $giftVoucher->balance = $giftVoucher->amount;
+                $giftVoucher->save();
+
+                return $giftVoucher->fresh(['voucher']);
+            });
+
+            $this->sendGiftVoucherEmail($giftVoucher, $school);
+
+            return $this->sendResponse([
+                'gift_voucher' => new GiftVoucherResource($giftVoucher),
+                'voucher_code' => $giftVoucher->code,
+                'payment_url' => null
+            ], 'Gift voucher purchased successfully');
+        } catch (\Throwable $exception) {
+            Log::error('Error during public gift voucher purchase', [
+                'error' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString()
+            ]);
+
+            return $this->sendError('Unable to process gift voucher purchase', null, 500);
+        }
     }
 
     /**
@@ -602,5 +705,32 @@ class GiftVoucherAPIController extends AppBaseController
         }
 
         return $this->sendError('Error marking gift voucher as delivered', null, 500);
+    }
+
+    /**
+     * Send the gift voucher email to the recipient (and optionally to the buyer)
+     */
+    private function sendGiftVoucherEmail(GiftVoucher $giftVoucher, School $school): void
+    {
+        try {
+            $giftVoucher->loadMissing(['voucher']);
+            $recipientLocale = $giftVoucher->recipient_locale ?? $giftVoucher->buyer_locale ?? config('app.locale', 'en');
+            Mail::to($giftVoucher->recipient_email)->send(
+                new GiftVoucherDeliveredMail($giftVoucher, $school, $recipientLocale)
+            );
+
+            if ($giftVoucher->buyer_email && $giftVoucher->buyer_email !== $giftVoucher->recipient_email) {
+                Mail::to($giftVoucher->buyer_email)->send(
+                    new GiftVoucherDeliveredMail($giftVoucher, $school, $giftVoucher->buyer_locale ?? $recipientLocale)
+                );
+            }
+
+            $giftVoucher->markAsDelivered();
+        } catch (\Throwable $exception) {
+            Log::error('Error sending gift voucher email', [
+                'gift_voucher_id' => $giftVoucher->id,
+                'error' => $exception->getMessage()
+            ]);
+        }
     }
 }

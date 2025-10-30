@@ -9,11 +9,10 @@ class DiscountCodeRepository extends BaseRepository
 {
     protected $fieldSearchable = [
         'code',
-        'quantity',
-        'percentage',
-        'school_id',
-        'total',
-        'remaining'
+        'name',
+        'description',
+        'discount_type',
+        'school_id'
     ];
 
     public function getFieldsSearchable(): array

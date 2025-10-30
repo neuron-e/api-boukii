@@ -1,0 +1,289 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\GiftVoucher;
+use App\Models\School;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Payrexx\Payrexx;
+use Payrexx\Models\Request\Gateway as GatewayRequest;
+use AppMailGiftVoucherDeliveredMail;
+use IlluminateSupportFacadesMail;
+use AppMailGiftVoucherDeliveredMail;
+use IlluminateSupportFacadesMail;
+use Payrexx\PayrexxException;
+
+/**
+ * Servicio para gestión pública de Gift Vouchers
+ * Maneja la creación, pago y activación de gift vouchers desde usuarios públicos
+ */
+class PublicGiftVoucherService
+{
+    /**
+     * Crear un gift voucher pendiente (antes del pago)
+     */
+    public function createPendingVoucher(array $data): GiftVoucher
+    {
+        // Generar código único
+        $code = $this->generateUniqueCode();
+
+        // Preparar datos para crear el gift voucher
+        $voucherData = [
+            'code' => $code,
+            'amount' => $data['amount'],
+            'currency' => $data['currency'],
+            'balance' => null, // Se establece cuando se active
+            'recipient_email' => $data['recipient_email'],
+            'recipient_name' => $data['recipient_name'],
+            'sender_name' => $data['sender_name'],
+            'personal_message' => $data['personal_message'] ?? null,
+            'school_id' => $data['school_id'],
+            'template' => $data['template'] ?? 'default',
+            'delivery_date' => $data['delivery_date'] ?? null,
+            'status' => 'pending',
+            'is_paid' => false,
+            'is_delivered' => false,
+            'is_redeemed' => false,
+            'created_by' => 'public_purchase'
+        ];
+
+        $giftVoucher = GiftVoucher::create($voucherData);
+
+        Log::info('Gift voucher pendiente creado', [
+            'gift_voucher_id' => $giftVoucher->id,
+            'code' => $giftVoucher->code,
+            'amount' => $giftVoucher->amount,
+            'currency' => $giftVoucher->currency
+        ]);
+
+        return $giftVoucher;
+    }
+
+    /**
+     * Generar código único para gift voucher
+     */
+    public function generateUniqueCode(): string
+    {
+        return GiftVoucher::generateUniqueCode('GV');
+    }
+
+    /**
+     * Crear gateway de pago Payrexx para el gift voucher
+     */
+    public function createPayrexxGateway(GiftVoucher $voucher): string
+    {
+        $school = School::find($voucher->school_id);
+
+        if (!$school) {
+            Log::error('School not found for gift voucher', ['voucher_id' => $voucher->id]);
+            throw new \Exception('School not found');
+        }
+
+        // Verificar configuración de Payrexx
+        if (empty($school->getPayrexxInstance()) || empty($school->getPayrexxKey())) {
+            Log::error('Payrexx configuration incomplete', [
+                'school_id' => $school->id,
+                'voucher_id' => $voucher->id
+            ]);
+            throw new \Exception('Payrexx configuration incomplete for this school');
+        }
+
+        try {
+            $gateway = $this->prepareGatewayRequest($voucher, $school);
+            $payrexx = $this->createPayrexxClient($school);
+            $createdGateway = $payrexx->create($gateway);
+
+            if ($createdGateway && $createdGateway->getLink()) {
+                $paymentUrl = $createdGateway->getLink();
+
+                // Guardar referencia del gateway (opcional)
+                $voucher->update([
+                    'payment_reference' => "payrexx_gateway_{$createdGateway->getId()}"
+                ]);
+
+                Log::info('Payrexx gateway created for gift voucher', [
+                    'voucher_id' => $voucher->id,
+                    'gateway_id' => $createdGateway->getId(),
+                    'payment_url' => $paymentUrl
+                ]);
+
+                return $paymentUrl;
+            }
+
+            throw new \Exception('Failed to create Payrexx gateway');
+
+        } catch (PayrexxException $e) {
+            Log::error('Payrexx exception creating gateway', [
+                'voucher_id' => $voucher->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw new \Exception('Payment gateway error: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Confirmar pago y activar gift voucher
+     */
+    public function confirmPayment(int $voucherId, ?string $transactionId = null): bool
+    {
+        $voucher = GiftVoucher::find($voucherId);
+
+        if (!$voucher) {
+            Log::error('Gift voucher not found for payment confirmation', ['voucher_id' => $voucherId]);
+            return false;
+        }
+
+        // Verificar que esté en estado pending
+        if ($voucher->status !== 'pending') {
+            Log::warning('Gift voucher is not in pending status', [
+                'voucher_id' => $voucherId,
+                'current_status' => $voucher->status
+            ]);
+            return false;
+        }
+
+        DB::beginTransaction();
+        try {
+            // Actualizar transacción ID si se proporciona
+            if ($transactionId) {
+                $voucher->payrexx_transaction_id = $transactionId;
+            }
+
+            // Activar el voucher
+            $voucher->activate();
+
+            // TODO: Enviar email al destinatario con el gift voucher
+            // Este paso se implementará en una tarea futura
+            // event(new GiftVoucherActivated($voucher));
+
+            DB::commit();
+
+            Log::info('Gift voucher payment confirmed and activated', [
+                'voucher_id' => $voucherId,
+                'code' => $voucher->code,
+                'transaction_id' => $transactionId
+            ]);
+
+            return true;
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error confirming gift voucher payment', [
+                'voucher_id' => $voucherId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Verificar validez de un código de gift voucher
+     */
+    public function verifyCode(string $code): ?array
+    {
+        $voucher = GiftVoucher::where('code', $code)->first();
+
+        if (!$voucher) {
+            return null;
+        }
+
+        return [
+            'valid' => $voucher->isValid(),
+            'code' => $voucher->code,
+            'balance' => $voucher->balance,
+            'currency' => $voucher->currency,
+            'status' => $voucher->status,
+            'expires_at' => $voucher->expires_at?->format('Y-m-d'),
+            'is_expired' => $voucher->expires_at && $voucher->expires_at->isPast(),
+            'recipient_name' => $voucher->recipient_name,
+            'sender_name' => $voucher->sender_name
+        ];
+    }
+
+    /**
+     * Preparar request de gateway para Payrexx
+     */
+    private function prepareGatewayRequest(GiftVoucher $voucher, School $school): GatewayRequest
+    {
+        $gateway = new GatewayRequest();
+
+        // Configuración básica
+        $gateway->setAmount($voucher->amount * 100); // Payrexx usa centavos
+        $gateway->setCurrency($voucher->currency);
+
+        // URLs de redirección (se pueden configurar en env o usar las de la escuela)
+        $baseUrl = env('APP_URL') . '/gift-voucher-payment-result';
+        $gateway->setSuccessRedirectUrl($baseUrl . '?status=success&code=' . $voucher->code);
+        $gateway->setFailedRedirectUrl($baseUrl . '?status=failed&code=' . $voucher->code);
+        $gateway->setCancelRedirectUrl($baseUrl . '?status=cancel&code=' . $voucher->code);
+
+        // Referencia única
+        $gateway->setReferenceId("GV-{$voucher->id}");
+
+        // Validez del gateway (30 minutos para gift vouchers)
+        $gateway->setValidity(30);
+
+        // Información del comprador
+        $gateway->setFields([
+            'email' => $voucher->recipient_email,
+            'forename' => $voucher->sender_name,
+            'surname' => ''
+        ]);
+
+        // Propósito del pago
+        $gateway->setPurpose("Gift Voucher: {$voucher->code}");
+
+        Log::info('Gateway request prepared', [
+            'voucher_id' => $voucher->id,
+            'amount_cents' => $voucher->amount * 100,
+            'currency' => $voucher->currency,
+            'validity_minutes' => 30
+        ]);
+
+        return $gateway;
+    }
+
+    /**
+     * Crear cliente de Payrexx
+     */
+    private function createPayrexxClient(School $school): Payrexx
+    {
+        return new Payrexx(
+            $school->getPayrexxInstance(),
+            $school->getPayrexxKey(),
+            '',
+            env('PAYREXX_API_BASE_DOMAIN')
+        );
+    }
+
+    /**
+     * Cancelar gift voucher (si no ha sido pagado aún)
+     */
+    public function cancelVoucher(int $voucherId): bool
+    {
+        $voucher = GiftVoucher::find($voucherId);
+
+        if (!$voucher) {
+            return false;
+        }
+
+        // Solo se puede cancelar si está en pending
+        if ($voucher->status !== 'pending') {
+            Log::warning('Cannot cancel gift voucher - not in pending status', [
+                'voucher_id' => $voucherId,
+                'current_status' => $voucher->status
+            ]);
+            return false;
+        }
+
+        $voucher->status = 'cancelled';
+        $voucher->save();
+
+        Log::info('Gift voucher cancelled', ['voucher_id' => $voucherId]);
+
+        return true;
+    }
+}

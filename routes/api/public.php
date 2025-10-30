@@ -209,6 +209,10 @@ Route::middleware(['guest'])->group(function () {
     Route::get('gift-vouchers/templates', [App\Http\Controllers\API\GiftVoucherAPIController::class, 'templates'])
         ->name('api.gift-vouchers.templates');
 
+    Route::post('gift-vouchers/purchase', [App\Http\Controllers\API\GiftVoucherAPIController::class, 'publicPurchase'])
+        ->middleware('throttle:5,60')
+        ->name('api.gift-vouchers.purchase');
+
     Route::get('gift-vouchers/pending-delivery', [App\Http\Controllers\API\GiftVoucherAPIController::class, 'pendingDelivery'])
         ->name('api.gift-vouchers.pending-delivery');
 
@@ -271,4 +275,3 @@ Route::prefix('v4')->group(function () {
     Route::get('courses/{course}/timing/summary', [\App\Http\Controllers\API\TimingController::class, 'courseSummary']);
     Route::get('courses/{course}/timing/export.csv', [\App\Http\Controllers\API\TimingController::class, 'courseExportCsv']);
 });
-

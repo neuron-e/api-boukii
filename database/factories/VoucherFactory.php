@@ -25,24 +25,40 @@ class VoucherFactory extends Factory
     public function definition()
     {
 
-        $school = School::first();
-        if (!$school) {
-            $school = School::factory()->create();
-        }
+        $school = School::first() ?? School::factory()->create();
+        $client = Client::first() ?? Client::factory()->create();
+
+        $quantity = $this->faker->randomFloat(2, 25, 500);
+        $remaining = $this->faker->boolean(70) ? $this->faker->randomFloat(2, 0, $quantity) : $quantity;
 
         return [
-            'code' => $this->faker->text($this->faker->numberBetween(5, 255)),
-            'quantity' => $this->faker->numberBetween(0, 9223372036854775807),
-            'remaining_balance' => $this->faker->numberBetween(0, 9223372036854775807),
-            'payed' => $this->faker->boolean,
-            'is_gift' => $this->faker->boolean,
-            'client_id' => $this->faker->word,
-            'school_id' => $this->faker->word,
-            'payrexx_reference' => $this->faker->text($this->faker->numberBetween(5, 65535)),
-            'payrexx_transaction' => $this->faker->text($this->faker->numberBetween(5, 65535)),
-            'created_at' => $this->faker->date('Y-m-d H:i:s'),
-            'updated_at' => $this->faker->date('Y-m-d H:i:s'),
-            'deleted_at' => $this->faker->date('Y-m-d H:i:s')
+            'code' => strtoupper('VOUCH-' . $this->faker->bothify('####')),
+            'name' => $this->faker->optional()->catchPhrase(),
+            'description' => $this->faker->optional()->sentence(),
+            'quantity' => $quantity,
+            'remaining_balance' => $remaining,
+            'payed' => $remaining <= 0 ? true : $this->faker->boolean(30),
+            'is_gift' => $this->faker->boolean(40),
+            'is_transferable' => $this->faker->boolean(30),
+            'client_id' => $this->faker->boolean(60) ? $client->id : null,
+            'buyer_name' => $this->faker->optional()->name(),
+            'buyer_email' => $this->faker->optional()->safeEmail(),
+            'buyer_phone' => $this->faker->optional()->e164PhoneNumber(),
+            'recipient_name' => $this->faker->optional()->name(),
+            'recipient_email' => $this->faker->optional()->safeEmail(),
+            'recipient_phone' => $this->faker->optional()->e164PhoneNumber(),
+            'school_id' => $school->id,
+            'course_type_id' => null,
+            'expires_at' => $this->faker->optional()->dateTimeBetween('+1 month', '+1 year'),
+            'max_uses' => $this->faker->optional()->numberBetween(1, 10),
+            'uses_count' => $this->faker->optional()->numberBetween(0, 5),
+            'transferred_to_client_id' => null,
+            'transferred_at' => null,
+            'payrexx_reference' => $this->faker->optional()->uuid(),
+            'payrexx_transaction' => $this->faker->optional()->uuid(),
+            'created_at' => now(),
+            'updated_at' => now(),
+            'deleted_at' => null
         ];
     }
 }

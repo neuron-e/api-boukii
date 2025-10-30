@@ -7,6 +7,8 @@ use App\Http\Requests\API\CreateCourseSubgroupAPIRequest;
 use App\Http\Requests\API\UpdateCourseSubgroupAPIRequest;
 use App\Http\Resources\API\CourseSubgroupResource;
 use App\Models\CourseSubgroup;
+use AppModelsCourseIntervalMonitor;
+use AppModelsCourse;
 use App\Repositories\CourseSubgroupRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -129,6 +131,35 @@ class CourseSubgroupAPIController extends AppBaseController
         }
 
         $courseSubgroup = $this->courseSubgroupRepository->create($input);
+
+        // FIXED BUG #3: Auto-sync monitor assignment to CourseIntervalMonitor table
+        // When a subgroup is created with a monitor AND the course uses intervals,
+        // automatically create the interval assignment for the planer
+        if (isset($input['monitor_id']) && $courseSubgroup->course_id) {
+            $course = Course::find($courseSubgroup->course_id);
+
+            // Check if course uses intervals
+            if ($course && $course->intervals_config_mode === 'intervals') {
+                // Find the interval for this subgroup's course date
+                $courseDate = $courseSubgroup->courseDate;
+
+                if ($courseDate && $courseDate->course_interval_id) {
+                    // Create or update CourseIntervalMonitor assignment
+                    CourseIntervalMonitor::updateOrCreate(
+                        [
+                            'course_interval_id' => $courseDate->course_interval_id,
+                            'course_subgroup_id' => $courseSubgroup->id,
+                        ],
+                        [
+                            'course_id' => $course->id,
+                            'monitor_id' => $input['monitor_id'],
+                            'active' => true,
+                            'notes' => 'Auto-created from course creation',
+                        ]
+                    );
+                }
+            }
+        }
 
         return $this->sendResponse($courseSubgroup, 'Course Subgroup saved successfully');
     }
@@ -257,6 +288,35 @@ class CourseSubgroupAPIController extends AppBaseController
         }
 
         $courseSubgroup = $this->courseSubgroupRepository->update($input, $id);
+
+        // FIXED BUG #3: Auto-sync monitor assignment to CourseIntervalMonitor table
+        // When a subgroup is updated with a monitor AND the course uses intervals,
+        // automatically update the interval assignment for the planer
+        if (isset($input['monitor_id']) && $courseSubgroup->course_id) {
+            $course = Course::find($courseSubgroup->course_id);
+
+            // Check if course uses intervals
+            if ($course && $course->intervals_config_mode === 'intervals') {
+                // Find the interval for this subgroup's course date
+                $courseDate = $courseSubgroup->courseDate;
+
+                if ($courseDate && $courseDate->course_interval_id) {
+                    // Create or update CourseIntervalMonitor assignment
+                    CourseIntervalMonitor::updateOrCreate(
+                        [
+                            'course_interval_id' => $courseDate->course_interval_id,
+                            'course_subgroup_id' => $courseSubgroup->id,
+                        ],
+                        [
+                            'course_id' => $course->id,
+                            'monitor_id' => $input['monitor_id'],
+                            'active' => true,
+                            'notes' => 'Updated from course edit',
+                        ]
+                    );
+                }
+            }
+        }
 
         return $this->sendResponse(new CourseSubgroupResource($courseSubgroup), 'CourseSubgroup updated successfully');
     }

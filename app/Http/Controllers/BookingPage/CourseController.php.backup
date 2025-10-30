@@ -167,61 +167,38 @@ class CourseController extends SlugAuthController
                         ->orderBy('name')
                         ->get()
                         ->filter(function($course) use ($todayDate, $hasCapacityOnCourseDate) {
-                            // FIXED BUG #2: Improved booking period logic
-
-                            // 1. Check if today is within the course's bookable period
-                            $isWithinBookingPeriod = true;
-                            if ($course->date_start_res && $course->date_end_res) {
-                                $isWithinBookingPeriod = ($todayDate >= $course->date_start_res && $todayDate <= $course->date_end_res);
-                            }
-
-                            if (!$isWithinBookingPeriod) {
-                                return false; // Course not bookable today
-                            }
-
-                            // 2. Parse settings
+                            // Si no hay settings o flag, no filtramos adicionalmente
                             $settings = $course->settings ?? [];
                             $mustStartFromFirst = is_array($settings) ? ($settings['mustStartFromFirst'] ?? false) : (json_decode($settings, true)['mustStartFromFirst'] ?? false);
+                            if (!$mustStartFromFirst) return true;
 
-                            // 3. mustStartFromFirst only applies to NON-FLEXIBLE COLLECTIVE courses
-                            $isNonFlexibleCollective = ((int)$course->course_type === 1 && !$course->is_flexible);
-
-                            if (!$mustStartFromFirst || !$isNonFlexibleCollective) {
-                                return true; // No restriction, course is bookable
-                            }
-
-                            // 4. For courses with mustStartFromFirst: verify first date has capacity
+                            // Con intervalos: al menos un intervalo con primera fecha válida y con capacidad
                             $hasIntervals = is_array($settings) ? ($settings['multipleIntervals'] ?? false) : (json_decode($settings, true)['multipleIntervals'] ?? false);
                             $intervals = is_array($settings) ? ($settings['intervals'] ?? []) : (json_decode($settings, true)['intervals'] ?? []);
 
                             if ($hasIntervals && is_array($intervals) && count($intervals) > 0) {
-                                // With intervals: at least one interval must have capacity on its first date
                                 foreach ($intervals as $interval) {
                                     $intervalId = is_array($interval) ? ($interval['id'] ?? null) : null;
                                     if (!$intervalId) continue;
-
                                     $firstDate = $course->courseDates()
                                         ->where('active', 1)
                                         ->where('interval_id', $intervalId)
                                         ->orderBy('date', 'asc')
                                         ->first();
-
-                                    // Check if first date has capacity (date can be in the future)
-                                    if ($firstDate && $hasCapacityOnCourseDate($firstDate->id, (int)$course->course_type, (int)$course->max_participants)) {
+                                    if ($firstDate && $firstDate->date >= $todayDate && $hasCapacityOnCourseDate($firstDate->id, (int)$course->course_type, (int)$course->max_participants)) {
                                         return true;
                                     }
                                 }
                                 return false;
                             }
 
-                            // Without intervals: check if first date has capacity
+                            // Sin intervalos: primera fecha global válida y con capacidad
                             $firstDate = $course->courseDates()
                                 ->where('active', 1)
                                 ->orderBy('date', 'asc')
                                 ->first();
-
                             if (!$firstDate) return false;
-
+                            if ($firstDate->date < $todayDate) return false;
                             return $hasCapacityOnCourseDate($firstDate->id, (int)$course->course_type, (int)$course->max_participants);
                         })
                         ->values();
