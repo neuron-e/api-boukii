@@ -3,12 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Mail\BookingCreateMailer;
+use App\Mail\GiftVoucherDeliveredMail;
 use App\Models\Booking;
 use App\Models\Client;
+use App\Models\GiftVoucher;
 use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 use Payrexx\Models\Response\Transaction as TransactionResponse;
 use App\Models\Voucher;
@@ -31,7 +34,7 @@ class PayrexxController
         Log::channel('payrexx')->debug('processNotification');
         Log::channel('payrexx')->debug(print_r($request->all(), 1));
 
-        // Can be Booking or Voucher
+        // Can be Booking, Voucher or GiftVoucher
         try {
             // 1. Pick their Transaction data
             $data = $request->transaction;
@@ -157,15 +160,14 @@ class PayrexxController
                     }
 
                 } else {
+                    // Si no se encontró un booking, buscar primero voucher
                     $voucher = (strlen($referenceID) > 2)
                         ? Voucher::with('school')->where('payrexx_reference', '=', $referenceID)->first()
                         : null;
 
-                    if (!$voucher) {
-                        throw new \Exception('No Booking or Voucher found with payrexx_reference: ' . $referenceID);
-                    }
-
-                    if (!$voucher->payed) {
+                    if ($voucher) {
+                        // Procesar Voucher legacy
+                        if (!$voucher->payed) {
                         $schoolData = $voucher->school;
                         if ($schoolData && $schoolData->getPayrexxInstance() && $schoolData->getPayrexxKey()) {
                             $transactionID = intval($data['id'] ?? -1);
@@ -210,6 +212,84 @@ class PayrexxController
 
                                 $voucher->save();
                             }
+                        }
+                    }
+                    } else {
+                        // Si no se encontró voucher, buscar gift voucher
+                        $giftVoucher = (strlen($referenceID) > 2)
+                            ? GiftVoucher::where('payrexx_reference', '=', $referenceID)->first()
+                            : null;
+
+                        if ($giftVoucher) {
+                            // Procesar Gift Voucher
+                            if (!$giftVoucher->is_paid) {
+                                $schoolData = $giftVoucher->school;
+                                if ($schoolData && $schoolData->getPayrexxInstance() && $schoolData->getPayrexxKey()) {
+                                    $transactionID = intval($data['id'] ?? -1);
+                                    $data2 = PayrexxHelpers::retrieveTransaction(
+                                        $schoolData->getPayrexxInstance(),
+                                        $schoolData->getPayrexxKey(),
+                                        $transactionID
+                                    );
+
+                                    if ($data2 && $data2->getStatus() === TransactionResponse::CONFIRMED) {
+                                        // Activar el gift voucher
+                                        $giftVoucher->update([
+                                            'status' => 'active',
+                                            'is_paid' => true,
+                                            'payment_confirmed_at' => now(),
+                                        ]);
+
+                                        // Guardar datos de transacción
+                                        $giftVoucher->setPayrexxTransaction([
+                                            'id' => $transactionID,
+                                            'time' => $data2->getTime(),
+                                            'totalAmount' => $data2->getInvoice()['totalAmount'] ?? $data['amount'],
+                                            'refundedAmount' => $data2->getInvoice()['refundedAmount'] ?? 0,
+                                            'currency' => $data2->getInvoice()['currencyAlpha3'],
+                                            'brand' => $data2->getPayment()['brand'],
+                                            'referenceId' => $referenceID
+                                        ]);
+                                        $giftVoucher->save();
+
+                                        // Enviar email al destinatario
+                                        try {
+                                            $recipientLocale = $giftVoucher->recipient_locale ?? $giftVoucher->buyer_locale ?? config('app.locale', 'en');
+
+                                            Mail::to($giftVoucher->recipient_email)
+                                                ->send(new GiftVoucherDeliveredMail($giftVoucher, $schoolData, $recipientLocale));
+
+                                            $giftVoucher->update([
+                                                'email_sent_at' => now(),
+                                                'is_delivered' => true,
+                                                'delivered_at' => now()
+                                            ]);
+
+                                            Log::info('Gift Voucher email sent successfully', [
+                                                'voucher_id' => $giftVoucher->id,
+                                                'code' => $giftVoucher->code,
+                                                'recipient' => $giftVoucher->recipient_email
+                                            ]);
+                                        } catch (\Exception $e) {
+                                            Log::error('Failed to send gift voucher email', [
+                                                'voucher_id' => $giftVoucher->id,
+                                                'error' => $e->getMessage()
+                                            ]);
+                                        }
+
+                                        Log::info('Gift Voucher activated via Payrexx webhook', [
+                                            'voucher_id' => $giftVoucher->id,
+                                            'code' => $giftVoucher->code,
+                                            'amount' => $giftVoucher->amount
+                                        ]);
+
+                                        return response()->json(['status' => 'success', 'type' => 'gift_voucher']);
+                                    }
+                                }
+                            }
+                        } else {
+                            // No se encontró ninguna entidad
+                            throw new \Exception('No Booking, Voucher or GiftVoucher found with payrexx_reference: ' . $referenceID);
                         }
                     }
                 }

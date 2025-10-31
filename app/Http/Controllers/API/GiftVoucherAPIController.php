@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use App\Services\Payrexx\PayrexxService;
 
 /**
  * Class GiftVoucherAPIController
@@ -114,7 +115,7 @@ class GiftVoucherAPIController extends AppBaseController
     /**
      * Initialize a public gift voucher purchase (no authentication required)
      */
-    public function publicPurchase(PurchaseGiftVoucherRequest $request): JsonResponse
+        public function publicPurchase(PurchaseGiftVoucherRequest $request): JsonResponse
     {
         $data = $request->validated();
 
@@ -130,15 +131,15 @@ class GiftVoucherAPIController extends AppBaseController
         }
 
         $currency = strtoupper($data['currency']);
-
         $school = School::findOrFail($data['school_id']);
 
         try {
+            // Crear gift voucher en estado PENDING hasta confirmar el pago
             $giftVoucher = DB::transaction(function () use ($data, $currency, $buyerLocale, $recipientLocale, $school) {
                 $giftVoucherPayload = [
                     'code' => GiftVoucher::generateUniqueCode(),
                     'amount' => $data['amount'],
-                    'balance' => $data['amount'],
+                    'balance' => 0, // Balance será igual a amount cuando se confirme el pago
                     'currency' => $currency,
                     'personal_message' => $data['personal_message'] ?? null,
                     'sender_name' => $data['buyer_name'],
@@ -153,50 +154,79 @@ class GiftVoucherAPIController extends AppBaseController
                     'template' => $data['template'] ?? 'default',
                     'delivery_date' => $data['delivery_date'] ?? null,
                     'school_id' => $school->id,
-                    'status' => 'active',
-                    'is_paid' => true,
+                    'status' => 'pending', // PENDING hasta confirmar pago
+                    'is_paid' => false,
                     'is_delivered' => false,
                     'is_redeemed' => false,
-                    'notes' => 'Public purchase'
+                    'notes' => 'Public purchase - awaiting payment'
                 ];
 
                 /** @var GiftVoucher $giftVoucher */
-                $giftVoucher = $this->giftVoucherRepository->create($giftVoucherPayload);
-
-                $voucher = Voucher::create([
-                    'code' => Voucher::generateUniqueCode('GIFT'),
-                    'name' => $data['recipient_name'] . ' Gift Voucher',
-                    'description' => $data['personal_message'] ?? null,
-                    'quantity' => $data['amount'],
-                    'remaining_balance' => $data['amount'],
-                    'payed' => true,
-                    'is_gift' => true,
-                    'is_transferable' => false,
-                    'client_id' => null,
-                    'buyer_name' => $data['buyer_name'],
-                    'buyer_email' => $data['buyer_email'],
-                    'buyer_phone' => $data['buyer_phone'] ?? null,
-                    'recipient_name' => $data['recipient_name'],
-                    'recipient_email' => $data['recipient_email'],
-                    'recipient_phone' => $data['recipient_phone'] ?? null,
-                    'school_id' => $school->id,
-                    'created_by' => 'public-purchase',
-                ]);
-
-                $giftVoucher->voucher_id = $voucher->id;
-                $giftVoucher->balance = $giftVoucher->amount;
-                $giftVoucher->save();
-
-                return $giftVoucher->fresh(['voucher']);
+                return $this->giftVoucherRepository->create($giftVoucherPayload);
             });
 
-            $this->sendGiftVoucherEmail($giftVoucher, $school);
+            // Crear gateway de Payrexx
+            $bookingUrl = config('app.booking_url') ?? env('BOOKING_URL', 'http://localhost:4200');
+            $successUrl = $bookingUrl . '/gift-vouchers/success?voucher_id=' . $giftVoucher->id;
+            $failedUrl = $bookingUrl . '/gift-vouchers/failed';
+            $cancelUrl = $bookingUrl . '/gift-vouchers/cancel';
 
-            return $this->sendResponse([
-                'gift_voucher' => new GiftVoucherResource($giftVoucher),
-                'voucher_code' => $giftVoucher->code,
-                'payment_url' => null
-            ], 'Gift voucher purchased successfully');
+            try {
+                $payrexxService = app(PayrexxService::class);
+                
+                // Crear gateway usando el servicio de Payrexx
+                // Nota: createGatewayLink espera un Booking, creamos un mock object
+                $mockBooking = (object)[
+                    'id' => $giftVoucher->id,
+                    'source' => 'web'
+                ];
+                
+                $paymentLink = $payrexxService->createGatewayLink(
+                    $school,
+                    $mockBooking,
+                    $data['amount'],
+                    $bookingUrl . '/gift-vouchers'
+                );
+
+                if (empty($paymentLink)) {
+                    throw new \Exception('Failed to create Payrexx payment gateway');
+                }
+                
+                // Guardar referencias de Payrexx
+                $giftVoucher->update([
+                    'payrexx_reference' => (string) $giftVoucher->id,
+                    'payrexx_link' => $paymentLink,
+                ]);
+
+                Log::info('Gift Voucher created with Payrexx gateway', [
+                    'voucher_id' => $giftVoucher->id,
+                    'code' => $giftVoucher->code,
+                    'payment_url' => $paymentLink
+                ]);
+
+                return $this->sendResponse([
+                    'gift_voucher' => new GiftVoucherResource($giftVoucher),
+                    'voucher_code' => $giftVoucher->code,
+                    'payment_url' => $paymentLink, // IMPORTANTE: retornar payment_url
+                    'status' => 'pending_payment'
+                ], 'Gift voucher created successfully. Please complete payment.');
+                
+            } catch (\Exception $e) {
+                Log::error('Failed to create Payrexx gateway for gift voucher', [
+                    'voucher_id' => $giftVoucher->id,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                
+                // Si falla Payrexx, eliminar el voucher
+                $giftVoucher->delete();
+                
+                return $this->sendError(
+                    'Failed to create payment gateway',
+                    ['error' => $e->getMessage()],
+                    500
+                );
+            }
         } catch (\Throwable $exception) {
             Log::error('Error during public gift voucher purchase', [
                 'error' => $exception->getMessage(),
@@ -705,6 +735,159 @@ class GiftVoucherAPIController extends AppBaseController
         }
 
         return $this->sendError('Error marking gift voucher as delivered', null, 500);
+    }
+
+    /**
+     * @OA\Post(
+     *      path="/gift-vouchers/{id}/send-email",
+     *      summary="sendGiftVoucherEmail",
+     *      tags={"GiftVoucher"},
+     *      description="Send (or resend) gift voucher email to recipient",
+     *      @OA\Parameter(
+     *          name="id",
+     *          description="id of GiftVoucher",
+     *           @OA\Schema(
+     *             type="integer"
+     *          ),
+     *          required=true,
+     *          in="path"
+     *      ),
+     *      @OA\RequestBody(
+     *        required=false,
+     *        @OA\JsonContent(
+     *            @OA\Property(
+     *                property="force",
+     *                type="boolean",
+     *                description="Force resend even if already delivered",
+     *                example=false
+     *            ),
+     *            @OA\Property(
+     *                property="send_to_buyer",
+     *                type="boolean",
+     *                description="Also send email to buyer",
+     *                example=true
+     *            )
+     *        )
+     *      ),
+     *      @OA\Response(
+     *          response=200,
+     *          description="successful operation",
+     *          @OA\JsonContent(
+     *              type="object",
+     *              @OA\Property(
+     *                  property="success",
+     *                  type="boolean"
+     *              ),
+     *              @OA\Property(
+     *                  property="data",
+     *                  type="object",
+     *                  @OA\Property(property="sent_to_recipient", type="boolean"),
+     *                  @OA\Property(property="sent_to_buyer", type="boolean"),
+     *                  @OA\Property(property="gift_voucher", ref="#/components/schemas/GiftVoucher")
+     *              ),
+     *              @OA\Property(
+     *                  property="message",
+     *                  type="string"
+     *              )
+     *          )
+     *      ),
+     *      @OA\Response(
+     *          response=400,
+     *          description="Gift Voucher not paid or invalid"
+     *      ),
+     *      @OA\Response(
+     *          response=404,
+     *          description="Gift Voucher not found"
+     *      )
+     * )
+     */
+    public function sendEmail(int $id, Request $request): JsonResponse
+    {
+        $request->validate([
+            'force' => 'sometimes|boolean',
+            'send_to_buyer' => 'sometimes|boolean'
+        ]);
+
+        $giftVoucher = GiftVoucher::with(['school', 'voucher', 'purchasedBy'])->find($id);
+
+        if (!$giftVoucher) {
+            return $this->sendError('Gift Voucher not found', null, 404);
+        }
+
+        if (!$giftVoucher->is_paid) {
+            return $this->sendError('Gift voucher must be paid before sending email', null, 400);
+        }
+
+        $force = $request->input('force', false);
+        $sendToBuyer = $request->input('send_to_buyer', true);
+
+        // Verificar si ya fue entregado y no se fuerza el reenvío
+        if ($giftVoucher->is_delivered && !$force) {
+            return $this->sendError(
+                'Gift voucher has already been delivered. Use "force": true to resend.',
+                null,
+                400
+            );
+        }
+
+        if (!$giftVoucher->recipient_email) {
+            return $this->sendError('Gift voucher has no recipient email', null, 400);
+        }
+
+        try {
+            $recipientSent = false;
+            $buyerSent = false;
+            $recipientLocale = $giftVoucher->recipient_locale ?? $giftVoucher->buyer_locale ?? config('app.locale', 'en');
+
+            // Enviar al destinatario
+            Mail::to($giftVoucher->recipient_email)->send(
+                new GiftVoucherDeliveredMail($giftVoucher, $giftVoucher->school, $recipientLocale)
+            );
+            $recipientSent = true;
+
+            // Enviar al comprador si se solicita y el email es diferente
+            if ($sendToBuyer && $giftVoucher->buyer_email && $giftVoucher->buyer_email !== $giftVoucher->recipient_email) {
+                $buyerLocale = $giftVoucher->buyer_locale ?? $recipientLocale;
+                Mail::to($giftVoucher->buyer_email)->send(
+                    new GiftVoucherDeliveredMail($giftVoucher, $giftVoucher->school, $buyerLocale)
+                );
+                $buyerSent = true;
+            }
+
+            // Marcar como entregado solo si no lo estaba antes
+            if (!$giftVoucher->is_delivered) {
+                $giftVoucher->markAsDelivered();
+            }
+
+            Log::info('Gift voucher email sent successfully', [
+                'gift_voucher_id' => $giftVoucher->id,
+                'recipient_email' => $giftVoucher->recipient_email,
+                'buyer_email' => $giftVoucher->buyer_email,
+                'sent_to_recipient' => $recipientSent,
+                'sent_to_buyer' => $buyerSent,
+                'forced' => $force
+            ]);
+
+            return $this->sendResponse([
+                'sent_to_recipient' => $recipientSent,
+                'sent_to_buyer' => $buyerSent,
+                'gift_voucher' => new GiftVoucherResource($giftVoucher->fresh(['school', 'voucher', 'purchasedBy']))
+            ], $force ? 'Gift voucher email resent successfully' : 'Gift voucher email sent successfully');
+
+        } catch (\Throwable $exception) {
+            Log::error('Error sending gift voucher email', [
+                'gift_voucher_id' => $giftVoucher->id,
+                'recipient_email' => $giftVoucher->recipient_email,
+                'error' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString()
+            ]);
+
+            return $this->sendError(
+                'Error sending gift voucher email',
+                ['error' => $exception->getMessage()],
+                500
+            );
+        }
     }
 
     /**

@@ -112,6 +112,11 @@ class GiftVoucher extends Model
         'is_paid',
         'payment_reference',
         'payrexx_transaction_id',
+        'payrexx_reference',
+        'payrexx_link',
+        'payrexx_transaction',
+        'payment_confirmed_at',
+        'email_sent_at',
         'status',
         'notes',
         'created_by'
@@ -141,6 +146,9 @@ class GiftVoucher extends Model
         'is_redeemed' => 'boolean',
         'redeemed_at' => 'datetime',
         'is_paid' => 'boolean',
+        'payrexx_transaction' => 'array',
+        'payment_confirmed_at' => 'datetime',
+        'email_sent_at' => 'datetime',
     ];
 
     public static array $rules = [
@@ -371,5 +379,30 @@ class GiftVoucher extends Model
             'is_paid' => $this->is_paid,
             'voucher_id' => $this->voucher_id,
         ];
+    }
+
+    /**
+     * Set Payrexx transaction data (encrypted)
+     */
+    public function setPayrexxTransaction($value)
+    {
+        $this->payrexx_transaction = encrypt(json_encode($value));
+    }
+
+    /**
+     * Get Payrexx transaction data (decrypted)
+     */
+    public function getPayrexxTransaction()
+    {
+        $decrypted = null;
+        if ($this->payrexx_transaction) {
+            try {
+                $decrypted = decrypt($this->payrexx_transaction);
+            } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+                $decrypted = null;  // Data seems corrupt or tampered
+            }
+        }
+
+        return $decrypted ? json_decode($decrypted, true) : [];
     }
 }
