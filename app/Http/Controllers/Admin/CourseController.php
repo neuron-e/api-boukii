@@ -879,6 +879,11 @@ class CourseController extends AppBaseController
                                     $subgroupData['course_id'] = $course->id;
                                     $subgroupData['course_date_id'] = $date->id;
 
+                                    // Fix: Eliminar clave 'monitor' si existe como objeto (solo queremos monitor_id)
+                                    if (isset($subgroupData['monitor']) && !is_int($subgroupData['monitor'])) {
+                                        unset($subgroupData['monitor']);
+                                    }
+
                                     // Verifica si existe 'id' antes de usarlo
                                     $subgroupId = $subgroupData['id'] ?? null;
                                     if ($subgroupId) {

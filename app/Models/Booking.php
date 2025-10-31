@@ -268,6 +268,11 @@ class Booking extends Model
         'price_reduction',
         'discount_code_id',
         'discount_code_value',
+        'discount_type',
+        'interval_discount_id',
+        'original_price',
+        'discount_amount',
+        'final_price',
         'color',
         'basket'
     ];
@@ -276,6 +281,11 @@ class Booking extends Model
         'price_total' => 'decimal:2',
         'has_cancellation_insurance' => 'boolean',
         'has_tva' => 'boolean',
+        'discount_type' => 'string',
+        'interval_discount_id' => 'integer',
+        'original_price' => 'decimal:2',
+        'discount_amount' => 'decimal:2',
+        'final_price' => 'decimal:2',
         'has_reduction' => 'boolean',
         'price_cancellation_insurance' => 'decimal:2',
         'price_reduction' => 'decimal:2',
@@ -372,6 +382,12 @@ class Booking extends Model
         return $this->belongsTo(\App\Models\DiscountCode::class, 'discount_code_id');
     }
 
+    public function intervalDiscount(): IlluminateDatabaseEloquentRelationsBelongsTo
+    {
+        return $this->belongsTo(AppModelsCourseIntervalDiscount::class, 'interval_discount_id');
+    }
+
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults();
@@ -408,7 +424,7 @@ class Booking extends Model
             'bookingUsers.monitor',
             'bookingUsers.bookingUserExtras.courseExtra'
         ]);
-        
+
         return array_values($this->bookingUsers->groupBy('group_id')->map(function ($users) {
             $groupedActivity = [
                 'group_id' => $users->first()->group_id,

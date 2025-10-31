@@ -229,6 +229,17 @@ class CourseDate extends Model
         });
 
         static::deleting(function ($courseDate) {
+            // Verificar si hay reservas activas antes de eliminar
+            $activeBookings = $courseDate->bookingUsersActive()->count();
+
+            if ($activeBookings > 0) {
+                throw new \Exception(
+                    "No se puede eliminar la sesión porque tiene {$activeBookings} reserva(s) activa(s). " .
+                    "Por favor, cancela las reservas primero o contacta con los clientes."
+                );
+            }
+
+            // Solo eliminar booking_users si no hay reservas activas
             BookingUser::where('course_date_id', $courseDate->id)->delete();
         });
     }

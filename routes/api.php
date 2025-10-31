@@ -5,6 +5,7 @@ use App\Exports\UsedVouchersExport;
 use App\Http\Controllers\Admin\FinanceController;
 use App\Http\Controllers\Admin\FinanceControllerRefactor;
 use App\Http\Controllers\Admin\StatisticsController;
+use App\Http\Controllers\API\VoucherAPIController;
 use App\Models\Booking;
 use App\Models\BookingUser;
 use App\Models\Client;
@@ -850,8 +851,13 @@ Route::prefix('public')->group(function () {
 Route::post('webhooks/payrexx/gift-voucher', [\App\Http\Controllers\API\PublicGiftVoucherController::class, 'payrexxWebhook'])
     ->name('api.webhooks.payrexx.gift-voucher');
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/user', function (Request $request) {
+        return $request->user();
+    });
+
+    Route::post('vouchers/{voucher}/apply', [VoucherAPIController::class, 'apply'])
+        ->name('api.vouchers.apply');
 });
 
 Route::post('migration/newSchool', [\App\Http\Controllers\API\SchoolAPIController::class, 'storeFull'])
@@ -1609,6 +1615,7 @@ Route::prefix('course-intervals')->group(function () {
     Route::post('/{id}/generate-dates', [App\Http\Controllers\API\CourseIntervalAPIController::class, 'generateDates']);
     Route::get('/{id}/discounts', [App\Http\Controllers\API\CourseIntervalDiscountAPIController::class, 'index']);
     Route::put('/{id}/discounts', [App\Http\Controllers\API\CourseIntervalDiscountAPIController::class, 'upsert']);
+    Route::post('/{id}/calculate-discount', [AppHttpControllersAPIBookingDiscountAPIController::class, 'calculateDiscount']);
 });
 /* COURSE INTERVALS API */
 
@@ -1633,3 +1640,10 @@ Route::prefix('system')
     ->group(base_path('routes/api/system.php'));
 /* SYSTEM */
 
+/* BOOKING DISCOUNTS API */
+Route::prefix('bookings')->group(function () {
+    Route::post('/calculate-discount', [App\Http\Controllers\API\BookingDiscountAPIController::class, 'calculateDiscount']);
+    Route::post('/calculate-multi-interval-discount', [App\Http\Controllers\API\BookingDiscountAPIController::class, 'calculateMultiIntervalDiscount']);
+});
+Route::get('/courses/{courseId}/intervals/{intervalId}/available-discounts', [App\Http\Controllers\API\BookingDiscountAPIController::class, 'getAvailableDiscounts']);
+/* BOOKING DISCOUNTS API */

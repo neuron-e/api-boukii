@@ -10,6 +10,7 @@ use App\Models\CourseDate;
 use App\Repositories\CourseDateRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Class CourseDateController
@@ -104,9 +105,15 @@ class CourseDateAPIController extends AppBaseController
     {
         $input = $request->all();
 
-        $courseDate = $this->courseDateRepository->create($input);
+        try {
+            $courseDate = DB::transaction(function () use ($input) {
+                return $this->courseDateRepository->create($input);
+            });
 
-        return $this->sendResponse($courseDate, 'Course Date saved successfully');
+            return $this->sendResponse($courseDate, 'Course Date saved successfully');
+        } catch (\Exception $e) {
+            return $this->sendError('Error creating course date: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -208,9 +215,15 @@ class CourseDateAPIController extends AppBaseController
             return $this->sendError('Course Date not found');
         }
 
-        $courseDate = $this->courseDateRepository->update($input, $id);
+        try {
+            $courseDate = DB::transaction(function () use ($input, $id) {
+                return $this->courseDateRepository->update($input, $id);
+            });
 
-        return $this->sendResponse(new CourseDateResource($courseDate), 'CourseDate updated successfully');
+            return $this->sendResponse(new CourseDateResource($courseDate), 'CourseDate updated successfully');
+        } catch (\Exception $e) {
+            return $this->sendError('Error updating course date: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -258,8 +271,14 @@ class CourseDateAPIController extends AppBaseController
             return $this->sendError('Course Date not found');
         }
 
-        $courseDate->delete();
+        try {
+            DB::transaction(function () use ($courseDate) {
+                $courseDate->delete();
+            });
 
-        return $this->sendSuccess('Course Date deleted successfully');
+            return $this->sendSuccess('Course Date deleted successfully');
+        } catch (\Exception $e) {
+            return $this->sendError('Error deleting course date: ' . $e->getMessage());
+        }
     }
 }

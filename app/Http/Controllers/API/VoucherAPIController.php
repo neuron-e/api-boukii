@@ -7,9 +7,11 @@ use App\Http\Requests\API\CreateVoucherAPIRequest;
 use App\Http\Requests\API\UpdateVoucherAPIRequest;
 use App\Http\Resources\API\VoucherResource;
 use App\Models\Voucher;
+use App\Models\VouchersLog;
 use App\Repositories\VoucherRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Class VoucherController
@@ -521,5 +523,63 @@ class VoucherAPIController extends AppBaseController
                 'is_transferable' => $voucher->is_transferable
             ]
         ], $available ? 'Bono disponible' : 'Bono no disponible');
+    }
+
+    /**
+     * Apply voucher usage (updates remaining balance, increments uses counter and logs usage)
+     */
+    public function apply(int $id, Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'amount' => 'required|numeric|min:0.01',
+            'booking_id' => 'nullable|integer|exists:bookings,id',
+            'client_id' => 'nullable|integer',
+        ]);
+
+        return DB::transaction(function () use ($id, $data) {
+            /** @var Voucher|null $voucher */
+            $voucher = Voucher::where('id', $id)->lockForUpdate()->first();
+            if (!$voucher) {
+                return $this->sendError('Voucher not found', null, 404);
+            }
+
+            $amount = (float) $data['amount'];
+
+            if ($amount > $voucher->remaining_balance) {
+                return $this->sendError(
+                    sprintf(
+                        'Amount %.2f exceeds remaining balance %.2f',
+                        $amount,
+                        $voucher->remaining_balance
+                    ),
+                    null,
+                    422
+                );
+            }
+
+            if (!$voucher->canBeUsed()) {
+                return $this->sendError('Voucher cannot be used (expired, inactive or without balance)', null, 422);
+            }
+
+            if (!empty($data['client_id']) && !$voucher->canBeUsedByClient($data['client_id'])) {
+                return $this->sendError('Voucher cannot be used by the selected client', null, 422);
+            }
+
+            if (!$voucher->use($amount)) {
+                return $this->sendError('Unable to apply voucher usage', null, 500);
+            }
+
+            $log = VouchersLog::create([
+                'voucher_id' => $voucher->id,
+                'booking_id' => $data['booking_id'] ?? null,
+                'amount' => $amount,
+                'status' => 'used',
+            ]);
+
+            return $this->sendResponse([
+                'voucher' => $voucher->fresh(),
+                'log' => $log,
+            ], 'Voucher applied successfully');
+        });
     }
 }

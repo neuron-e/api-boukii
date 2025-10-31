@@ -185,13 +185,13 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
     /** Newsletter */
     Route::get('newsletters/stats', [\App\Http\Controllers\Admin\NewsletterController::class, 'stats'])
         ->name('api.admin.newsletters.stats');
-    
+
     Route::get('newsletters/recent', [\App\Http\Controllers\Admin\NewsletterController::class, 'recent'])
         ->name('api.admin.newsletters.recent');
-    
+
     Route::post('newsletters/subscriber-count', [\App\Http\Controllers\Admin\NewsletterController::class, 'subscriberCount'])
         ->name('api.admin.newsletters.subscriber-count');
-    
+
     Route::get('newsletters/subscribers', [\App\Http\Controllers\Admin\NewsletterController::class, 'subscribers'])
         ->name('api.admin.newsletters.subscribers');
 
@@ -203,7 +203,7 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
             'update' => 'api.admin.newsletters.update',
             'destroy' => 'api.admin.newsletters.destroy',
         ]);
-    
+
     Route::post('newsletters/{id}/send', [\App\Http\Controllers\Admin\NewsletterController::class, 'send'])
         ->name('api.admin.newsletters.send');
 
@@ -278,7 +278,7 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
             ->name('analytics.download-export');
 
         // ===== ANALYTICS PROFESIONALES OPTIMIZADOS PARA ADMIN ANGULAR =====
-        
+
         // Dashboard de temporada (endpoint principal del admin)
         Route::get('/finance/season-dashboard', [AnalyticsProfessionalController::class, 'seasonDashboard'])
             ->name('analytics.season-dashboard');
@@ -298,7 +298,7 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
         // Gestión de caché de analytics (usado por admin)
         Route::delete('/cache/clear', [AnalyticsProfessionalController::class, 'clearCache'])
             ->name('analytics.cache-clear');
-        
+
         Route::get('/cache/status', [AnalyticsProfessionalController::class, 'cacheStatus'])
             ->name('analytics.cache-status');
 
@@ -517,24 +517,24 @@ if (app()->environment(['local', 'development'])) {
 
     // ===== TIMING API v4 - Sistema de cronometraje =====
     Route::prefix('timing')->group(function () {
-        
+
         // Endpoint de ingesta de eventos de cronometraje (con API Key auth)
         Route::post('/ingest', [\App\Http\Controllers\Admin\TimingController::class, 'ingest'])
             ->middleware('api.key:timing:write')
             ->name('timing.ingest');
-        
+
         // Stream de eventos en tiempo real (SSE)
         Route::get('/stream', [\App\Http\Controllers\Admin\TimingController::class, 'stream'])
             ->name('timing.stream');
-        
+
         // Resumen/estado inicial
         Route::get('/summary', [\App\Http\Controllers\Admin\TimingController::class, 'summary'])
             ->name('timing.summary');
-        
+
         // CRUD de tiempos individuales
         Route::put('/times/{id}', [\App\Http\Controllers\Admin\TimingController::class, 'updateTime'])
             ->name('timing.times.update');
-        
+
         Route::delete('/times/{id}', [\App\Http\Controllers\Admin\TimingController::class, 'deleteTime'])
             ->name('timing.times.delete');
     });
