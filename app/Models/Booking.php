@@ -270,6 +270,7 @@ class Booking extends Model
         'discount_code_value',
         'discount_type',
         'interval_discount_id',
+        'course_discount_id',
         'original_price',
         'discount_amount',
         'final_price',
@@ -381,13 +382,15 @@ class Booking extends Model
     {
         return $this->belongsTo(\App\Models\DiscountCode::class, 'discount_code_id');
     }
-
-    public function intervalDiscount(): IlluminateDatabaseEloquentRelationsBelongsTo
+    public function intervalDiscount(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->belongsTo(AppModelsCourseIntervalDiscount::class, 'interval_discount_id');
+        return $this->belongsTo(\App\Models\CourseIntervalDiscount::class, 'interval_discount_id');
     }
 
-
+    public function courseDiscount(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\App\Models\CourseDiscount::class, 'course_discount_id');
+    }
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults();

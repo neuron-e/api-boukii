@@ -1619,6 +1619,17 @@ Route::prefix('course-intervals')->group(function () {
 });
 /* COURSE INTERVALS API */
 
+/* COURSE DISCOUNTS API */
+Route::prefix('courses/{courseId}/discounts')->group(function () {
+    Route::get('/', [App\Http\Controllers\API\CourseDiscountAPIController::class, 'index']);
+    Route::post('/', [App\Http\Controllers\API\CourseDiscountAPIController::class, 'store']);
+    Route::get('/active', [App\Http\Controllers\API\CourseDiscountAPIController::class, 'active']);
+    Route::get('/{id}', [App\Http\Controllers\API\CourseDiscountAPIController::class, 'show']);
+    Route::put('/{id}', [App\Http\Controllers\API\CourseDiscountAPIController::class, 'update']);
+    Route::delete('/{id}', [App\Http\Controllers\API\CourseDiscountAPIController::class, 'destroy']);
+});
+/* COURSE DISCOUNTS API */
+
 /* COURSE INTERVAL GROUPS API */
 Route::prefix('course-interval-groups')->group(function () {
     Route::get('/interval/{intervalId}', [App\Http\Controllers\API\CourseIntervalGroupAPIController::class, 'indexForInterval']);

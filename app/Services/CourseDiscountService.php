@@ -3,20 +3,47 @@
 namespace App\Services;
 
 use App\Models\CourseIntervalDiscount;
-use AppModelsCourseDiscount;
+use App\Models\CourseDiscount;
 use App\Models\DiscountCode;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Servicio centralizado para gestionar descuentos de intervalos de curso
+ * Servicio centralizado para gestionar descuentos de curso
  *
  * Proporciona lógica para:
- * - Obtener descuentos aplicables para un intervalo
- * - Calcular el mejor descuento (intervalo vs código promocional)
+ * - Obtener descuentos globales aplicables a un curso
+ * - Obtener descuentos aplicables para un intervalo específico
+ * - Calcular el mejor descuento (global vs intervalo vs código promocional)
  * - Calcular precios finales con descuentos
  */
 class CourseDiscountService
 {
+    /**
+     * Obtiene los descuentos GLOBALES aplicables para un curso
+     *
+     * @param int $courseId ID del curso
+     * @param int $numDays Número de días de la reserva
+     * @param string|null $bookingDate Fecha de la reserva (opcional)
+     * @return \Illuminate\Support\Collection Colección de descuentos aplicables
+     */
+    public function getApplicableCourseDiscounts(
+        int $courseId,
+        int $numDays,
+        ?string $bookingDate = null
+    ) {
+        $discounts = CourseDiscount::where('course_id', $courseId)
+            ->active()
+            ->byPriority()
+            ->get();
+
+        return $discounts->filter(function ($discount) use ($numDays, $bookingDate) {
+            return $discount->isApplicable(
+                $numDays,
+                $bookingDate ?? now()->format('Y-m-d')
+            );
+        });
+    }
+
     /**
      * Obtiene los descuentos aplicables para un intervalo específico
      *
@@ -27,7 +54,7 @@ class CourseDiscountService
      * @param string|null $bookingDate Fecha de la reserva (opcional)
      * @return \Illuminate\Support\Collection Colección de descuentos aplicables
      */
-    public function getApplicableDiscounts(
+    public function getApplicableIntervalDiscounts(
         int $courseId,
         int $intervalId,
         int $numDays,
@@ -50,11 +77,12 @@ class CourseDiscountService
     }
 
     /**
-     * Calcula el mejor descuento entre descuentos de intervalo y código promocional
+     * Calcula el mejor descuento entre TRES tipos:
+     * 1. Descuentos GLOBALES del curso (course_discounts)
+     * 2. Descuentos por intervalo (course_interval_discounts)
+     * 3. Códigos promocionales (discount_codes)
      *
-     * Regla de negocio: descuentos EXCLUSIVOS - el usuario obtiene el mejor entre:
-     * - Descuento del intervalo (si aplica)
-     * - Código promocional (si se proporciona y es válido)
+     * Regla de negocio: descuentos EXCLUSIVOS - el usuario obtiene el mejor entre los tres.
      *
      * @param int $courseId ID del curso
      * @param int $intervalId ID del intervalo
@@ -74,7 +102,26 @@ class CourseDiscountService
         ?int $numParticipants = null,
         ?string $bookingDate = null
     ): array {
-        $intervalDiscounts = $this->getApplicableDiscounts(
+        // 1. Calcular mejor descuento GLOBAL del curso
+        $courseDiscounts = $this->getApplicableCourseDiscounts(
+            $courseId,
+            $numDays,
+            $bookingDate
+        );
+
+        $bestCourseDiscount = null;
+        $bestCourseAmount = 0;
+
+        foreach ($courseDiscounts as $discount) {
+            $amount = $discount->calculateDiscount($basePrice);
+            if ($amount > $bestCourseAmount) {
+                $bestCourseAmount = $amount;
+                $bestCourseDiscount = $discount;
+            }
+        }
+
+        // 2. Calcular mejor descuento de intervalo
+        $intervalDiscounts = $this->getApplicableIntervalDiscounts(
             $courseId,
             $intervalId,
             $numDays,
@@ -82,7 +129,6 @@ class CourseDiscountService
             $bookingDate
         );
 
-        // Calcular mejor descuento de intervalo
         $bestIntervalDiscount = null;
         $bestIntervalAmount = 0;
 
@@ -94,7 +140,7 @@ class CourseDiscountService
             }
         }
 
-        // Calcular descuento de código promocional si se proporciona
+        // 3. Calcular descuento de código promocional si se proporciona
         $promoDiscount = null;
         $promoAmount = 0;
 
@@ -118,46 +164,66 @@ class CourseDiscountService
             }
         }
 
-        // Determinar el mejor descuento
-        if ($bestIntervalAmount >= $promoAmount) {
-            // Descuento de intervalo es mejor o igual
-            return [
+        // Determinar el mejor descuento entre los TRES tipos
+        $alternatives = [];
+
+        // Crear array con todos los descuentos disponibles
+        $allDiscounts = [
+            [
+                'type' => 'course_global',
+                'discount' => $bestCourseDiscount,
+                'amount' => $bestCourseAmount,
+            ],
+            [
                 'type' => 'interval',
                 'discount' => $bestIntervalDiscount,
                 'amount' => $bestIntervalAmount,
-                'final_price' => max(0, $basePrice - $bestIntervalAmount),
-                'alternative' => $promoDiscount ? [
-                    'type' => 'promo_code',
-                    'discount' => $promoDiscount,
-                    'amount' => $promoAmount,
-                    'final_price' => max(0, $basePrice - $promoAmount)
-                ] : null
-            ];
-        } else {
-            // Código promocional es mejor
-            return [
+            ],
+            [
                 'type' => 'promo_code',
                 'discount' => $promoDiscount,
                 'amount' => $promoAmount,
-                'final_price' => max(0, $basePrice - $promoAmount),
-                'alternative' => $bestIntervalDiscount ? [
-                    'type' => 'interval',
-                    'discount' => $bestIntervalDiscount,
-                    'amount' => $bestIntervalAmount,
-                    'final_price' => max(0, $basePrice - $bestIntervalAmount)
-                ] : null
-            ];
+            ],
+        ];
+
+        // Ordenar por monto de descuento (mayor primero)
+        usort($allDiscounts, function ($a, $b) {
+            return $b['amount'] <=> $a['amount'];
+        });
+
+        // El mejor es el primero
+        $best = $allDiscounts[0];
+
+        // Los demás son alternativas (si tienen monto > 0)
+        for ($i = 1; $i < count($allDiscounts); $i++) {
+            if ($allDiscounts[$i]['amount'] > 0 && $allDiscounts[$i]['discount']) {
+                $alternatives[] = [
+                    'type' => $allDiscounts[$i]['type'],
+                    'discount' => $allDiscounts[$i]['discount'],
+                    'amount' => $allDiscounts[$i]['amount'],
+                    'final_price' => max(0, $basePrice - $allDiscounts[$i]['amount'])
+                ];
+            }
         }
+
+        return [
+            'type' => $best['type'],
+            'discount' => $best['discount'],
+            'amount' => $best['amount'],
+            'final_price' => max(0, $basePrice - $best['amount']),
+            'alternatives' => $alternatives,
+            'base_price' => $basePrice
+        ];
     }
 
     /**
      * Calcula el precio final después de aplicar un descuento
      *
      * @param float $basePrice Precio base
-     * @param CourseIntervalDiscount|null $discount Descuento a aplicar
+     * @param CourseIntervalDiscount|CourseDiscount|null $discount Descuento a aplicar
      * @return array Resultado con precio final y desglose
      */
-    public function calculateFinalPrice(float $basePrice, ?CourseIntervalDiscount $discount = null): array
+    public function calculateFinalPrice(float $basePrice, $discount = null): array
     {
         if (!$discount) {
             return [
@@ -287,13 +353,41 @@ class CourseDiscountService
     }
 
     /**
-     * Obtiene información de descuentos disponibles para mostrar en UI
+     * Obtiene información de descuentos disponibles para mostrar en UI (GLOBALES del curso)
+     *
+     * @param int $courseId ID del curso
+     * @return array Descuentos disponibles formateados para UI
+     */
+    public function getCourseDiscountsForDisplay(int $courseId): array
+    {
+        $discounts = CourseDiscount::where('course_id', $courseId)
+            ->active()
+            ->orderBy('min_days')
+            ->get();
+
+        return $discounts->map(function ($discount) {
+            return [
+                'id' => $discount->id,
+                'name' => $discount->name,
+                'description' => $discount->description,
+                'discount_type' => $discount->discount_type,
+                'discount_value' => $discount->discount_value,
+                'min_days' => $discount->min_days,
+                'valid_from' => optional($discount->valid_from)->format('Y-m-d'),
+                'valid_to' => optional($discount->valid_to)->format('Y-m-d'),
+                'display_text' => $this->formatCourseDiscountDisplay($discount)
+            ];
+        })->toArray();
+    }
+
+    /**
+     * Obtiene información de descuentos disponibles para mostrar en UI (por intervalo)
      *
      * @param int $courseId ID del curso
      * @param int $intervalId ID del intervalo
      * @return array Descuentos disponibles formateados para UI
      */
-    public function getDiscountsForDisplay(int $courseId, int $intervalId): array
+    public function getIntervalDiscountsForDisplay(int $courseId, int $intervalId): array
     {
         $discounts = CourseIntervalDiscount::where('course_id', $courseId)
             ->where('course_interval_id', $intervalId)
@@ -312,18 +406,41 @@ class CourseDiscountService
                 'min_participants' => $discount->min_participants,
                 'valid_from' => optional($discount->valid_from)->format('Y-m-d'),
                 'valid_to' => optional($discount->valid_to)->format('Y-m-d'),
-                'display_text' => $this->formatDiscountDisplay($discount)
+                'display_text' => $this->formatIntervalDiscountDisplay($discount)
             ];
         })->toArray();
     }
 
     /**
-     * Formatea un descuento para mostrar en UI
+     * Formatea un descuento global de curso para mostrar en UI
+     *
+     * @param CourseDiscount $discount Descuento
+     * @return string Texto formateado
+     */
+    private function formatCourseDiscountDisplay(CourseDiscount $discount): string
+    {
+        $valueText = $discount->discount_type === 'percentage'
+            ? "{$discount->discount_value}%"
+            : "CHF {$discount->discount_value}";
+
+        $conditionsText = [];
+
+        if ($discount->min_days) {
+            $conditionsText[] = "al reservar {$discount->min_days}+ días";
+        }
+
+        $conditions = !empty($conditionsText) ? ' ' . implode(' y ', $conditionsText) : '';
+
+        return "Descuento {$valueText}{$conditions}";
+    }
+
+    /**
+     * Formatea un descuento de intervalo para mostrar en UI
      *
      * @param CourseIntervalDiscount $discount Descuento
      * @return string Texto formateado
      */
-    private function formatDiscountDisplay(CourseIntervalDiscount $discount): string
+    private function formatIntervalDiscountDisplay(CourseIntervalDiscount $discount): string
     {
         $valueText = $discount->discount_type === 'percentage'
             ? "{$discount->discount_value}%"
@@ -341,14 +458,14 @@ class CourseDiscountService
 
         $conditions = !empty($conditionsText) ? ' ' . implode(' y ', $conditionsText) : '';
 
-        return "¡Descuento {$valueText}{$conditions}!";
+        return "Descuento {$valueText}{$conditions}";
     }
 
     /**
      * Registra la aplicación de un descuento para auditoría
      *
      * @param int $bookingId ID de la reserva
-     * @param string $discountType Tipo de descuento ('interval' o 'promo_code')
+     * @param string $discountType Tipo de descuento ('course_global', 'interval' o 'promo_code')
      * @param mixed $discount Objeto de descuento
      * @param float $amount Monto del descuento
      * @return void
@@ -366,7 +483,11 @@ class CourseDiscountService
             'timestamp' => now()->toDateTimeString()
         ];
 
-        if ($discountType === 'interval' && $discount instanceof CourseIntervalDiscount) {
+        if ($discountType === 'course_global' && $discount instanceof CourseDiscount) {
+            $logData['course_discount_id'] = $discount->id;
+            $logData['course_discount_name'] = $discount->name;
+            $logData['course_id'] = $discount->course_id;
+        } elseif ($discountType === 'interval' && $discount instanceof CourseIntervalDiscount) {
             $logData['interval_discount_id'] = $discount->id;
             $logData['interval_discount_name'] = $discount->name;
             $logData['course_id'] = $discount->course_id;
