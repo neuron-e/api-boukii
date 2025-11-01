@@ -42,6 +42,7 @@ class CourseResource extends JsonResource
             'translations' => $this->translations,
             'price_range' => $this->price_range,
             'discounts' => $this->discounts,
+            'interval_discounts' => $this->settings['interval_discounts'] ?? null,
             'settings' => $this->settings,
             'course_intervals' => $this->whenLoaded('courseIntervals', function () {
                 return $this->courseIntervals->map(function ($interval) {
