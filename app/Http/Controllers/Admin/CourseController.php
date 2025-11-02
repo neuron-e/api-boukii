@@ -884,14 +884,29 @@ class CourseController extends AppBaseController
                                         unset($subgroupData['monitor']);
                                     }
 
+                                    $previousMonitorId = null;
                                     // Verifica si existe 'id' antes de usarlo
                                     $subgroupId = $subgroupData['id'] ?? null;
+                                    if ($subgroupId) {
+                                        $existingSubgroup = $group->courseSubgroups()->find($subgroupId);
+                                        if ($existingSubgroup) {
+                                            $previousMonitorId = $existingSubgroup->monitor_id;
+                                        }
+                                    }
+
+                                    $monitorProvided = array_key_exists('monitor_id', $subgroupData);
+                                    unset($subgroupData['monitor_change_state'], $subgroupData['monitor_modified'], $subgroupData['monitor_previous_id']);
+
                                     if ($subgroupId) {
                                         $subgroup = $group->courseSubgroups()->updateOrCreate(['id' => $subgroupId], $subgroupData);
                                     } else {
                                         $subgroup = $group->courseSubgroups()->create($subgroupData);
                                     }
                                     $updatedSubgroups[] = $subgroup->id;
+
+                                    if ($monitorProvided || $previousMonitorId !== $subgroup->monitor_id) {
+                                        $this->syncBookingUsersMonitor($subgroup);
+                                    }
                                 }
 
                                 // Eliminar los subgrupos que ya no están en la request
@@ -956,6 +971,15 @@ class CourseController extends AppBaseController
             return $this->sendError('An error occurred while updating the course: ' . $e->getMessage());
         }
 
+    }
+
+    private function syncBookingUsersMonitor(\App\Models\CourseSubgroup $subgroup): void
+    {
+        BookingUser::where('course_subgroup_id', $subgroup->id)
+            ->update([
+                'monitor_id' => $subgroup->monitor_id,
+                'updated_at' => now()
+            ]);
     }
 
     public function getSellStats($id, Request $request): JsonResponse
