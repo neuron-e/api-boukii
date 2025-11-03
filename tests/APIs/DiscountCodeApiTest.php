@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 namespace Tests\APIs;
 
@@ -129,7 +129,7 @@ class DiscountCodeApiTest extends TestCase
 
     /**
      * @test
-     * Test: Se puede buscar códigos de descuento por nombre
+     * Test: Se puede buscar cÃ³digos de descuento por nombre
      */
     public function test_can_search_discount_codes_by_name()
     {
@@ -196,7 +196,7 @@ class DiscountCodeApiTest extends TestCase
 
     /**
      * @test
-     * Test: Se puede crear un código con nombre descriptivo
+     * Test: Se puede crear un cÃ³digo con nombre descriptivo
      */
     public function test_can_create_discount_code_with_descriptive_name()
     {

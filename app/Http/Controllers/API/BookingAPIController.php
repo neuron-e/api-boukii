@@ -10,12 +10,16 @@ use App\Mail\BookingCreateMailer;
 use App\Mail\BookingInfoUpdateMailer;
 use App\Models\Booking;
 use App\Models\BookingLog;
+use App\Models\Client;
+use App\Models\DiscountCode;
 use App\Models\User;
 use App\Repositories\BookingRepository;
+use App\Services\DiscountCodeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Arr;
 
 /**
  * Class BookingController
@@ -23,12 +27,13 @@ use Illuminate\Support\Facades\Mail;
 
 class BookingAPIController extends AppBaseController
 {
-    /** @var  BookingRepository */
-    private $bookingRepository;
+    private BookingRepository $bookingRepository;
+    private DiscountCodeService $discountCodeService;
 
-    public function __construct(BookingRepository $bookingRepo)
+    public function __construct(BookingRepository $bookingRepo, DiscountCodeService $discountCodeService)
     {
         $this->bookingRepository = $bookingRepo;
+        $this->discountCodeService = $discountCodeService;
     }
 
     /**
@@ -121,7 +126,67 @@ class BookingAPIController extends AppBaseController
     {
         $input = $request->all();
 
+        $grossPrice = (float) Arr::get($input, 'price_total', 0);
+        $discountCodeAmount = 0.0;
+        $discountCodeModel = null;
+
+        $client = null;
+        if ($clientId = Arr::get($input, 'client_main_id')) {
+            $client = Client::with('user')->find($clientId);
+        }
+
+        $rawDiscountCode = Arr::get($input, 'discount_code');
+        $discountCodeId = Arr::get($input, 'discount_code_id');
+
+        if ($rawDiscountCode || $discountCodeId) {
+            $discountCodeModel = $rawDiscountCode
+                ? DiscountCode::where('code', strtoupper($rawDiscountCode))->first()
+                : DiscountCode::find($discountCodeId);
+
+            if (!$discountCodeModel) {
+                return $this->sendError('Discount code not found', [
+                    'discount_code' => ['El código indicado no existe'],
+                ], 422);
+            }
+
+            $validationPayload = $this->buildAdminDiscountPayload($input, $client, $grossPrice);
+            $validation = $this->discountCodeService->getValidationDetails($discountCodeModel->code, $validationPayload);
+
+            if (!$validation['valid']) {
+                return $this->sendError('Invalid discount code', [$validation['message']], 422);
+            }
+
+            if (!empty(Arr::get($input, 'vouchers', [])) && !$discountCodeModel->stackable) {
+                return $this->sendError('El código promocional no se puede combinar con bonos', [
+                    'discount_code' => ['Este código no permite combinarse con bonos en la misma reserva'],
+                ], 422);
+            }
+
+            $discountCodeAmount = (float) $validation['discount_amount'];
+            $input['discount_code_id'] = $discountCodeModel->id;
+            $input['discount_code_value'] = $discountCodeAmount;
+            $input['price_total'] = max(0, $grossPrice - $discountCodeAmount);
+
+            if (array_key_exists('pending_amount', $input)) {
+                $input['pending_amount'] = max(0, (float) $input['pending_amount'] - $discountCodeAmount);
+            }
+        } else {
+            $input['discount_code_id'] = null;
+            $input['discount_code_value'] = 0;
+        }
+
+        unset($input['discount_code']);
+
         $booking = $this->bookingRepository->create($input);
+
+        if ($discountCodeModel && $client && $client->user) {
+            $this->discountCodeService->recordCodeUsage(
+                $discountCodeModel->id,
+                $client->user->id,
+                $booking->id,
+                $discountCodeAmount
+            );
+        }
 
         $logData = [
             'booking_id' => $booking->id,
@@ -298,6 +363,116 @@ class BookingAPIController extends AppBaseController
         $booking->delete();
 
         return $this->sendSuccess('Booking deleted successfully');
+    }
+
+    /**
+     * Build booking data payload used to validate discount codes from admin/API requests.
+     *
+     * @param array $input
+     * @param Client|null $client
+     * @param float $grossPrice
+     * @return array
+     */
+    private function buildAdminDiscountPayload(array $input, ?Client $client, float $grossPrice): array
+    {
+        $courseIds = [];
+        $degreeIds = [];
+        $sportIds = [];
+
+        $possibleCourseValues = array_merge(
+            Arr::wrap(Arr::get($input, 'course_ids', [])),
+            Arr::wrap(Arr::get($input, 'course_id'))
+        );
+
+        foreach ($possibleCourseValues as $courseId) {
+            if ($courseId !== null) {
+                $courseIds[] = $courseId;
+            }
+        }
+
+        $possibleDegreeValues = array_merge(
+            Arr::wrap(Arr::get($input, 'degree_ids', [])),
+            Arr::wrap(Arr::get($input, 'degree_id'))
+        );
+
+        foreach ($possibleDegreeValues as $degreeId) {
+            if ($degreeId !== null) {
+                $degreeIds[] = $degreeId;
+            }
+        }
+
+        $possibleSportValues = array_merge(
+            Arr::wrap(Arr::get($input, 'sport_ids', [])),
+            Arr::wrap(Arr::get($input, 'sport_id'))
+        );
+
+        foreach ($possibleSportValues as $sportId) {
+            if ($sportId !== null) {
+                $sportIds[] = $sportId;
+            }
+        }
+
+        $cartItems = Arr::wrap(Arr::get($input, 'cart', []));
+        foreach ($cartItems as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $this->collectIdsFromCartNode($item, $courseIds, $degreeIds, $sportIds);
+
+            $details = Arr::get($item, 'details', []);
+            if (is_array($details)) {
+                foreach ($details as $detail) {
+                    if (is_array($detail)) {
+                        $this->collectIdsFromCartNode($detail, $courseIds, $degreeIds, $sportIds);
+                    }
+                }
+            }
+        }
+
+        $courseIds = $this->normalizeIdArray($courseIds);
+        $degreeIds = $this->normalizeIdArray($degreeIds);
+        $sportIds = $this->normalizeIdArray($sportIds);
+
+        return [
+            'school_id' => Arr::get($input, 'school_id'),
+            'course_id' => count($courseIds) === 1 ? $courseIds[0] : null,
+            'course_ids' => $courseIds,
+            'sport_id' => count($sportIds) === 1 ? $sportIds[0] : null,
+            'sport_ids' => $sportIds,
+            'degree_id' => count($degreeIds) === 1 ? $degreeIds[0] : null,
+            'degree_ids' => $degreeIds,
+            'amount' => $grossPrice,
+            'user_id' => $client?->user?->id,
+            'client_id' => $client?->id,
+        ];
+    }
+
+    private function collectIdsFromCartNode(array $node, array &$courseIds, array &$degreeIds, array &$sportIds): void
+    {
+        $courseId = Arr::get($node, 'course_id');
+        if ($courseId !== null) {
+            $courseIds[] = $courseId;
+        }
+
+        $degreeId = Arr::get($node, 'degree_id');
+        if ($degreeId !== null) {
+            $degreeIds[] = $degreeId;
+        }
+
+        $sportId = Arr::get($node, 'sport_id');
+        if ($sportId !== null) {
+            $sportIds[] = $sportId;
+        }
+    }
+
+    private function normalizeIdArray(array $values): array
+    {
+        $filtered = array_filter($values, static function ($value) {
+            return $value !== null && $value !== '' && is_numeric($value);
+        });
+
+        return array_values(array_unique(array_map('intval', $filtered)));
     }
 
     private function applyStatusFilter($query, Request $request): void

@@ -3,45 +3,45 @@
 namespace App\Services;
 
 use App\Models\DiscountCode;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\\Support\\Facades\\Cache;\nuse Illuminate\\Support\\Arr;
 use Carbon\Carbon;
-
 /**
  * DiscountCodeService
  *
- * Servicio central para la validación y aplicación de códigos de descuento.
- * Maneja toda la lógica de negocio relacionada con códigos promocionales.
+ * Servicio central para la validaciÃ³n y aplicaciÃ³n de cÃ³digos de descuento.
+ * Maneja toda la lÃ³gica de negocio relacionada con cÃ³digos promocionales.
  */
 class DiscountCodeService
 {
     /**
-     * Validar un código de descuento para una reserva específica
+     * Validar un cÃ³digo de descuento para una reserva especÃ­fica
      *
-     * @param string $code Código promocional
+     * @param string $code CÃ³digo promocional
      * @param array $bookingData Datos de la reserva (school_id, course_id, sport_id, degree_id, amount, user_id)
      * @return array ['valid' => bool, 'discount_code' => DiscountCode|null, 'message' => string, 'discount_amount' => float]
      */
     public function validateCode(string $code, array $bookingData): array
     {
-        // Buscar el código
+        // Buscar el cÃ³digo
         $discountCode = DiscountCode::where('code', strtoupper($code))->first();
 
         if (!$discountCode) {
             return [
                 'valid' => false,
                 'discount_code' => null,
-                'message' => 'Código de descuento no encontrado',
+                'message' => 'CÃ³digo de descuento no encontrado',
                 'discount_amount' => 0
             ];
         }
 
-        // 1. Verificar si está activo
+        // 1. Verificar si estÃ¡ activo
         if (!$discountCode->isActive()) {
             return [
                 'valid' => false,
                 'discount_code' => $discountCode,
-                'message' => 'Código de descuento inactivo o eliminado',
+                'message' => 'CÃ³digo de descuento inactivo o eliminado',
                 'discount_amount' => 0
             ];
         }
@@ -52,13 +52,13 @@ class DiscountCodeService
             $validTo = $discountCode->valid_to?->format('d/m/Y');
 
             if ($validFrom && $validTo) {
-                $message = "Código válido solo entre $validFrom y $validTo";
+                $message = "CÃ³digo vÃ¡lido solo entre $validFrom y $validTo";
             } elseif ($validFrom) {
-                $message = "Código válido a partir del $validFrom";
+                $message = "CÃ³digo vÃ¡lido a partir del $validFrom";
             } elseif ($validTo) {
-                $message = "Código expirado el $validTo";
+                $message = "CÃ³digo expirado el $validTo";
             } else {
-                $message = "Código fuera del periodo de validez";
+                $message = "CÃ³digo fuera del periodo de validez";
             }
 
             return [
@@ -74,39 +74,67 @@ class DiscountCodeService
             return [
                 'valid' => false,
                 'discount_code' => $discountCode,
-                'message' => 'Código sin usos disponibles',
+                'message' => 'CÃ³digo sin usos disponibles',
                 'discount_amount' => 0
             ];
         }
 
         // 4. Verificar restricciones de entidad
         $schoolId = $bookingData['school_id'] ?? null;
-        $courseId = $bookingData['course_id'] ?? null;
-        $sportId = $bookingData['sport_id'] ?? null;
-        $degreeId = $bookingData['degree_id'] ?? null;
         $userId = $bookingData['user_id'] ?? null;
+        $clientId = $bookingData['client_id'] ?? null;
+
+        $courseId = $bookingData['course_id'] ?? null;
+        $courseIds = Arr::wrap($bookingData['course_ids'] ?? []);
+        if ($courseId !== null) {
+            $courseIds[] = (int) $courseId;
+        }
+        $courseIds = array_values(array_unique(array_map('intval', array_filter($courseIds, static function ($value) {
+            return $value !== null && $value !== '';
+        }))));
+
+        $sportId = $bookingData['sport_id'] ?? null;
+        $sportIds = Arr::wrap($bookingData['sport_ids'] ?? []);
+        if ($sportId !== null) {
+            $sportIds[] = (int) $sportId;
+        }
+        $sportIds = array_values(array_unique(array_map('intval', array_filter($sportIds, static function ($value) {
+            return $value !== null && $value !== '';
+        }))));
+
+        $degreeId = $bookingData['degree_id'] ?? null;
+        $degreeIds = Arr::wrap($bookingData['degree_ids'] ?? []);
+        if ($degreeId !== null) {
+            $degreeIds[] = (int) $degreeId;
+        }
+        $degreeIds = array_values(array_unique(array_map('intval', array_filter($degreeIds, static function ($value) {
+            return $value !== null && $value !== '';
+        }))));
 
         $applicableTo = $discountCode->applicable_to ?? 'all';
 
         if ($applicableTo === 'specific_courses') {
-            $courseIds = Arr::wrap($discountCode->course_ids);
-            if (!empty($courseIds) && (!$courseId || !in_array((int) $courseId, array_map('intval', $courseIds)))) {
+            $allowedCourseIds = array_map('intval', Arr::wrap($discountCode->course_ids));
+            if (empty($allowedCourseIds)) {
                 return [
                     'valid' => false,
                     'discount_code' => $discountCode,
-                    'message' => 'C�digo no aplicable a este curso',
+                    'message' => 'Código no aplicable: el código no tiene cursos configurados',
                     'discount_amount' => 0
                 ];
             }
         }
 
         if ($applicableTo === 'specific_clients') {
-            $clientIds = Arr::wrap($discountCode->client_ids);
-            if (empty($clientIds) || !$userId || !in_array((int) $userId, array_map('intval', $clientIds))) {
+            $allowedClientIds = array_map('intval', Arr::wrap($discountCode->client_ids));
+            $matchesClient = $clientId && in_array((int) $clientId, $allowedClientIds, true);
+            $matchesUser = $userId && in_array((int) $userId, $allowedClientIds, true);
+
+            if (empty($allowedClientIds) || (!$matchesClient && !$matchesUser)) {
                 return [
                     'valid' => false,
                     'discount_code' => $discountCode,
-                    'message' => 'C�digo no aplicable a este cliente',
+                    'message' => 'Código no aplicable a este cliente',
                     'discount_amount' => 0
                 ];
             }
@@ -116,46 +144,83 @@ class DiscountCodeService
             return [
                 'valid' => false,
                 'discount_code' => $discountCode,
-                'message' => 'C�digo no aplicable a esta escuela',
+                'message' => 'Código no aplicable a esta escuela',
                 'discount_amount' => 0
             ];
         }
 
-        if (!$discountCode->isValidForCourse($courseId)) {
-            return [
-                'valid' => false,
-                'discount_code' => $discountCode,
-                'message' => 'C�digo no aplicable a este curso',
-                'discount_amount' => 0
-            ];
+        $allowedCourseIds = array_map('intval', Arr::wrap($discountCode->course_ids));
+        if (!empty($allowedCourseIds)) {
+            if (empty($courseIds)) {
+                return [
+                    'valid' => false,
+                    'discount_code' => $discountCode,
+                    'message' => 'Código no aplicable a los cursos seleccionados',
+                    'discount_amount' => 0
+                ];
+            }
+
+            $invalidCourseIds = array_diff($courseIds, $allowedCourseIds);
+            if (!empty($invalidCourseIds)) {
+                return [
+                    'valid' => false,
+                    'discount_code' => $discountCode,
+                    'message' => 'Código no aplicable a los cursos seleccionados',
+                    'discount_amount' => 0
+                ];
+            }
         }
 
-        if (!$discountCode->isValidForSport($sportId)) {
-            return [
-                'valid' => false,
-                'discount_code' => $discountCode,
-                'message' => 'C�digo no aplicable a este deporte',
-                'discount_amount' => 0
-            ];
+        $allowedSportIds = array_map('intval', Arr::wrap($discountCode->sport_ids));
+        if (!empty($allowedSportIds)) {
+            if (empty($sportIds)) {
+                return [
+                    'valid' => false,
+                    'discount_code' => $discountCode,
+                    'message' => 'Código no aplicable a este deporte',
+                    'discount_amount' => 0
+                ];
+            }
+
+            $invalidSportIds = array_diff($sportIds, $allowedSportIds);
+            if (!empty($invalidSportIds)) {
+                return [
+                    'valid' => false,
+                    'discount_code' => $discountCode,
+                    'message' => 'Código no aplicable a este deporte',
+                    'discount_amount' => 0
+                ];
+            }
         }
 
-        if (!$discountCode->isValidForDegree($degreeId)) {
-            return [
-                'valid' => false,
-                'discount_code' => $discountCode,
-                'message' => 'C�digo no aplicable a este nivel',
-                'discount_amount' => 0
-            ];
-        }
+        $allowedDegreeIds = array_map('intval', Arr::wrap($discountCode->degree_ids));
+        if (!empty($allowedDegreeIds)) {
+            if (empty($degreeIds)) {
+                return [
+                    'valid' => false,
+                    'discount_code' => $discountCode,
+                    'message' => 'Código no aplicable a este nivel',
+                    'discount_amount' => 0
+                ];
+            }
 
-        // 5. Verificar monto mínimo de compra
+            $invalidDegreeIds = array_diff($degreeIds, $allowedDegreeIds);
+            if (!empty($invalidDegreeIds)) {
+                return [
+                    'valid' => false,
+                    'discount_code' => $discountCode,
+                    'message' => 'Código no aplicable a este nivel',
+                    'discount_amount' => 0
+                ];
+            }
+        }// 5. Verificar monto mÃ­nimo de compra
         $amount = $bookingData['amount'] ?? 0;
         if (!$discountCode->meetsMinimumPurchase($amount)) {
             $minAmount = number_format($discountCode->min_purchase_amount, 2);
             return [
                 'valid' => false,
                 'discount_code' => $discountCode,
-                'message' => "Monto mínimo de compra: $$minAmount",
+                'message' => "Monto mÃ­nimo de compra: $$minAmount",
                 'discount_amount' => 0
             ];
         }
@@ -166,7 +231,7 @@ class DiscountCodeService
             return [
                 'valid' => false,
                 'discount_code' => $discountCode,
-                'message' => 'Has alcanzado el límite de usos para este código',
+                'message' => 'Has alcanzado el lÃ­mite de usos para este cÃ³digo',
                 'discount_amount' => 0
             ];
         }
@@ -177,13 +242,13 @@ class DiscountCodeService
         return [
             'valid' => true,
             'discount_code' => $discountCode,
-            'message' => 'Código válido',
+            'message' => 'CÃ³digo vÃ¡lido',
             'discount_amount' => $discountAmount
         ];
     }
 
     /**
-     * Verificar si un usuario puede usar un código de descuento
+     * Verificar si un usuario puede usar un cÃ³digo de descuento
      *
      * @param int $discountCodeId
      * @param int $userId
@@ -197,13 +262,13 @@ class DiscountCodeService
             return false;
         }
 
-        // Si no hay límite por usuario, siempre puede usar
+        // Si no hay lÃ­mite por usuario, siempre puede usar
         if (!$discountCode->max_uses_per_user) {
             return true;
         }
 
-        // Contar cuántas veces ha usado este código
-        // NOTA: Esto requiere una tabla discount_code_usages (implementar en siguiente iteración)
+        // Contar cuÃ¡ntas veces ha usado este cÃ³digo
+        // NOTA: Esto requiere una tabla discount_code_usages (implementar en siguiente iteraciÃ³n)
         // Por ahora, retornamos true
         $usageCount = $this->getUserCodeUsageCount($discountCodeId, $userId);
 
@@ -211,7 +276,7 @@ class DiscountCodeService
     }
 
     /**
-     * Obtener el conteo de usos de un código por un usuario
+     * Obtener el conteo de usos de un cÃ³digo por un usuario
      *
      * @param int $discountCodeId
      * @param int $userId
@@ -226,7 +291,7 @@ class DiscountCodeService
     }
 
     /**
-     * Aplicar un código de descuento a una reserva
+     * Aplicar un cÃ³digo de descuento a una reserva
      *
      * @param DiscountCode $discountCode
      * @param array $bookingData
@@ -252,7 +317,7 @@ class DiscountCodeService
     }
 
     /**
-     * Registrar el uso de un código de descuento
+     * Registrar el uso de un cÃ³digo de descuento
      *
      * @param int $discountCodeId
      * @param int $userId
@@ -301,7 +366,7 @@ class DiscountCodeService
     }
 
     /**
-     * Revertir el uso de un código de descuento (útil para cancelaciones)
+     * Revertir el uso de un cÃ³digo de descuento (Ãºtil para cancelaciones)
      *
      * @param int $discountCodeId
      * @param int $userId
@@ -345,7 +410,7 @@ class DiscountCodeService
     }
 
     /**
-     * Obtener estadísticas de uso de un código
+     * Obtener estadÃ­sticas de uso de un cÃ³digo
      *
      * @param int $discountCodeId
      * @return array
@@ -376,7 +441,7 @@ class DiscountCodeService
     }
 
     /**
-     * Listar códigos activos para una escuela
+     * Listar cÃ³digos activos para una escuela
      *
      * @param int|null $schoolId
      * @return \Illuminate\Database\Eloquent\Collection
@@ -404,7 +469,7 @@ class DiscountCodeService
     }
 
     /**
-     * Buscar código por código exacto
+     * Buscar cÃ³digo por cÃ³digo exacto
      *
      * @param string $code
      * @return DiscountCode|null
@@ -415,7 +480,7 @@ class DiscountCodeService
     }
 
     /**
-     * Invalidar cache de un código
+     * Invalidar cache de un cÃ³digo
      *
      * @param int $discountCodeId
      * @return void
@@ -427,7 +492,7 @@ class DiscountCodeService
     }
 
     /**
-     * Obtener detalles completos de validación de un código
+     * Obtener detalles completos de validaciÃ³n de un cÃ³digo
      *
      * @param string $code
      * @param array $bookingData
@@ -471,5 +536,14 @@ class DiscountCodeService
         ]);
     }
 }
+
+
+
+
+
+
+
+
+
 
 

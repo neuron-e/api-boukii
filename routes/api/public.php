@@ -278,3 +278,4 @@ Route::prefix('v4')->group(function () {
     Route::get('courses/{course}/timing/summary', [\App\Http\Controllers\API\TimingController::class, 'courseSummary']);
     Route::get('courses/{course}/timing/export.csv', [\App\Http\Controllers\API\TimingController::class, 'courseExportCsv']);
 });
+

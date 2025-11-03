@@ -1,8 +1,5 @@
 <?php
 
-use App\Models\Course2;
-use App\Models\CourseGlobal;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 
@@ -101,3 +98,4 @@ Route::middleware(['bookingPage'])->group(function () {
         ->name('api.bookings.monitor.availability');
 
 });
+

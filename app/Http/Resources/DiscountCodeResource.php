@@ -35,6 +35,7 @@ class DiscountCodeResource extends JsonResource
             'degree_ids' => $this->degree_ids,
             'min_purchase_amount' => $this->min_purchase_amount,
             'max_discount_amount' => $this->max_discount_amount,
+            'stackable' => $this->stackable,
             'applicable_to' => $this->applicable_to,
             'active' => $this->active,
             'created_by' => $this->created_by,

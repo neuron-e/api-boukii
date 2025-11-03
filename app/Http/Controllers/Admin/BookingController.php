@@ -14,7 +14,6 @@ use App\Models\Booking;
 use App\Models\BookingLog;
 use App\Models\BookingUser;
 use App\Models\BookingUserExtra;
-use App\Models\BookingUsers2;
 use App\Models\Client;
 use App\Models\ClientSport;
 use App\Models\Course;
@@ -25,8 +24,6 @@ use App\Models\Payment;
 use App\Models\Voucher;
 use App\Models\VouchersLog;
 use App\Repositories\BookingRepository;
-use App\Services\CourseAvailabilityService;
-use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -35,8 +32,6 @@ use Illuminate\Support\Facades\Mail;
 use Payrexx\Payrexx;
 use Response;
 use Validator;
-
-;
 
 /**
  * Class UserController
@@ -221,53 +216,33 @@ class BookingController extends AppBaseController
                         'user_agent' => request()->userAgent()
                     ]);
 
-                    // SOLUCI�N CONCURRENCIA: Usar transacci�n con lock pessimista
-                    $availabilityService = app(CourseAvailabilityService::class);
-                    $dateForAvailability = $cartItem['date']
-                        ?? ($courseDate && $courseDate->date ? Carbon::parse($courseDate->date)->format('Y-m-d') : null);
+                    // SOLUCIÓN CONCURRENCIA: Usar transacción con lock pessimista
+                    $subgroupAssigned = DB::transaction(function () use ($cartItem, $bookingUser) {
 
-                    $subgroupAssigned = DB::transaction(function () use ($cartItem, $bookingUser, $availabilityService, $dateForAvailability) {
                         // 1. Obtener todos los subgrupos candidatos con LOCK FOR UPDATE
                         $candidateSubgroups = CourseSubgroup::where('course_date_id', $cartItem['course_date_id'])
                             ->where('degree_id', $cartItem['degree_id'])
-                            ->lockForUpdate()
+                            ->lockForUpdate() // ⚠️ LOCK PESSIMISTA - Previene race conditions
                             ->get();
 
                         // 2. Verificar disponibilidad real contando BookingUsers activos
                         foreach ($candidateSubgroups as $subgroup) {
-                            $effectiveMax = $dateForAvailability
-                                ? $availabilityService->getMaxParticipants($subgroup, $dateForAvailability)
-                                : $subgroup->max_participants;
-
-                            if ($effectiveMax !== null && $effectiveMax <= 0) {
-                                continue;
-                            }
-
-                            $currentParticipantsQuery = BookingUser::where('course_subgroup_id', $subgroup->id)
+                            $currentParticipants = BookingUser::where('course_subgroup_id', $subgroup->id)
                                 ->where('status', 1)
-                                ->whereHas('booking', function ($query) {
-                                    $query->where('status', '!=', 2);
-                                });
+                                ->count();
 
-                            if ($dateForAvailability) {
-                                $currentParticipantsQuery->whereDate('date', $dateForAvailability);
-                            }
-
-                            $currentParticipants = $currentParticipantsQuery->count();
-
-                            // 3. Verificaci�n at�mica: �hay espacio disponible?
-                            if ($effectiveMax === null || $currentParticipants < $effectiveMax) {
-                                // 4. �XITO: Asignar inmediatamente mientras tenemos el lock
+                            // 3. Verificación atómica: ¿hay espacio disponible?
+                            if ($currentParticipants < $subgroup->max_participants) {
+                                // ✅ ÉXITO: Asignar inmediatamente mientras tenemos el lock
                                 $bookingUser->course_group_id = $subgroup->course_group_id;
                                 $bookingUser->course_subgroup_id = $subgroup->id;
 
-                                // LOGGING: Registro exitoso de asignaci�n
+                                // LOGGING: Registro exitoso de asignación
                                 Log::info('BOOKING_CONCURRENCY_SUCCESS', [
                                     'subgroup_id' => $subgroup->id,
                                     'participants_before' => $currentParticipants,
-                                    'max_participants' => $effectiveMax,
-                                    'client_id' => $cartItem['client_id'],
-                                    'date' => $dateForAvailability
+                                    'max_participants' => $subgroup->max_participants,
+                                    'client_id' => $cartItem['client_id']
                                 ]);
 
                                 return true; // Subgrupo asignado exitosamente
@@ -278,23 +253,1101 @@ class BookingController extends AppBaseController
                         Log::warning('BOOKING_CONCURRENCY_FULL', [
                             'course_date_id' => $cartItem['course_date_id'],
                             'degree_id' => $cartItem['degree_id'],
-                            'date' => $dateForAvailability,
                             'total_subgroups_checked' => $candidateSubgroups->count()
                         ]);
 
                         return false; // No hay subgrupos disponibles
                     });
-                    // 4. Verificar resultado de la asignaci�n at�mica
+
+                    // 4. Verificar resultado de la asignación atómica
                     if (!$subgroupAssigned) {
                         DB::rollBack();
                         return $this->sendError(
                             'No hay plazas disponibles en el nivel ' . $cartItem['degree_id'] .
-                            ' para la fecha solicitada. El curso est� completo.',
+                            ' para la fecha solicitada. El curso está completo.',
                             ['course_date_id' => $cartItem['course_date_id'], 'degree_id' => $cartItem['degree_id']]
                         );
                     }
                 }
 
+                $bookingUser->save();
+
+                $client = Client::find($cartItem['client_id']);
+                $course = Course::find($cartItem['course_id']);
+
+                if ($course) {
+                    $sportId = $course->sport_id;
+
+                    $existingClientSport = $client->clientSports()
+                        ->where('sport_id', $sportId)
+                        ->where('school_id', $school['id'])
+                        ->first();
+
+                    if (!$existingClientSport) {
+                        ClientSport::create([
+                            'client_id' => $client->id,
+                            'sport_id' => $sportId,
+                            'school_id' => $school['id'],
+                            'degree_id' => $cartItem['degree_id']
+                        ]);
+                    }
+                }
+
+
+                // Guardar extras si existen
+                if (isset($cartItem['extras'])) {
+                    foreach ($cartItem['extras'] as $extra) {
+                        BookingUserExtra::create([
+                            'booking_user_id' => $bookingUser->id,
+                            'course_extra_id' => $extra['course_extra_id'],
+                            'quantity' => 1
+                        ]);
+                    }
+                }
+            }
+
+            // Procesar Vouchers
+            if (!empty($data['vouchers'])) {
+                foreach ($data['vouchers'] as $voucherData) {
+                    $voucher = Voucher::find($voucherData['bonus']['id']);
+                    if ($voucher) {
+                        $remaining_balance = $voucher->remaining_balance - $voucherData['bonus']['reducePrice'];
+                        $voucher->update(['remaining_balance' => $remaining_balance, 'payed' => $remaining_balance <= 0]);
+
+                        VouchersLog::create([
+                            'voucher_id' => $voucher->id,
+                            'booking_id' => $booking->id,
+                            'amount' => $voucherData['bonus']['reducePrice']
+                        ]);
+                    }
+                }
+            }
+
+            // Crear un log inicial de la reserva
+            BookingLog::create([
+                'booking_id' => $booking->id,
+                'action' => 'created by api',
+                'user_id' => $data['user_id']
+            ]);
+
+            // Crear un registro de pago si el método de pago es 1 o 4
+            if (
+                isset($data['payment_method_id']) &&
+                in_array($data['payment_method_id'], [1, 4]) &&
+                $data['paid']
+            ) {
+                $remainingAmount = $data['price_total'] - $voucherAmount;
+
+                Payment::create([
+                    'booking_id' => $booking->id,
+                    'school_id' => $school['id'],
+                    'amount' => $remainingAmount,
+                    'status' => 'paid', // Puedes ajustar el estado según tu lógica
+                    'notes' => $data['selectedPaymentOption'] ?? null,
+                    'payrexx_reference' => null, // Aquí puedes integrar Payrexx si lo necesitas
+                    'payrexx_transaction' => null
+                ]);
+            }
+
+
+            DB::commit();
+            return $this->sendResponse($booking, 'Reserva creada con éxito', 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error: '. $e->getFile());
+            Log::error('Error: '. $e->getLine());
+            Log::error('Error: '. $e->getMessage());
+            return $this->sendError('Error al crear la reserva: ' . $e->getMessage(), 500);
+        }
+    }
+
+    public function updatePayment(Request $request, $id) {
+        $data = $request->all();
+        $school = $this->getSchool($request);
+        $voucherAmount = array_sum(array_column($data['vouchers'], 'bonus.reducePrice'));
+
+        /** @var Booking $booking */
+        $booking = $this->bookingRepository->find($id, with: $request->get('with', []));
+
+        if (empty($booking)) {
+            return $this->sendError('Booking not found');
+        }
+        if($voucherAmount > 0){
+            $data['paid'] = $data['price_total'] <= $voucherAmount;
+        }
+
+        $booking = $this->bookingRepository->update($data, $id);
+
+        $booking->updateCart();
+
+        if($request->has('send_mail') && $request->input('send_mail')) {
+            dispatch(function () use ($booking) {
+                // N.B. try-catch because some test users enter unexistant emails, throwing Swift_TransportException
+                try {
+                    Mail::to($booking->clientMain->email)->send(new BookingInfoUpdateMailer($booking->school, $booking, $booking->clientMain));
+                } catch (\Exception $ex) {
+                    \Illuminate\Support\Facades\Log::debug('Admin/BookingController updatePayment: ',
+                        $ex->getTrace());
+                }
+            })->afterResponse();
+        }
+
+        if (!empty($data['vouchers'])) {
+            foreach ($data['vouchers'] as $voucherData) {
+                $voucher = Voucher::find($voucherData['bonus']['id']);
+                if ($voucher) {
+                    $remaining_balance = $voucher->remaining_balance - $voucherData['bonus']['reducePrice'];
+                    $voucher->update(['remaining_balance' => $remaining_balance, 'payed' => $remaining_balance <= 0]);
+
+                    VouchersLog::create([
+                        'voucher_id' => $voucher->id,
+                        'booking_id' => $booking->id,
+                        'amount' => $voucherData['bonus']['reducePrice']
+                    ]);
+                }
+            }
+        }
+
+        // Crear un log inicial de la reserva
+        BookingLog::create([
+            'booking_id' => $booking->id,
+            'action' => 'updated by admin',
+            'user_id' => $data['user_id']
+        ]);
+
+        //TODO: pagos
+
+        // Crear un registro de pago si el método de pago es 1 o 4
+        if (in_array($data['payment_method_id'], [1, 4])) {
+
+            $remainingAmount = $data['price_total'] - $voucherAmount;
+
+            Payment::create([
+                'booking_id' => $booking->id,
+                'school_id' => $school['id'],
+                'amount' => $remainingAmount,
+                'status' => 'paid', // Puedes ajustar el estado según tu lógica
+                'notes' => $data['selectedPaymentOption'],
+                'payrexx_reference' => null, // Aquí puedes integrar Payrexx si lo necesitas
+                'payrexx_transaction' => null
+            ]);
+        }
+
+        return $this->sendResponse($booking, 'Booking updated successfully');
+
+    }
+
+    public function update(Request $request) {
+        $school = $this->getSchool($request);
+
+        $groupId = $request->group_id;
+        $bookingId = $request->booking_id;
+        $dates = $request->dates;
+        $total = $request->total;
+
+        // MEJORA CRÍTICA: Logging del intento de actualización para auditoría
+        Log::info('BOOKING_UPDATE_ATTEMPT', [
+            'booking_id' => $bookingId,
+            'group_id' => $groupId,
+            'user_id' => auth()->id(),
+            'school_id' => $school['id'],
+            'timestamp' => now(),
+            'ip' => request()->ip()
+        ]);
+
+        // MEJORA CRÍTICA: Validar que la reserva existe y pertenece a la escuela
+        $booking = Booking::where('id', $bookingId)
+            ->where('school_id', $school['id'])
+            ->first();
+
+        if (!$booking) {
+            Log::warning('BOOKING_UPDATE_NOT_FOUND', [
+                'booking_id' => $bookingId,
+                'school_id' => $school['id']
+            ]);
+            return $this->sendError('Reserva no encontrada o sin permisos');
+        }
+
+        DB::beginTransaction();
+        try {
+
+            $bookingUsers = BookingUser::where('booking_id', $bookingId)
+                ->where('group_id', $groupId)
+                ->get();
+
+            $originalPriceTotal = $bookingUsers[0]->price;
+            // Lista para almacenar los IDs de los booking_users que están presentes en la solicitud
+            $requestBookingUserIds = [];
+
+            // 2. Iterar sobre los datos recibidos y actualizar o crear los BookingUsers
+            foreach ($dates as $date) {
+                if(!$date['selected']) {
+                    foreach ($date['booking_users'] as $bookingUserData) {
+                        $requestBookingUserIds[] = $bookingUserData['id'];
+
+                        // MEJORA CRÍTICA: Buscar el BookingUser con relaciones para optimizar queries
+                        $bookingUser = BookingUser::with(['course', 'courseSubGroup'])
+                            ->find($bookingUserData['id']);
+
+                        if ($bookingUser) {
+                            // MEJORA CRÍTICA: Si es curso colectivo y se cambia la fecha/subgrupo, validar capacidad
+                            $isChangingCriticalData = (
+                                $bookingUser->course_date_id != $date['course_date_id'] ||
+                                $bookingUser->date != $date['date']
+                            );
+
+                            if ($bookingUser->course && $bookingUser->course->course_type == 1 && $isChangingCriticalData) {
+                                Log::info('BOOKING_UPDATE_CAPACITY_CHECK', [
+                                    'booking_user_id' => $bookingUser->id,
+                                    'old_date' => $bookingUser->date,
+                                    'new_date' => $date['date'],
+                                    'old_course_date_id' => $bookingUser->course_date_id,
+                                    'new_course_date_id' => $date['course_date_id']
+                                ]);
+
+                                // SOLUCIÓN CONCURRENCIA: Validar disponibilidad con lock para curso colectivo
+                                $capacityAvailable = DB::transaction(function () use ($date, $bookingUser) {
+                                    // Buscar subgrupos candidatos con lock
+                                    $candidateSubgroups = CourseSubgroup::where('course_date_id', $date['course_date_id'])
+                                        ->where('degree_id', $bookingUser->degree_id)
+                                        ->lockForUpdate()
+                                        ->get();
+
+                                    foreach ($candidateSubgroups as $subgroup) {
+                                        $currentParticipants = BookingUser::where('course_subgroup_id', $subgroup->id)
+                                            ->where('status', 1)
+                                            ->where('id', '!=', $bookingUser->id) // Excluir este mismo usuario
+                                            ->count();
+
+                                        if ($currentParticipants < $subgroup->max_participants) {
+                                            // Asignar nuevo subgrupo
+                                            $bookingUser->course_group_id = $subgroup->course_group_id;
+                                            $bookingUser->course_subgroup_id = $subgroup->id;
+                                            return true;
+                                        }
+                                    }
+                                    return false;
+                                });
+
+                                if (!$capacityAvailable) {
+                                    DB::rollBack();
+                                    return $this->sendError(
+                                        'No hay plazas disponibles en la nueva fecha para el nivel seleccionado.',
+                                        ['date' => $date['date'], 'course_date_id' => $date['course_date_id']]
+                                    );
+                                }
+                            }
+
+                            // Actualizar los campos si el BookingUser existe
+                            $bookingUser->update([
+                                'date' => $date['date'],
+                                'course_date_id' => $date['course_date_id'],
+                                'hour_start' => $date['startHour'],
+                                'hour_end' => $date['endHour'],
+                                'price' => $date['price'],
+                                'monitor_id' => isset($date['monitor']) ? $date['monitor']['id'] : null,
+                                // Otros campos adicionales aquí
+                            ]);
+
+                            // 3. Actualizar los extras: eliminamos los existentes y los creamos nuevamente
+                            BookingUserExtra::where('booking_user_id', $bookingUser->id)->delete();
+
+                        } else {
+                            // Si el bookingUser no se encuentra, podrías lanzar un error o manejarlo de otra forma.
+                            return $this->sendError('BookingUser not found', [], 404);
+                        }
+                    }
+                    foreach ($date['utilizers'] as $utilizer) {
+                        $bookingUser = BookingUser::where('client_id', $utilizer['id'])
+                            ->where('date', $date['date']) // Asegurarse de que coincida con la fecha también
+                            ->first();
+
+                        if ($bookingUser) {
+                            foreach ($utilizer['extras'] as $extra) {
+                                BookingUserExtra::create([
+                                    'booking_user_id' => $bookingUser->id,
+                                    'course_extra_id' => $extra['id'],
+                                    'quantity' => 1
+                                ]);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 4. Poner el status en 2 a los BookingUsers que no están presentes en la solicitud
+            $bookingUsersNotInRequest = $bookingUsers->whereNotIn('id', $requestBookingUserIds);
+            foreach ($bookingUsersNotInRequest as $bookingUser) {
+                $bookingUser->update(['status' => 2]);
+            }
+
+            $booking = Booking::find($bookingId);
+            $newPrice = $booking->price_total + $total - $originalPriceTotal;
+            $booking->update(['price_total' => $newPrice]);
+            // 5. Cambiar el estado de la reserva si al menos un bookingUser fue puesto en status 2
+            if ($bookingUsersNotInRequest->count() > 0) {
+                $booking->update(['status' => 3]);
+            }
+            $booking->loadMissing([
+                'bookingUsers', 'bookingUsers.client', 'bookingUsers.degree',
+                'bookingUsers.monitor', 'bookingUsers.courseSubGroup',
+                'bookingUsers.course', 'bookingUsers.courseDate', 'clientMain',
+                "user",
+                "clientMain",
+                "vouchersLogs.voucher",
+                "bookingUsers.course.courseDates.courseGroups.courseSubgroups",
+                "bookingUsers.course.courseExtras",
+                "bookingUsers.bookingUserExtras.courseExtra",
+                "bookingUsers.client",
+                "bookingUsers.courseDate",
+                "bookingUsers.monitor",
+                "bookingUsers.degree",
+                "payments",
+                "bookingLogs"
+            ]);
+
+            // MEJORA CRÍTICA: Crear log de la actualización para auditoría
+            BookingLog::create([
+                'booking_id' => $bookingId,
+                'action' => 'updated via admin panel',
+                'user_id' => auth()->id(),
+                'metadata' => json_encode([
+                    'group_id' => $groupId,
+                    'dates_modified' => count($dates),
+                    'cancelled_booking_users' => $bookingUsersNotInRequest->count(),
+                    'price_change' => $newPrice - $booking->price_total
+                ])
+            ]);
+
+            // LOGGING: Éxito de la actualización
+            Log::info('BOOKING_UPDATE_SUCCESS', [
+                'booking_id' => $bookingId,
+                'group_id' => $groupId,
+                'user_id' => auth()->id(),
+                'price_change' => $newPrice - $booking->price_total,
+                'cancelled_count' => $bookingUsersNotInRequest->count(),
+                'updated_count' => count($requestBookingUserIds)
+            ]);
+
+            DB::commit();
+            return $this->sendResponse($booking, 'Reserva actualizada con éxito', 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            // LOGGING: Error detallado
+            Log::error('BOOKING_UPDATE_FAILED', [
+                'booking_id' => $bookingId,
+                'group_id' => $groupId,
+                'user_id' => auth()->id(),
+                'error_message' => $e->getMessage(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
+                'stack_trace' => $e->getTraceAsString()
+            ]);
+
+            return $this->sendError('Error al actualizar la reserva: ' . $e->getMessage(), 500);
+        }
+    }
+
+    function createBasket($bookingData) {
+        // Agrupar por group_id
+        $groupedCartItems = $this->groupCartItemsByGroupId($bookingData['cart']);
+        $basket = [];
+
+        // Procesar descuentos, reducciones y seguros
+        $totalVoucherDiscount = 0;
+        if (!empty($bookingData['vouchers'])) {
+            foreach ($bookingData['vouchers'] as $voucher) {
+                $totalVoucherDiscount += $voucher['bonus']['reducePrice'];
+            }
+        }
+
+        // Crear un objeto base para el precio total y otros datos comunes
+        $basketBase = [
+            'payment_method_id' => $bookingData['payment_method_id'],
+            'tva' => !empty($bookingData['price_tva']) ? [
+                'name' => 'TVA',
+                'quantity' => 1,
+                'price' => $bookingData['price_tva']
+            ] : null,
+            'cancellation_insurance' => !empty($bookingData['price_cancellation_insurance']) ? [
+                'name' => 'Cancellation Insurance',
+                'quantity' => 1,
+                'price' => $bookingData['price_cancellation_insurance']
+            ] : null,
+            'bonus' => !empty($bookingData['vouchers']) ? [
+                'total' => count($bookingData['vouchers']),
+                'bonuses' => array_map(function($voucher) {
+                    return [
+                        'name' => $voucher['bonus']['code'],
+                        'quantity' => 1,
+                        'price' => -$voucher['bonus']['reducePrice']
+                    ];
+                }, $bookingData['vouchers']),
+            ] : null,
+            'reduction' => !empty($bookingData['price_reduction']) ? [
+                'name' => 'Reduction',
+                'quantity' => 1,
+                'price' => -$bookingData['price_reduction']
+            ] : null,
+            // Puedes añadir más campos comunes aquí
+        ];
+
+        foreach ($groupedCartItems as $group) {
+            // Calcular el precio base para el curso, sumando y restando extras
+            $priceBase = $group['price_base'];
+            $totalExtrasPrice = $group['extra_price'];
+            $totalPrice = $group['price'];
+
+            // Crear un objeto solo con price_base y extras
+            $basketItem = [
+                'price_base' => [
+                    'name' => $group['course_name'],
+                    'quantity' => count($group['items']),
+                    'price' => $priceBase
+                ],
+                'extras' => [
+                    'total' => count($group['extras']),
+                    'price' => $totalExtrasPrice,
+                    'extras' => $group['extras']
+                ],
+                'price_total' => $totalPrice,
+            ];
+
+            // Agregar el objeto base a cada basket item
+            $basket[] = array_merge($basketBase, $basketItem);
+        }
+
+        // Crear el arreglo final
+        $finalBasket = [];
+        foreach ($basket as $item) {
+            $finalBasket[] = [
+                'name' => [1 => $item['price_base']['name']],
+                'quantity' => 1,
+                'amount' => $item['price_base']['price'] * 100, // Convertir el precio a centavos
+            ];
+
+            // Agregar extras al "basket"
+            if (isset($item['extras']['extras']) && count($item['extras']['extras']) > 0) {
+                foreach ($item['extras']['extras'] as $extra) {
+                    $finalBasket[] = [
+                        'name' => [1 => 'Extra: ' . $extra['name']],
+                        'quantity' => $extra['quantity'],
+                        'amount' => $extra['price'] * 100, // Convertir el precio a centavos
+                    ];
+                }
+            }
+        }
+
+        // Agregar bonos al "basket"
+        if (isset($basket[0]['bonus']['bonuses']) && count($basket[0]['bonus']['bonuses']) > 0) {
+            foreach ($basket[0]['bonus']['bonuses'] as $bonus) {
+                $finalBasket[] = [
+                    'name' => [1 => 'Bono: ' . $bonus['name']],
+                    'quantity' => $bonus['quantity'],
+                    'amount' => $bonus['price'] * 100, // Convertir el precio a centavos
+                ];
+            }
+        }
+
+        // Agregar el campo "reduction" al "basket"
+        if (isset($basket[0]['reduction'])) {
+            $finalBasket[] = [
+                'name' => [1 => $basket[0]['reduction']['name']],
+                'quantity' => $basket[0]['reduction']['quantity'],
+                'amount' => $basket[0]['reduction']['price'] * 100, // Convertir el precio a centavos
+            ];
+        }
+
+        // Agregar "tva" al "basket"
+        if (isset($basket[0]['tva']['name'])) {
+            $finalBasket[] = [
+                'name' => [1 => $basket[0]['tva']['name']],
+                'quantity' => $basket[0]['tva']['quantity'],
+                'amount' => $basket[0]['tva']['price'] * 100, // Convertir el precio a centavos
+            ];
+        }
+
+        // Agregar "Boukii Care" al "basket"
+        // BOUKII CARE DESACTIVADO -         // BOUKII CARE DESACTIVADO -         if (isset($basket[0]['boukii_care']['name'])) {
+        // BOUKII CARE DESACTIVADO -             $finalBasket[] = [
+        // BOUKII CARE DESACTIVADO -         // BOUKII CARE DESACTIVADO -                 'name' => [1 => $basket[0]['boukii_care']['name']],
+        // BOUKII CARE DESACTIVADO -         // BOUKII CARE DESACTIVADO -                 'quantity' => $basket[0]['boukii_care']['quantity'],
+        // BOUKII CARE DESACTIVADO -         // BOUKII CARE DESACTIVADO -                 'amount' => $basket[0]['boukii_care']['price'] * 100, // Convertir el precio a centavos
+        // BOUKII CARE DESACTIVADO -             ];
+        // BOUKII CARE DESACTIVADO -         }
+
+        // Agregar "Cancellation Insurance" al "basket"
+        if (isset($basket[0]['cancellation_insurance']['name'])) {
+            $finalBasket[] = [
+                'name' => [1 => $basket[0]['cancellation_insurance']['name']],
+                'quantity' => $basket[0]['cancellation_insurance']['quantity'],
+                'amount' => $basket[0]['cancellation_insurance']['price'] * 100, // Convertir el precio a centavos
+            ];
+        }
+
+        return $finalBasket; // Retorna el arreglo final del basket
+    }
+
+    function groupCartItemsByGroupId($cartItems) {
+        $groupedItems = [];
+
+        foreach ($cartItems as $item) {
+            $group_id = $item['group_id'];
+
+            if (!isset($groupedItems[$group_id])) {
+                $groupedItems[$group_id] = [
+                    'group_id' => $group_id,
+                    'course_name' => $item['course_name'],
+                    'price_base' =>  $item['price_base'],
+                    'extra_price' =>  $item['extra_price'],
+                    'price' =>  $item['price'],
+                    'extras' => [],
+                    'items' => [],
+                ];
+            }
+
+            // Sumar extras
+            if (!empty($item['extras'])) {
+                foreach ($item['extras'] as $extra) {
+                    $extraPrice = $extra['price'] ;
+                    $groupedItems[$group_id]['extras'][] = [
+                        'course_extra_id' => $extra['course_extra_id'],
+                        'name' => $extra['name'],
+                        'price' => $extraPrice,
+                        'quantity' => 1,
+                    ];
+                }
+            }
+
+            // Guardar los detalles de cada ítem en el grupo
+            $groupedItems[$group_id]['items'][] = $item;
+        }
+
+        return $groupedItems;
+    }
+
+
+    /**
+     * @OA\Post(
+     *      path="/admin/bookings/checkbooking",
+     *      summary="checkOverlapBooking",
+     *      tags={"Admin"},
+     *      description="Check overlap booking for a client",
+     *      @OA\Response(
+     *          response=200,
+     *          description="successful operation",
+     *          @OA\JsonContent(
+     *              type="object",
+     *              @OA\Property(
+     *                  property="success",
+     *                  type="boolean"
+     *              ),
+     *              @OA\Property(
+     *                  property="data",
+     *                  type="array",
+     *                  @OA\Items(ref="#/components/schemas/Client")
+     *              ),
+     *              @OA\Property(
+     *                  property="message",
+     *                  type="string"
+     *              )
+     *          )
+     *      )
+     * )
+     */
+    public function checkClientBookingOverlap(Request $request): JsonResponse
+    {
+        $overlapBookingUsers = [];
+        $bookingUserIds = $request->input('bookingUserIds', []);
+
+        foreach ($request->bookingUsers as $bookingUser) {
+            if (BookingUser::hasOverlappingBookings($bookingUser, $bookingUserIds)) {
+                $overlapBookingUsers[] = $bookingUser;
+            }
+        }
+
+        if (count($overlapBookingUsers)) {
+            return $this->sendResponse($overlapBookingUsers, 'Client has overlapping bookings', 409);
+        }
+
+        return $this->sendResponse([], 'Client has no overlapping bookings');
+    }
+
+    /**
+     * @OA\Post(
+     *      path="/admin/bookings/payments/{id}",
+     *      summary="payBooking",
+     *      tags={"Admin"},
+     *      description="Pay specific booking",
+     *      @OA\Response(
+     *          response=200,
+     *          description="successful operation",
+     *          @OA\JsonContent(
+     *              type="object",
+     *              @OA\Property(
+     *                  property="success",
+     *                  type="boolean"
+     *              ),
+     *              @OA\Property(
+     *                  property="data",
+     *                  type="array",
+     *                  @OA\Items(ref="#/components/schemas/Client")
+     *              ),
+     *              @OA\Property(
+     *                  property="message",
+     *                  type="string"
+     *              )
+     *          )
+     *      )
+     * )
+     */
+    public function payBooking(Request $request, $id): JsonResponse
+    {
+        $school = $this->getSchool($request);
+
+        // MEJORA CRÍTICA: Validación de entrada
+        $request->validate([
+            'payment_method_id' => 'sometimes|integer|in:1,2,3,4',
+        ]);
+
+        // MEJORA CRÍTICA: Validar que la reserva existe y pertenece a la escuela
+        $booking = Booking::where('id', $id)
+            ->where('school_id', $school['id'])
+            ->with(['clientMain', 'bookingUsers'])
+            ->first();
+
+        if (!$booking) {
+            Log::warning('PAY_BOOKING_NOT_FOUND', [
+                'booking_id' => $id,
+                'school_id' => $school['id'],
+                'user_id' => auth()->id()
+            ]);
+            return $this->sendError('Booking not found or access denied', [], 404);
+        }
+
+        // MEJORA CRÍTICA: Verificar que la reserva no esté ya pagada
+        if ($booking->paid) {
+            Log::warning('PAY_BOOKING_ALREADY_PAID', [
+                'booking_id' => $id,
+                'user_id' => auth()->id()
+            ]);
+            return $this->sendError('Esta reserva ya está pagada');
+        }
+
+        // MEJORA CRÍTICA: Verificar que la reserva no esté cancelada
+        if ($booking->status == 2) {
+            Log::warning('PAY_BOOKING_CANCELLED', [
+                'booking_id' => $id,
+                'user_id' => auth()->id()
+            ]);
+            return $this->sendError('No se puede procesar pago de una reserva cancelada');
+        }
+
+        $paymentMethod = $request->get('payment_method_id') ?? $booking->payment_method_id;
+
+        // MEJORA CRÍTICA: Logging del intento de pago
+        Log::info('PAY_BOOKING_ATTEMPT', [
+            'booking_id' => $id,
+            'payment_method' => $paymentMethod,
+            'user_id' => auth()->id(),
+            'school_id' => $school['id'],
+            'booking_total' => $booking->price_total,
+            'client_email' => $booking->clientMain->email ?? null,
+            'timestamp' => now(),
+            'ip' => request()->ip()
+        ]);
+
+        // MEJORA CRÍTICA: Usar transacción para actualizar método de pago
+        DB::beginTransaction();
+        try {
+            $previousPaymentMethod = $booking->payment_method_id;
+            $booking->payment_method_id = $paymentMethod;
+            $booking->save();
+
+            // Crear log del cambio de método de pago
+            BookingLog::create([
+                'booking_id' => $booking->id,
+                'action' => 'payment_method_updated',
+                'user_id' => auth()->id(),
+                'metadata' => json_encode([
+                    'previous_method' => $previousPaymentMethod,
+                    'new_method' => $paymentMethod
+                ])
+            ]);
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('PAY_BOOKING_UPDATE_FAILED', [
+                'booking_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+            return $this->sendError('Error actualizando método de pago: ' . $e->getMessage(), 500);
+        }
+
+
+        if ($paymentMethod == 1) {
+            Log::warning('PAY_BOOKING_UNSUPPORTED_METHOD', [
+                'booking_id' => $id,
+                'payment_method' => $paymentMethod,
+                'user_id' => auth()->id()
+            ]);
+            return $this->sendError('Payment method not supported for this booking');
+        }
+
+        if ($paymentMethod == 2) {
+            try {
+                $payrexxLink = PayrexxHelpers::createGatewayLink(
+                    $school,
+                    $booking,
+                    $request,
+                    $booking->clientMain,
+                    'panel'
+                );
+
+                if ($payrexxLink) {
+                    // LOGGING: Éxito creando link de pago
+                    Log::info('PAY_BOOKING_GATEWAY_SUCCESS', [
+                        'booking_id' => $id,
+                        'payment_method' => $paymentMethod,
+                        'user_id' => auth()->id(),
+                        'link_created' => true
+                    ]);
+
+                    // Crear log del enlace de pago
+                    BookingLog::create([
+                        'booking_id' => $booking->id,
+                        'action' => 'payment_gateway_link_created',
+                        'user_id' => auth()->id(),
+                        'metadata' => json_encode([
+                            'payment_method' => $paymentMethod,
+                            'link_type' => 'gateway'
+                        ])
+                    ]);
+
+                    return $this->sendResponse($payrexxLink, 'Link retrieved successfully');
+                }
+
+                Log::error('PAY_BOOKING_GATEWAY_FAILED', [
+                    'booking_id' => $id,
+                    'payment_method' => $paymentMethod,
+                    'user_id' => auth()->id(),
+                    'link_created' => false
+                ]);
+
+                return $this->sendError('Link could not be created');
+
+            } catch (\Exception $e) {
+                Log::error('PAY_BOOKING_GATEWAY_EXCEPTION', [
+                    'booking_id' => $id,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                return $this->sendError('Error creating payment link: ' . $e->getMessage(), 500);
+            }
+        }
+
+        if ($paymentMethod == 3) {
+
+            $payrexxLink = PayrexxHelpers::createPayLink(
+                $school,
+                $booking,
+                $request,
+                $booking->clientMain
+            );
+
+            if (strlen($payrexxLink) > 1) {
+
+                // Send by email
+                try {
+                    $bookingData = $booking->fresh();   // To retrieve its generated PayrexxReference
+                    $logData = [
+                        'booking_id' => $booking->id,
+                        'action' => 'send_pay_link',
+                        'user_id' => $booking->user_id,
+                        'description' => 'Booking pay link sent',
+                    ];
+
+                    BookingLog::create($logData);
+                    dispatch(function () use ($school, $booking, $bookingData, $payrexxLink) {
+                        // N.B. try-catch because some test users enter unexistant emails, throwing Swift_TransportException
+                        try {
+                            \Mail::to($booking->clientMain->email)
+                                ->send(new BookingPayMailer(
+                                    $school,
+                                    $bookingData,
+                                    $booking->clientMain,
+                                    $payrexxLink
+                                ));
+                        } catch (\Exception $e) {
+                            Log::channel('payrexx')->error('PayrexxHelpers sendMailing payBooking Booking ID=' . $booking->id);
+                            Log::channel('payrexx')->error($e->getMessage());
+                        }
+                    });
+                } catch (\Exception $e) {
+                    Log::channel('payrexx')->error('PayrexxHelpers sendPayEmail payBooking Booking ID=' . $booking->id);
+                    Log::channel('payrexx')->error($e->getMessage());
+                    return $this->sendError('Link could not be created');
+                }
+
+
+
+                return $this->sendResponse([], 'Mail sent correctly');
+
+            }
+            return $this->sendError('Link could not be created');
+
+        }
+
+        return $this->sendError('Invalid payment method');
+    }
+
+    public function mailBooking(Request $request, $id): JsonResponse
+    {
+        $booking = Booking::find($id);
+        if (!$booking) {
+            return $this->sendError('Booking not found', [], 404);
+        }
+
+        try {
+            if($request['is_info']) {
+                Mail::to($booking->clientMain->email)
+                    ->send(new BookingInfoMailer($booking->school, $booking, $booking->clientMain));
+            } else {
+                Mail::to($booking->clientMain->email)
+                    ->send(new BookingCreateMailer($booking->school, $booking, $booking->clientMain, $request['paid']));
+            }
+        } catch (\Exception $ex) {
+            \Illuminate\Support\Facades\Log::debug('BookingControllerMail->createBooking BookingCreateMailer: ' .
+                $ex->getMessage());
+            return $this->sendError('Error sending mail: '. $ex->getMessage(), 400);
+        }
+
+        return $this->sendResponse([], 'Mail sent correctly');
+    }
+
+    /**
+     * @OA\Post(
+     *      path="/admin/bookings/refunds/{id}",
+     *      summary="refundBooking",
+     *      tags={"Admin"},
+     *      description="Refund specific booking",
+     *      @OA\Parameter(
+     *          name="id",
+     *          in="path",
+     *          description="ID of the booking to refund",
+     *          required=true,
+     *          @OA\Schema(type="integer")
+     *      ),
+     *      @OA\Parameter(
+     *          name="amount",
+     *          in="query",
+     *          description="Amount to refund",
+     *          required=true,
+     *          @OA\Schema(type="number", format="float")
+     *      ),
+     *      @OA\Response(
+     *          response=200,
+     *          description="Successful refund",
+     *          @OA\JsonContent(
+     *              type="object",
+     *              @OA\Property(
+     *                  property="success",
+     *                  type="boolean",
+     *                  example=true
+     *              ),
+     *              @OA\Property(
+     *                  property="data",
+     *                  type="boolean",
+     *                  example= true
+     *              ),
+     *              @OA\Property(
+     *                  property="message",
+     *                  type="string",
+     *                  example="Refund completed successfully"
+     *              )
+     *          )
+     *      ),
+     *      @OA\Response(
+     *          response=404,
+     *          description="Booking not found",
+     *          @OA\JsonContent(
+     *              type="object",
+     *              @OA\Property(
+     *                  property="success",
+     *                  type="boolean",
+     *                  example=false
+     *              ),
+     *              @OA\Property(
+     *                  property="error",
+     *                  type="string",
+     *                  example="Booking not found"
+     *              )
+     *          )
+     *      ),
+     *      @OA\Response(
+     *          response=400,
+     *          description="Invalid request",
+     *          @OA\JsonContent(
+     *              type="object",
+     *              @OA\Property(
+     *                  property="success",
+     *                  type="boolean",
+     *                  example=false
+     *              ),
+     *              @OA\Property(
+     *                   property="error",
+     *                   type="string",
+     *                   description="Error message"
+     *               )
+     *          )
+     *      )
+     * )
+     */
+    public function refundBooking(Request $request, $id): JsonResponse
+    {
+        $school = $this->getSchool($request);
+        $booking = Booking::with('payments')->find($id);
+        $amountToRefund = $request->get('amount');
+
+        if (!$booking) {
+            return $this->sendError('Booking not found', 404);
+        }
+
+        if (!is_numeric($amountToRefund) || $amountToRefund <= 0) {
+            return $this->sendError('Invalid amount', 400);
+        }
+
+        $refund = PayrexxHelpers::refundTransaction($booking, $amountToRefund);
+
+        if ($refund) {
+            return $this->sendResponse(['refund' => $refund], 'Refund completed successfully');
+        }
+
+        return $this->sendError('Refund failed', 500);
+    }
+
+    /**
+     * @OA\Post(
+     *      path="/admin/bookings/cancel",
+     *      summary="cancelBooking",
+     *      tags={"Admin"},
+     *      description="Cancel specific booking or group of bookingIds",
+     *      @OA\Response(
+     *          response=200,
+     *          description="successful operation",
+     *          @OA\JsonContent(
+     *              type="object",
+     *              @OA\Property(
+     *                  property="success",
+     *                  type="boolean"
+     *              ),
+     *              @OA\Property(
+     *                  property="data",
+     *                  type="array",
+     *                  @OA\Items(ref="#/components/schemas/Booking")
+     *              ),
+     *              @OA\Property(
+     *                  property="message",
+     *                  type="string"
+     *              )
+     *          )
+     *      )
+     * )
+     */
+    public function cancelBookings(Request $request): JsonResponse
+    {
+        // Obtiene la escuela
+        $school = $this->getSchool($request);
+
+        // MEJORA CRÍTICA: Validación de entrada
+        $request->validate([
+            'bookingUsers' => 'required|array|min:1',
+            'bookingUsers.*' => 'integer|exists:booking_users,id',
+            'sendEmails' => 'sometimes|boolean',
+            'cancelReason' => 'sometimes|string|max:500'
+        ]);
+
+        // MEJORA CRÍTICA: Logging del intento de cancelación
+        Log::info('BOOKING_CANCEL_ATTEMPT', [
+            'booking_users_ids' => $request->bookingUsers,
+            'user_id' => auth()->id(),
+            'school_id' => $school['id'],
+            'send_emails' => $request->input('sendEmails', true),
+            'cancel_reason' => $request->input('cancelReason', 'No especificado'),
+            'timestamp' => now(),
+            'ip' => request()->ip()
+        ]);
+
+        // Obtiene los BookingUsers de la solicitud con validación de permisos
+        $bookingUsers = BookingUser::whereIn('id', $request->bookingUsers)
+            ->whereHas('booking', function($query) use ($school) {
+                $query->where('school_id', $school['id']);
+            })
+            ->get();
+
+        // Verifica si existen BookingUsers
+        if ($bookingUsers->isEmpty()) {
+            Log::warning('BOOKING_CANCEL_NOT_FOUND', [
+                'requested_ids' => $request->bookingUsers,
+                'school_id' => $school['id']
+            ]);
+            return $this->sendError('Booking users not found or access denied', [], 404);
+        }
+
+        // MEJORA CRÍTICA: Verificar que todos los BookingUsers pertenecen a la misma reserva
+        $uniqueBookingIds = $bookingUsers->pluck('booking_id')->unique();
+        if ($uniqueBookingIds->count() > 1) {
+            Log::error('BOOKING_CANCEL_MULTIPLE_BOOKINGS', [
+                'booking_ids' => $uniqueBookingIds->toArray(),
+                'booking_users_ids' => $request->bookingUsers
+            ]);
+            return $this->sendError('Los BookingUsers deben pertenecer a la misma reserva');
+        }
+
+        // MEJORA CRÍTICA: Verificar que ningún BookingUser ya está cancelado
+        $alreadyCancelled = $bookingUsers->where('status', 2);
+        if ($alreadyCancelled->isNotEmpty()) {
+            Log::warning('BOOKING_CANCEL_ALREADY_CANCELLED', [
+                'cancelled_ids' => $alreadyCancelled->pluck('id')->toArray()
+            ]);
+            return $this->sendError('Algunos BookingUsers ya están cancelados');
+        }
+
+        // Obtiene la reserva asociada
+        $booking = $bookingUsers[0]->booking;
+
+        // Carga las relaciones necesarias
+        $booking->loadMissing([
+            'bookingUsers', 'bookingUsers.client', 'bookingUsers.degree',
+            'bookingUsers.monitor', 'bookingUsers.courseSubGroup',
+            'bookingUsers.course', 'bookingUsers.courseDate', 'clientMain',
+            "user",
+            "clientMain",
+            "vouchersLogs.voucher",
+            "bookingUsers.course.courseDates.courseGroups.courseSubgroups",
+            "bookingUsers.course.courseExtras",
+            "bookingUsers.bookingUserExtras.courseExtra",
+            "bookingUsers.client",
+            "bookingUsers.courseDate",
+            "bookingUsers.monitor",
+            "bookingUsers.degree",
+            "payments",
+            "bookingLogs"
+        ]);
+
+        // MEJORA CRÍTICA: Usar transacción para operaciones atómicas
+        DB::beginTransaction();
+        try {
+            $cancelledPriceTotal = 0;
+
+            // Actualiza el status de los bookingUsers a cancelado (status = 2)
+            foreach ($bookingUsers as $bookingUser) {
+                $cancelledPriceTotal += $bookingUser->price;
+                $bookingUser->status = 2;
                 $bookingUser->save();
 
                 // MEJORA CRÍTICA: Liberar la plaza en cursos colectivos
@@ -305,12 +1358,6 @@ class BookingController extends AppBaseController
                         'client_id' => $bookingUser->client_id,
                         'date' => $bookingUser->date
                     ]);
-
-                    // NUEVO: Invalidar cache de disponibilidad al liberar plaza
-                    $subgroup = CourseSubgroup::find($bookingUser->course_subgroup_id);
-                    if ($subgroup && $bookingUser->date) {
-                        $subgroup->invalidateAvailabilityCache($bookingUser->date);
-                    }
                 }
             }
 
@@ -405,10 +1452,3 @@ class BookingController extends AppBaseController
         return $this->sendResponse($booking, 'Cancel completed successfully');
     }
 }
-
-
-
-
-
-
-

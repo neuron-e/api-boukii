@@ -10,6 +10,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Http\Controllers\AppBaseController;
 use App\Http\Resources\DiscountCodeResource;
+use App\Services\DiscountCodeService;
+use Illuminate\Support\Arr;
 
 /**
  * Class DiscountCodeController
@@ -17,12 +19,15 @@ use App\Http\Resources\DiscountCodeResource;
 
 class DiscountCodeAPIController extends AppBaseController
 {
-    /** @var  DiscountCodeRepository */
-    private $discountCodeRepository;
+    private DiscountCodeRepository $discountCodeRepository;
+    private DiscountCodeService $discountCodeService;
 
-    public function __construct(DiscountCodeRepository $discountCodeRepo)
-    {
+    public function __construct(
+        DiscountCodeRepository $discountCodeRepo,
+        DiscountCodeService $discountCodeService
+    ) {
         $this->discountCodeRepository = $discountCodeRepo;
+        $this->discountCodeService = $discountCodeService;
     }
 
     /**
@@ -357,96 +362,69 @@ class DiscountCodeAPIController extends AppBaseController
      */
     public function validateCode(Request $request): JsonResponse
     {
-        $code = $request->input('code');
-        $schoolId = $request->input('school_id');
-        $purchaseAmount = (float) $request->input('purchase_amount', 0);
-        $courseIds = $request->input('course_ids', []);
-        $clientId = $request->input('client_id');
+        $rawCode = $request->route('code') ?? $request->input('code', '');
+        $code = strtoupper(trim((string) $rawCode));
 
-        if (!$code) {
-            return $this->sendError('Discount code is required', 400);
+        if ($code === '') {
+            return $this->sendError('Discount code is required', 422);
         }
 
-        /** @var DiscountCode $discountCode */
-        $discountCode = DiscountCode::where('code', $code)->first();
-
-        if (!$discountCode) {
-            return $this->sendResponse([
-                'valid' => false,
-                'message' => 'Discount code not found'
-            ], 'Validation completed');
-        }
-
-        // Verificar si está activo
-        if (!$discountCode->isActive()) {
-            return $this->sendResponse([
-                'valid' => false,
-                'message' => 'This discount code is not active'
-            ], 'Validation completed');
-        }
-
-        // Verificar validez temporal
-        if (!$discountCode->isValidForDate()) {
-            return $this->sendResponse([
-                'valid' => false,
-                'message' => 'This discount code is not valid at this time'
-            ], 'Validation completed');
-        }
-
-        // Verificar usos disponibles
-        if (!$discountCode->hasUsesAvailable()) {
-            return $this->sendResponse([
-                'valid' => false,
-                'message' => 'This discount code has no uses remaining'
-            ], 'Validation completed');
-        }
-
-        // Verificar escuela
-        if ($schoolId && !$discountCode->isValidForSchool($schoolId)) {
-            return $this->sendResponse([
-                'valid' => false,
-                'message' => 'This discount code is not valid for this school'
-            ], 'Validation completed');
-        }
-
-        // Verificar cursos si se proporcionan
-        if (!empty($courseIds) && !empty($discountCode->course_ids)) {
-            $validForAnyCourse = false;
-            foreach ($courseIds as $courseId) {
-                if ($discountCode->isValidForCourse($courseId)) {
-                    $validForAnyCourse = true;
-                    break;
-                }
+        $normalizeIds = static function ($values): array {
+            if (!is_array($values)) {
+                $values = [$values];
             }
 
-            if (!$validForAnyCourse) {
-                return $this->sendResponse([
-                    'valid' => false,
-                    'message' => 'This discount code is not valid for the selected courses'
-                ], 'Validation completed');
-            }
+            $filtered = array_filter($values, static function ($value) {
+                return $value !== null && $value !== '' && is_numeric($value);
+            });
+
+            return array_values(array_unique(array_map('intval', $filtered)));
+        };
+
+        $amount = (float) ($request->input('purchase_amount', $request->input('amount', 0)));
+        $courseIds = $normalizeIds(array_merge(
+            Arr::wrap($request->input('course_ids', [])),
+            Arr::wrap($request->input('course_id'))
+        ));
+        $sportIds = $normalizeIds(array_merge(
+            Arr::wrap($request->input('sport_ids', [])),
+            Arr::wrap($request->input('sport_id'))
+        ));
+        $degreeIds = $normalizeIds(array_merge(
+            Arr::wrap($request->input('degree_ids', [])),
+            Arr::wrap($request->input('degree_id'))
+        ));
+
+        $userId = $request->input('user_id', $request->input('client_user_id'));
+        $clientId = $request->input('client_id', $request->input('client_main_id'));
+
+        $bookingData = [
+            'school_id' => $request->input('school_id'),
+            'course_id' => count($courseIds) === 1 ? $courseIds[0] : null,
+            'course_ids' => $courseIds,
+            'sport_id' => count($sportIds) === 1 ? $sportIds[0] : null,
+            'sport_ids' => $sportIds,
+            'degree_id' => count($degreeIds) === 1 ? $degreeIds[0] : null,
+            'degree_ids' => $degreeIds,
+            'amount' => $amount,
+            'user_id' => $userId ? (int) $userId : null,
+            'client_id' => $clientId ? (int) $clientId : null,
+        ];
+
+        $validation = $this->discountCodeService->getValidationDetails($code, $bookingData);
+
+        if ($validation['discount_code'] instanceof DiscountCode) {
+            $validation['discount_code'] = new DiscountCodeResource($validation['discount_code']);
         }
 
-        // Verificar monto mínimo
-        if (!$discountCode->meetsMinimumPurchase($purchaseAmount)) {
-            return $this->sendResponse([
-                'valid' => false,
-                'message' => 'Minimum purchase amount not met for this discount code',
-                'minimum_required' => $discountCode->min_purchase_amount
-            ], 'Validation completed');
-        }
+        $requestedAmount = $amount;
+        $discountAmount = (float) Arr::get($validation, 'discount_amount', 0);
+        $validation['requested_amount'] = $requestedAmount;
+        $validation['final_amount'] = max(0, $requestedAmount - $discountAmount);
 
-        // Calcular descuento
-        $discountAmount = $discountCode->calculateDiscountAmount($purchaseAmount);
-
-        return $this->sendResponse([
-            'valid' => true,
-            'discount_amount' => $discountAmount,
-            'final_amount' => max(0, $purchaseAmount - $discountAmount),
-            'message' => 'Discount code is valid',
-            'discount_code' => new DiscountCodeResource($discountCode)
-        ], 'Discount code validated successfully');
+        return $this->sendResponse($validation, 'Discount code validation completed');
     }
+
 
     /**
      * @OA\Get(

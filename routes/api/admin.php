@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\AnalyticsProfessionalController;
 use App\Http\Controllers\Admin\CourseIntervalMonitorController;
+use App\Http\Controllers\Admin\ReferenceDataController;
 use App\Http\Controllers\Admin\FinanceController;
 use App\Http\Controllers\Admin\FinanceControllerRefactor;
 use App\Http\Controllers\Admin\StatisticsController;
@@ -38,6 +39,7 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
     // MEJORA CRÍTICA: Endpoints para validación de capacidad en tiempo real
     Route::post('/courses/check-capacity', [App\Http\Controllers\Admin\CourseCapacityController::class, 'checkCapacity']);
     Route::post('/courses/check-availability', [App\Http\Controllers\Admin\CourseCapacityController::class, 'checkAvailabilityByDate']);
+    Route::get('/courses/check-availability', [App\Http\Controllers\Admin\CourseCapacityController::class, 'previewAvailability']);
     Route::post('/courses/validate-booking', [App\Http\Controllers\Admin\CourseCapacityController::class, 'validateBookingCapacity']);
 
     // NUEVO: Endpoints para asignación de monitores por intervalo
@@ -60,6 +62,15 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
         Route::delete('/{subgroupId}', [CourseIntervalMonitorController::class, 'destroy'])
             ->name('api.admin.intervals.monitors.destroy');
     });
+
+    Route::get('degrees', [ReferenceDataController::class, 'degrees'])
+        ->name('api.admin.degrees.index');
+
+    Route::get('sports', [ReferenceDataController::class, 'sports'])
+        ->name('api.admin.sports.index');
+
+    Route::get('monitors', [ReferenceDataController::class, 'monitors'])
+        ->name('api.admin.monitors.index');
 
     Route::get('getPlanner', [\App\Http\Controllers\Admin\PlannerController::class, 'getPlanner'])
         ->name('api.admin.planner');

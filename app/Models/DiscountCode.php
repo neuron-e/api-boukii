@@ -95,6 +95,7 @@ class DiscountCode extends Model
         'degree_ids',
         'min_purchase_amount',
         'max_discount_amount',
+        'stackable',
         'applicable_to',
         'active',
         'created_by',
@@ -120,6 +121,7 @@ class DiscountCode extends Model
         'degree_ids' => 'array',
         'min_purchase_amount' => 'decimal:2',
         'max_discount_amount' => 'decimal:2',
+        'stackable' => 'boolean',
         'applicable_to' => 'string',
         'active' => 'boolean'
     ];
@@ -148,6 +150,7 @@ class DiscountCode extends Model
         'degree_ids.*' => 'integer|exists:degrees,id',
         'min_purchase_amount' => 'nullable|numeric|min:0',
         'max_discount_amount' => 'nullable|numeric|min:0',
+        'stackable' => 'boolean',
         'applicable_to' => 'required|in:all,specific_courses,specific_clients,specific_sports,specific_degrees',
         'active' => 'boolean',
         'created_by' => 'nullable|string|max:255',

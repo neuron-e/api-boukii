@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\AppBaseController;
+use App\Models\Course;
 use App\Models\CourseSubgroup;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -13,6 +15,125 @@ use Illuminate\Http\Request;
  */
 class CourseCapacityController extends AppBaseController
 {
+    /**
+     * ENDPOINT: Resumen ligero de disponibilidad filtrado por deporte/nivel
+     * pensado para precarga y analítica en el panel admin.
+     */
+    public function previewAvailability(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'sport_id' => 'required|integer|exists:sports,id',
+            'degree_id' => 'nullable|integer|exists:degrees,id',
+            'school_id' => 'nullable|integer|exists:schools,id',
+            'course_type' => 'nullable|integer|in:1,2',
+            'date_from' => 'required|date_format:Y-m-d',
+            'date_to' => 'required|date_format:Y-m-d|after_or_equal:date_from',
+            'limit' => 'nullable|integer|min:1|max:200'
+        ]);
+
+        $user = $request->user();
+        $schoolId = $validated['school_id'] ?? optional($user?->schools()->first())->id;
+        $sportId = $validated['sport_id'];
+        $degreeId = $validated['degree_id'] ?? null;
+        $dateFrom = Carbon::createFromFormat('Y-m-d', $validated['date_from'])->startOfDay();
+        $dateTo = Carbon::createFromFormat('Y-m-d', $validated['date_to'])->endOfDay();
+        $limit = $validated['limit'] ?? 40;
+
+        $query = Course::query()
+            ->select([
+                'id',
+                'name',
+                'course_type',
+                'sport_id',
+                'school_id',
+                'duration',
+                'duration_minutes',
+                'price',
+                'currency'
+            ])
+            ->with(['courseDates' => function ($q) use ($dateFrom, $dateTo, $degreeId) {
+                $q->select(['id', 'course_id', 'date', 'hour_start', 'hour_end'])
+                    ->whereBetween('date', [$dateFrom->toDateString(), $dateTo->toDateString()])
+                    ->orderBy('date')
+                    ->with(['courseGroups' => function ($groupQuery) use ($degreeId) {
+                        $groupQuery->select(['id', 'course_date_id', 'degree_id', 'name'])
+                            ->when($degreeId, function ($inner) use ($degreeId) {
+                                $inner->where('degree_id', $degreeId);
+                            });
+                    }]);
+            }])
+            ->where('sport_id', $sportId)
+            ->where('active', 1)
+            ->whereNull('archived_at');
+
+        if ($schoolId) {
+            $query->where('school_id', $schoolId);
+        }
+
+        if (!empty($validated['course_type'])) {
+            $query->where('course_type', $validated['course_type']);
+        }
+
+        $query->whereHas('courseDates', function ($datesQuery) use ($dateFrom, $dateTo, $degreeId) {
+            $datesQuery->whereBetween('date', [$dateFrom->toDateString(), $dateTo->toDateString()]);
+
+            if ($degreeId) {
+                $datesQuery->whereHas('courseGroups', function ($groupQuery) use ($degreeId) {
+                    $groupQuery->where('degree_id', $degreeId);
+                });
+            }
+        });
+
+        $courses = $query->limit($limit)->get()->map(function (Course $course) use ($degreeId) {
+            $dates = $course->courseDates
+                ->filter(function ($date) use ($degreeId) {
+                    if ($degreeId) {
+                        return $date->courseGroups->contains('degree_id', $degreeId);
+                    }
+                    return true;
+                })
+                ->map(function ($date) {
+                    return [
+                        'id' => $date->id,
+                        'date' => $date->date ? $date->date->format('Y-m-d') : null,
+                        'hour_start' => $date->hour_start,
+                        'hour_end' => $date->hour_end,
+                    ];
+                })
+                ->values();
+
+            return [
+                'id' => $course->id,
+                'name' => $course->name,
+                'course_type' => $course->course_type,
+                'sport_id' => $course->sport_id,
+                'school_id' => $course->school_id,
+                'price' => $course->price,
+                'currency' => $course->currency,
+                'duration' => $course->duration_minutes ?? $course->duration,
+                'dates' => $dates,
+            ];
+        })->values();
+
+        $totalDates = $courses->reduce(function ($carry, $course) {
+            return $carry + count($course['dates'] ?? []);
+        }, 0);
+
+        $summary = [
+            'from' => $dateFrom->toDateString(),
+            'to' => $dateTo->toDateString(),
+            'sport_id' => $sportId,
+            'degree_id' => $degreeId,
+            'total_courses' => $courses->count(),
+            'total_dates' => $totalDates,
+        ];
+
+        return $this->sendResponse([
+            'courses' => $courses->toArray(),
+            'summary' => $summary,
+        ], 'Availability preview generated successfully');
+    }
+
     /**
      * ENDPOINT: Verificar capacidad de múltiples subgrupos en tiempo real
      * ACTUALIZADO: Soporte para intervalos vía parámetro 'date'

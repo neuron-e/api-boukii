@@ -13,6 +13,7 @@ use App\Models\BookingUser;
 use App\Models\BookingUserExtra;
 use App\Models\Client;
 use App\Models\Course;
+use App\Models\DiscountCode;
 use App\Models\CourseExtra;
 use App\Models\CourseSubgroup;
 use App\Models\Degree;
@@ -72,21 +73,116 @@ class BookingController extends SlugAuthController
 
     public function store(Request $request)
     {
-        // Iniciar una transacción
+        // Iniciar una transaccion
         DB::beginTransaction();
 
         try {
             $data = $request->all();
 
+            $client = Client::with('user')->find(Arr::get($data, 'client_main_id'));
+            if (!$client || !$client->user) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Cliente principal no válido',
+                    'errors' => ['client_main_id' => ['El cliente principal es obligatorio para la reserva']]
+                ], 422);
+            }
+
             $grossPriceTotal = (float) Arr::get($data, 'price_total', 0);
             $discountCodeId = Arr::get($data, 'discount_code_id');
-            $discountCodeAmount = (float) Arr::get($data, 'discount_code_amount', 0);
+            $discountCodeAmount = 0.0;
+
+            $cartItems = Arr::get($data, 'cart', []);
+            $courseIds = [];
+            $degreeIds = [];
+
+            foreach ($cartItems as $cartItem) {
+                $details = Arr::get($cartItem, 'details', []);
+                foreach ($details as $detail) {
+                    if (!empty($detail['course_id'])) {
+                        $courseIds[] = (int) $detail['course_id'];
+                    }
+
+                    if (!empty($detail['degree_id'])) {
+                        $degreeIds[] = (int) $detail['degree_id'];
+                    } elseif (!empty($detail['course_subgroup_id'])) {
+                        $subgroupDegree = CourseSubgroup::where('id', $detail['course_subgroup_id'])->value('degree_id');
+                        if ($subgroupDegree) {
+                            $degreeIds[] = (int) $subgroupDegree;
+                        }
+                    }
+                }
+            }
+
+            $courseIds = array_values(array_unique(array_filter($courseIds)));
+            $degreeIds = array_values(array_unique(array_filter($degreeIds)));
+            $sportIds = [];
+
+            if (!empty($courseIds)) {
+                $sportIds = Course::whereIn('id', $courseIds)
+                    ->pluck('sport_id')
+                    ->filter()
+                    ->map(fn ($value) => (int) $value)
+                    ->unique()
+                    ->values()
+                    ->all();
+            }
+
+            $discountCode = null;
+            $vouchersPayload = Arr::get($data, 'vouchers', []);
+
+            if ($discountCodeId) {
+                $discountCode = DiscountCode::lockForUpdate()->find($discountCodeId);
+                if (!$discountCode) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'Código promocional no encontrado',
+                        'errors' => ['discount_code' => ['El código indicado no existe']]
+                    ], 422);
+                }
+
+                if (!empty($vouchersPayload) && !$discountCode->stackable) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'El código promocional no se puede combinar con bonos',
+                        'errors' => ['discount_code' => ['Este código no permite combinarse con bonos en la misma reserva']]
+                    ], 422);
+                }
+
+                $validationPayload = [
+                    'school_id' => Arr::get($data, 'school_id'),
+                    'course_id' => count($courseIds) === 1 ? $courseIds[0] : null,
+                    'course_ids' => $courseIds,
+                    'sport_id' => count($sportIds) === 1 ? $sportIds[0] : null,
+                    'sport_ids' => $sportIds,
+                    'degree_id' => count($degreeIds) === 1 ? $degreeIds[0] : null,
+                    'degree_ids' => $degreeIds,
+                    'amount' => $grossPriceTotal,
+                    'user_id' => $client->user->id,
+                    'client_id' => $client->id,
+                ];
+
+                $validation = app(DiscountCodeService::class)->validateCode($discountCode->code, $validationPayload);
+
+                if (!$validation['valid']) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'No se pudo validar el código promocional',
+                        'errors' => [$validation['message']]
+                    ], 422);
+                }
+
+                $discountCodeAmount = (float) $validation['discount_amount'];
+                $discountCodeId = $discountCode->id;
+            }
+
+            $netPriceTotal = max(0, $grossPriceTotal - $discountCodeAmount);
 
             // Crear la reserva (Booking)
             $booking = Booking::create([
                 'school_id' => Arr::get($data, 'school_id'),
                 'client_main_id' => Arr::get($data, 'client_main_id'),
-                'price_total' => $grossPriceTotal,
+                'price_total' => $netPriceTotal,
                 'has_tva' => Arr::get($data, 'has_tva'),
                 'price_tva' => Arr::get($data, 'price_tva'),
                 'has_boukii_care' => Arr::get($data, 'has_boukii_care'),
@@ -105,7 +201,7 @@ class BookingController extends SlugAuthController
             $groupId = 1; // Inicia el contador de grupo
             $bookingUsers = []; // Para almacenar los objetos BookingUser
 
-            foreach ($data['cart'] as $cartItem) {
+            foreach ($cartItems as $cartItem) {
                 foreach ($cartItem['details'] as $detail) {
                     if (array_key_exists('course_subgroup_id', $detail) && $detail['course_subgroup_id']) {
                         $courseSubgroup = CourseSubgroup::find($detail['course_subgroup_id']);
@@ -155,12 +251,12 @@ class BookingController extends SlugAuthController
             }
             $booking->deleted_at = now();
 
-            if (!empty($data['vouchers'])) {
+            if (!empty($vouchersPayload)) {
                 $voucherApplications = [];
                 $voucherErrors = [];
                 $totalVoucherApplied = 0.0;
 
-                foreach ($data['vouchers'] as $voucherData) {
+                foreach ($vouchersPayload as $voucherData) {
                     $voucherId = Arr::get($voucherData, 'id');
                     $voucherCode = Arr::get($voucherData, 'code', (string) $voucherId);
                     $amount = (float) Arr::get($voucherData, 'reducePrice', 0);
@@ -194,6 +290,10 @@ class BookingController extends SlugAuthController
                             number_format($amount, 2, '.', ''),
                             number_format($voucher->remaining_balance, 2, '.', '')
                         );
+                    }
+
+                    if (!$voucher->payed) {
+                        $currentErrors[] = sprintf('Voucher %s is not active yet', $voucher->code);
                     }
 
                     if (!$voucher->canBeUsed()) {
@@ -254,7 +354,7 @@ class BookingController extends SlugAuthController
                     ]);
                 }
 
-                if ($totalVoucherApplied >= max(0, $grossPriceTotal - $discountCodeAmount)) {
+                if ($totalVoucherApplied >= $netPriceTotal) {
                     $booking->deleted_at = null;
                     $booking->paid = true;
 
@@ -264,8 +364,8 @@ class BookingController extends SlugAuthController
                     }
                 }
             }
+
             $booking->save();
-            $client = Client::find($data['client_main_id'])->load('user');
 
             if ($discountCodeId) {
                 $userId = $client->user->id ?? null;
@@ -273,22 +373,21 @@ class BookingController extends SlugAuthController
                     app(DiscountCodeService::class)->recordCodeUsage($discountCodeId, $userId, $booking->id, $discountCodeAmount);
                 }
             }
-
             BookingLog::create([
                 'booking_id' => $booking->id,
                 'action' => 'page_created',
                 'user_id' => $client->user->id,
             ]);
 
-            // Confirmar la transacción
+            // Confirmar la transacciÃ³n
             DB::commit();
 
-            return response()->json(['message' => 'Reserva creada con éxito', 'booking_id' => $booking->id], 201);
+            return response()->json(['message' => 'Reserva creada con Ã©xito', 'booking_id' => $booking->id], 201);
 
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::debug('BookingPage/BookingController store: ',
                 $e->getTrace());
-            // Revertir la transacción si ocurre un error
+            // Revertir la transacciÃ³n si ocurre un error
             DB::rollBack();
             return response()->json(['message' => 'Error al crear la reserva', 'error' => $e->getMessage()], 500);
         }
@@ -332,7 +431,7 @@ class BookingController extends SlugAuthController
         $startTime = null;
         $endTime = null;
 
-        // Obtiene información común para todos los bookingUsers
+        // Obtiene informaciÃ³n comÃºn para todos los bookingUsers
         foreach ($request->bookingUsers as $bookingUser) {
             if ($bookingUser['course']['course_type'] == 2) {
                 $clientIds[] = $bookingUser['client']['id'];
@@ -340,7 +439,7 @@ class BookingController extends SlugAuthController
                 // Verificar si degree_id existe antes de acceder
                 $highestDegreeId = isset($bookingUser['degree_id']) ? $bookingUser['degree_id'] : 0;
 
-                // Obtener el degree_id más alto solo una vez
+                // Obtener el degree_id mÃ¡s alto solo una vez
                 if ($highestDegreeId === 0) {
                     $sportId = $bookingUser['course']['sport_id'];
 
@@ -388,7 +487,7 @@ class BookingController extends SlugAuthController
                 'sportId' => $bookingUser['course']['sport_id']
             ];
 
-            // Solo añadir 'minimumDegreeId' si existe 'degreeOrder'
+            // Solo aÃ±adir 'minimumDegreeId' si existe 'degreeOrder'
             if ($degreeOrder !== null) {
                 $monitorAvailabilityData['minimumDegreeId'] = $degreeOrder;
             }
@@ -437,7 +536,7 @@ class BookingController extends SlugAuthController
             MonitorSportsDegree::whereHas('monitorSportAuthorizedDegrees', function ($query) use ($school, $request) {
                 $query->where('school_id', $school->id);
 
-                // Solo aplicar la condición de degree_order si minimumDegreeId no es null
+                // Solo aplicar la condiciÃ³n de degree_order si minimumDegreeId no es null
                 if (!is_null($request->minimumDegreeId)) {
                     $query->whereHas('degree', function ($q) use ($request) {
                         $q->where('degree_order', '>=', $request->minimumDegreeId);
@@ -454,7 +553,7 @@ class BookingController extends SlugAuthController
                             ->where('active_school', 1);
                     });
 
-                    // Filtrar monitores por idioma si clientLanguages está presente
+                    // Filtrar monitores por idioma si clientLanguages estÃ¡ presente
                     if (!empty($clientLanguages)) {
                         $query->where(function ($query) use ($clientLanguages) {
                             $query->orWhereIn('language1_id', $clientLanguages)
@@ -483,7 +582,7 @@ class BookingController extends SlugAuthController
             ->merge(MonitorNwd::whereDate('start_date', '<=', $request->date)
                 ->whereDate('end_date', '>=', $request->date)
                 ->where(function ($query) use ($request) {
-                    // Aquí incluimos la lógica para verificar si es un día entero
+                    // AquÃ­ incluimos la lÃ³gica para verificar si es un dÃ­a entero
                     $query->where('full_day', true)
                         ->orWhere(function ($timeQuery) use ($request) {
                             $timeQuery->whereTime('start_time', '<',
@@ -523,7 +622,7 @@ class BookingController extends SlugAuthController
                 return true; // Hay al menos un monitor disponible
             }
         }
-        return false; // Ningún monitor está disponible en el rango
+        return false; // NingÃºn monitor estÃ¡ disponible en el rango
     }
 
     /**
@@ -761,5 +860,31 @@ class BookingController extends SlugAuthController
     }
 
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

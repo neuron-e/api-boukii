@@ -67,6 +67,7 @@ class DiscountCodeFactory extends Factory
             'min_purchase_amount' => $this->faker->optional(0.3)->numberBetween(50, 200),
             'max_discount_amount' => $discountType === 'percentage' ? $this->faker->optional(0.3)->numberBetween(50, 300) : null,
             'applicable_to' => 'all',
+            'stackable' => false,
             'active' => $this->faker->boolean(80), // 80% activos
             'created_by' => $this->faker->optional(0.5)->name(),
             'notes' => $this->faker->optional(0.4)->sentence(12),
