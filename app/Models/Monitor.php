@@ -594,154 +594,190 @@ class Monitor extends Model
     }
 
 
-    public static function isMonitorBusy($monitorId, $date, $startTime, $endTime, $excludeId = null)
-    {
-        // Verificar si el monitor está ocupado en la fecha y horario especificados por bookings
+    public static function isMonitorBusy(
+        $monitorId,
+        $date,
+        $startTime = null,
+        $endTime = null,
+        $excludeNwdId = null,              // igual que tu $excludeId actual
+        array $excludeBookingUserIds = [], // NUEVO: evita autoconflictos
+        array $excludeSubgroupIds = []     // NUEVO: evita autoconflictos
+    ) {
+        // Guard clauses
+        if (!$monitorId || !$date) {
+            // sin monitor o sin fecha no podemos comprobar solapes
+            return false;
+        }
+
+        // -----------------------------
+        // 1) BookingUsers (reservas)
+        // -----------------------------
         $bookingQuery = BookingUser::where('monitor_id', $monitorId)
             ->whereDate('date', $date)
-            ->where(function ($query) use ($startTime, $endTime) {
-                if ($startTime && $endTime) {
-                    $query->whereTime('hour_start', '<', $endTime)
-                        ->whereTime('hour_end', '>', $startTime);
-                }
-            })->where('status', 1)->whereHas('booking', function ($query) {
-                $query->where('status', '!=', 2); // La Booking no debe tener status 2
+            // Exige que la CourseDate exista y no esté borrada
+            ->whereHas('courseDate', function ($q) {
+                $q->whereNull('deleted_at');
+            })
+            // El BU debe estar activo y la Booking no cancelada (status != 2)
+            ->where('status', 1)
+            ->whereHas('booking', function ($q) {
+                $q->where('status', '!=', 2);
             });
+
+        if (!empty($excludeBookingUserIds)) {
+            $bookingQuery->whereNotIn('id', $excludeBookingUserIds);
+        }
+
+        // Solape por horas (si tenemos horas)
+        if ($startTime && $endTime) {
+            $bookingQuery->where(function ($q) use ($startTime, $endTime) {
+                $q->whereTime('hour_start', '<', $endTime)
+                    ->whereTime('hour_end', '>', $startTime);
+            });
+        }
 
         $isBooked = $bookingQuery->exists();
 
         if ($isBooked) {
             $conflictingBookings = $bookingQuery->with('booking')->get();
-            \Illuminate\Support\Facades\Log::channel('nwd')->warning('Solapamiento detectado - Monitor ocupado por booking', [
+            \Log::channel('nwd')->warning('Solapamiento detectado - Monitor ocupado por booking', [
                 'monitor_id' => $monitorId,
-                'date' => $date,
+                'date'       => $date,
                 'start_time' => $startTime,
-                'end_time' => $endTime,
+                'end_time'   => $endTime,
                 'conflict_type' => 'booking',
                 'conflicting_bookings' => $conflictingBookings->map(function ($bu) {
                     return [
                         'booking_user_id' => $bu->id,
-                        'booking_id' => $bu->booking_id,
-                        'hour_start' => $bu->hour_start,
-                        'hour_end' => $bu->hour_end,
+                        'booking_id'      => $bu->booking_id,
+                        'hour_start'      => $bu->hour_start,
+                        'hour_end'        => $bu->hour_end,
                     ];
                 })->toArray()
             ]);
         }
 
-        // Verificar NWD de día completo
+        // -----------------------------
+        // 2) NWD día completo
+        // -----------------------------
         $fullDayNwdQuery = MonitorNwd::where('monitor_id', $monitorId)
             ->whereDate('start_date', '<=', $date)
             ->whereDate('end_date', '>=', $date)
-            ->where('full_day', true)
-            ->where(function ($query) use ($excludeId) {
-                if ($excludeId !== null) {
-                    $query->where('id', '!=', $excludeId);
-                }
-            });
+            ->where('full_day', true);
+
+        if ($excludeNwdId !== null) {
+            $fullDayNwdQuery->where('id', '!=', $excludeNwdId);
+        }
 
         $hasFullDayNwd = $fullDayNwdQuery->exists();
 
         if ($hasFullDayNwd) {
             $conflictingNwd = $fullDayNwdQuery->first();
-            \Illuminate\Support\Facades\Log::channel('nwd')->warning('Solapamiento detectado - Monitor ocupado por NWD día completo', [
+            \Log::channel('nwd')->warning('Solapamiento detectado - Monitor ocupado por NWD día completo', [
                 'monitor_id' => $monitorId,
-                'date' => $date,
+                'date'       => $date,
                 'start_time' => $startTime,
-                'end_time' => $endTime,
+                'end_time'   => $endTime,
                 'conflict_type' => 'nwd_full_day',
                 'conflicting_nwd' => [
-                    'nwd_id' => $conflictingNwd->id,
+                    'nwd_id'     => $conflictingNwd->id,
                     'start_date' => $conflictingNwd->start_date,
-                    'end_date' => $conflictingNwd->end_date,
-                    'description' => $conflictingNwd->description
+                    'end_date'   => $conflictingNwd->end_date,
+                    'description'=> $conflictingNwd->description
                 ]
             ]);
         }
 
-        // Verificar si el monitor está ocupado por otro NWD en la fecha y horario especificados
+        // -----------------------------
+        // 3) NWD parciales (con horas)
+        // -----------------------------
         $nwdQuery = MonitorNwd::where('monitor_id', $monitorId)
             ->whereDate('start_date', '<=', $date)
             ->whereDate('end_date', '>=', $date);
 
         if ($startTime && $endTime) {
-            // Only consider time constraints if it's not a full day
-            $nwdQuery->where(function ($query) use ($startTime, $endTime) {
-                $query->whereTime('start_time', '<', $endTime)
+            $nwdQuery->where(function ($q) use ($startTime, $endTime) {
+                $q->whereTime('start_time', '<', $endTime)
                     ->whereTime('end_time', '>', $startTime);
             });
         }
 
-        // Excluir el MonitorNwd actual si se proporciona su ID
-        if ($excludeId !== null) {
-            $nwdQuery->where('id', '!=', $excludeId);
+        if ($excludeNwdId !== null) {
+            $nwdQuery->where('id', '!=', $excludeNwdId);
         }
 
         $isNwd = $nwdQuery->exists();
 
         if ($isNwd) {
             $conflictingNwds = $nwdQuery->get();
-            \Illuminate\Support\Facades\Log::channel('nwd')->warning('Solapamiento detectado - Monitor ocupado por otro NWD', [
-                'monitor_id' => $monitorId,
-                'date' => $date,
-                'start_time' => $startTime,
-                'end_time' => $endTime,
-                'exclude_id' => $excludeId,
-                'conflict_type' => 'nwd_overlap',
+            \Log::channel('nwd')->warning('Solapamiento detectado - Monitor ocupado por otro NWD', [
+                'monitor_id'   => $monitorId,
+                'date'         => $date,
+                'start_time'   => $startTime,
+                'end_time'     => $endTime,
+                'exclude_nwd'  => $excludeNwdId,
+                'conflict_type'=> 'nwd_overlap',
                 'conflicting_nwds' => $conflictingNwds->map(function ($nwd) {
                     return [
-                        'nwd_id' => $nwd->id,
+                        'nwd_id'     => $nwd->id,
                         'start_date' => $nwd->start_date,
-                        'end_date' => $nwd->end_date,
+                        'end_date'   => $nwd->end_date,
                         'start_time' => $nwd->start_time,
-                        'end_time' => $nwd->end_time,
-                        'description' => $nwd->description
+                        'end_time'   => $nwd->end_time,
+                        'description'=> $nwd->description
                     ];
                 })->toArray()
             ]);
         }
 
-        // Verificar si el monitor está ocupado por un curso
-        $courseQuery = CourseSubgroup::whereHas('courseDate', function ($query) use ($date, $startTime, $endTime) {
-            $query->whereDate('date', $date)
-                ->where(function ($query) use ($startTime, $endTime) {
-                    if ($startTime && $endTime) {
-                        $query->whereTime('hour_start', '<', $endTime)
-                            ->whereTime('hour_end', '>', $startTime);
-                    }
-                });
-        })
-            ->whereHas('courseGroup')
-            ->where('monitor_id', $monitorId)
-            ->whereHas('courseGroup.course', function ($query) {
-                $query->where('active', 1);
+        // -----------------------------
+        // 4) CourseSubgroups (cursos)
+        // -----------------------------
+        $courseQuery = CourseSubgroup::where('monitor_id', $monitorId)
+            ->when(!empty($excludeSubgroupIds), function ($q) use ($excludeSubgroupIds) {
+                $q->whereNotIn('id', $excludeSubgroupIds);
+            })
+            ->whereHas('courseDate', function ($q) use ($date, $startTime, $endTime) {
+                $q->whereNull('deleted_at')
+                    ->whereDate('date', $date)
+                    ->where(function ($tq) use ($startTime, $endTime) {
+                        if ($startTime && $endTime) {
+                            $tq->whereTime('hour_start', '<', $endTime)
+                                ->whereTime('hour_end', '>', $startTime);
+                        }
+                    });
+            })
+            ->whereHas('courseGroup') // que exista el grupo
+            ->whereHas('courseGroup.course', function ($q) {
+                $q->where('active', 1); // curso activo
             });
 
         $isCourse = $courseQuery->exists();
 
         if ($isCourse) {
             $conflictingCourses = $courseQuery->with('courseDate', 'courseGroup.course')->get();
-            \Illuminate\Support\Facades\Log::channel('nwd')->warning('Solapamiento detectado - Monitor ocupado por curso', [
+            \Log::channel('nwd')->warning('Solapamiento detectado - Monitor ocupado por curso', [
                 'monitor_id' => $monitorId,
-                'date' => $date,
+                'date'       => $date,
                 'start_time' => $startTime,
-                'end_time' => $endTime,
+                'end_time'   => $endTime,
                 'conflict_type' => 'course',
                 'conflicting_courses' => $conflictingCourses->map(function ($cs) {
                     return [
                         'course_subgroup_id' => $cs->id,
-                        'course_id' => $cs->courseGroup->course->id ?? null,
-                        'course_name' => $cs->courseGroup->course->name ?? null,
-                        'hour_start' => $cs->courseDate->hour_start ?? null,
-                        'hour_end' => $cs->courseDate->hour_end ?? null,
+                        'course_id'          => $cs->courseGroup->course->id ?? null,
+                        'course_name'        => $cs->courseGroup->course->name ?? null,
+                        'hour_start'         => $cs->courseDate->hour_start ?? null,
+                        'hour_end'           => $cs->courseDate->hour_end ?? null,
                     ];
                 })->toArray()
             ]);
         }
 
-        // Si el monitor está ocupado en alguno de los casos, devuelve true; de lo contrario, devuelve false.
-        return $isBooked || $isNwd || $isCourse || $hasFullDayNwd;
+        // Resultado final
+        return $isBooked || $hasFullDayNwd || $isNwd || $isCourse;
     }
+
 
     public function getActivitylogOptions(): LogOptions
     {

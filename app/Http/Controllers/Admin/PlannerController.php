@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\AppBaseController;
 use App\Models\BookingUser;
+use App\Models\CourseDate;
 use App\Models\CourseSubgroup;
 use App\Models\Monitor;
 use App\Models\MonitorNwd;
@@ -447,122 +448,262 @@ class PlannerController extends AppBaseController
      *      )
      * )
      */
+
     public function transferMonitor(Request $request)
     {
-        $monitorId = $request->input('monitor_id');
-        $bookingUserIds  = $request->input('booking_users');
-        $courseSubgroupId  = $request->input('subgroup_id');
-        if ($courseSubgroupId) {
-            $courseSubgroup = CourseSubgroup::find($courseSubgroupId);
+        $monitorId        = $request->input('monitor_id');
+        $bookingUserIds   = (array) $request->input('booking_users', []);
+        $scope            = $request->input('scope'); // single|interval|all|from|range
+        $startDate        = $request->input('start_date');
+        $endDate          = $request->input('end_date');
+        $courseId         = $request->input('course_id');
+        $bookingId        = $request->input('booking_id');
+        $courseSubgroupId = $request->input('subgroup_id');     // en front lo llamáis subgroup_id
+        $courseDateId     = $request->input('course_date_id');
+        $degreeIdInput = $request->input('degree_id') ?: optional(CourseSubgroup::find($courseSubgroupId))->degree_id;
 
-            if ($courseSubgroup) {
-                // Comprobación de superposición usando la información de courseDate
-                $date = $courseSubgroup->courseDate->date;
-                $hourStart = $courseSubgroup->courseDate->hour_start;
-                $hourEnd = $courseSubgroup->courseDate->hour_end;
-                if($monitorId !== null) {
-                    if (Monitor::isMonitorBusy($monitorId, $date, $hourStart, $hourEnd)) {
-                        return $this->sendError('Overlap detected for subgroup.
-                        Monitor cannot be transferred.');
-                    }
-                }
 
-                // Actualizar el monitor_id del subgrupo
-                $courseSubgroup->update(['monitor_id' => $monitorId]);
-                $bookingUsers = BookingUser::where('course_subgroup_id', $courseSubgroup->id)->get();
-
-                foreach ($bookingUsers as $bookingUser) {
-                    // Actualizar el monitor_id de cada BookingUser
-                    $bookingUser->monitor_id = $courseSubgroup->monitor_id;
-                    $bookingUser->save();
-                }
-
-            } else {
-                return $this->sendError('Subgroup cannot be found.');
-            }
-
-            // Actualizar el monitor_id del subgrupo
-
-        }
-        $overlapDetected = false;
-
+        // 0) Validaciones base
+        $monitor = null;
         if ($monitorId !== null) {
-            // Check if the monitor exists (only if monitor_id is provided)
             $monitor = Monitor::find($monitorId);
+            if (!$monitor) return $this->sendError('Monitor not found');
+        }
 
-            if (!$monitor) {
-                return $this->sendError('Monitor not found');
+        // 1) Preparar conjunto válido de course_dates (no eliminadas)
+        $validCourseDateIds = collect();
+        if ($courseId) {
+            $cdQuery = CourseDate::where('course_id', $courseId)->whereNull('deleted_at');
+            switch ($scope) {
+                case 'all': break;
+                case 'from':
+                    if ($startDate) $cdQuery->whereDate('date', '>=', $startDate);
+                    break;
+                case 'range':
+                    if ($startDate && $endDate) $cdQuery->whereBetween('date', [$startDate, $endDate]);
+                    break;
+                case 'single':
+                case 'interval':
+                    // se resolverán por date/subgrupo
+                    break;
+            }
+            $validCourseDateIds = $cdQuery->pluck('id');
+        }
+
+        if ($scope === 'single' && $courseDateId) {
+            $cd = CourseDate::where('id', $courseDateId)->whereNull('deleted_at')->first();
+            if (!$cd) return $this->sendError('CourseDate not found or deleted');
+        }
+
+        if ($scope === 'interval' && $courseSubgroupId) {
+            $sg = CourseSubgroup::with('courseDate')->find($courseSubgroupId);
+            if (!$sg) return $this->sendError('CourseSubgroup not found');
+            if (!$sg->courseDate || $sg->courseDate->deleted_at) {
+                return $this->sendError('CourseSubgroup has deleted or missing CourseDate');
             }
         }
 
-        // If monitor_id is null, set all monitors to null
-        if ($monitorId === null) {
-            foreach ($bookingUserIds as $bookingUserId) {
-                $bookingUserModel = BookingUser::find($bookingUserId);
+        // 2) Resolver BookingUsers objetivo (si no llegan explícitos)
+        $targets = collect();
 
-                if ($bookingUserModel) {
-                    $bookingUserModel->update(['monitor_id' => null, 'accepted' => true]);
-                }
+        if (!empty($bookingUserIds)) {
+            $targets = BookingUser::with(['courseDate','courseSubgroup'])
+                ->whereIn('id', $bookingUserIds)
+                ->whereHas('courseDate', fn($q) => $q->whereNull('deleted_at'))
+                ->get();
+        } else {
+            $q = BookingUser::with(['courseDate','courseSubgroup'])
+                ->whereHas('courseDate', fn($cq) => $cq->whereNull('deleted_at'));
 
-                $courseSubgroupId = $bookingUserModel['course_subgroup_id'];
-
-                // If the bookingUser has a course_subgroup_id, update the monitor_id of the subgroup
-                if ($courseSubgroupId) {
-                    $courseSubgroup = CourseSubgroup::find($courseSubgroupId);
-
-                    if ($courseSubgroup) {
-                        $courseSubgroup->update(['monitor_id' => null]);
+            switch ($scope) {
+                case 'single':
+                    if ($courseDateId) {
+                        $q->where('course_date_id', $courseDateId);
+                    } elseif ($bookingId) {
+                        $q->where('booking_id', $bookingId);
+                    } elseif ($startDate) {
+                        $q->whereDate('date', $startDate);
                     }
+                    break;
+
+                case 'interval':
+                    if ($courseSubgroupId) {
+                        $q->where('course_subgroup_id', $courseSubgroupId);
+                    }
+                    break;
+
+                case 'all':
+                    if ($courseId) {
+                        $q->whereHas('booking', fn($b) => $b->where('course_id', $courseId));
+                    }
+                    break;
+
+                case 'from':
+                    if ($courseId && $startDate) {
+                        $q->whereHas('booking', fn($b) => $b->where('course_id', $courseId))
+                            ->whereDate('date', '>=', $startDate);
+                    }
+                    break;
+
+                case 'range':
+                    if ($courseId && $startDate && $endDate) {
+                        $q->whereHas('booking', fn($b) => $b->where('course_id', $courseId))
+                            ->whereBetween('date', [$startDate, $endDate]);
+                    }
+                    break;
+            }
+
+            if ($validCourseDateIds->isNotEmpty() && in_array($scope, ['all','from','range'])) {
+                $q->whereIn('course_date_id', $validCourseDateIds);
+            }
+
+            $targets = $q->get();
+        }
+
+        // 2.1) Determinar degree de contexto
+        $degreeIdContext = $degreeIdInput
+            ?? ($courseSubgroupId ? (CourseSubgroup::find($courseSubgroupId)->degree_id ?? null) : null)
+            ?? optional($targets->first()->courseSubgroup)->degree_id;
+
+        if (!$degreeIdContext) {
+            // si no logramos determinar degree, mejor no tocar masivamente
+            // (puedes convertir esto en warning si lo prefieres)
+            return $this->sendError('Degree not determinable for bulk transfer');
+            // fallback: seguimos pero sólo tocaremos BUs y subgrupos con degree conocido
+        }
+
+        // 3) Resolver Subgrupos objetivo (aunque vacíos), con courseDate viva y degree filtrado
+        $targetSubgroups = collect();
+
+        $subgroupBase = CourseSubgroup::with('courseDate')
+            ->whereHas('courseDate', fn($q) => $q->whereNull('deleted_at'));
+
+        $applyDegreeFilter = function ($query) use ($degreeIdContext) {
+            if ($degreeIdContext) $query->where('degree_id', $degreeIdContext);
+            return $query;
+        };
+
+        switch ($scope) {
+            case 'single':
+                if ($courseSubgroupId) {
+                    $one = (clone $subgroupBase)->where('id', $courseSubgroupId);
+                    $one = $applyDegreeFilter($one)->first();
+                    if ($one) $targetSubgroups->push($one);
+                } elseif ($courseDateId) {
+                    $q = (clone $subgroupBase)->where('course_date_id', $courseDateId);
+                    $targetSubgroups = $applyDegreeFilter($q)->get();
+                }
+                break;
+
+            case 'interval':
+                if ($courseSubgroupId) {
+                    $one = (clone $subgroupBase)->where('id', $courseSubgroupId);
+                    $one = $applyDegreeFilter($one)->first();
+                    if ($one) $targetSubgroups->push($one);
+                }
+                break;
+
+            case 'all':
+                if ($courseId) {
+                    $cdIds = $validCourseDateIds->isNotEmpty()
+                        ? $validCourseDateIds
+                        : CourseDate::where('course_id', $courseId)->whereNull('deleted_at')->pluck('id');
+
+                    $q = (clone $subgroupBase)->whereIn('course_date_id', $cdIds);
+                    $targetSubgroups = $applyDegreeFilter($q)->get();
+                }
+                break;
+
+            case 'from':
+                if ($courseId && $startDate) {
+                    $cdIds = CourseDate::where('course_id', $courseId)
+                        ->whereNull('deleted_at')
+                        ->whereDate('date', '>=', $startDate)
+                        ->pluck('id');
+
+                    $q = (clone $subgroupBase)->whereIn('course_date_id', $cdIds);
+                    $targetSubgroups = $applyDegreeFilter($q)->get();
+                }
+                break;
+
+            case 'range':
+                if ($courseId && $startDate && $endDate) {
+                    $cdIds = CourseDate::where('course_id', $courseId)
+                        ->whereNull('deleted_at')
+                        ->whereBetween('date', [$startDate, $endDate])
+                        ->pluck('id');
+
+                    $q = (clone $subgroupBase)->whereIn('course_date_id', $cdIds);
+                    $targetSubgroups = $applyDegreeFilter($q)->get();
+                }
+                break;
+        }
+
+        // 3.1) Filtrar BookingUsers por degree también (según esquema)
+/*        if ($degreeIdContext) {
+            // Si BookingUser tiene columna degree_id:
+            if (Schema::hasColumn((new BookingUser)->getTable(), 'degree_id')) {
+                $targets = $targets->where('degree_id', (int)$degreeIdContext)->values();
+            } else {
+                // Si no, filtra por el degree del subgrupo relacionado
+                $targets = $targets->filter(function ($bu) use ($degreeIdContext) {
+                    return optional($bu->courseSubgroup)->degree_id === (int)$degreeIdContext;
+                })->values();
+            }
+        }*/
+
+        if ($targets->isEmpty() && $targetSubgroups->isEmpty()) {
+            return $this->sendError('No booking users or subgroups found for the given scope/degree');
+        }
+
+        // 4) Si monitorId === null → desasignar en ambos niveles
+        if ($monitorId === null) {
+            DB::transaction(function () use ($targets, $targetSubgroups) {
+                foreach ($targets as $bu) {
+                    $bu->update(['monitor_id' => null, 'accepted' => true]);
+                }
+                foreach ($targetSubgroups as $sg) {
+                    $sg->update(['monitor_id' => null]);
+                }
+            });
+            return $this->sendResponse(null, 'Monitor removed successfully.');
+        }
+
+        // 5) Comprobar solapes (BookingUsers)
+        foreach ($targets as $bu) {
+            if (!$bu->date || !$bu->hour_start || !$bu->hour_end) continue;
+            if (Monitor::isMonitorBusy($monitorId, $bu->date, $bu->hour_start, $bu->hour_end)) {
+                return $this->sendError("Overlap detected on {$bu->date}. Monitor cannot be transferred.");
+            }
+        }
+
+        // 6) Comprobar solapes (Subgrupos)
+        foreach ($targetSubgroups as $sg) {
+            if (!$sg->courseDate) continue;
+            $date = $sg->courseDate->date;
+            $hs   = $sg->courseDate->hour_start;
+            $he   = $sg->courseDate->hour_end;
+            if (Monitor::isMonitorBusy($monitorId, $date, $hs, $he)) {
+                return $this->sendError('Overlap detected for subgroup. Monitor cannot be transferred.');
+            }
+        }
+
+        // 7) Aplicar cambios
+        DB::transaction(function () use ($monitorId, $scope, $targets, $targetSubgroups) {
+            foreach ($targets as $bu) {
+                $bu->update(['monitor_id' => $monitorId, 'accepted' => true]);
+
+                if (in_array($scope, ['interval','all','from','range']) && $bu->course_subgroup_id) {
+                    CourseSubgroup::where('id', $bu->course_subgroup_id)->update(['monitor_id' => $monitorId]);
                 }
             }
-
-            return $this->sendResponse(null, 'Monitor set to null for all bookingUsers successfully');
-        }
-
-        // Iterar sobre los bookingUsers
-        foreach ($bookingUserIds as $bookingUserId) {
-            // Obtener la información del bookingUser
-            $bookingUser = BookingUser::find($bookingUserId);
-
-            if (!$bookingUser) {
-                return $this->sendError("BookingUser with ID $bookingUserId not found");
+            foreach ($targetSubgroups as $sg) {
+                $sg->update(['monitor_id' => $monitorId]);
             }
+        });
 
-            // If monitor_id is not null, check for monitor availability using isMonitorBusy
-            if (Monitor::isMonitorBusy($monitorId, $bookingUser['date'], $bookingUser['hour_start'], $bookingUser['hour_end'])) {
-                $overlapDetected = true;
-                break; // Se detectó superposición, sal del bucle
-            }
-        }
-
-        if ($overlapDetected) {
-            return $this->sendError('Overlap detected. Monitor cannot be transferred.');
-        }
-
-        // Si no hay superposición y monitor_id is not null, update the monitor_id of all bookingUsers and subgroups if necessary
-        foreach ($bookingUserIds as $bookingUserId) {
-            // Actualizar el monitor_id del bookingUser
-            $bookingUserModel = BookingUser::find($bookingUserId);
-
-            $courseSubgroupId = $bookingUserModel['course_subgroup_id'];
-
-            if ($bookingUserModel) {
-                $bookingUserModel->update(['monitor_id' => $monitorId, 'accepted' => true]);
-            }
-
-            // Si el bookingUser tiene un course_subgroup_id, actualizar el monitor_id del subgrupo
-            if ($courseSubgroupId) {
-                $courseSubgroup = CourseSubgroup::find($courseSubgroupId);
-
-                if ($courseSubgroup) {
-                    $courseSubgroup->update(['monitor_id' => $monitorId]);
-                }
-            }
-        }
-
-        return $this->sendResponse($monitor, 'Monitor updated for bookingUsers successfully');
+        return $this->sendResponse($monitor, 'Monitor updated successfully for scope: '.$scope);
     }
-
 
 
 }

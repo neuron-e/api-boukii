@@ -192,6 +192,7 @@ class CourseController extends AppBaseController
         // Comprueba si el cliente principal tiene booking_users asociados con el ID del monitor
         $course = Course::with( 'station','bookingUsersActive.client.sports', 'bookingUsers.client.sports',
             'courseDates.courseSubgroups.bookingUsers.client',
+            'courseDates.courseSubgroups.monitor',
             'courseDates.courseGroups.courseSubgroups.monitor',
             'courseDates.courseGroups.bookingUsers.client',
             'courseDates.bookingUsersActive.client',
