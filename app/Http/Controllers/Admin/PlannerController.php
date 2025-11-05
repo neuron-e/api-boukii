@@ -125,16 +125,17 @@ class PlannerController extends AppBaseController
             $query->where('status', 1)->whereHas('booking');
         });
 
-        // OPTIMIZACION: Join en lugar de whereHas para bookings
+        // Consulta para las reservas (BookingUser)
+        // NOTA: Se usa whereHas en lugar de join para asegurar que el eager loading funcione correctamente
         $bookingQuery = BookingUser::with(['booking.user', 'course.courseDates', 'client.sports',
             'client.evaluations.degree', 'client.evaluations.evaluationFulfilledGoals'])
-            ->join('bookings', 'booking_users.booking_id', '=', 'bookings.id')
-            ->where('bookings.status', '!=', 2)
-            ->where('booking_users.school_id', $schoolId)
-            ->whereNull('booking_users.course_subgroup_id')
-            ->where('booking_users.status', 1)
-            ->select('booking_users.*')
-            ->orderBy('booking_users.hour_start');
+            ->whereHas('booking', function ($query) {
+                $query->where('status', '!=', 2); // La Booking no debe tener status 2
+            })
+            ->where('school_id', $schoolId)
+            ->where('course_subgroup_id', null)
+            ->where('status', 1)
+            ->orderBy('hour_start');
 
         // Consulta para los MonitorNwd
         $nwdQuery = MonitorNwd::where('school_id', $schoolId)
@@ -142,19 +143,19 @@ class PlannerController extends AppBaseController
 
         // Aplicar filtros de fecha
         if ($dateStart && $dateEnd) {
-            $bookingQuery->whereBetween('booking_users.date', [$dateStart, $dateEnd]);
+            $bookingQuery->whereBetween('date', [$dateStart, $dateEnd]);
             $nwdQuery->whereBetween('start_date', [$dateStart, $dateEnd])
                 ->whereBetween('end_date', [$dateStart, $dateEnd]);
         } else {
             $today = Carbon::today();
-            $bookingQuery->whereDate('booking_users.date', $today);
+            $bookingQuery->whereDate('date', $today);
             $nwdQuery->whereDate('start_date', '<=', $today)
                 ->whereDate('end_date', '>=', $today);
         }
 
         // Aplicar filtro de monitor si existe
         if ($monitorId) {
-            $bookingQuery->where('booking_users.monitor_id', $monitorId);
+            $bookingQuery->where('monitor_id', $monitorId);
             $nwdQuery->where('monitor_id', $monitorId);
             $subgroupsQuery->where('course_subgroups.monitor_id', $monitorId);
 
@@ -282,16 +283,17 @@ class PlannerController extends AppBaseController
         }
 
         foreach ($monitors as $monitor) {
-            // FIX: Mejorar la lógica de agrupación para incluir TODOS los tipos de curso
             $monitorBookings = $bookings->where('monitor_id', $monitor->id)
                 ->groupBy(function ($booking) {
-                    // Agrupa cursos privados (type 2) y actividades (type 3) por course + date
-                    if ($booking->course->course_type == 2 || $booking->course->course_type == 3) {
-                        return $booking->course_id . '-' . $booking->course_date_id;
+                    // Verificar que course esté cargado
+                    if ($booking->relationLoaded('course') && $booking->course) {
+                        // Agrupa cursos privados (type 2) y actividades (type 3) por course + date
+                        if ($booking->course->course_type == 2 || $booking->course->course_type == 3) {
+                            return $booking->course_id . '-' . $booking->course_date_id;
+                        }
                     }
-                    // Para cursos colectivos (type 1), agrupa por booking individual
-                    // Esto evita que se agrupen todos juntos bajo la clave null
-                    return $booking->course_id . '-' . $booking->course_date_id . '-' . $booking->id;
+                    // Para cursos colectivos (type 1) o si course no está cargado,
+                    // no devolver nada para que se agrupen bajo una clave vacía
                 });
 
             $monitor->hasFullDayNwd = $monitorFullDayNwds->get($monitor->id, false);
@@ -333,14 +335,17 @@ class PlannerController extends AppBaseController
             ];
         }
 
-        // FIX: Mantener consistencia en la agrupación de bookings sin monitor
+        // Bookings sin monitor asignado
         $bookingsWithoutMonitor = $bookings->whereNull('monitor_id')->groupBy(function ($booking) {
-            // Agrupa cursos privados (type 2) y actividades (type 3) por course + date
-            if ($booking->course->course_type == 2 || $booking->course->course_type == 3) {
-                return $booking->course_id . '-' . $booking->course_date_id;
+            // Verificar que course esté cargado
+            if ($booking->relationLoaded('course') && $booking->course) {
+                // Agrupa cursos privados (type 2) y actividades (type 3) por course + date
+                if ($booking->course->course_type == 2 || $booking->course->course_type == 3) {
+                    return $booking->course_id . '-' . $booking->course_date_id;
+                }
             }
-            // Para cursos colectivos (type 1), agrupa por booking individual
-            return $booking->course_id . '-' . $booking->course_date_id . '-' . $booking->id;
+            // Para cursos colectivos (type 1) o si course no está cargado,
+            // no devolver nada para que se agrupen bajo una clave vacía
         });
 
         $subgroupsWithoutMonitor = $subgroups->where('monitor_id', null);
