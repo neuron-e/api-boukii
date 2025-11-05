@@ -197,6 +197,9 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
     Route::get('newsletters/stats', [\App\Http\Controllers\Admin\NewsletterController::class, 'stats'])
         ->name('api.admin.newsletters.stats');
 
+    Route::get('newsletters/subscriber-stats', [\App\Http\Controllers\Admin\NewsletterController::class, 'subscriberStats'])
+        ->name('api.admin.newsletters.subscriber-stats');
+
     Route::get('newsletters/recent', [\App\Http\Controllers\Admin\NewsletterController::class, 'recent'])
         ->name('api.admin.newsletters.recent');
 
@@ -205,6 +208,9 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
 
     Route::get('newsletters/subscribers', [\App\Http\Controllers\Admin\NewsletterController::class, 'subscribers'])
         ->name('api.admin.newsletters.subscribers');
+
+    Route::get('subscribers/export', [\App\Http\Controllers\Admin\NewsletterController::class, 'exportSubscribers'])
+        ->name('api.admin.subscribers.export');
 
     Route::resource('newsletters', App\Http\Controllers\Admin\NewsletterController::class)
         ->except(['create', 'edit'])->names([
