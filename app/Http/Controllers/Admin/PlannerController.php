@@ -3,10 +3,6 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\AppBaseController;
-use App\Http\Resources\BookingUserPlannerResource;
-use App\Http\Resources\CourseSubgroupPlannerResource;
-use App\Http\Resources\MonitorPlannerResource;
-use App\Http\Resources\NwdPlannerResource;
 use App\Models\BookingUser;
 use App\Models\CourseSubgroup;
 use App\Models\Monitor;
@@ -275,19 +271,6 @@ class PlannerController extends AppBaseController
         $subgroups = $subgroupsQuery->get();
         $bookings = $bookingQuery->get();
 
-        // DEBUG: Verificar bookings type 2
-        $type2Bookings = $bookings->filter(function ($b) {
-            return $b->relationLoaded('course') && $b->course && $b->course->course_type == 2;
-        });
-        \Log::info('=== PLANNER DEBUG ===');
-        \Log::info('Total bookings retrieved: ' . $bookings->count());
-        \Log::info('Type 2 bookings count: ' . $type2Bookings->count());
-        \Log::info('Type 2 with monitor: ' . $type2Bookings->whereNotNull('monitor_id')->count());
-        \Log::info('Type 2 without monitor: ' . $type2Bookings->whereNull('monitor_id')->count());
-        if ($type2Bookings->count() > 0) {
-            \Log::info('Sample type 2 booking IDs: ' . $type2Bookings->take(5)->pluck('id')->toArray());
-        }
-
         // Attach booking user id to each booking user for planner consumers
         $bookings->each(function ($bookingUser) {
             if ($bookingUser->relationLoaded('booking') && $bookingUser->booking) {
@@ -435,66 +418,7 @@ class PlannerController extends AppBaseController
             ];
         }
 
-        // DEBUG: Verificar bookings type 2 en respuesta final
-        $finalType2Count = 0;
-        foreach ($groupedData as $monitorId => $data) {
-            foreach ($data['bookings'] as $key => $group) {
-                $groupCollection = is_array($group) ? collect($group) : collect([$group]);
-                $type2InGroup = $groupCollection->filter(function ($b) {
-                    return (isset($b->course) && isset($b->course->course_type) && $b->course->course_type == 2) ||
-                           ($b instanceof \App\Models\CourseSubgroup && $b->relationLoaded('course') && $b->course && $b->course->course_type == 2);
-                })->count();
-                $finalType2Count += $type2InGroup;
-
-                if ($type2InGroup > 0) {
-                    \Log::info("Monitor $monitorId, Key '$key': $type2InGroup type 2 bookings");
-                }
-            }
-        }
-        \Log::info('Total type 2 bookings in final grouped data: ' . $finalType2Count);
-        \Log::info('=== END PLANNER DEBUG ===');
-
-        // OPTIMIZACION: Aplicar Resource classes para reducir tamaño de respuesta
-        return $this->applyPlannerResources($groupedData);
-    }
-
-    /**
-     * Aplica Resource classes a los datos del planner para reducir el tamaño de la respuesta
-     */
-    private function applyPlannerResources($groupedData)
-    {
-        return $groupedData->map(function ($item) {
-            // Procesar bookings manteniendo la estructura de grupos
-            $processedBookings = [];
-
-            foreach ($item['bookings'] as $key => $group) {
-                // $group puede ser una Collection de BookingUsers o un CourseSubgroup individual
-                if ($group instanceof CourseSubgroup) {
-                    // Es un subgrupo individual
-                    $processedBookings[$key] = new CourseSubgroupPlannerResource($group);
-                } else {
-                    // Es una Collection de BookingUsers o un array
-                    $groupArray = collect($group)->map(function ($booking) {
-                        if ($booking instanceof CourseSubgroup) {
-                            return new CourseSubgroupPlannerResource($booking);
-                        } elseif ($booking instanceof BookingUser) {
-                            return new BookingUserPlannerResource($booking);
-                        } else {
-                            // Si no es ninguno de los dos, devolver tal cual (por si hay algún caso edge)
-                            return $booking;
-                        }
-                    })->toArray();
-
-                    $processedBookings[$key] = $groupArray;
-                }
-            }
-
-            return [
-                'monitor' => $item['monitor'] ? new MonitorPlannerResource($item['monitor']) : null,
-                'bookings' => $processedBookings,
-                'nwds' => NwdPlannerResource::collection($item['nwds'])->resolve(),
-            ];
-        });
+        return $groupedData;
     }
 
     /**
