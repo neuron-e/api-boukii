@@ -110,7 +110,10 @@ class PlannerController extends AppBaseController
             ->whereHas('courseDate', function ($query) use ($dateStart, $dateEnd) {
                 if ($dateStart && $dateEnd) {
                     // Filtra las fechas del subgrupo en el rango proporcionado
-                    $query->whereBetween('date', [$dateStart, $dateEnd])->where('active', 1);
+                    // Usamos whereDate para comparar solo la fecha, ignorando la hora
+                    $query->whereDate('date', '>=', $dateStart)
+                        ->whereDate('date', '<=', $dateEnd)
+                        ->where('active', 1);
                 } else {
                     $today = Carbon::today();
 
@@ -147,11 +150,15 @@ class PlannerController extends AppBaseController
         // Si se proporcionaron date_start y date_end, busca en el rango de fechas
         if ($dateStart && $dateEnd) {
             // Busca en el rango de fechas proporcionado para las reservas
-            $bookingQuery->whereBetween('date', [$dateStart, $dateEnd]);
+            // Usamos whereDate para comparar solo la fecha, ignorando la hora
+            $bookingQuery->whereDate('date', '>=', $dateStart)
+                ->whereDate('date', '<=', $dateEnd);
 
             // Busca en el rango de fechas proporcionado para los MonitorNwd
-            $nwdQuery->whereBetween('start_date', [$dateStart, $dateEnd])
-                ->whereBetween('end_date', [$dateStart, $dateEnd]);
+            $nwdQuery->whereDate('start_date', '>=', $dateStart)
+                ->whereDate('start_date', '<=', $dateEnd)
+                ->whereDate('end_date', '>=', $dateStart)
+                ->whereDate('end_date', '<=', $dateEnd);
         } else {
             // Si no se proporcionan fechas, busca en el día de hoy
             $today = Carbon::today();
@@ -180,7 +187,9 @@ class PlannerController extends AppBaseController
                     $query->whereHas('courseDate', function ($query)  use ($dateStart, $dateEnd) {
                         if ($dateStart && $dateEnd) {
                             // Filtra las fechas del subgrupo en el rango proporcionado
-                            $query->whereBetween('date', [$dateStart, $dateEnd]);
+                            // Usamos whereDate para comparar solo la fecha, ignorando la hora
+                            $query->whereDate('date', '>=', $dateStart)
+                                ->whereDate('date', '<=', $dateEnd);
                         } else {
                             $today = Carbon::today();
 
@@ -217,7 +226,9 @@ class PlannerController extends AppBaseController
                     $query->whereHas('courseDate', function ($query)  use ($dateStart, $dateEnd) {
                         if ($dateStart && $dateEnd) {
                             // Filtra las fechas del subgrupo en el rango proporcionado
-                            $query->whereBetween('date', [$dateStart, $dateEnd]);
+                            // Usamos whereDate para comparar solo la fecha, ignorando la hora
+                            $query->whereDate('date', '>=', $dateStart)
+                                ->whereDate('date', '<=', $dateEnd);
                         } else {
                             $today = Carbon::today();
 
