@@ -122,7 +122,8 @@ class PlannerController extends AppBaseController
                     ]);
             }
         ])
-            ->select('id', 'course_group_id', 'course_date_id', 'course_id', 'monitor_id')
+            ->select('id', 'course_group_id', 'course_date_id', 'course_id', 'monitor_id',
+                'degree_id', 'max_participants')
             ->whereHas('courseGroup.course', function ($query) use ($schoolId) {
                 // Agrega la comprobación de la escuela aquí
                 $query->where('school_id', $schoolId)->where('active', 1);
