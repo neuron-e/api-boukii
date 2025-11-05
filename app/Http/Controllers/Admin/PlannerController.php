@@ -115,7 +115,10 @@ class PlannerController extends AppBaseController
                         'booking:id,user_id,paid',
                         'booking.user:id,first_name,last_name',
                         'client:id,first_name,last_name,birth_date,language1_id',
-                        'client.sports:id,name'
+                        'client.sports' => function ($query) {
+                            $query->select('sports.id', 'sports.name');
+                            // withPivot('degree_id') ya está en el modelo, se incluye automáticamente
+                        }
                     ]);
             }
         ])
@@ -147,7 +150,10 @@ class PlannerController extends AppBaseController
             'course:id,name,sport_id,course_type,max_participants,date_start,date_end',
             'course.courseDates:id,course_id,date,hour_start,hour_end',
             'client:id,first_name,last_name,birth_date,language1_id',
-            'client.sports:id,name'
+            'client.sports' => function ($query) {
+                $query->select('sports.id', 'sports.name');
+                // withPivot('degree_id') ya está en el modelo, se incluye automáticamente
+            }
         ])
             ->select('id', 'booking_id', 'client_id', 'course_id', 'course_date_id', 'course_subgroup_id',
                 'monitor_id', 'group_id', 'date', 'hour_start', 'hour_end', 'status', 'accepted',
@@ -162,8 +168,9 @@ class PlannerController extends AppBaseController
 
         // Consulta para los MonitorNwd
         // OPTIMIZACION: Cargar solo campos necesarios
-        $nwdQuery = MonitorNwd::select('id', 'monitor_id', 'start_date', 'end_date', 'start_time',
-                'hour_start', 'hour_end', 'full_day', 'user_nwd_subtype_id', 'notes', 'school_id')
+        $nwdQuery = MonitorNwd::select('id', 'monitor_id', 'school_id', 'station_id',
+                'start_date', 'end_date', 'start_time', 'end_time', 'full_day',
+                'user_nwd_subtype_id', 'description', 'color')
             ->where('school_id', $schoolId) // Filtra por school_id
             ->orderBy('start_time');
 
@@ -207,7 +214,7 @@ class PlannerController extends AppBaseController
             // Obtén solo el monitor específico
             // OPTIMIZACION: Cargar solo campos necesarios del monitor
             $monitors = MonitorsSchool::with([
-                'monitor:id,first_name,last_name,email,phone,image,language1_id,language2_id,language3_id',
+                'monitor:id,first_name,last_name',
                 'monitor.sports' => function ($query) use ($schoolId) {
                     $query->select('sports.id', 'sports.name', 'sports.icon_selected')
                         ->where('monitor_sports_degrees.school_id', $schoolId);
@@ -233,7 +240,7 @@ class PlannerController extends AppBaseController
             // Si no se proporcionó monitor_id, obtén todos los monitores como antes
             // OPTIMIZACION: Cargar solo campos necesarios del monitor
             $monitorSchools = MonitorsSchool::with([
-                'monitor:id,first_name,last_name,email,phone,image,language1_id,language2_id,language3_id',
+                'monitor:id,first_name,last_name',
                 'monitor.sports' => function ($query) use ($schoolId) {
                     $query->select('sports.id', 'sports.name', 'sports.icon_selected')
                         ->where('monitor_sports_degrees.school_id', $schoolId);
