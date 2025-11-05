@@ -366,21 +366,202 @@ class NewsletterController extends AppBaseController
     }
 
     /**
-     * Get list of subscribers
+     * Get newsletter subscriber statistics
+     * Returns detailed stats: active, inactive, vip, total
+     */
+    public function subscriberStats(Request $request): JsonResponse
+    {
+        $school = $this->getSchool($request);
+
+        // Total subscribers (clients that accept newsletter in this school)
+        $totalSubscribers = DB::table('clients_schools')
+            ->where('school_id', $school->id)
+            ->where('accepts_newsletter', true)
+            ->distinct('client_id')
+            ->count('client_id');
+
+        // Active subscribers (accepts_newsletter = true AND have activity in last 3 months)
+        $activeSubscribers = Client::query()
+            ->join('clients_schools', 'clients_schools.client_id', '=', 'clients.id')
+            ->where('clients_schools.school_id', $school->id)
+            ->where('clients_schools.accepts_newsletter', true)
+            ->where(function($query) {
+                $query->whereHas('bookingUsers', function($q) {
+                    $q->where('created_at', '>=', Carbon::now()->subMonths(3));
+                });
+            })
+            ->distinct('clients.id')
+            ->count('clients.id');
+
+        // VIP subscribers (is_vip = true in clients_schools)
+        $vipSubscribers = DB::table('clients_schools')
+            ->where('school_id', $school->id)
+            ->where('accepts_newsletter', true)
+            ->where('is_vip', true)
+            ->distinct('client_id')
+            ->count('client_id');
+
+        // Inactive subscribers (total - active)
+        $inactiveSubscribers = $totalSubscribers - $activeSubscribers;
+
+        $stats = [
+            'active' => $activeSubscribers,
+            'inactive' => $inactiveSubscribers > 0 ? $inactiveSubscribers : 0,
+            'vip' => $vipSubscribers,
+            'total' => $totalSubscribers
+        ];
+
+        return $this->sendResponse($stats, 'Subscriber stats retrieved successfully');
+    }
+
+    /**
+     * Get list of subscribers filtered by type
+     * Accepts query parameter: ?type={all|active|inactive|vip}
      */
     public function subscribers(Request $request): JsonResponse
     {
         $school = $this->getSchool($request);
+        $type = $request->query('type', 'all');
+        $perPage = $request->get('per_page', 50);
 
+        $query = Client::query()
+            ->join('clients_schools', 'clients_schools.client_id', '=', 'clients.id')
+            ->where('clients_schools.school_id', $school->id)
+            ->where('clients_schools.accepts_newsletter', true);
+
+        // Apply filters based on type
+        switch ($type) {
+            case 'active':
+                // Clients with accepts_newsletter = true AND activity in last 3 months
+                $query->whereHas('bookingUsers', function($q) {
+                    $q->where('created_at', '>=', Carbon::now()->subMonths(3));
+                });
+                break;
+
+            case 'inactive':
+                // Clients with accepts_newsletter = true BUT no activity in last 3 months
+                $query->whereDoesntHave('bookingUsers', function($q) {
+                    $q->where('created_at', '>=', Carbon::now()->subMonths(3));
+                });
+                break;
+
+            case 'vip':
+                // Clients with is_vip = true
+                $query->where('clients_schools.is_vip', true);
+                break;
+
+            case 'all':
+            default:
+                // All subscribers (no additional filter)
+                break;
+        }
+
+        // Get last booking date for "last activity" field
+        $subscribers = $query
+            ->leftJoin(DB::raw('(SELECT client_id, MAX(created_at) as last_booking_date FROM booking_users GROUP BY client_id) as last_bookings'),
+                'clients.id', '=', 'last_bookings.client_id')
+            ->select(
+                'clients.id',
+                'clients.first_name',
+                'clients.last_name',
+                'clients.email',
+                'clients.created_at',
+                'clients_schools.accepts_newsletter',
+                'clients_schools.is_vip',
+                DB::raw('COALESCE(last_bookings.last_booking_date, clients.created_at) as subscribed_at')
+            )
+            ->distinct('clients.id')
+            ->paginate($perPage);
+
+        // Transform the response to match expected format
+        $transformedData = $subscribers->getCollection()->map(function($subscriber) {
+            return [
+                'id' => $subscriber->id,
+                'name' => trim($subscriber->first_name . ' ' . $subscriber->last_name),
+                'first_name' => $subscriber->first_name,
+                'last_name' => $subscriber->last_name,
+                'email' => $subscriber->email,
+                'active' => $subscriber->accepts_newsletter,
+                'accepts_newsletter' => $subscriber->accepts_newsletter,
+                'vip' => $subscriber->is_vip,
+                'is_vip' => $subscriber->is_vip,
+                'created_at' => $subscriber->created_at,
+                'subscribed_at' => $subscriber->subscribed_at
+            ];
+        });
+
+        $subscribers->setCollection($transformedData);
+
+        return $this->sendResponse($subscribers, 'Subscribers retrieved successfully');
+    }
+
+    /**
+     * Export subscribers to CSV
+     */
+    public function exportSubscribers(Request $request)
+    {
+        $school = $this->getSchool($request);
+
+        // Get all subscribers with their last activity
         $subscribers = Client::query()
             ->join('clients_schools', 'clients_schools.client_id', '=', 'clients.id')
             ->where('clients_schools.school_id', $school->id)
             ->where('clients_schools.accepts_newsletter', true)
-            ->select('clients.id', 'clients.first_name', 'clients.last_name', 'clients.email', 'clients.created_at')
-            ->distinct()
-            ->paginate($request->get('per_page', 50));
+            ->leftJoin(DB::raw('(SELECT client_id, MAX(created_at) as last_activity FROM booking_users GROUP BY client_id) as last_bookings'),
+                'clients.id', '=', 'last_bookings.client_id')
+            ->select(
+                'clients.id',
+                'clients.first_name',
+                'clients.last_name',
+                'clients.email',
+                'clients.created_at',
+                'clients_schools.is_vip',
+                DB::raw('CASE
+                    WHEN last_bookings.last_activity >= NOW() - INTERVAL 3 MONTH THEN "Activo"
+                    ELSE "Inactivo"
+                END as estado'),
+                DB::raw('CASE WHEN clients_schools.is_vip = 1 THEN "Sí" ELSE "No" END as vip_status'),
+                DB::raw('COALESCE(last_bookings.last_activity, clients.created_at) as ultima_actividad')
+            )
+            ->distinct('clients.id')
+            ->orderBy('clients.id')
+            ->get();
 
-        return $this->sendResponse($subscribers, 'Subscribers retrieved successfully');
+        // Generate CSV content
+        $csvData = [];
+
+        // CSV Headers
+        $csvData[] = ['ID', 'Nombre', 'Email', 'Estado', 'VIP', 'Fecha de Registro', 'Última Actividad'];
+
+        // CSV Rows
+        foreach ($subscribers as $subscriber) {
+            $csvData[] = [
+                $subscriber->id,
+                trim($subscriber->first_name . ' ' . $subscriber->last_name),
+                $subscriber->email,
+                $subscriber->estado,
+                $subscriber->vip_status,
+                Carbon::parse($subscriber->created_at)->format('Y-m-d'),
+                $subscriber->ultima_actividad ? Carbon::parse($subscriber->ultima_actividad)->format('Y-m-d') : '-'
+            ];
+        }
+
+        // Create CSV file
+        $filename = 'subscribers_' . date('Y-m-d') . '.csv';
+        $handle = fopen('php://temp', 'r+');
+
+        foreach ($csvData as $row) {
+            fputcsv($handle, $row);
+        }
+
+        rewind($handle);
+        $csvContent = stream_get_contents($handle);
+        fclose($handle);
+
+        // Return CSV response
+        return response($csvContent, 200)
+            ->header('Content-Type', 'text/csv')
+            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
     // Private helper methods
