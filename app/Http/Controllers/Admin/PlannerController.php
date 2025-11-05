@@ -102,8 +102,28 @@ class PlannerController extends AppBaseController
 
         $schoolId = $this->getSchool($request)->id;
 
-        $subgroupsQuery = CourseSubgroup::with(['courseGroup.course', 'bookingUsers.client.sports', 'bookingUsers.booking.user',
-            'bookingUsers.client.evaluations.degree', 'bookingUsers.client.evaluations.evaluationFulfilledGoals'])
+        // OPTIMIZACION: Cargar solo campos necesarios y eliminar evaluations pesadas
+        $subgroupsQuery = CourseSubgroup::with([
+            'courseGroup:id,course_id',
+            'courseGroup.course:id,name,sport_id,course_type,max_participants,date_start,date_end',
+            'bookingUsers' => function ($query) {
+                $query->select('id', 'booking_id', 'client_id', 'course_id', 'course_date_id', 'course_subgroup_id',
+                    'monitor_id', 'group_id', 'date', 'hour_start', 'hour_end', 'status', 'accepted',
+                    'degree_id', 'color', 'school_id')
+                    ->where('status', 1)
+                    ->whereHas('booking')
+                    ->with([
+                        'booking:id,user_id,paid',
+                        'booking.user:id,first_name,last_name',
+                        'client:id,first_name,last_name,birth_date,language1_id',
+                        'client.sports' => function ($query) {
+                            $query->select('sports.id', 'sports.name');
+                            // withPivot('degree_id') ya está en el modelo, se incluye automáticamente
+                        }
+                    ]);
+            }
+        ])
+            ->select('id', 'course_group_id', 'course_date_id', 'course_id', 'monitor_id')
             ->whereHas('courseGroup.course', function ($query) use ($schoolId) {
                 // Agrega la comprobación de la escuela aquí
                 $query->where('school_id', $schoolId)->where('active', 1);
@@ -111,22 +131,34 @@ class PlannerController extends AppBaseController
             ->whereHas('courseDate', function ($query) use ($dateStart, $dateEnd) {
                 if ($dateStart && $dateEnd) {
                     // Filtra las fechas del subgrupo en el rango proporcionado
-                    $query->whereBetween('date', [$dateStart, $dateEnd])->where('active', 1);
+                    // Usamos whereDate para comparar solo la fecha, ignorando la hora
+                    $query->whereDate('date', '>=', $dateStart)
+                        ->whereDate('date', '<=', $dateEnd)
+                        ->where('active', 1);
                 } else {
                     $today = Carbon::today();
 
                     // Busca en el día de hoy para las reservas
                     $query->whereDate('date', $today)->where('active', 1);
                 }
-            })
-            ->with('bookingUsers', function ($query) {
-                // Agregar la restricción para traer solo las booking_users con status = 1
-                $query->where('status', 1)->whereHas('booking');
             });
 
         // Consulta para las reservas (BookingUser)
-        $bookingQuery = BookingUser::with(['booking.user', 'course.courseDates', 'client.sports',
-            'client.evaluations.degree', 'client.evaluations.evaluationFulfilledGoals'])
+        // OPTIMIZACION: Cargar solo campos necesarios y eliminar evaluations pesadas
+        $bookingQuery = BookingUser::with([
+            'booking:id,user_id,paid',
+            'booking.user:id,first_name,last_name',
+            'course:id,name,sport_id,course_type,max_participants,date_start,date_end',
+            'course.courseDates:id,course_id,date,hour_start,hour_end',
+            'client:id,first_name,last_name,birth_date,language1_id',
+            'client.sports' => function ($query) {
+                $query->select('sports.id', 'sports.name');
+                // withPivot('degree_id') ya está en el modelo, se incluye automáticamente
+            }
+        ])
+            ->select('id', 'booking_id', 'client_id', 'course_id', 'course_date_id', 'course_subgroup_id',
+                'monitor_id', 'group_id', 'date', 'hour_start', 'hour_end', 'status', 'accepted',
+                'degree_id', 'color', 'school_id')
             ->whereHas('booking', function ($query) {
                 $query->where('status', '!=', 2); // La Booking no debe tener status 2
             })
@@ -136,8 +168,12 @@ class PlannerController extends AppBaseController
             ->orderBy('hour_start');
 
         // Consulta para los MonitorNwd
-        $nwdQuery = MonitorNwd::where('school_id', $schoolId) // Filtra por school_id
-        ->orderBy('start_time');
+        // OPTIMIZACION: Cargar solo campos necesarios
+        $nwdQuery = MonitorNwd::select('id', 'monitor_id', 'school_id', 'station_id',
+                'start_date', 'end_date', 'start_time', 'end_time', 'full_day',
+                'user_nwd_subtype_id', 'description', 'color')
+            ->where('school_id', $schoolId) // Filtra por school_id
+            ->orderBy('start_time');
 
         if($schoolId) {
             $bookingQuery->where('school_id', $schoolId);
@@ -148,11 +184,15 @@ class PlannerController extends AppBaseController
         // Si se proporcionaron date_start y date_end, busca en el rango de fechas
         if ($dateStart && $dateEnd) {
             // Busca en el rango de fechas proporcionado para las reservas
-            $bookingQuery->whereBetween('date', [$dateStart, $dateEnd]);
+            // Usamos whereDate para comparar solo la fecha, ignorando la hora
+            $bookingQuery->whereDate('date', '>=', $dateStart)
+                ->whereDate('date', '<=', $dateEnd);
 
             // Busca en el rango de fechas proporcionado para los MonitorNwd
-            $nwdQuery->whereBetween('start_date', [$dateStart, $dateEnd])
-                ->whereBetween('end_date', [$dateStart, $dateEnd]);
+            $nwdQuery->whereDate('start_date', '>=', $dateStart)
+                ->whereDate('start_date', '<=', $dateEnd)
+                ->whereDate('end_date', '>=', $dateStart)
+                ->whereDate('end_date', '<=', $dateEnd);
         } else {
             // Si no se proporcionan fechas, busca en el día de hoy
             $today = Carbon::today();
@@ -173,24 +213,14 @@ class PlannerController extends AppBaseController
             $subgroupsQuery->where('monitor_id', $monitorId);
 
             // Obtén solo el monitor específico
-            $monitors = MonitorsSchool::with(['monitor.sports'=> function ($query) use ($schoolId) {
-                $query->where('monitor_sports_degrees.school_id', $schoolId);
-            },
-                'monitor.courseSubgroups'
-            => function ($query) use ($dateStart, $dateEnd) {
-                    $query->whereHas('courseDate', function ($query)  use ($dateStart, $dateEnd) {
-                        if ($dateStart && $dateEnd) {
-                            // Filtra las fechas del subgrupo en el rango proporcionado
-                            $query->whereBetween('date', [$dateStart, $dateEnd]);
-                        } else {
-                            $today = Carbon::today();
-
-                            // Busca en el día de hoy para las reservas
-                            $query->whereDate('date', $today);
-
-                        }
-                    });
-                }])
+            // OPTIMIZACION: Cargar solo campos necesarios del monitor
+            $monitors = MonitorsSchool::with([
+                'monitor:id,first_name,last_name',
+                'monitor.sports' => function ($query) use ($schoolId) {
+                    $query->select('sports.id', 'sports.name', 'sports.icon_selected')
+                        ->where('monitor_sports_degrees.school_id', $schoolId);
+                }
+            ])
                 ->where('school_id', $schoolId)
                 ->whereHas('monitor', function ($query) use ($monitorId, $languageIds) {
                     $query->where('id', $monitorId);
@@ -209,25 +239,14 @@ class PlannerController extends AppBaseController
                 ->pluck('monitor');
         } else {
             // Si no se proporcionó monitor_id, obtén todos los monitores como antes
-            $monitorSchools = MonitorsSchool::with(['monitor.sports'
-            => function ($query) use ($schoolId) {
-                    $query->where('monitor_sports_degrees.school_id', $schoolId);
-                },
-                'monitor.courseSubgroups'
-                => function ($query) use ($dateStart, $dateEnd) {
-                    $query->whereHas('courseDate', function ($query)  use ($dateStart, $dateEnd) {
-                        if ($dateStart && $dateEnd) {
-                            // Filtra las fechas del subgrupo en el rango proporcionado
-                            $query->whereBetween('date', [$dateStart, $dateEnd]);
-                        } else {
-                            $today = Carbon::today();
-
-                            // Busca en el día de hoy para las reservas
-                            $query->whereDate('date', $today);
-
-                        }
-                    });
-                }])
+            // OPTIMIZACION: Cargar solo campos necesarios del monitor
+            $monitorSchools = MonitorsSchool::with([
+                'monitor:id,first_name,last_name',
+                'monitor.sports' => function ($query) use ($schoolId) {
+                    $query->select('sports.id', 'sports.name', 'sports.icon_selected')
+                        ->where('monitor_sports_degrees.school_id', $schoolId);
+                }
+            ])
                 ->where('school_id', $schoolId)
                 ->where('active_school', 1)
                 ->when(!empty($languageIds), function ($query) use ($languageIds) {
@@ -246,15 +265,24 @@ class PlannerController extends AppBaseController
             $monitors = $monitorSchools->pluck('monitor');
         }
 
-        foreach ($monitors as $monitor) {
+        // OPTIMIZACION: Cargar authorized degrees para todos los monitores en una sola query
+        $monitorIds = $monitors->pluck('id')->toArray();
+        if (!empty($monitorIds)) {
+            $authorizedDegreesByMonitorSport = MonitorSportAuthorizedDegree::with('degree')
+                ->whereHas('monitorSport', function ($q) use ($schoolId, $monitorIds) {
+                    $q->where('school_id', $schoolId)
+                        ->whereIn('monitor_id', $monitorIds);
+                })
+                ->get()
+                ->groupBy(function ($item) {
+                    return $item->monitorSport->monitor_id . '-' . $item->monitorSport->sport_id;
+                });
 
-            // Recorrer los deportes del monitor
-            foreach ($monitor->sports as $sport) {
-
-                $sport->authorizedDegrees = MonitorSportAuthorizedDegree::whereHas('monitorSport',
-                    function ($q) use($sport, $schoolId, $monitor){
-                    $q->where('sport_id', $sport->id)->where('school_id', $schoolId)->where('monitor_id', $monitor->id);
-                })->with('degree')->get();
+            foreach ($monitors as $monitor) {
+                foreach ($monitor->sports as $sport) {
+                    $key = $monitor->id . '-' . $sport->id;
+                    $sport->authorizedDegrees = $authorizedDegreesByMonitorSport->get($key, collect());
+                }
             }
         }
 
@@ -269,32 +297,48 @@ class PlannerController extends AppBaseController
                 $bookingUser->user_id = $bookingUser->booking->user_id;
             }
         });
+        // OPTIMIZACION: Filtrar subgroups por school_id antes de contar
         $subgroupsPerGroup = CourseSubgroup::select('course_group_id', DB::raw('COUNT(*) as total'))
+            ->join('course_groups', 'course_subgroups.course_group_id', '=', 'course_groups.id')
+            ->join('courses', 'course_groups.course_id', '=', 'courses.id')
+            ->where('courses.school_id', $schoolId)
             ->groupBy('course_group_id')
             ->pluck('total', 'course_group_id');
+
         $groupedData = collect([]);
 
-        foreach ($monitors as $monitor) {
-
+        // OPTIMIZACION: Calcular full_day NWDs para todos los monitores en una sola query
+        $monitorFullDayNwds = collect();
+        if ($dateStart && $dateEnd && !empty($monitorIds)) {
             $daysWithinRange = CarbonPeriod::create($dateStart, $dateEnd)->toArray();
 
-            $allDaysMeetCriteria = true;
+            // Obtener todos los NWDs de full_day para los monitores en el rango de fechas
+            $fullDayNwds = MonitorNwd::where('school_id', $schoolId)
+                ->whereIn('monitor_id', $monitorIds)
+                ->where('full_day', true)
+                ->where('user_nwd_subtype_id', 1)
+                ->where('start_date', '<=', $dateEnd)
+                ->where('end_date', '>=', $dateStart)
+                ->get();
 
-            foreach ($daysWithinRange as $day) {
-                $hasFullDayNwd = MonitorNwd::where('school_id', $schoolId)
-                        ->where('monitor_id', $monitor->id)
-                        ->where('full_day', true)
-                        ->where('user_nwd_subtype_id', 1)
-                        ->whereDate('start_date', '<=', $day)
-                        ->whereDate('end_date', '>=', $day)
-                        ->count() > 0;
+            foreach ($monitorIds as $mId) {
+                $allDaysMeetCriteria = true;
+                foreach ($daysWithinRange as $day) {
+                    $hasFullDayNwd = $fullDayNwds->where('monitor_id', $mId)
+                        ->where('start_date', '<=', $day)
+                        ->where('end_date', '>=', $day)
+                        ->isNotEmpty();
 
-                if (!$hasFullDayNwd) {
-                    $allDaysMeetCriteria = false;
-                    break;
+                    if (!$hasFullDayNwd) {
+                        $allDaysMeetCriteria = false;
+                        break;
+                    }
                 }
+                $monitorFullDayNwds[$mId] = $allDaysMeetCriteria;
             }
+        }
 
+        foreach ($monitors as $monitor) {
             $monitorBookings = $bookings->where('monitor_id', $monitor->id)
                 ->groupBy(function ($booking) use($subgroupsPerGroup) {
                     // Diferencia la agrupación basada en el course_type
@@ -304,7 +348,7 @@ class PlannerController extends AppBaseController
                     }
                 });
 
-            $monitor->hasFullDayNwd = $allDaysMeetCriteria;
+            $monitor->hasFullDayNwd = $monitorFullDayNwds->get($monitor->id, false);
 
             $subgroupsWithMonitor = $subgroups->where('monitor_id', $monitor->id);
 
@@ -323,7 +367,18 @@ class PlannerController extends AppBaseController
                 $subgroup->subgroup_number = $subgroupPosition;
                 $subgroup->total_subgroups = $totalSubgroups;
 
-                $subgroup->loadMissing(['course.courseDates', 'courseGroup']);
+                // OPTIMIZACION: Cargar solo campos necesarios en relaciones faltantes
+                $subgroup->loadMissing([
+                    'course' => function ($query) {
+                        $query->select('id', 'name', 'sport_id', 'course_type', 'max_participants', 'date_start', 'date_end');
+                    },
+                    'course.courseDates' => function ($query) {
+                        $query->select('id', 'course_id', 'date', 'hour_start', 'hour_end');
+                    },
+                    'courseGroup' => function ($query) {
+                        $query->select('id', 'course_id');
+                    }
+                ]);
 
                 // Define la misma nomenclatura que en los bookings
                 $nomenclature = $courseId . '-' . $courseDateId . '-' . $subgroupId;
@@ -374,7 +429,18 @@ class PlannerController extends AppBaseController
             $subgroup->subgroup_number = $subgroupPosition;
             $subgroup->total_subgroups = $totalSubgroups;
 
-            $subgroup->loadMissing(['course.courseDates', 'courseGroup']);
+            // OPTIMIZACION: Cargar solo campos necesarios en relaciones faltantes
+            $subgroup->loadMissing([
+                'course' => function ($query) {
+                    $query->select('id', 'name', 'sport_id', 'course_type', 'max_participants', 'date_start', 'date_end');
+                },
+                'course.courseDates' => function ($query) {
+                    $query->select('id', 'course_id', 'date', 'hour_start', 'hour_end');
+                },
+                'courseGroup' => function ($query) {
+                    $query->select('id', 'course_id');
+                }
+            ]);
 
             // Define la misma nomenclatura que en los bookings
             $nomenclature = $courseId . '-' . $courseDateId . '-' . $subgroupId;
