@@ -8,7 +8,7 @@ class BookingUserPlannerResource extends JsonResource
 {
     public function toArray($request)
     {
-        return [
+        $data = [
             'id' => $this->id,
             'booking_id' => $this->booking_id,
             'client_id' => $this->client_id,
@@ -24,82 +24,98 @@ class BookingUserPlannerResource extends JsonResource
             'accepted' => $this->accepted,
             'degree_id' => $this->degree_id,
             'color' => $this->color,
-            'user_id' => $this->user_id ?? null,
-
-            // Booking minimal
-            'booking' => $this->whenLoaded('booking', function () {
-                return [
-                    'id' => $this->booking->id,
-                    'user_id' => $this->booking->user_id,
-                    'paid' => $this->booking->paid,
-                    'user' => $this->when($this->booking->relationLoaded('user'), function () {
-                        return [
-                            'id' => $this->booking->user->id,
-                            'first_name' => $this->booking->user->first_name,
-                            'last_name' => $this->booking->user->last_name,
-                        ];
-                    }),
-                ];
-            }),
-
-            // Client minimal
-            'client' => $this->whenLoaded('client', function () {
-                return [
-                    'id' => $this->client->id,
-                    'first_name' => $this->client->first_name,
-                    'last_name' => $this->client->last_name,
-                    'birth_date' => $this->client->birth_date,
-                    'language1_id' => $this->client->language1_id,
-                    'sports' => $this->when($this->client->relationLoaded('sports'), function () {
-                        return $this->client->sports->map(function ($sport) {
-                            return [
-                                'id' => $sport->id,
-                                'name' => $sport->name,
-                            ];
-                        });
-                    }),
-                    'evaluations' => $this->when($this->client->relationLoaded('evaluations'), function () {
-                        return $this->client->evaluations->map(function ($evaluation) {
-                            return [
-                                'id' => $evaluation->id,
-                                'degree_id' => $evaluation->degree_id,
-                                'degree' => $this->when($evaluation->relationLoaded('degree'), function () use ($evaluation) {
-                                    return [
-                                        'id' => $evaluation->degree->id,
-                                        'name' => $evaluation->degree->name,
-                                        'annotation' => $evaluation->degree->annotation,
-                                        'color' => $evaluation->degree->color,
-                                    ];
-                                }),
-                                'evaluationFulfilledGoals' => $this->when($evaluation->relationLoaded('evaluationFulfilledGoals'), $evaluation->evaluationFulfilledGoals),
-                            ];
-                        });
-                    }),
-                ];
-            }),
-
-            // Course minimal
-            'course' => $this->whenLoaded('course', function () {
-                return [
-                    'id' => $this->course->id,
-                    'name' => $this->course->name,
-                    'sport_id' => $this->course->sport_id,
-                    'course_type' => $this->course->course_type,
-                    'max_participants' => $this->course->max_participants,
-                    'date_start' => $this->course->date_start,
-                    'date_end' => $this->course->date_end,
-                    'courseDates' => $this->when($this->course->relationLoaded('courseDates'), function () {
-                        return $this->course->courseDates->map(function ($date) {
-                            return [
-                                'id' => $date->id,
-                                'date' => $date->date,
-                                'hour_start' => $date->hour_start,
-                                'hour_end' => $date->hour_end,
-                            ];
-                        });
-                    }),
-                ];
-            }),
         ];
+
+        // Agregar user_id si existe (se agrega dinámicamente en el controller)
+        if (isset($this->user_id)) {
+            $data['user_id'] = $this->user_id;
+        }
+
+        // Booking minimal
+        if ($this->relationLoaded('booking') && $this->booking) {
+            $data['booking'] = [
+                'id' => $this->booking->id,
+                'user_id' => $this->booking->user_id,
+                'paid' => $this->booking->paid ?? false,
+            ];
+
+            if ($this->booking->relationLoaded('user') && $this->booking->user) {
+                $data['booking']['user'] = [
+                    'id' => $this->booking->user->id,
+                    'first_name' => $this->booking->user->first_name,
+                    'last_name' => $this->booking->user->last_name,
+                ];
+            }
+        }
+
+        // Client minimal
+        if ($this->relationLoaded('client') && $this->client) {
+            $data['client'] = [
+                'id' => $this->client->id,
+                'first_name' => $this->client->first_name,
+                'last_name' => $this->client->last_name,
+                'birth_date' => $this->client->birth_date,
+                'language1_id' => $this->client->language1_id,
+            ];
+
+            if ($this->client->relationLoaded('sports')) {
+                $data['client']['sports'] = $this->client->sports->map(function ($sport) {
+                    return [
+                        'id' => $sport->id,
+                        'name' => $sport->name,
+                    ];
+                })->toArray();
+            }
+
+            if ($this->client->relationLoaded('evaluations')) {
+                $data['client']['evaluations'] = $this->client->evaluations->map(function ($evaluation) {
+                    $evalData = [
+                        'id' => $evaluation->id,
+                        'degree_id' => $evaluation->degree_id,
+                    ];
+
+                    if ($evaluation->relationLoaded('degree') && $evaluation->degree) {
+                        $evalData['degree'] = [
+                            'id' => $evaluation->degree->id,
+                            'name' => $evaluation->degree->name,
+                            'annotation' => $evaluation->degree->annotation,
+                            'color' => $evaluation->degree->color,
+                        ];
+                    }
+
+                    if ($evaluation->relationLoaded('evaluationFulfilledGoals')) {
+                        $evalData['evaluationFulfilledGoals'] = $evaluation->evaluationFulfilledGoals;
+                    }
+
+                    return $evalData;
+                })->toArray();
+            }
+        }
+
+        // Course minimal
+        if ($this->relationLoaded('course') && $this->course) {
+            $data['course'] = [
+                'id' => $this->course->id,
+                'name' => $this->course->name,
+                'sport_id' => $this->course->sport_id,
+                'course_type' => $this->course->course_type,
+                'max_participants' => $this->course->max_participants,
+                'date_start' => $this->course->date_start,
+                'date_end' => $this->course->date_end,
+            ];
+
+            if ($this->course->relationLoaded('courseDates')) {
+                $data['course']['courseDates'] = $this->course->courseDates->map(function ($date) {
+                    return [
+                        'id' => $date->id,
+                        'date' => $date->date,
+                        'hour_start' => $date->hour_start,
+                        'hour_end' => $date->hour_end,
+                    ];
+                })->toArray();
+            }
+        }
+
+        return $data;
     }
 }

@@ -432,19 +432,35 @@ class PlannerController extends AppBaseController
     private function applyPlannerResources($groupedData)
     {
         return $groupedData->map(function ($item) {
-            return [
-                'monitor' => $item['monitor'] ? new MonitorPlannerResource($item['monitor']) : null,
-                'bookings' => $item['bookings']->map(function ($group) {
-                    // Cada grupo puede contener BookingUsers o un CourseSubgroup
-                    return collect($group)->map(function ($booking) {
+            // Procesar bookings manteniendo la estructura de grupos
+            $processedBookings = [];
+
+            foreach ($item['bookings'] as $key => $group) {
+                // $group puede ser una Collection de BookingUsers o un CourseSubgroup individual
+                if ($group instanceof CourseSubgroup) {
+                    // Es un subgrupo individual
+                    $processedBookings[$key] = new CourseSubgroupPlannerResource($group);
+                } else {
+                    // Es una Collection de BookingUsers o un array
+                    $groupArray = collect($group)->map(function ($booking) {
                         if ($booking instanceof CourseSubgroup) {
                             return new CourseSubgroupPlannerResource($booking);
-                        } else {
+                        } elseif ($booking instanceof BookingUser) {
                             return new BookingUserPlannerResource($booking);
+                        } else {
+                            // Si no es ninguno de los dos, devolver tal cual (por si hay algún caso edge)
+                            return $booking;
                         }
-                    });
-                }),
-                'nwds' => NwdPlannerResource::collection($item['nwds']),
+                    })->toArray();
+
+                    $processedBookings[$key] = $groupArray;
+                }
+            }
+
+            return [
+                'monitor' => $item['monitor'] ? new MonitorPlannerResource($item['monitor']) : null,
+                'bookings' => $processedBookings,
+                'nwds' => NwdPlannerResource::collection($item['nwds'])->resolve(),
             ];
         });
     }
