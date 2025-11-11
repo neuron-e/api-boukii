@@ -461,6 +461,65 @@ class BookingUser extends Model
         return false; // No hay solapamiento
     }
 
+    /**
+     * Get overlapping bookings with details
+     *
+     * @param array $bookingUser
+     * @param array $bookingUserIds
+     * @return array
+     */
+    public static function getOverlappingBookings($bookingUser, $bookingUserIds = []): array
+    {
+        $clientBookings = BookingUser::with(['booking', 'course'])
+            ->where('client_id', $bookingUser['client_id'])
+            ->where('date', $bookingUser['date'])
+            ->where('status', 1)
+            ->whereHas('booking', function ($query) {
+                $query->where('status', '!=', 2);
+            })
+            ->when(count($bookingUserIds) > 0, function ($query) use ($bookingUserIds) {
+                return $query->whereNotIn('id', $bookingUserIds);
+            })
+            ->get();
+
+        $overlaps = [];
+
+        foreach ($clientBookings as $existingBooking) {
+            // Check for time overlap
+            if (
+                ($bookingUser['hour_start'] < $existingBooking->hour_end &&
+                    $existingBooking->hour_start < $bookingUser['hour_end']) ||
+                ($bookingUser['hour_start'] === $existingBooking->hour_start &&
+                    $bookingUser['hour_end'] === $existingBooking->hour_end)
+            ) {
+                // Safely get course information
+                $courseName = 'N/A';
+                $courseId = null;
+                $courseTranslations = null;
+
+                // Course is directly related to BookingUser, not to Booking
+                if ($existingBooking->course) {
+                    $courseId = $existingBooking->course->id;
+                    $courseName = $existingBooking->course->name;
+                    $courseTranslations = $existingBooking->course->translations;
+                }
+
+                $overlaps[] = [
+                    'booking_id' => $existingBooking->booking_id,
+                    'booking_user_id' => $existingBooking->id,
+                    'date' => $existingBooking->date,
+                    'hour_start' => $existingBooking->hour_start,
+                    'hour_end' => $existingBooking->hour_end,
+                    'course_name' => $courseName,
+                    'course_id' => $courseId,
+                    'course_translations' => $courseTranslations,
+                ];
+            }
+        }
+
+        return $overlaps;
+    }
+
 
     public function getActivitylogOptions(): LogOptions
     {

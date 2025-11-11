@@ -229,6 +229,18 @@ class PayrexxHelpers
                 }
             }
 
+// Agregar descuentos de intervalo
+            if (isset($basketData['interval_discounts']['discounts']) && count($basketData['interval_discounts']['discounts']) > 0) {
+                foreach ($basketData['interval_discounts']['discounts'] as $discount) {
+                    $basket[] = [
+                        'name' => [1 => $discount['name']],
+                        'quantity' => $discount['quantity'],
+                        'amount' => $discount['price'] * 100,
+                    ];
+                    $totalAmount += $discount['price'] * 100;
+                }
+            }
+
 // Verificar si la suma del basket coincide con pending_amount
             if ($totalAmount / 100 !== $basketData['pending_amount']) {
                 // Si no coincide, eliminar bonos y recalcular
@@ -460,6 +472,18 @@ class PayrexxHelpers
                         'amount' => $bonus['price'] * 100,
                     ];
                     $totalAmount += $bonus['price'] * 100;
+                }
+            }
+
+// Agregar descuentos de intervalo
+            if (isset($basketData['interval_discounts']['discounts']) && count($basketData['interval_discounts']['discounts']) > 0) {
+                foreach ($basketData['interval_discounts']['discounts'] as $discount) {
+                    $basket[] = [
+                        'name' => [1 => $discount['name']],
+                        'quantity' => $discount['quantity'],
+                        'amount' => $discount['price'] * 100,
+                    ];
+                    $totalAmount += $discount['price'] * 100;
                 }
             }
 

@@ -468,8 +468,14 @@ class BookingController extends SlugAuthController
 
 
 
-            if (BookingUser::hasOverlappingBookings($bookingUser, [])) {
-                return $this->sendError('Client has booking on that date');
+            // Check for overlapping bookings and get details
+            $overlaps = BookingUser::getOverlappingBookings($bookingUser, []);
+            if (!empty($overlaps)) {
+                return $this->sendError(
+                    'Client has overlapping booking(s) on that date',
+                    ['overlaps' => $overlaps],
+                    409  // HTTP 409 Conflict
+                );
             }
         }
 
