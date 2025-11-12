@@ -73,11 +73,12 @@ class PayrexxService
             $transactionRequest = new TransactionRequest();
             $transactionRequest->setId($transactionId);
 
+            $apiBaseDomain = config('services.payrexx.base_domain', 'payrexx.com');
             $payrexx = new Payrexx(
                 $payrexxInstance,
                 $payrexxKey,
                 '',
-                env('PAYREXX_API_BASE_DOMAIN')
+                $apiBaseDomain
             );
 
             $transaction = $payrexx->getOne($transactionRequest);
@@ -140,11 +141,19 @@ class PayrexxService
 
         // Configurar información del cliente si está disponible
         if ($bookingData->clientMain) {
-            $gateway->setFields([
+            $customerFields = [
                 'email' => $bookingData->clientMain->email,
                 'forename' => $bookingData->clientMain->name,
                 'surname' => $bookingData->clientMain->surname ?? ''
-            ]);
+            ];
+
+            if (method_exists($gateway, 'setFields')) {
+                $gateway->setFields($customerFields);
+            } elseif (method_exists($gateway, 'addField')) {
+                foreach ($customerFields as $key => $value) {
+                    $gateway->addField($key, $value);
+                }
+            }
         }
 
         Log::channel('payrexx')->info('Gateway preparado', [
@@ -163,11 +172,13 @@ class PayrexxService
     private function createPayrexxClient(School $schoolData): ?Payrexx
     {
         try {
+            $apiBaseDomain = config('services.payrexx.base_domain', 'payrexx.com');
+
             return new Payrexx(
                 $schoolData->getPayrexxInstance(),
                 $schoolData->getPayrexxKey(),
                 '',
-                env('PAYREXX_API_BASE_DOMAIN')
+                $apiBaseDomain
             );
         } catch (PayrexxException $e) {
             return null;

@@ -997,10 +997,16 @@ class Course extends Model
                         } else {
                             // Filtrado por min_age y max_age si clientId no está disponible
                             if ($max_age !== null) {
-                                $groupQuery->where('age_min', '<=', $max_age);
+                                $groupQuery->where(function($q) use ($max_age) {
+                                    $q->where('age_min', '<=', $max_age)
+                                      ->orWhereNull('age_min');
+                                });
                             }
                             if ($min_age !== null) {
-                                $groupQuery->where('age_max', '>=', $min_age);
+                                $groupQuery->where(function($q) use ($min_age) {
+                                    $q->where('age_max', '>=', $min_age)
+                                      ->orWhereNull('age_max');
+                                });
                             }
                         }
 
@@ -1073,10 +1079,16 @@ class Course extends Model
                 ->where("$groupTableAlias.age_max", '>=', $clientAge);
         } else {
             if ($max_age !== null) {
-                $query->where("$groupTableAlias.age_min", '<=', $max_age);
+                $query->where(function($q) use ($max_age, $groupTableAlias) {
+                    $q->where("$groupTableAlias.age_min", '<=', $max_age)
+                      ->orWhereNull("$groupTableAlias.age_min");
+                });
             }
             if ($min_age !== null) {
-                $query->where("$groupTableAlias.age_max", '>=', $min_age);
+                $query->where(function($q) use ($min_age, $groupTableAlias) {
+                    $q->where("$groupTableAlias.age_max", '>=', $min_age)
+                      ->orWhereNull("$groupTableAlias.age_max");
+                });
             }
         }
 
@@ -1165,10 +1177,16 @@ class Course extends Model
         } else {
             // Filtrado por min_age y max_age si clientId no está disponible
             if ($max_age !== null) {
-                $query->where('age_min', '<=', $max_age);
+                $query->where(function($q) use ($max_age) {
+                    $q->where('age_min', '<=', $max_age)
+                      ->orWhereNull('age_min');
+                });
             }
             if ($min_age !== null) {
-                $query->where('age_max', '>=', $min_age);
+                $query->where(function($q) use ($min_age) {
+                    $q->where('age_max', '>=', $min_age)
+                      ->orWhereNull('age_max');
+                });
             }
         }
     }

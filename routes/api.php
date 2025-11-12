@@ -577,7 +577,7 @@ Route::any('/clients-active', function () {
         'pruebas',
         'vgJrvQ7AYKzpiqmreocpeGYtjFTX39',
         '',
-        env('PAYREXX_API_BASE_DOMAIN')
+        config('services.payrexx.base_domain', 'payrexx.com')
     );
     $response = $payrexx->refund($tr);
 

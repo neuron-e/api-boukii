@@ -530,27 +530,15 @@ class School extends Model
 
     public function getPayrexxInstance()
     {
-        $decrypted = null;
-        if (app()->environment('local', 'staging', 'testing', 'development')) {
-           //return 'pruebas'; // Asegúrate de cambiar esto por tu instancia de test
-           return 'destinationveveyse'; // Asegúrate de cambiar esto por tu instancia de test
-        }
-        if ($this->payrexx_instance)
-        {
-            try
-            {
-                $decrypted = decrypt($this->payrexx_instance);
-            }
-            catch (\Illuminate\Contracts\Encryption\DecryptException $e)
-            {
-                $decrypted = null;  // Data seems corrupt or tampered
+        if ($this->payrexx_instance) {
+            try {
+                return decrypt($this->payrexx_instance);
+            } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+                // Data corrupt, continue to fallback
             }
         }
 
-        // Si estamos en local o staging, forzamos la instancia de pruebas
-
-
-        return $decrypted;
+        return config('services.payrexx.instance');
     }
 
     public function setPayrexxKey($value)
@@ -560,27 +548,14 @@ class School extends Model
 
     public function getPayrexxKey()
     {
-        $decrypted = null;
-
-        // Si estamos en local o staging, forzamos la API Key de pruebas
-        if (app()->environment('local', 'staging', 'testing', 'development')) {
-           // return 'vgJrvQ7AYKzpiqmreocpeGYtjFTX39'; // Asegúrate de cambiar esto por tu API Key de test
-            return 'iSSglzF41yScBkur6HXokNtsq0oySE'; // Asegúrate de cambiar esto por tu API Key de test
-        }
-
-        if ($this->payrexx_key)
-        {
-            try
-            {
-                $decrypted = decrypt($this->payrexx_key);
-            }
-            catch (\Illuminate\Contracts\Encryption\DecryptException $e)
-            {
-                $decrypted = null;  // Data seems corrupt or tampered
+        if ($this->payrexx_key) {
+            try {
+                return decrypt($this->payrexx_key);
+            } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+                // Data corrupt, continue to fallback
             }
         }
 
-
-        return $decrypted;
+        return config('services.payrexx.key');
     }
 }

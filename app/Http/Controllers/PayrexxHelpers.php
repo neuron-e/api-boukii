@@ -112,7 +112,7 @@ class PayrexxHelpers
                 $schoolData->getPayrexxInstance(),
                 $schoolData->getPayrexxKey(),
                 '',
-                env('PAYREXX_API_BASE_DOMAIN')
+                config('services.payrexx.base_domain', 'payrexx.com')
             );
 
             $gateway = $payrexx->create($gr);
@@ -312,7 +312,7 @@ class PayrexxHelpers
                 $schoolData->getPayrexxInstance(),
                 $schoolData->getPayrexxKey(),
                 '',
-                env('PAYREXX_API_BASE_DOMAIN')
+                config('services.payrexx.base_domain', 'payrexx.com')
             );
 
             $gateway = $payrexx->create($gr);
@@ -352,7 +352,7 @@ class PayrexxHelpers
                 $payrexxInstance,
                 $payrexxKey,
                 '',
-                env('PAYREXX_API_BASE_DOMAIN')
+                config('services.payrexx.base_domain', 'payrexx.com')
             );
             return $payrexx->getOne($tr);
         } catch (PayrexxException $pe) {
@@ -559,7 +559,7 @@ class PayrexxHelpers
                 $schoolData->getPayrexxInstance(),
                 $schoolData->getPayrexxKey(),
                 '',
-                env('PAYREXX_API_BASE_DOMAIN')
+                config('services.payrexx.base_domain', 'payrexx.com')
             );
             // dd($ir);
             Log::channel('payrexx')->info('InvoiceRequest Amount after changes:', ['amount' => $ir->getAmount()]);
@@ -725,7 +725,7 @@ class PayrexxHelpers
             $payment->school->getPayrexxInstance(),
             $payment->school->getPayrexxKey(),
             '',
-            env('PAYREXX_API_BASE_DOMAIN')
+            config('services.payrexx.base_domain', 'payrexx.com')
         );
         Log::channel('payrexx')->debug('PayrexxHelpers refundTransaction: ' . $transactionID);
         Log::channel('payrexx')->debug('PayrexxHelpers refund amount: ' . $refundAmount);
@@ -861,7 +861,7 @@ class PayrexxHelpers
                 $schoolData->getPayrexxInstance(),
                 $schoolData->getPayrexxKey(),
                 '',
-                env('PAYREXX_API_BASE_DOMAIN')
+                config('services.payrexx.base_domain', 'payrexx.com')
             );
             $gateway = $payrexx->create($gr);
             if ($gateway) {
@@ -926,7 +926,7 @@ class PayrexxHelpers
                 $schoolData->getPayrexxInstance(),
                 $schoolData->getPayrexxKey(),
                 '',
-                env('PAYREXX_API_BASE_DOMAIN')
+                config('services.payrexx.base_domain', 'payrexx.com')
             );
 
             // PAGINACIÓN CORREGIDA CON LÍMITES DE API
@@ -1684,7 +1684,7 @@ class PayrexxHelpers
                 $schoolData->getPayrexxInstance(),
                 $schoolData->getPayrexxKey(),
                 '',
-                env('PAYREXX_API_BASE_DOMAIN')
+                config('services.payrexx.base_domain', 'payrexx.com')
             );
 
             $results = [

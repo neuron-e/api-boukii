@@ -40,4 +40,10 @@ return [
         'api_key' => env('TIMING_API_KEY'),
     ],
 
+    'payrexx' => [
+        'instance' => env('PAYREXX_INSTANCE'),
+        'key' => env('PAYREXX_KEY'),
+        'base_domain' => env('PAYREXX_API_BASE_DOMAIN', 'payrexx.com'),
+    ],
+
 ];

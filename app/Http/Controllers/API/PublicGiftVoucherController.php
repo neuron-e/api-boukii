@@ -5,10 +5,11 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\AppBaseController;
 use App\Http\Requests\API\CreatePublicGiftVoucherRequest;
 use App\Models\GiftVoucher;
+use App\Models\School;
+use App\Http\Resources\GiftVoucherResource;
 use App\Services\PublicGiftVoucherService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -67,36 +68,78 @@ class PublicGiftVoucherController extends AppBaseController
      */
     public function purchase(CreatePublicGiftVoucherRequest $request): JsonResponse
     {
-        DB::beginTransaction();
+        $data = $request->validated();
+
+        $supportedLocales = ['es', 'en', 'fr', 'de', 'it'];
+        $buyerLocale = strtolower(substr($data['buyer_locale'] ?? $request->getPreferredLanguage($supportedLocales) ?? config('app.locale', 'en'), 0, 2));
+        if (!in_array($buyerLocale, $supportedLocales, true)) {
+            $buyerLocale = 'en';
+        }
+
+        $recipientLocale = strtolower(substr($data['recipient_locale'] ?? $buyerLocale, 0, 2));
+        if (!in_array($recipientLocale, $supportedLocales, true)) {
+            $recipientLocale = $buyerLocale;
+        }
+
+        $school = School::findOrFail($data['school_id']);
+        $currency = strtoupper($data['currency'] ?? $school->currency ?? 'CHF');
+
         try {
-            // 1. Crear voucher pendiente
-            $voucher = $this->service->createPendingVoucher($request->validated());
+            $voucher = $this->service->createPendingVoucher([
+                'amount' => $data['amount'],
+                'currency' => $currency,
+                'recipient_email' => $data['recipient_email'],
+                'recipient_name' => $data['recipient_name'],
+                'recipient_phone' => $data['recipient_phone'] ?? null,
+                'recipient_locale' => $recipientLocale,
+                'sender_name' => $data['sender_name'] ?? $data['buyer_name'],
+                'personal_message' => $data['personal_message'] ?? null,
+                'school_id' => $school->id,
+                'template' => $data['template'] ?? 'default',
+                'delivery_date' => $data['delivery_date'] ?? null,
+                'buyer_name' => $data['buyer_name'],
+                'buyer_email' => $data['buyer_email'],
+                'buyer_phone' => $data['buyer_phone'] ?? null,
+                'buyer_locale' => $buyerLocale,
+            ]);
 
-            // 2. Crear gateway de pago Payrexx
-            $paymentUrl = $this->service->createPayrexxGateway($voucher);
-
-            DB::commit();
-
-            Log::info('Public gift voucher purchase initiated', [
+            $bookingUrl = config('app.booking_url') ?? env('BOOKING_URL', 'http://localhost:4200');
+            $redirectQuery = http_build_query([
                 'voucher_id' => $voucher->id,
                 'code' => $voucher->code,
-                'amount' => $voucher->amount
+            ]);
+
+            $redirects = [
+                'success' => $bookingUrl . '/gift-vouchers/success?' . $redirectQuery,
+                'failed' => $bookingUrl . '/gift-vouchers/failed?' . $redirectQuery,
+                'cancel' => $bookingUrl . '/gift-vouchers/cancel?' . $redirectQuery,
+            ];
+
+            $paymentUrl = $this->service->createPayrexxGateway($voucher, $redirects);
+
+            Log::info('Public gift voucher created awaiting payment', [
+                'voucher_id' => $voucher->id,
+                'code' => $voucher->code,
+                'payment_url' => $paymentUrl,
             ]);
 
             return $this->sendResponse([
+                'gift_voucher' => new GiftVoucherResource($voucher),
+                'voucher_code' => $voucher->code,
+                'payment_url' => $paymentUrl,
                 'url' => $paymentUrl,
-                'voucher_id' => $voucher->id,
-                'code' => $voucher->code
-            ], 'Gift voucher created successfully. Please proceed to payment.');
+                'status' => 'pending_payment',
+            ], 'Gift voucher created successfully. Please complete payment.');
 
         } catch (\Exception $e) {
-            DB::rollBack();
-
             Log::error('Error creating public gift voucher', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'request_data' => $request->validated()
             ]);
+
+            if (isset($voucher) && $voucher instanceof GiftVoucher) {
+                $voucher->delete();
+            }
 
             return $this->sendError(
                 'Error creating gift voucher: ' . $e->getMessage(),
@@ -106,37 +149,6 @@ class PublicGiftVoucherController extends AppBaseController
         }
     }
 
-    /**
-     * @OA\Get(
-     *      path="/api/public/gift-vouchers/verify/{code}",
-     *      summary="verifyGiftVoucherCode",
-     *      tags={"Public Gift Voucher"},
-     *      description="Verificar validez de un código de gift voucher (sin autenticación)",
-     *      @OA\Parameter(
-     *          name="code",
-     *          in="path",
-     *          description="Gift voucher code (ej: GV-ABCD-1234)",
-     *          required=true,
-     *          @OA\Schema(type="string")
-     *      ),
-     *      @OA\Response(
-     *          response=200,
-     *          description="successful operation",
-     *          @OA\JsonContent(
-     *              type="object",
-     *              @OA\Property(property="valid", type="boolean", example=true),
-     *              @OA\Property(property="code", type="string", example="GV-ABCD-1234"),
-     *              @OA\Property(property="balance", type="number", example=50.00),
-     *              @OA\Property(property="currency", type="string", example="EUR"),
-     *              @OA\Property(property="status", type="string", example="active"),
-     *              @OA\Property(property="expires_at", type="string", example="2026-10-29"),
-     *              @OA\Property(property="recipient_name", type="string", example="Juan Pérez"),
-     *              @OA\Property(property="sender_name", type="string", example="María García")
-     *          )
-     *      ),
-     *      @OA\Response(response=404, description="Gift voucher not found")
-     * )
-     */
     public function verify(string $code): JsonResponse
     {
         $result = $this->service->verifyCode($code);

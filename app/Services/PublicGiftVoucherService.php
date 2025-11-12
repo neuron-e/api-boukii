@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\GiftVoucherDeliveredMail;
 use Payrexx\Payrexx;
+use Payrexx\Communicator;
 use Payrexx\Models\Request\Gateway as GatewayRequest;
 use Payrexx\PayrexxException;
 
@@ -23,18 +24,16 @@ class PublicGiftVoucherService
      */
     public function createPendingVoucher(array $data): GiftVoucher
     {
-        // Generar código único
-        $code = $this->generateUniqueCode();
-
-        // Preparar datos para crear el gift voucher
         $voucherData = [
-            'code' => $code,
+            'code' => $this->generateUniqueCode(),
             'amount' => $data['amount'],
             'currency' => $data['currency'],
-            'balance' => null, // Se establece cuando se active
+            'balance' => 0,
             'recipient_email' => $data['recipient_email'],
             'recipient_name' => $data['recipient_name'],
-            'sender_name' => $data['sender_name'],
+            'recipient_phone' => $data['recipient_phone'] ?? null,
+            'recipient_locale' => $data['recipient_locale'] ?? null,
+            'sender_name' => $data['sender_name'] ?? ($data['buyer_name'] ?? null),
             'personal_message' => $data['personal_message'] ?? null,
             'school_id' => $data['school_id'],
             'template' => $data['template'] ?? 'default',
@@ -43,7 +42,12 @@ class PublicGiftVoucherService
             'is_paid' => false,
             'is_delivered' => false,
             'is_redeemed' => false,
-            'created_by' => 'public_purchase'
+            'created_by' => 'public_purchase',
+            'buyer_name' => $data['buyer_name'] ?? null,
+            'buyer_email' => $data['buyer_email'] ?? null,
+            'buyer_phone' => $data['buyer_phone'] ?? null,
+            'buyer_locale' => $data['buyer_locale'] ?? null,
+            'notes' => $data['notes'] ?? 'Public purchase - awaiting payment',
         ];
 
         $giftVoucher = GiftVoucher::create($voucherData);
@@ -69,7 +73,7 @@ class PublicGiftVoucherService
     /**
      * Crear gateway de pago Payrexx para el gift voucher
      */
-    public function createPayrexxGateway(GiftVoucher $voucher): string
+    public function createPayrexxGateway(GiftVoucher $voucher, array $redirectUrls = []): string
     {
         $school = School::find($voucher->school_id);
 
@@ -88,7 +92,7 @@ class PublicGiftVoucherService
         }
 
         try {
-            $gateway = $this->prepareGatewayRequest($voucher, $school);
+            $gateway = $this->prepareGatewayRequest($voucher, $school, $redirectUrls);
             $payrexx = $this->createPayrexxClient($school);
             $createdGateway = $payrexx->create($gateway);
 
@@ -112,12 +116,16 @@ class PublicGiftVoucherService
             throw new \Exception('Failed to create Payrexx gateway');
 
         } catch (PayrexxException $e) {
+            $reason = method_exists($e, 'getReason') ? $e->getReason() : null;
             Log::error('Payrexx exception creating gateway', [
                 'voucher_id' => $voucher->id,
                 'error' => $e->getMessage(),
+                'reason' => $reason,
+                'code' => $e->getCode(),
                 'trace' => $e->getTraceAsString()
             ]);
-            throw new \Exception('Payment gateway error: ' . $e->getMessage());
+            $humanMessage = $reason ?: $e->getMessage();
+            throw new \Exception('Payment gateway error: ' . $humanMessage);
         }
     }
 
@@ -243,6 +251,7 @@ class PublicGiftVoucherService
         return [
             'valid' => $voucher->isValid(),
             'code' => $voucher->code,
+            'amount' => $voucher->amount,
             'balance' => $voucher->balance,
             'currency' => $voucher->currency,
             'status' => $voucher->status,
@@ -256,41 +265,46 @@ class PublicGiftVoucherService
     /**
      * Preparar request de gateway para Payrexx
      */
-    private function prepareGatewayRequest(GiftVoucher $voucher, School $school): GatewayRequest
+    private function prepareGatewayRequest(GiftVoucher $voucher, School $school, array $redirectUrls = []): GatewayRequest
     {
         $gateway = new GatewayRequest();
 
-        // Configuración básica
-        $gateway->setAmount($voucher->amount * 100); // Payrexx usa centavos
+        $gateway->setAmount($voucher->amount * 100);
         $gateway->setCurrency($voucher->currency);
 
-        // URLs de redirección (se pueden configurar en env o usar las de la escuela)
-        $baseUrl = env('APP_URL') . '/gift-voucher-payment-result';
-        $gateway->setSuccessRedirectUrl($baseUrl . '?status=success&code=' . $voucher->code);
-        $gateway->setFailedRedirectUrl($baseUrl . '?status=failed&code=' . $voucher->code);
-        $gateway->setCancelRedirectUrl($baseUrl . '?status=cancel&code=' . $voucher->code);
+        $defaultBase = env('APP_URL') . '/gift-voucher-payment-result';
+        $successUrl = $redirectUrls['success'] ?? $defaultBase . '?status=success&code=' . $voucher->code;
+        $failedUrl = $redirectUrls['failed'] ?? $defaultBase . '?status=failed&code=' . $voucher->code;
+        $cancelUrl = $redirectUrls['cancel'] ?? $defaultBase . '?status=cancel&code=' . $voucher->code;
 
-        // Referencia única
+        $gateway->setSuccessRedirectUrl($successUrl);
+        $gateway->setFailedRedirectUrl($failedUrl);
+        $gateway->setCancelRedirectUrl($cancelUrl);
+
         $gateway->setReferenceId("GV-{$voucher->id}");
-
-        // Validez del gateway (30 minutos para gift vouchers)
         $gateway->setValidity(30);
 
-        // Información del comprador
-        $gateway->setFields([
+        $customerFields = [
             'email' => $voucher->recipient_email,
-            'forename' => $voucher->sender_name,
+            'forename' => $voucher->sender_name ?? '',
             'surname' => ''
-        ]);
+        ];
 
-        // Propósito del pago
+        if (method_exists($gateway, 'setFields')) {
+            $gateway->setFields($customerFields);
+        } elseif (method_exists($gateway, 'addField')) {
+            foreach ($customerFields as $key => $value) {
+                $gateway->addField($key, $value);
+            }
+        }
+
         $gateway->setPurpose("Gift Voucher: {$voucher->code}");
 
         Log::info('Gateway request prepared', [
             'voucher_id' => $voucher->id,
             'amount_cents' => $voucher->amount * 100,
             'currency' => $voucher->currency,
-            'validity_minutes' => 30
+            'success_url' => $successUrl
         ]);
 
         return $gateway;
@@ -301,11 +315,13 @@ class PublicGiftVoucherService
      */
     private function createPayrexxClient(School $school): Payrexx
     {
+        $apiBaseDomain = config('services.payrexx.base_domain', Communicator::API_URL_BASE_DOMAIN);
+
         return new Payrexx(
             $school->getPayrexxInstance(),
             $school->getPayrexxKey(),
             '',
-            env('PAYREXX_API_BASE_DOMAIN')
+            $apiBaseDomain
         );
     }
 
