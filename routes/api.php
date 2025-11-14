@@ -841,6 +841,8 @@ Route::get('payrexx/finish', function (Request $request) {
 Route::prefix('public')->group(function () {
     Route::post('gift-vouchers/purchase', [\App\Http\Controllers\API\PublicGiftVoucherController::class, 'purchase'])
         ->name('api.public.gift-vouchers.purchase');
+    Route::post('gift-vouchers/cancel', [\App\Http\Controllers\API\PublicGiftVoucherController::class, 'cancel'])
+        ->name('api.public.gift-vouchers.cancel');
     Route::get('gift-vouchers/verify/{code}', [\App\Http\Controllers\API\PublicGiftVoucherController::class, 'verify'])
         ->name('api.public.gift-vouchers.verify');
     Route::get('gift-vouchers/templates', [\App\Http\Controllers\API\PublicGiftVoucherController::class, 'templates'])

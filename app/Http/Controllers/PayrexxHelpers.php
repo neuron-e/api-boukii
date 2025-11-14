@@ -112,7 +112,7 @@ class PayrexxHelpers
                 $schoolData->getPayrexxInstance(),
                 $schoolData->getPayrexxKey(),
                 '',
-                config('services.payrexx.base_domain', 'payrexx.com')
+                config('services.payrexx.base_domain', 'pay.boukii.com')
             );
 
             $gateway = $payrexx->create($gr);
@@ -189,13 +189,6 @@ class PayrexxHelpers
             ];
             $totalAmount += $basketData['tva']['price'] * 100;
 
-// Agregar "Boukii Care"
-            $basket[] = [
-                'name' => [1 => $basketData['boukii_care']['name']],
-                'quantity' => $basketData['boukii_care']['quantity'],
-                'amount' => $basketData['boukii_care']['price'] * 100,
-            ];
-            $totalAmount += $basketData['boukii_care']['price'] * 100;
 
 // Agregar "Cancellation Insurance"
             $basket[] = [
@@ -312,7 +305,7 @@ class PayrexxHelpers
                 $schoolData->getPayrexxInstance(),
                 $schoolData->getPayrexxKey(),
                 '',
-                config('services.payrexx.base_domain', 'payrexx.com')
+                config('services.payrexx.base_domain', 'pay.boukii.com')
             );
 
             $gateway = $payrexx->create($gr);
@@ -326,6 +319,7 @@ class PayrexxHelpers
             // missing or wrong params will throw an Exception, plus other connection etc issues
             Log::error('PayrexxHelpers createGatewayLink Booking ID=' . $bookingData->id);
             Log::error($e->getMessage());
+            Log::error($e->getLine());
             Log::error('Error:', $e->getTrace());
             $link = '';
         }
@@ -352,7 +346,7 @@ class PayrexxHelpers
                 $payrexxInstance,
                 $payrexxKey,
                 '',
-                config('services.payrexx.base_domain', 'payrexx.com')
+                config('services.payrexx.base_domain', 'pay.boukii.com')
             );
             return $payrexx->getOne($tr);
         } catch (PayrexxException $pe) {
@@ -559,7 +553,7 @@ class PayrexxHelpers
                 $schoolData->getPayrexxInstance(),
                 $schoolData->getPayrexxKey(),
                 '',
-                config('services.payrexx.base_domain', 'payrexx.com')
+                config('services.payrexx.base_domain', 'pay.boukii.com')
             );
             // dd($ir);
             Log::channel('payrexx')->info('InvoiceRequest Amount after changes:', ['amount' => $ir->getAmount()]);
@@ -725,7 +719,7 @@ class PayrexxHelpers
             $payment->school->getPayrexxInstance(),
             $payment->school->getPayrexxKey(),
             '',
-            config('services.payrexx.base_domain', 'payrexx.com')
+            config('services.payrexx.base_domain', 'pay.boukii.com')
         );
         Log::channel('payrexx')->debug('PayrexxHelpers refundTransaction: ' . $transactionID);
         Log::channel('payrexx')->debug('PayrexxHelpers refund amount: ' . $refundAmount);
@@ -861,7 +855,7 @@ class PayrexxHelpers
                 $schoolData->getPayrexxInstance(),
                 $schoolData->getPayrexxKey(),
                 '',
-                config('services.payrexx.base_domain', 'payrexx.com')
+                config('services.payrexx.base_domain', 'pay.boukii.com')
             );
             $gateway = $payrexx->create($gr);
             if ($gateway) {
@@ -926,7 +920,7 @@ class PayrexxHelpers
                 $schoolData->getPayrexxInstance(),
                 $schoolData->getPayrexxKey(),
                 '',
-                config('services.payrexx.base_domain', 'payrexx.com')
+                config('services.payrexx.base_domain', 'pay.boukii.com')
             );
 
             // PAGINACIÓN CORREGIDA CON LÍMITES DE API
@@ -1684,7 +1678,7 @@ class PayrexxHelpers
                 $schoolData->getPayrexxInstance(),
                 $schoolData->getPayrexxKey(),
                 '',
-                config('services.payrexx.base_domain', 'payrexx.com')
+                config('services.payrexx.base_domain', 'pay.boukii.com')
             );
 
             $results = [

@@ -240,15 +240,29 @@ class PublicGiftVoucherService
     /**
      * Verificar validez de un código de gift voucher
      */
-    public function verifyCode(string $code): ?array
+    public function verifyCode(string $code, ?string $slug = null, ?int $voucherId = null): ?array
     {
-        $voucher = GiftVoucher::where('code', $code)->first();
+        $query = GiftVoucher::with('school')->where('code', $code);
+
+        if ($voucherId) {
+            $query->where('id', $voucherId);
+        }
+
+        if ($slug) {
+            $query->whereHas('school', function ($schoolQuery) use ($slug) {
+                $schoolQuery->where('slug', $slug);
+            });
+        }
+
+        /** @var GiftVoucher|null $voucher */
+        $voucher = $query->first();
 
         if (!$voucher) {
             return null;
         }
 
         return [
+            'id' => $voucher->id,
             'valid' => $voucher->isValid(),
             'code' => $voucher->code,
             'amount' => $voucher->amount,
@@ -260,6 +274,30 @@ class PublicGiftVoucherService
             'recipient_name' => $voucher->recipient_name,
             'sender_name' => $voucher->sender_name
         ];
+    }
+
+    public function cancelPendingVoucher(int $voucherId, string $code, ?string $schoolSlug = null): bool
+    {
+        $query = GiftVoucher::where('id', $voucherId)
+            ->where('code', $code);
+
+        if ($schoolSlug) {
+            $query->whereHas('school', function ($schoolQuery) use ($schoolSlug) {
+                $schoolQuery->where('slug', $schoolSlug);
+            });
+        }
+
+        $voucher = $query->first();
+
+        if (!$voucher) {
+            return false;
+        }
+
+        if ($voucher->is_paid || $voucher->status !== 'pending') {
+            return false;
+        }
+
+        return (bool) $voucher->delete();
     }
 
     /**

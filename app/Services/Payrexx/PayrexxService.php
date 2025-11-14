@@ -73,7 +73,7 @@ class PayrexxService
             $transactionRequest = new TransactionRequest();
             $transactionRequest->setId($transactionId);
 
-            $apiBaseDomain = config('services.payrexx.base_domain', 'payrexx.com');
+            $apiBaseDomain = config('services.payrexx.base_domain', 'pay.boukii.com');
             $payrexx = new Payrexx(
                 $payrexxInstance,
                 $payrexxKey,
@@ -172,7 +172,7 @@ class PayrexxService
     private function createPayrexxClient(School $schoolData): ?Payrexx
     {
         try {
-            $apiBaseDomain = config('services.payrexx.base_domain', 'payrexx.com');
+            $apiBaseDomain = config('services.payrexx.base_domain', 'pay.boukii.com');
 
             return new Payrexx(
                 $schoolData->getPayrexxInstance(),

@@ -4,13 +4,14 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\AppBaseController;
 use App\Http\Requests\API\CreatePublicGiftVoucherRequest;
+use App\Http\Resources\API\GiftVoucherResource;
 use App\Models\GiftVoucher;
 use App\Models\School;
-use App\Http\Resources\GiftVoucherResource;
 use App\Services\PublicGiftVoucherService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 /**
  * Controlador para compras públicas de Gift Vouchers
@@ -55,7 +56,7 @@ class PublicGiftVoucherController extends AppBaseController
      *              @OA\Property(
      *                  property="data",
      *                  type="object",
-     *                  @OA\Property(property="url", type="string", example="https://payrexx.com/..."),
+     *                  @OA\Property(property="url", type="string", example="https://pay.boukii.com/..."),
      *                  @OA\Property(property="voucher_id", type="integer", example=123),
      *                  @OA\Property(property="code", type="string", example="GV-ABCD-1234")
      *              ),
@@ -103,17 +104,20 @@ class PublicGiftVoucherController extends AppBaseController
                 'buyer_locale' => $buyerLocale,
             ]);
 
-            $bookingUrl = config('app.booking_url') ?? env('BOOKING_URL', 'http://localhost:4200');
+            $bookingUrl = config('app.booking_url') ?? env('BOOKING_URL', 'http://localhost:4201');
             $redirectQuery = http_build_query([
                 'voucher_id' => $voucher->id,
                 'code' => $voucher->code,
             ]);
 
-            $redirects = [
-                'success' => $bookingUrl . '/gift-vouchers/success?' . $redirectQuery,
-                'failed' => $bookingUrl . '/gift-vouchers/failed?' . $redirectQuery,
-                'cancel' => $bookingUrl . '/gift-vouchers/cancel?' . $redirectQuery,
-            ];
+        $baseBookingUrl = rtrim($bookingUrl, '/');
+        $schoolSlugPath = $school->slug ? '/' . ltrim($school->slug, '/') : '';
+
+        $redirects = [
+            'success' => "{$baseBookingUrl}{$schoolSlugPath}/gift-vouchers/success?{$redirectQuery}",
+            'failed' => "{$baseBookingUrl}{$schoolSlugPath}/gift-vouchers/failed?{$redirectQuery}",
+            'cancel' => "{$baseBookingUrl}{$schoolSlugPath}/gift-vouchers/cancel?{$redirectQuery}",
+        ];
 
             $paymentUrl = $this->service->createPayrexxGateway($voucher, $redirects);
 
@@ -149,9 +153,11 @@ class PublicGiftVoucherController extends AppBaseController
         }
     }
 
-    public function verify(string $code): JsonResponse
+    public function verify(string $code, Request $request): JsonResponse
     {
-        $result = $this->service->verifyCode($code);
+        $schoolSlug = $request->query('school_slug');
+        $voucherId = $request->query('voucher_id');
+        $result = $this->service->verifyCode($code, $schoolSlug, $voucherId);
 
         if ($result === null) {
             return $this->sendError('Gift voucher not found', [], 404);
@@ -163,6 +169,33 @@ class PublicGiftVoucherController extends AppBaseController
         ]);
 
         return $this->sendResponse($result, 'Gift voucher code verified');
+    }
+
+    public function cancel(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'voucher_id' => 'required|integer',
+            'code' => 'required|string',
+            'school_slug' => 'nullable|string'
+        ]);
+
+        if ($validator->fails()) {
+            return $this->sendError('Invalid cancellation request', $validator->errors(), 422);
+        }
+
+        $data = $validator->validated();
+
+        $cancelled = $this->service->cancelPendingVoucher(
+            $data['voucher_id'],
+            $data['code'],
+            $data['school_slug'] ?? null
+        );
+
+        if (!$cancelled) {
+            return $this->sendError('Gift voucher could not be cancelled', [], 404);
+        }
+
+        return $this->sendResponse([], 'Gift voucher cancelled successfully');
     }
 
     /**

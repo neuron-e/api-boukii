@@ -528,7 +528,15 @@ class PlannerController extends AppBaseController
         $courseSubgroupId = $request->input('subgroup_id');     // en front lo llamáis subgroup_id
         $courseDateId     = $request->input('course_date_id');
         $degreeIdInput = $request->input('degree_id') ?: optional(CourseSubgroup::find($courseSubgroupId))->degree_id;
+        $providedSubgroupIds = collect($request->input('subgroup_ids', []) ?? [])
+            ->filter(fn($id) => is_numeric($id))
+            ->map(fn($id) => (int) $id)
+            ->unique()
+            ->values();
 
+        if ($providedSubgroupIds->isNotEmpty() && !$degreeIdInput) {
+            $degreeIdInput = CourseSubgroup::whereIn('id', $providedSubgroupIds)->pluck('degree_id')->first();
+        }
 
         // 0) Validaciones base
         $monitor = null;
@@ -597,6 +605,15 @@ class PlannerController extends AppBaseController
                     if ($courseSubgroupId) {
                         $q->where('course_subgroup_id', $courseSubgroupId);
                     }
+                    if ($courseId && $startDate && $endDate) {
+                        $intervalCdIds = CourseDate::where('course_id', $courseId)
+                            ->whereNull('deleted_at')
+                            ->whereBetween('date', [$startDate, $endDate])
+                            ->pluck('id');
+                        if ($intervalCdIds->isNotEmpty()) {
+                            $q->whereIn('course_date_id', $intervalCdIds);
+                        }
+                    }
                     break;
 
                 case 'all':
@@ -624,6 +641,9 @@ class PlannerController extends AppBaseController
                 $q->whereIn('course_date_id', $validCourseDateIds);
             }
 
+            if ($providedSubgroupIds->isNotEmpty()) {
+                $q->whereIn('course_subgroup_id', $providedSubgroupIds);
+            }
             $targets = $q->get();
         }
 
@@ -650,61 +670,79 @@ class PlannerController extends AppBaseController
             return $query;
         };
 
-        switch ($scope) {
-            case 'single':
-                if ($courseSubgroupId) {
-                    $one = (clone $subgroupBase)->where('id', $courseSubgroupId);
-                    $one = $applyDegreeFilter($one)->first();
-                    if ($one) $targetSubgroups->push($one);
-                } elseif ($courseDateId) {
-                    $q = (clone $subgroupBase)->where('course_date_id', $courseDateId);
-                    $targetSubgroups = $applyDegreeFilter($q)->get();
-                }
-                break;
+        if ($providedSubgroupIds->isNotEmpty()) {
+            $targetSubgroups = $applyDegreeFilter((clone $subgroupBase)->whereIn('id', $providedSubgroupIds))->get();
+        } else {
+            switch ($scope) {
+                case 'single':
+                    if ($courseSubgroupId) {
+                        $one = (clone $subgroupBase)->where('id', $courseSubgroupId);
+                        $one = $applyDegreeFilter($one)->first();
+                        if ($one) $targetSubgroups->push($one);
+                    } elseif ($courseDateId) {
+                        $q = (clone $subgroupBase)->where('course_date_id', $courseDateId);
+                        $targetSubgroups = $applyDegreeFilter($q)->get();
+                    }
+                    break;
 
-            case 'interval':
-                if ($courseSubgroupId) {
-                    $one = (clone $subgroupBase)->where('id', $courseSubgroupId);
-                    $one = $applyDegreeFilter($one)->first();
-                    if ($one) $targetSubgroups->push($one);
-                }
-                break;
+                case 'interval':
+                    if ($courseSubgroupId) {
+                        $one = (clone $subgroupBase)->where('id', $courseSubgroupId);
+                        $one = $applyDegreeFilter($one)->first();
+                        if ($one) $targetSubgroups->push($one);
+                    }
+                    if ($courseId && $startDate && $endDate) {
+                        $intervalCdIds = CourseDate::where('course_id', $courseId)
+                            ->whereNull('deleted_at')
+                            ->whereBetween('date', [$startDate, $endDate])
+                            ->pluck('id');
+                        if ($intervalCdIds->isNotEmpty()) {
+                            $intervalSubgroups = $applyDegreeFilter((clone $subgroupBase)->whereIn('course_date_id', $intervalCdIds))->get();
+                            $targetSubgroups = $targetSubgroups->merge($intervalSubgroups);
+                        }
+                    }
+                    break;
 
-            case 'all':
-                if ($courseId) {
-                    $cdIds = $validCourseDateIds->isNotEmpty()
-                        ? $validCourseDateIds
-                        : CourseDate::where('course_id', $courseId)->whereNull('deleted_at')->pluck('id');
+                case 'all':
+                    if ($courseId) {
+                        $cdIds = $validCourseDateIds->isNotEmpty()
+                            ? $validCourseDateIds
+                            : CourseDate::where('course_id', $courseId)->whereNull('deleted_at')->pluck('id');
 
-                    $q = (clone $subgroupBase)->whereIn('course_date_id', $cdIds);
-                    $targetSubgroups = $applyDegreeFilter($q)->get();
-                }
-                break;
+                        $q = (clone $subgroupBase)->whereIn('course_date_id', $cdIds);
+                        $targetSubgroups = $applyDegreeFilter($q)->get();
+                    }
+                    break;
 
-            case 'from':
-                if ($courseId && $startDate) {
-                    $cdIds = CourseDate::where('course_id', $courseId)
-                        ->whereNull('deleted_at')
-                        ->whereDate('date', '>=', $startDate)
-                        ->pluck('id');
+                case 'from':
+                    if ($courseId && $startDate) {
+                        $cdIds = CourseDate::where('course_id', $courseId)
+                            ->whereNull('deleted_at')
+                            ->whereDate('date', '>=', $startDate)
+                            ->pluck('id');
 
-                    $q = (clone $subgroupBase)->whereIn('course_date_id', $cdIds);
-                    $targetSubgroups = $applyDegreeFilter($q)->get();
-                }
-                break;
+                        $q = (clone $subgroupBase)->whereIn('course_date_id', $cdIds);
+                        $targetSubgroups = $applyDegreeFilter($q)->get();
+                    }
+                    break;
 
-            case 'range':
-                if ($courseId && $startDate && $endDate) {
-                    $cdIds = CourseDate::where('course_id', $courseId)
-                        ->whereNull('deleted_at')
-                        ->whereBetween('date', [$startDate, $endDate])
-                        ->pluck('id');
+                case 'range':
+                    if ($courseId && $startDate && $endDate) {
+                        $cdIds = CourseDate::where('course_id', $courseId)
+                            ->whereNull('deleted_at')
+                            ->whereBetween('date', [$startDate, $endDate])
+                            ->pluck('id');
 
-                    $q = (clone $subgroupBase)->whereIn('course_date_id', $cdIds);
-                    $targetSubgroups = $applyDegreeFilter($q)->get();
-                }
-                break;
+                        $q = (clone $subgroupBase)->whereIn('course_date_id', $cdIds);
+                        $targetSubgroups = $applyDegreeFilter($q)->get();
+                    }
+                    break;
+            }
         }
+
+        $targetSubgroups = $targetSubgroups->unique('id')->values();
+
+        $targetSubgroups = $targetSubgroups->unique('id')->values();
 
         // 3.1) Filtrar BookingUsers por degree también (según esquema)
 /*        if ($degreeIdContext) {

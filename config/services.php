@@ -43,7 +43,7 @@ return [
     'payrexx' => [
         'instance' => env('PAYREXX_INSTANCE'),
         'key' => env('PAYREXX_KEY'),
-        'base_domain' => env('PAYREXX_API_BASE_DOMAIN', 'payrexx.com'),
+        'base_domain' => env('PAYREXX_API_BASE_DOMAIN', 'pay.boukii.com'),
     ],
 
 ];

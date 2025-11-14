@@ -13,10 +13,11 @@ use App\Models\BookingUser;
 use App\Models\BookingUserExtra;
 use App\Models\Client;
 use App\Models\Course;
-use App\Models\DiscountCode;
 use App\Models\CourseExtra;
+use App\Models\CourseGroup;
 use App\Models\CourseSubgroup;
 use App\Models\Degree;
+use App\Models\DiscountCode;
 use App\Models\MonitorNwd;
 use App\Models\MonitorSportsDegree;
 use App\Models\Voucher;
@@ -200,18 +201,61 @@ class BookingController extends SlugAuthController
             // Crear BookingUser para cada detalle
             $groupId = 1; // Inicia el contador de grupo
             $bookingUsers = []; // Para almacenar los objetos BookingUser
+            $courseGroupCache = [];
+            $courseSubgroupCache = [];
 
             foreach ($cartItems as $cartItem) {
                 foreach ($cartItem['details'] as $detail) {
-                    if (array_key_exists('course_subgroup_id', $detail) && $detail['course_subgroup_id']) {
-                        $courseSubgroup = CourseSubgroup::find($detail['course_subgroup_id']);
-                        if ($courseSubgroup) {
-                            $monitorId = $courseSubgroup->monitor_id;
-                            $degreeId = $courseSubgroup->degree_id;
+                    $monitorId = $detail['monitor_id'] ?? null;
+                    $degreeId = $detail['degree_id'] ?? null;
+                    $courseGroupId = Arr::get($detail, 'course_group_id');
+                    $courseSubgroupId = Arr::get($detail, 'course_subgroup_id');
+
+                    if ($courseSubgroupId) {
+                        if (!isset($courseSubgroupCache[$courseSubgroupId])) {
+                            $courseSubgroupCache[$courseSubgroupId] = CourseSubgroup::find($courseSubgroupId);
+                        }
+                        $courseSubgroup = $courseSubgroupCache[$courseSubgroupId];
+                        if (!$courseSubgroup) {
+                            DB::rollBack();
+                            return response()->json([
+                                'message' => 'Subgrupo de curso no encontrado',
+                                'errors' => ['course_subgroup_id' => ["El subgrupo {$courseSubgroupId} ya no existe"]],
+                            ], 422);
+                        }
+
+                        $monitorId = $courseSubgroup->monitor_id ?? $monitorId;
+                        $degreeId = $courseSubgroup->degree_id ?? $degreeId;
+                        $courseGroupId = $courseSubgroup->course_group_id;
+                    }
+
+                    $courseGroup = null;
+                    if ($courseGroupId) {
+                        if (!isset($courseGroupCache[$courseGroupId])) {
+                            $courseGroupCache[$courseGroupId] = CourseGroup::find($courseGroupId);
+                        }
+                        $courseGroup = $courseGroupCache[$courseGroupId];
+                        if (!$courseGroup) {
+                            DB::rollBack();
+                            return response()->json([
+                                'message' => 'Grupo no encontrado',
+                                'errors' => ['course_group_id' => ["El grupo {$courseGroupId} ya no existe"]],
+                            ], 422);
+                        }
+
+                        if (!empty($detail['course_date_id']) && $courseGroup->course_date_id !== $detail['course_date_id']) {
+                            DB::rollBack();
+                            return response()->json([
+                                'message' => 'Grupo y fecha desalineados',
+                                'errors' => ['course_group_id' => ["El grupo {$courseGroupId} no pertenece a la fecha {$detail['course_date_id']}"]],
+                            ], 422);
+                        }
+
+                        if (!$degreeId) {
+                            $degreeId = $courseGroup->degree_id;
                         }
                     } else {
-                        $monitorId = $detail['monitor_id'] ?? null;
-                        $degreeId = $detail['degree_id'] ?? null;
+                        $courseGroupId = null;
                     }
 
                     $bookingUser = new BookingUser([
@@ -222,15 +266,15 @@ class BookingController extends SlugAuthController
                         'currency' => $detail['currency'],
                         'course_id' => $detail['course_id'],
                         'course_date_id' => $detail['course_date_id'],
-                        'course_group_id' => $detail['course_group_id'],
-                        'course_subgroup_id' => $detail['course_subgroup_id'],
+                        'course_group_id' => $courseGroupId,
+                        'course_subgroup_id' => $courseSubgroupId,
                         'monitor_id' => $monitorId,
                         'degree_id' => $degreeId,
                         'date' => $detail['date'],
                         'hour_start' => $detail['hour_start'],
                         'hour_end' => $detail['hour_end'],
                         'group_id' => $groupId,
-                        'accepted' => array_key_exists('course_subgroup_id', $detail) && $detail['course_subgroup_id'],
+                        'accepted' => !empty($courseSubgroupId),
                         'deleted_at' => now(),
                     ]);
 
@@ -866,9 +910,6 @@ class BookingController extends SlugAuthController
     }
 
 }
-
-
-
 
 
 
