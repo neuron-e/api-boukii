@@ -234,8 +234,18 @@ class PayrexxHelpers
                 }
             }
 
+// DEBUG: Log basket calculation
+            Log::channel('payrexx')->info('BASKET_CALCULATION', [
+                'booking_id' => $bookingData->id,
+                'calculated_total' => $totalAmount / 100,
+                'pending_amount_received' => $basketData['pending_amount'] ?? 'NOT_SET',
+                'pending_amount_float' => floatval($basketData['pending_amount'] ?? 0),
+                'difference' => abs(($totalAmount / 100) - floatval($basketData['pending_amount'] ?? 0)),
+                'will_adjust' => abs(($totalAmount / 100) - floatval($basketData['pending_amount'] ?? 0)) > 0.01
+            ]);
+
 // Verificar si la suma del basket coincide con pending_amount
-            if ($totalAmount / 100 !== $basketData['pending_amount']) {
+            if (abs(($totalAmount / 100) - floatval($basketData['pending_amount'])) > 0.01) {
                 // Si no coincide, eliminar bonos y recalcular
                 foreach ($basket as $key => $item) {
                     if (strpos($item['name'][1], 'BOU') !== false) {
@@ -243,14 +253,14 @@ class PayrexxHelpers
                         unset($basket[$key]);
 
                         // Verificar si ahora coincide
-                        if ($totalAmount / 100 === $basketData['pending_amount']) {
+                        if (abs(($totalAmount / 100) - floatval($basketData['pending_amount'])) <= 0.01) {
                             break;
                         }
                     }
                 }
 
                 // Si aún no coincide, ajustar con un campo adicional
-                $adjustment = ($basketData['pending_amount'] * 100) - $totalAmount;
+                $adjustment = (floatval($basketData['pending_amount']) * 100) - $totalAmount;
 
                 if ($adjustment != 0) { // Solo añadir el ajuste si es diferente de 0
                     $basket[] = [
@@ -482,7 +492,7 @@ class PayrexxHelpers
             }
 
 // Verificar si la suma del basket coincide con pending_amount
-            if ($totalAmount / 100 !== $basketData['pending_amount']) {
+            if (abs(($totalAmount / 100) - floatval($basketData['pending_amount'])) > 0.01) {
                 // Si no coincide, eliminar bonos y recalcular
                 foreach ($basket as $key => $item) {
                     if (strpos($item['name'][1], 'BOU') !== false) {
@@ -490,14 +500,14 @@ class PayrexxHelpers
                         unset($basket[$key]);
 
                         // Verificar si ahora coincide
-                        if ($totalAmount / 100 === $basketData['pending_amount']) {
+                        if (abs(($totalAmount / 100) - floatval($basketData['pending_amount'])) <= 0.01) {
                             break;
                         }
                     }
                 }
 
                 // Si aún no coincide, ajustar con un campo adicional
-                $adjustment = ($basketData['pending_amount'] * 100) - $totalAmount;
+                $adjustment = (floatval($basketData['pending_amount']) * 100) - $totalAmount;
 
                 if ($adjustment != 0) { // Solo añadir el ajuste si es diferente de 0
                     $basket[] = [
