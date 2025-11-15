@@ -306,6 +306,9 @@ class Course extends Model
         'highlighted', // Nuevo campo
         'claim_text', // Nuevo campo
         'archived_at', // Campo para archivar cursos con reservas
+        'meeting_point',
+        'meeting_point_address',
+        'meeting_point_instructions',
     ];
 
     protected $casts = [
@@ -334,7 +337,10 @@ class Course extends Model
         'discounts' => 'json',
         'settings' => 'json',
         'highlighted' => 'boolean',
-        'archived_at' => 'datetime'
+        'archived_at' => 'datetime',
+        'meeting_point' => 'string',
+        'meeting_point_address' => 'string',
+        'meeting_point_instructions' => 'string'
     ];
 
     public static function rules($isUpdate = false): array

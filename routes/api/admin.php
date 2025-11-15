@@ -7,6 +7,8 @@ use App\Http\Controllers\Admin\ReferenceDataController;
 use App\Http\Controllers\Admin\FinanceController;
 use App\Http\Controllers\Admin\FinanceControllerRefactor;
 use App\Http\Controllers\Admin\StatisticsController;
+use App\Http\Controllers\Admin\PaymentTerminalController;
+use App\Http\Controllers\Admin\MeetingPointController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
@@ -139,9 +141,43 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
         [\App\Http\Controllers\Admin\BookingController::class, 'update'])
         ->name('api.admin.bookings.update');
 
+    Route::post('bookings/{id}/meeting-point',
+        [\App\Http\Controllers\Admin\BookingController::class, 'updateMeetingPoint'])
+        ->name('api.admin.bookings.updateMeetingPoint');
+
     Route::post('bookings/update/{id}/payment',
         [\App\Http\Controllers\Admin\BookingController::class, 'updatePayment'])
         ->name('api.admin.bookings.updatePayment');
+
+    /** Payment Terminal */
+    Route::get('payment-terminal/vpos-url',
+        [PaymentTerminalController::class, 'getVposUrl'])
+        ->name('api.admin.payment-terminal.vpos-url');
+
+    Route::post('payment-terminal/create',
+        [PaymentTerminalController::class, 'create'])
+        ->name('api.admin.payment-terminal.create');
+
+    /** Meeting Points */
+    Route::get('meeting-points',
+        [MeetingPointController::class, 'index'])
+        ->name('api.admin.meeting-points.index');
+
+    Route::post('meeting-points',
+        [MeetingPointController::class, 'store'])
+        ->name('api.admin.meeting-points.store');
+
+    Route::get('meeting-points/{id}',
+        [MeetingPointController::class, 'show'])
+        ->name('api.admin.meeting-points.show');
+
+    Route::put('meeting-points/{id}',
+        [MeetingPointController::class, 'update'])
+        ->name('api.admin.meeting-points.update');
+
+    Route::delete('meeting-points/{id}',
+        [MeetingPointController::class, 'destroy'])
+        ->name('api.admin.meeting-points.destroy');
 
     /** Statistics */
     /*    Route::get('statistics/bookings', [\App\Http\Controllers\Admin\StatisticsControllerOld::class, 'getTotalAvailablePlacesByCourseType'])

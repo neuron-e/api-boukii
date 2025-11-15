@@ -275,7 +275,10 @@ class Booking extends Model
         'discount_amount',
         'final_price',
         'color',
-        'basket'
+        'basket',
+        'meeting_point',
+        'meeting_point_address',
+        'meeting_point_instructions'
     ];
 
     protected $casts = [
@@ -306,7 +309,10 @@ class Booking extends Model
         'status' => 'integer',
         'notes_school' => 'string',
         'color' => 'string',
-        'basket' => 'string'
+        'basket' => 'string',
+        'meeting_point' => 'string',
+        'meeting_point_address' => 'string',
+        'meeting_point_instructions' => 'string'
     ];
 
     public static array $rules = [
