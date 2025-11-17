@@ -46,6 +46,9 @@ Route::middleware(['guest'])->group(function () {
     Route::resource('schools', App\Http\Controllers\API\SchoolAPIController::class)
         ->except(['create', 'edit']);
 
+    Route::post('schools/{id}/logo', [App\Http\Controllers\API\SchoolAPIController::class, 'uploadLogo'])
+        ->name('api.schools.uploadLogo');
+
     Route::resource('school-users', App\Http\Controllers\API\SchoolUserAPIController::class)
         ->except(['create', 'edit']);
 
@@ -278,4 +281,3 @@ Route::prefix('v4')->group(function () {
     Route::get('courses/{course}/timing/summary', [\App\Http\Controllers\API\TimingController::class, 'courseSummary']);
     Route::get('courses/{course}/timing/export.csv', [\App\Http\Controllers\API\TimingController::class, 'courseExportCsv']);
 });
-

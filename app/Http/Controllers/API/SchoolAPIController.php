@@ -116,6 +116,10 @@ class SchoolAPIController extends AppBaseController
     {
         $input = $request->all();
 
+        if (!empty($input['logo']) && $this->isBase64Image($input['logo'])) {
+            $input['logo'] = $this->saveBase64Image($input['logo'], 'logos');
+        }
+
         $school = $this->schoolRepository->create($input);
 
         return $this->sendResponse($school, 'School saved successfully');
@@ -457,6 +461,32 @@ class SchoolAPIController extends AppBaseController
         $school = $this->schoolRepository->update($input, $id);
 
         return $this->sendResponse(new SchoolResource($school), 'School updated successfully');
+    }
+
+    public function uploadLogo($id, Request $request): JsonResponse
+    {
+        /** @var School $school */
+        $school = $this->schoolRepository->find($id, with: $request->get('with', []));
+
+        if (empty($school)) {
+            return $this->sendError('School not found', 404);
+        }
+
+        if (!$request->hasFile('logo') || !$request->file('logo')->isValid()) {
+            return $this->sendError('Invalid logo file provided', 422);
+        }
+
+        $file = $request->file('logo');
+        $path = $file->store('logos', 'public');
+
+        if (!$path) {
+            return $this->sendError('Unable to store logo', 500);
+        }
+
+        $school->logo = url(Storage::url($path));
+        $school->save();
+
+        return $this->sendResponse(new SchoolResource($school), 'Logo uploaded successfully');
     }
 
     /**

@@ -244,6 +244,54 @@ class PayrexxHelpers
                 'will_adjust' => abs(($totalAmount / 100) - floatval($basketData['pending_amount'] ?? 0)) > 0.01
             ]);
 
+// CRITICAL: Rechazar si discrepancia > 1 EUR (prevenir casos como 192 -> 2628)
+            $calculatedTotal = $totalAmount / 100;
+            $expectedTotal = floatval($basketData['pending_amount'] ?? 0);
+            $difference = abs($calculatedTotal - $expectedTotal);
+
+            if ($difference > 1.00) {
+                Log::channel('payrexx')->error('CRITICAL_PRICE_MISMATCH_REJECTED', [
+                    'booking_id' => $bookingData->id,
+                    'calculated' => $calculatedTotal,
+                    'expected' => $expectedTotal,
+                    'difference' => $difference,
+                    'basket' => $basketData,
+                    'threshold' => 1.00
+                ]);
+                return ''; // Rechazar creación de link
+            }
+
+            if ($difference > 0.10) {
+                Log::channel('payrexx')->warning('PRICE_MISMATCH_ALLOWED', [
+                    'booking_id' => $bookingData->id,
+                    'difference' => $difference
+                ]);
+            }
+
+// CRITICAL: Rechazar si discrepancia > 1 EUR (prevenir casos como 192 -> 2628)
+            $calculatedTotal = $totalAmount / 100;
+            $expectedTotal = floatval($basketData['pending_amount'] ?? 0);
+            $difference = abs($calculatedTotal - $expectedTotal);
+
+            if ($difference > 1.00) {
+                Log::channel('payrexx')->error('CRITICAL_PRICE_MISMATCH_REJECTED_PAYLINK', [
+                    'booking_id' => $bookingData->id,
+                    'calculated' => $calculatedTotal,
+                    'expected' => $expectedTotal,
+                    'difference' => $difference,
+                    'basket' => $basketData,
+                    'threshold' => 1.00
+                ]);
+                return ''; // Rechazar creación de link
+            }
+
+            if ($difference > 0.10) {
+                Log::channel('payrexx')->warning('PRICE_MISMATCH_ALLOWED_PAYLINK', [
+                    'booking_id' => $bookingData->id,
+                    'difference' => $difference
+                ]);
+            }
+
 // Verificar si la suma del basket coincide con pending_amount
             if (abs(($totalAmount / 100) - floatval($basketData['pending_amount'])) > 0.01) {
                 // Si no coincide, eliminar bonos y recalcular
@@ -271,6 +319,16 @@ class PayrexxHelpers
                     $totalAmount += $adjustment;
                 }
             }
+
+            // FINAL: Log basket completo antes de enviar a Payrexx
+            Log::channel('payrexx')->info('BASKET_FINAL_GATEWAY', [
+                'booking_id' => $bookingData->id,
+                'basket_items' => $basket,
+                'total_amount_cents' => $totalAmount,
+                'total_amount_eur' => $totalAmount / 100,
+                'pending_amount' => $basketData['pending_amount'] ?? null,
+                'source' => 'createGatewayLink'
+            ]);
 
             $gr->setBasket($basket);
             $gr->setAmount($totalAmount);
@@ -526,6 +584,16 @@ class PayrexxHelpers
 
             $paymentSummary = self::generatePaymentSummary($basket);
 
+
+            // FINAL: Log basket completo antes de enviar a Payrexx
+            Log::channel('payrexx')->info('BASKET_FINAL_PAYLINK', [
+                'booking_id' => $bookingData->id,
+                'basket_items' => $basket,
+                'total_amount_cents' => $totalAmount,
+                'total_amount_eur' => $totalAmount / 100,
+                'pending_amount' => $basketData['pending_amount'] ?? null,
+                'source' => 'createPayLink'
+            ]);
 
             $ir->setAmount($totalAmount);
 /*

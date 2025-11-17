@@ -651,6 +651,35 @@ class BookingController extends AppBaseController
         }
     }
 
+    public function updateMeetingPoint(Request $request, $id) {
+        $school = $this->getSchool($request);
+        $booking = Booking::where('id', $id)
+            ->where('school_id', $school['id'])
+            ->first();
+
+        if (!$booking) {
+            return $this->sendError('Booking not found or unauthorized', 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'meeting_point' => 'nullable|string|max:255',
+            'meeting_point_address' => 'nullable|string|max:255',
+            'meeting_point_instructions' => 'nullable|string'
+        ]);
+
+        if ($validator->fails()) {
+            return $this->sendError('Invalid meeting point data', $validator->errors(), 422);
+        }
+
+        $booking->update([
+            'meeting_point' => $request->input('meeting_point', $booking->meeting_point),
+            'meeting_point_address' => $request->input('meeting_point_address', $booking->meeting_point_address),
+            'meeting_point_instructions' => $request->input('meeting_point_instructions', $booking->meeting_point_instructions)
+        ]);
+
+        return $this->sendResponse($booking, 'Meeting point updated successfully');
+    }
+
     function createBasket($bookingData) {
         // Agrupar por group_id
         $groupedCartItems = $this->groupCartItemsByGroupId($bookingData['cart']);
