@@ -25,6 +25,13 @@ Route::post('auth/reset-password/{token}', [\App\Http\Controllers\Auth\AuthContr
 // Private - Con rate limiting específico para admin Angular
 Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->group(function() {
 
+    // MEJORA CRÍTICA: Endpoints para validación de capacidad en tiempo real
+    Route::post('/courses/check-capacity', [App\Http\Controllers\Admin\CourseCapacityController::class, 'checkCapacity']);
+    Route::post('/courses/check-availability', [App\Http\Controllers\Admin\CourseCapacityController::class, 'checkAvailabilityByDate']);
+    Route::get('/courses/check-availability', [App\Http\Controllers\Admin\CourseCapacityController::class, 'previewAvailability'])
+        ->name('api.admin.courses.preview-availability');
+    Route::post('/courses/validate-booking', [App\Http\Controllers\Admin\CourseCapacityController::class, 'validateBookingCapacity']);
+
     Route::resource('courses', App\Http\Controllers\Admin\CourseController::class)
         ->except(['create', 'edit'])->names([
             'index' => 'api.admin.courses.index',
@@ -37,12 +44,6 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
     Route::get('/courses/{id}/export/{lang}', [App\Http\Controllers\Admin\CourseController::class, 'exportDetails']);
 
     Route::get('/courses/{id}/sells/', [App\Http\Controllers\Admin\CourseController::class, 'getSellStats']);
-
-    // MEJORA CRÍTICA: Endpoints para validación de capacidad en tiempo real
-    Route::post('/courses/check-capacity', [App\Http\Controllers\Admin\CourseCapacityController::class, 'checkCapacity']);
-    Route::post('/courses/check-availability', [App\Http\Controllers\Admin\CourseCapacityController::class, 'checkAvailabilityByDate']);
-    Route::get('/courses/check-availability', [App\Http\Controllers\Admin\CourseCapacityController::class, 'previewAvailability']);
-    Route::post('/courses/validate-booking', [App\Http\Controllers\Admin\CourseCapacityController::class, 'validateBookingCapacity']);
 
     // NUEVO: Endpoints para asignación de monitores por intervalo
     Route::get('/course-subgroups/{subgroupId}/monitor', [CourseIntervalMonitorController::class, 'getMonitorForDate'])
