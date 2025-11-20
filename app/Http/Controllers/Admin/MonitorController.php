@@ -72,7 +72,23 @@ class MonitorController extends AppBaseController
 
         $isAnyAdultClient = false;
         $clientLanguages = [];
-        $bookingUserIds = $request->input('bookingUserIds', []);
+        $bookingUserIds = collect($request->input('bookingUserIds', []))
+            ->filter(fn($id) => is_numeric($id))
+            ->map(fn($id) => (int) $id)
+            ->values()
+            ->all();
+        $subgroupIds = collect($request->input('subgroupIds', []))
+            ->filter(fn($id) => is_numeric($id))
+            ->map(fn($id) => (int) $id)
+            ->values()
+            ->all();
+        $courseId = $request->input('courseId');
+        if ($courseId && empty($subgroupIds)) {
+            $courseSubgroupIds = CourseSubgroup::whereHas('courseGroup.course', function ($query) use ($courseId) {
+                $query->where('id', $courseId);
+            })->pluck('id')->map(fn($id) => (int) $id)->all();
+            $subgroupIds = collect($subgroupIds)->merge($courseSubgroupIds)->unique()->values()->all();
+        }
 
         if ($request->has('clientIds') && is_array($request->clientIds)) {
             foreach ($request->clientIds as $clientId) {
@@ -101,7 +117,7 @@ class MonitorController extends AppBaseController
         $availableMonitors = Monitor::query()
             ->withSportAndDegree($request->sportId, $school->id, $degreeOrder, $isAnyAdultClient)
             ->withLanguages($clientLanguages)
-            ->availableBetween($request->date, $request->startTime, $request->endTime, $bookingUserIds)
+            ->availableBetween($request->date, $request->startTime, $request->endTime, $bookingUserIds, $subgroupIds)
             ->get()
             ->toArray();
 

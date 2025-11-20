@@ -112,6 +112,9 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
     Route::post('planner/monitors/transfer', [\App\Http\Controllers\Admin\PlannerController::class, 'transferMonitor'])
         ->name('api.admin.planner.transfer');
 
+    Route::post('planner/monitors/transfer-preview', [\App\Http\Controllers\Admin\PlannerController::class, 'previewMonitorTransfer'])
+        ->name('api.admin.planner.transfer.preview');
+
     /** Booking **/
     Route::post('bookings',
         [\App\Http\Controllers\Admin\BookingController::class, 'store'])

@@ -541,13 +541,16 @@ class Monitor extends Model
     /**
      * Scope to filter monitors available between times on a given date.
      */
-    public function scopeAvailableBetween($query, $date, $startTime, $endTime, array $excludeBookingUserIds = [])
+    public function scopeAvailableBetween($query, $date, $startTime, $endTime, array $excludeBookingUserIds = [], array $excludeSubgroupIds = [])
     {
         return $query
-            ->whereDoesntHave('bookingUsers', function ($q) use ($date, $startTime, $endTime, $excludeBookingUserIds) {
+            ->whereDoesntHave('bookingUsers', function ($q) use ($date, $startTime, $endTime, $excludeBookingUserIds, $excludeSubgroupIds) {
                 $q->whereDate('date', $date)
                     ->when(!empty($excludeBookingUserIds), function ($sub) use ($excludeBookingUserIds) {
                         $sub->whereNotIn('id', $excludeBookingUserIds);
+                    })
+                    ->when(!empty($excludeSubgroupIds), function ($sub) use ($excludeSubgroupIds) {
+                        $sub->whereNotIn('course_subgroup_id', $excludeSubgroupIds);
                     })
                     ->whereTime('hour_start', '<', $endTime)
                     ->whereTime('hour_end', '>', $startTime)
@@ -567,7 +570,10 @@ class Monitor extends Model
                             });
                     });
             })
-            ->whereDoesntHave('courseSubgroups', function ($q) use ($date, $startTime, $endTime) {
+            ->whereDoesntHave('courseSubgroups', function ($q) use ($date, $startTime, $endTime, $excludeSubgroupIds) {
+                $q->when(!empty($excludeSubgroupIds), function ($subgroupQuery) use ($excludeSubgroupIds) {
+                    $subgroupQuery->whereNotIn('id', $excludeSubgroupIds);
+                });
                 $q->whereHas('courseDate', function ($cd) use ($date, $startTime, $endTime) {
                     $cd->whereDate('date', $date)
                         ->whereTime('hour_start', '<', $endTime)
@@ -626,6 +632,10 @@ class Monitor extends Model
 
         if (!empty($excludeBookingUserIds)) {
             $bookingQuery->whereNotIn('id', $excludeBookingUserIds);
+        }
+
+        if (!empty($excludeSubgroupIds)) {
+            $bookingQuery->whereNotIn('course_subgroup_id', $excludeSubgroupIds);
         }
 
         // Solape por horas (si tenemos horas)

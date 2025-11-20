@@ -171,12 +171,12 @@ class PlannerController extends AppBaseController
         // Consulta para los MonitorNwd
         // OPTIMIZACION: Cargar solo campos necesarios
         $nwdQuery = MonitorNwd::select('id', 'monitor_id', 'school_id', 'station_id',
-                'start_date', 'end_date', 'start_time', 'end_time', 'full_day',
-                'user_nwd_subtype_id', 'description', 'color')
+            'start_date', 'end_date', 'start_time', 'end_time', 'full_day',
+            'user_nwd_subtype_id', 'description', 'color')
             ->where('school_id', $schoolId) // Filtra por school_id
             ->orderBy('start_time');
 
-        if($schoolId) {
+        if ($schoolId) {
             $bookingQuery->where('school_id', $schoolId);
 
             $nwdQuery->where('school_id', $schoolId);
@@ -341,7 +341,7 @@ class PlannerController extends AppBaseController
 
         foreach ($monitors as $monitor) {
             $monitorBookings = $bookings->where('monitor_id', $monitor->id)
-                ->groupBy(function ($booking) use($subgroupsPerGroup) {
+                ->groupBy(function ($booking) use ($subgroupsPerGroup) {
                     // Diferencia la agrupación basada en el course_type
                     if ($booking->course->course_type == 2 || $booking->course->course_type == 3) {
                         // Agrupa por booking.course_id y booking.course_date_id para el tipo 2
@@ -410,7 +410,6 @@ class PlannerController extends AppBaseController
                 return $booking->course_id . '-' . $booking->course_date_id . '-' . $booking->booking_id;
             }
         });
-
 
 
         $subgroupsWithoutMonitor = $subgroups->where('monitor_id', null);
@@ -518,19 +517,19 @@ class PlannerController extends AppBaseController
 
     public function transferMonitor(Request $request)
     {
-        $monitorId        = $request->input('monitor_id');
-        $bookingUserIds   = (array) $request->input('booking_users', []);
-        $scope            = $request->input('scope'); // single|interval|all|from|range
-        $startDate        = $request->input('start_date');
-        $endDate          = $request->input('end_date');
-        $courseId         = $request->input('course_id');
-        $bookingId        = $request->input('booking_id');
+        $monitorId = $request->input('monitor_id');
+        $bookingUserIds = (array)$request->input('booking_users', []);
+        $scope = $request->input('scope'); // single|interval|all|from|range
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+        $courseId = $request->input('course_id');
+        $bookingId = $request->input('booking_id');
         $courseSubgroupId = $request->input('subgroup_id');     // en front lo llamáis subgroup_id
-        $courseDateId     = $request->input('course_date_id');
+        $courseDateId = $request->input('course_date_id');
         $degreeIdInput = $request->input('degree_id') ?: optional(CourseSubgroup::find($courseSubgroupId))->degree_id;
         $providedSubgroupIds = collect($request->input('subgroup_ids', []) ?? [])
             ->filter(fn($id) => is_numeric($id))
-            ->map(fn($id) => (int) $id)
+            ->map(fn($id) => (int)$id)
             ->unique()
             ->values();
 
@@ -550,7 +549,8 @@ class PlannerController extends AppBaseController
         if ($courseId) {
             $cdQuery = CourseDate::where('course_id', $courseId)->whereNull('deleted_at');
             switch ($scope) {
-                case 'all': break;
+                case 'all':
+                    break;
                 case 'from':
                     if ($startDate) $cdQuery->whereDate('date', '>=', $startDate);
                     break;
@@ -582,12 +582,12 @@ class PlannerController extends AppBaseController
         $targets = collect();
 
         if (!empty($bookingUserIds)) {
-            $targets = BookingUser::with(['courseDate','courseSubgroup'])
+            $targets = BookingUser::with(['courseDate', 'courseSubgroup'])
                 ->whereIn('id', $bookingUserIds)
                 ->whereHas('courseDate', fn($q) => $q->whereNull('deleted_at'))
                 ->get();
         } else {
-            $q = BookingUser::with(['courseDate','courseSubgroup'])
+            $q = BookingUser::with(['courseDate', 'courseSubgroup'])
                 ->whereHas('courseDate', fn($cq) => $cq->whereNull('deleted_at'));
 
             switch ($scope) {
@@ -637,7 +637,7 @@ class PlannerController extends AppBaseController
                     break;
             }
 
-            if ($validCourseDateIds->isNotEmpty() && in_array($scope, ['all','from','range'])) {
+            if ($validCourseDateIds->isNotEmpty() && in_array($scope, ['all', 'from', 'range'])) {
                 $q->whereIn('course_date_id', $validCourseDateIds);
             }
 
@@ -671,7 +671,10 @@ class PlannerController extends AppBaseController
         };
 
         if ($providedSubgroupIds->isNotEmpty()) {
-            $targetSubgroups = $applyDegreeFilter((clone $subgroupBase)->whereIn('id', $providedSubgroupIds))->get();
+            $targetSubgroups = (clone $subgroupBase)
+                ->whereIn('id', $providedSubgroupIds)
+                ->when($degreeIdContext, fn($q) => $q->where('degree_id', $degreeIdContext))
+                ->get();
         } else {
             switch ($scope) {
                 case 'single':
@@ -744,18 +747,40 @@ class PlannerController extends AppBaseController
 
         $targetSubgroups = $targetSubgroups->unique('id')->values();
 
+        $excludeBookingUserIds = $targets
+            ->pluck('id')
+            ->filter(fn($id) => !is_null($id))
+            ->map(fn($id) => (int)$id)
+            ->values()
+            ->all();
+
+        $bookingRelatedSubgroups = $targets
+            ->pluck('course_subgroup_id')
+            ->filter(fn($id) => !is_null($id))
+            ->map(fn($id) => (int)$id);
+
+        $excludeSubgroupIds = $bookingRelatedSubgroups
+            ->merge(
+                $targetSubgroups
+                    ->pluck('id')
+                    ->filter(fn($id) => !is_null($id))
+                    ->map(fn($id) => (int)$id)
+            )
+            ->unique()
+            ->values()
+            ->all();
         // 3.1) Filtrar BookingUsers por degree también (según esquema)
-/*        if ($degreeIdContext) {
-            // Si BookingUser tiene columna degree_id:
-            if (Schema::hasColumn((new BookingUser)->getTable(), 'degree_id')) {
-                $targets = $targets->where('degree_id', (int)$degreeIdContext)->values();
-            } else {
-                // Si no, filtra por el degree del subgrupo relacionado
-                $targets = $targets->filter(function ($bu) use ($degreeIdContext) {
-                    return optional($bu->courseSubgroup)->degree_id === (int)$degreeIdContext;
-                })->values();
-            }
-        }*/
+        /*        if ($degreeIdContext) {
+                    // Si BookingUser tiene columna degree_id:
+                    if (Schema::hasColumn((new BookingUser)->getTable(), 'degree_id')) {
+                        $targets = $targets->where('degree_id', (int)$degreeIdContext)->values();
+                    } else {
+                        // Si no, filtra por el degree del subgrupo relacionado
+                        $targets = $targets->filter(function ($bu) use ($degreeIdContext) {
+                            return optional($bu->courseSubgroup)->degree_id === (int)$degreeIdContext;
+                        })->values();
+                    }
+                }*/
 
         if ($targets->isEmpty() && $targetSubgroups->isEmpty()) {
             return $this->sendError('No booking users or subgroups found for the given scope/degree');
@@ -777,7 +802,7 @@ class PlannerController extends AppBaseController
         // 5) Comprobar solapes (BookingUsers)
         foreach ($targets as $bu) {
             if (!$bu->date || !$bu->hour_start || !$bu->hour_end) continue;
-            if (Monitor::isMonitorBusy($monitorId, $bu->date, $bu->hour_start, $bu->hour_end)) {
+            if (Monitor::isMonitorBusy($monitorId, $bu->date, $bu->hour_start, $bu->hour_end, null, $excludeBookingUserIds, $excludeSubgroupIds)) {
                 return $this->sendError("Overlap detected on {$bu->date}. Monitor cannot be transferred.");
             }
         }
@@ -786,9 +811,9 @@ class PlannerController extends AppBaseController
         foreach ($targetSubgroups as $sg) {
             if (!$sg->courseDate) continue;
             $date = $sg->courseDate->date;
-            $hs   = $sg->courseDate->hour_start;
-            $he   = $sg->courseDate->hour_end;
-            if (Monitor::isMonitorBusy($monitorId, $date, $hs, $he)) {
+            $hs = $sg->courseDate->hour_start;
+            $he = $sg->courseDate->hour_end;
+            if (Monitor::isMonitorBusy($monitorId, $date, $hs, $he, null, $excludeBookingUserIds, $excludeSubgroupIds)) {
                 return $this->sendError('Overlap detected for subgroup. Monitor cannot be transferred.');
             }
         }
@@ -798,7 +823,7 @@ class PlannerController extends AppBaseController
             foreach ($targets as $bu) {
                 $bu->update(['monitor_id' => $monitorId, 'accepted' => true]);
 
-                if (in_array($scope, ['interval','all','from','range']) && $bu->course_subgroup_id) {
+                if (in_array($scope, ['interval', 'all', 'from', 'range']) && $bu->course_subgroup_id) {
                     CourseSubgroup::where('id', $bu->course_subgroup_id)->update(['monitor_id' => $monitorId]);
                 }
             }
@@ -807,8 +832,85 @@ class PlannerController extends AppBaseController
             }
         });
 
-        return $this->sendResponse($monitor, 'Monitor updated successfully for scope: '.$scope);
+        return $this->sendResponse($monitor, 'Monitor updated successfully for scope: ' . $scope);
     }
 
 
+    public function previewMonitorTransfer(Request $request): JsonResponse
+    {
+        $scope = $request->input('scope') ?? 'single';
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+        $courseId = $request->input('course_id');
+        $subgroupId = $request->input('subgroup_id');
+        $subgroupIds = collect($request->input('subgroup_ids', []))
+            ->filter(fn($id) => is_numeric($id))
+            ->map(fn($id) => (int)$id)
+            ->values()
+            ->all();
+
+        if (!$courseId && !$subgroupId && empty($subgroupIds)) {
+            return $this->sendError('Missing scope context to preview transfer.');
+        }
+
+        $query = CourseSubgroup::query()
+            ->with([
+                'courseDate:id,date,hour_start,hour_end,course_id',
+                'courseDate.course:id,name',
+                'courseGroup:id,course_id',
+                'courseGroup.course:id,name',
+                'monitor:id,first_name,last_name'
+            ])
+            ->whereHas('courseDate', fn($q) => $q->whereNull('deleted_at'));
+
+        if ($courseId) {
+            $query->whereHas('courseGroup.course', fn($q) => $q->where('id', $courseId));
+        }
+
+        if (!empty($subgroupIds)) {
+            $query->whereIn('id', $subgroupIds);
+        } elseif ($subgroupId) {
+            $query->where('id', $subgroupId);
+        }
+
+        if ($startDate) {
+            if ($scope === 'single') {
+                $query->whereHas('courseDate', fn($q) => $q->whereDate('date', $startDate));
+            } else {
+                $end = $endDate ?? $startDate;
+                $query->whereHas('courseDate', fn($q) => $q->whereBetween('date', [$startDate, $end]));
+            }
+        }
+
+        $subgroups = $query->get()->map(function (CourseSubgroup $subgroup) {
+            $courseDate = $subgroup->courseDate;
+            $course = $courseDate?->course ?? $subgroup->courseGroup?->course;
+            $monitor = $subgroup->monitor;
+
+            return [
+                'id' => $subgroup->id,
+                'date' => optional($courseDate)->date,
+                'hour_start' => optional($courseDate)->hour_start,
+                'hour_end' => optional($courseDate)->hour_end,
+                'course' => [
+                    'id' => $course?->id,
+                    'name' => $course?->name
+                ],
+                'level_label' => $subgroup->name
+                    ?? $subgroup->courseGroup?->name
+                        ?? $subgroup->degree?->name
+                        ?? null,
+                'current_monitor' => $monitor ? [
+                    'id' => $monitor->id,
+                    'name' => trim(($monitor->first_name ?? '') . ' ' . ($monitor->last_name ?? ''))
+                ] : null
+            ];
+        });
+
+        if ($subgroups->isEmpty()) {
+            return $this->sendResponse([], 'No subgroups found for preview.');
+        }
+
+        return $this->sendResponse($subgroups, 'Monitor transfer preview ready.');
+    }
 }
