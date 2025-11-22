@@ -886,16 +886,26 @@ class PlannerController extends AppBaseController
             }
         }
 
-        $subgroups = $query->get()->map(function (CourseSubgroup $subgroup) {
+        $subgroups = $query->get()->map(function (CourseSubgroup $subgroup) use ($scope, $courseId) {
             $courseDate = $subgroup->courseDate;
             $course = $courseDate?->course ?? $subgroup->courseGroup?->course;
             $monitor = $subgroup->monitor;
 
-            // NUEVO: Obtener TODAS las fechas homónimas del subgrupo
-            $homonymousDates = $subgroup->allCourseDates()
-                ->orderBy('date', 'asc')
-                ->select('course_dates.id', 'date', 'hour_start', 'hour_end')
-                ->get();
+            // NUEVO: Obtener TODAS las fechas del subgrupo (o del curso si scope='all')
+            if ($scope === 'all' && $courseId) {
+                // Para scope='all', obtener TODAS las fechas del curso
+                $homonymousDates = \App\Models\CourseDate::where('course_id', $courseId)
+                    ->whereNull('deleted_at')
+                    ->orderBy('date', 'asc')
+                    ->select('id', 'date', 'hour_start', 'hour_end')
+                    ->get();
+            } else {
+                // Para otros scopes, obtener solo las fechas del subgrupo
+                $homonymousDates = $subgroup->allCourseDates()
+                    ->orderBy('date', 'asc')
+                    ->select('course_dates.id', 'date', 'hour_start', 'hour_end')
+                    ->get();
+            }
 
             $homonymousDateIds = $homonymousDates->pluck('id')->toArray();
 
