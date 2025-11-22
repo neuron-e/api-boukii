@@ -320,6 +320,51 @@ class CourseSubgroup extends Model
     }
 
     /**
+     * NUEVO: Relación con los registros pivot de course_subgroup_dates
+     * Permite acceder a todas las fechas asociadas a este subgrupo
+     */
+    public function courseSubgroupDates(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(CourseSubgroupDate::class, 'course_subgroup_id')->orderBy('order');
+    }
+
+    /**
+     * NUEVO: Relación HasManyThrough para obtener TODAS las fechas del subgrupo
+     * A través de la tabla intermedia course_subgroup_dates
+     *
+     * Uso: $subgroup->allCourseDates()->get()
+     */
+    public function allCourseDates(): \Illuminate\Database\Eloquent\Relations\HasManyThrough
+    {
+        return $this->hasManyThrough(
+            CourseDate::class,
+            CourseSubgroupDate::class,
+            'course_subgroup_id',
+            'id',
+            'id',
+            'course_date_id'
+        );
+    }
+
+    /**
+     * NUEVO: Obtener todas las IDs de fechas del subgrupo (homónimas)
+     */
+    public function getHomonymousDateIds(): \Illuminate\Support\Collection
+    {
+        return $this->courseSubgroupDates()->pluck('course_date_id');
+    }
+
+    /**
+     * NUEVO: Obtener todas las fechas con sus detalles, ordenadas por fecha
+     */
+    public function getHomonymousDates()
+    {
+        return $this->allCourseDates()
+            ->orderBy('date', 'asc')
+            ->get();
+    }
+
+    /**
      * MEJORA CRÍTICA: Scope optimizado para filtrar subgrupos disponibles
      */
     public function scopeAvailableWithOptimizedQuery(Builder $query, int $neededSlots = 1): Builder
