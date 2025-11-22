@@ -886,58 +886,46 @@ class PlannerController extends AppBaseController
             }
         }
 
-        $subgroups = $query->get()->flatMap(function (CourseSubgroup $subgroup) use ($scope, $courseId, $startDate, $endDate) {
+        $subgroups = $query->get()->map(function (CourseSubgroup $subgroup) {
             $courseDate = $subgroup->courseDate;
             $course = $courseDate?->course ?? $subgroup->courseGroup?->course;
             $monitor = $subgroup->monitor;
-            $levelLabel = $subgroup->name
-                ?? $subgroup->courseGroup?->name
-                    ?? $subgroup->degree?->name
-                    ?? null;
-            $currentMonitorData = $monitor ? [
-                'id' => $monitor->id,
-                'name' => trim(($monitor->first_name ?? '') . ' ' . ($monitor->last_name ?? ''))
-            ] : null;
 
-            // Obtener las fechas a retornar según el scope
-            if ($scope === 'all' && $courseId) {
-                // Para scope='all', obtener TODAS las fechas del curso
-                $datesToReturn = \App\Models\CourseDate::where('course_id', $courseId)
-                    ->whereNull('deleted_at')
-                    ->orderBy('date', 'asc')
-                    ->select('id', 'date', 'hour_start', 'hour_end')
-                    ->get();
-            } else {
-                // Para otros scopes, obtener solo las fechas del subgrupo
-                $datesToReturn = $subgroup->allCourseDates()
-                    ->orderBy('date', 'asc')
-                    ->select('course_dates.id', 'date', 'hour_start', 'hour_end')
-                    ->get();
-            }
+            // NUEVO: Obtener TODAS las fechas homónimas del subgrupo
+            $homonymousDates = $subgroup->allCourseDates()
+                ->orderBy('date', 'asc')
+                ->select('course_dates.id', 'date', 'hour_start', 'hour_end')
+                ->get();
 
-            $dateIds = $datesToReturn->pluck('id')->toArray();
+            $homonymousDateIds = $homonymousDates->pluck('id')->toArray();
 
-            // Crear un item por cada fecha
-            return $datesToReturn->map(fn($courseDate) => [
+            return [
                 'id' => $subgroup->id,
-                'date' => $courseDate->date,
-                'hour_start' => $courseDate->hour_start,
-                'hour_end' => $courseDate->hour_end,
+                'date' => optional($courseDate)->date,
+                'hour_start' => optional($courseDate)->hour_start,
+                'hour_end' => optional($courseDate)->hour_end,
                 'course' => [
                     'id' => $course?->id,
                     'name' => $course?->name
                 ],
-                'level_label' => $levelLabel,
-                'current_monitor' => $currentMonitorData,
-                'all_dates_in_subgroup' => $datesToReturn->map(fn($d) => [
+                'level_label' => $subgroup->name
+                    ?? $subgroup->courseGroup?->name
+                        ?? $subgroup->degree?->name
+                        ?? null,
+                'current_monitor' => $monitor ? [
+                    'id' => $monitor->id,
+                    'name' => trim(($monitor->first_name ?? '') . ' ' . ($monitor->last_name ?? ''))
+                ] : null,
+                // NUEVO: Retornar todas las fechas del subgrupo
+                'all_dates_in_subgroup' => $homonymousDates->map(fn($d) => [
                     'course_date_id' => $d->id,
                     'date' => $d->date,
                     'hour_start' => $d->hour_start,
                     'hour_end' => $d->hour_end
                 ])->values(),
-                'course_subgroup_dates_ids' => $dateIds,
-                'total_dates_in_subgroup' => count($dateIds)
-            ])->toArray();
+                'course_subgroup_dates_ids' => $homonymousDateIds,
+                'total_dates_in_subgroup' => count($homonymousDateIds)
+            ];
         });
 
         if ($subgroups->isEmpty()) {
