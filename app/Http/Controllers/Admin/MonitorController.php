@@ -83,11 +83,13 @@ class MonitorController extends AppBaseController
             ->values()
             ->all();
         $courseId = $request->input('courseId');
+        // Solo obtener todos los subgrupos si no se pasó ninguno para excluir
         if ($courseId && empty($subgroupIds)) {
             $courseSubgroupIds = CourseSubgroup::whereHas('courseGroup.course', function ($query) use ($courseId) {
                 $query->where('id', $courseId);
             })->pluck('id')->map(fn($id) => (int) $id)->all();
-            $subgroupIds = collect($subgroupIds)->merge($courseSubgroupIds)->unique()->values()->all();
+            // Simplemente asignar, no mergear, para mantener solo las exclusiones pasadas
+            $subgroupIds = $courseSubgroupIds;
         }
 
         if ($request->has('clientIds') && is_array($request->clientIds)) {
