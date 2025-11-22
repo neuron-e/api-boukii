@@ -878,8 +878,11 @@ class PlannerController extends AppBaseController
             if ($scope === 'single') {
                 $query->whereHas('courseDate', fn($q) => $q->whereDate('date', $startDate));
             } else {
+                // Para scopes multi-fecha, filtrar por cualquier fecha del subgrupo en el rango
                 $end = $endDate ?? $startDate;
-                $query->whereHas('courseDate', fn($q) => $q->whereBetween('date', [$startDate, $end]));
+                $query->whereHas('courseSubgroupDates.courseDate',
+                    fn($q) => $q->whereBetween('date', [$startDate, $end])->whereNull('deleted_at')
+                );
             }
         }
 
