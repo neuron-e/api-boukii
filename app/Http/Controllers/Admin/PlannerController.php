@@ -868,9 +868,10 @@ class PlannerController extends AppBaseController
             $query->whereHas('courseGroup.course', fn($q) => $q->where('id', $courseId));
         }
 
-        if (!empty($subgroupIds)) {
+        // For scope='all', ignore the subgroupIds filter to include ALL subgroups of the same degree
+        if (!empty($subgroupIds) && $scope !== 'all') {
             $query->whereIn('id', $subgroupIds);
-        } elseif ($subgroupId) {
+        } elseif ($subgroupId && $scope !== 'all') {
             $query->where('id', $subgroupId);
         }
 
