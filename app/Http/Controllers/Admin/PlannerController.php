@@ -891,7 +891,7 @@ class PlannerController extends AppBaseController
             // NUEVO: Obtener TODAS las fechas homónimas del subgrupo
             $homonymousDates = $subgroup->allCourseDates()
                 ->orderBy('date', 'asc')
-                ->select('id', 'date', 'hour_start', 'hour_end')
+                ->select('course_dates.id', 'date', 'hour_start', 'hour_end')
                 ->get();
 
             $homonymousDateIds = $homonymousDates->pluck('id')->toArray();
