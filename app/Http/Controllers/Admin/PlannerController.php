@@ -642,7 +642,7 @@ class PlannerController extends AppBaseController
                 $q->whereIn('course_date_id', $validCourseDateIds);
             }
 
-            if ($providedSubgroupIds->isNotEmpty()) {
+            if ($providedSubgroupIds->isNotEmpty() && $scope !== 'all') {
                 $q->whereIn('course_subgroup_id', $providedSubgroupIds);
             }
             $targets = $q->get();
@@ -671,7 +671,7 @@ class PlannerController extends AppBaseController
             return $query;
         };
 
-        if ($providedSubgroupIds->isNotEmpty()) {
+        if ($providedSubgroupIds->isNotEmpty() && $scope !== 'all') {
             $targetSubgroups = (clone $subgroupBase)
                 ->whereIn('id', $providedSubgroupIds)
                 ->when($degreeIdContext, fn($q) => $q->where('degree_id', $degreeIdContext))
