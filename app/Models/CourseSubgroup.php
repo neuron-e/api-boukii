@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes; use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 use App\Traits\OptimizedQueries;
@@ -93,7 +94,8 @@ class CourseSubgroup extends Model
         'course_group_id',
         'monitor_id',
         'old_id',
-        'max_participants'
+        'max_participants',
+        'subgroup_dates_id'
     ];
 
     protected $casts = [
@@ -309,6 +311,63 @@ class CourseSubgroup extends Model
     {
         $service = app(CourseMonitorService::class);
         $service->invalidateCache($this, $date);
+    }
+
+    // ==================================================================================
+    // MÉTODOS PARA SOPORTE DE SUBGROUP_DATES_ID
+    // ==================================================================================
+
+    /**
+     * NUEVO: Generar o obtener el subgroup_dates_id para este subgrupo
+     * Todos los subgrupos homónimos (mismo course_id, degree_id, course_group_id) comparten el mismo ID
+     *
+     * @return string Identificador en formato SG-XXXXXX
+     */
+    public function generateOrGetSubgroupDatesId(): string
+    {
+        // Si ya tiene ID, devolverlo
+        if ($this->subgroup_dates_id) {
+            return $this->subgroup_dates_id;
+        }
+
+        // Buscar si otro subgrupo con las mismas dimensiones ya tiene ID asignado
+        $existing = static::where('course_id', $this->course_id)
+            ->where('degree_id', $this->degree_id)
+            ->where('course_group_id', $this->course_group_id)
+            ->whereNotNull('subgroup_dates_id')
+            ->first();
+
+        if ($existing) {
+            return $existing->subgroup_dates_id;
+        }
+
+        // Generar nuevo ID secuencial
+        $maxNum = DB::table('course_subgroups')
+            ->whereNotNull('subgroup_dates_id')
+            ->get()
+            ->map(function($row) {
+                $matches = [];
+                preg_match('/SG-(\d+)/', $row->subgroup_dates_id, $matches);
+                return isset($matches[1]) ? (int)$matches[1] : 0;
+            })
+            ->max() ?? 0;
+
+        return 'SG-' . str_pad($maxNum + 1, 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * NUEVO: Obtener todos los subgrupos homónimos (mismo subgroup_dates_id)
+     *
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getHomonymousSubgroups()
+    {
+        if (!$this->subgroup_dates_id) {
+            return collect([]);
+        }
+
+        return static::where('subgroup_dates_id', $this->subgroup_dates_id)
+            ->get();
     }
 
     /**

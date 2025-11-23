@@ -9,6 +9,7 @@ use App\Models\Booking;
 use App\Models\BookingUser;
 use App\Models\Course;
 use App\Models\CourseDate;
+use App\Models\CourseSubgroup;
 use App\Models\Season;
 use App\Repositories\CourseRepository;
 use App\Support\IntervalDiscountHelper;
@@ -441,6 +442,33 @@ class CourseController extends AppBaseController
                                 foreach ($groupData['subgroups'] as &$subgroup) {
                                     $subgroup['course_id'] = $course->id;
                                     $subgroup['course_date_id'] = $date->id;
+
+                                    // NUEVO: Auto-assign subgroup_dates_id for homonymous subgroups
+                                    if (!isset($subgroup['subgroup_dates_id']) || empty($subgroup['subgroup_dates_id'])) {
+                                        // Check if another subgroup with same (course_id, degree_id, course_group_id) exists
+                                        $existingSubgroup = CourseSubgroup::where('course_id', $course->id)
+                                            ->where('degree_id', $subgroup['degree_id'])
+                                            ->where('course_group_id', $groupData['id'])
+                                            ->whereNotNull('subgroup_dates_id')
+                                            ->first();
+
+                                        if ($existingSubgroup) {
+                                            $subgroup['subgroup_dates_id'] = $existingSubgroup->subgroup_dates_id;
+                                        } else {
+                                            // Generate new ID
+                                            $maxNum = DB::table('course_subgroups')
+                                                ->whereNotNull('subgroup_dates_id')
+                                                ->get()
+                                                ->map(function($row) {
+                                                    $matches = [];
+                                                    preg_match('/SG-(\d+)/', $row->subgroup_dates_id, $matches);
+                                                    return isset($matches[1]) ? (int)$matches[1] : 0;
+                                                })
+                                                ->max() ?? 0;
+
+                                            $subgroup['subgroup_dates_id'] = 'SG-' . str_pad($maxNum + 1, 6, '0', STR_PAD_LEFT);
+                                        }
+                                    }
                                 }
 
                                 $group->courseSubgroups()->createMany($groupData['subgroups']);
@@ -892,6 +920,66 @@ class CourseController extends AppBaseController
                                         $existingSubgroup = $group->courseSubgroups()->find($subgroupId);
                                         if ($existingSubgroup) {
                                             $previousMonitorId = $existingSubgroup->monitor_id;
+                                        }
+                                    }
+
+                                    // NUEVO: Handle subgroup_dates_id assignment
+                                    if (!isset($subgroupData['subgroup_dates_id']) || empty($subgroupData['subgroup_dates_id'])) {
+                                        if ($subgroupId) {
+                                            // For existing subgroups, keep the existing ID if present
+                                            $existingSubgroup = CourseSubgroup::find($subgroupId);
+                                            if ($existingSubgroup && $existingSubgroup->subgroup_dates_id) {
+                                                $subgroupData['subgroup_dates_id'] = $existingSubgroup->subgroup_dates_id;
+                                            } else {
+                                                // Try to find another subgroup with the same dimensions
+                                                $homonymousSubgroup = CourseSubgroup::where('course_id', $course->id)
+                                                    ->where('degree_id', $subgroupData['degree_id'])
+                                                    ->where('course_group_id', $group->id)
+                                                    ->where('id', '!=', $subgroupId)
+                                                    ->whereNotNull('subgroup_dates_id')
+                                                    ->first();
+
+                                                if ($homonymousSubgroup) {
+                                                    $subgroupData['subgroup_dates_id'] = $homonymousSubgroup->subgroup_dates_id;
+                                                } else {
+                                                    // Generate new ID
+                                                    $maxNum = DB::table('course_subgroups')
+                                                        ->whereNotNull('subgroup_dates_id')
+                                                        ->get()
+                                                        ->map(function($row) {
+                                                            $matches = [];
+                                                            preg_match('/SG-(\d+)/', $row->subgroup_dates_id, $matches);
+                                                            return isset($matches[1]) ? (int)$matches[1] : 0;
+                                                        })
+                                                        ->max() ?? 0;
+
+                                                    $subgroupData['subgroup_dates_id'] = 'SG-' . str_pad($maxNum + 1, 6, '0', STR_PAD_LEFT);
+                                                }
+                                            }
+                                        } else {
+                                            // For new subgroups
+                                            $existingSubgroup = CourseSubgroup::where('course_id', $course->id)
+                                                ->where('degree_id', $subgroupData['degree_id'])
+                                                ->where('course_group_id', $group->id)
+                                                ->whereNotNull('subgroup_dates_id')
+                                                ->first();
+
+                                            if ($existingSubgroup) {
+                                                $subgroupData['subgroup_dates_id'] = $existingSubgroup->subgroup_dates_id;
+                                            } else {
+                                                // Generate new ID
+                                                $maxNum = DB::table('course_subgroups')
+                                                    ->whereNotNull('subgroup_dates_id')
+                                                    ->get()
+                                                    ->map(function($row) {
+                                                        $matches = [];
+                                                        preg_match('/SG-(\d+)/', $row->subgroup_dates_id, $matches);
+                                                        return isset($matches[1]) ? (int)$matches[1] : 0;
+                                                    })
+                                                    ->max() ?? 0;
+
+                                                $subgroupData['subgroup_dates_id'] = 'SG-' . str_pad($maxNum + 1, 6, '0', STR_PAD_LEFT);
+                                            }
                                         }
                                     }
 

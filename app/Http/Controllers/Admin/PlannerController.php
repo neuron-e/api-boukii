@@ -868,16 +868,21 @@ class PlannerController extends AppBaseController
             $query->whereHas('courseGroup.course', fn($q) => $q->where('id', $courseId));
         }
 
-        // Para scope='all', recuperar TODOS los subgroups del MISMO course_group_id
+        // MEJORADO: Para scope='all', recuperar TODOS los subgroups con el MISMO subgroup_dates_id
+        // Esto es más eficiente y explícito que buscar por course_group_id
         if ($scope === 'all' && $subgroupId) {
             $selectedSubgroup = CourseSubgroup::find($subgroupId);
-            if ($selectedSubgroup) {
-                $query->where('course_group_id', $selectedSubgroup->course_group_id);
+            if ($selectedSubgroup && $selectedSubgroup->subgroup_dates_id) {
+                $query->where('subgroup_dates_id', $selectedSubgroup->subgroup_dates_id);
+            } else {
+                return $this->sendError('Selected subgroup does not have a valid subgroup_dates_id.');
             }
         } elseif ($scope === 'all' && !empty($subgroupIds)) {
             $selectedSubgroup = CourseSubgroup::find($subgroupIds[0]);
-            if ($selectedSubgroup) {
-                $query->where('course_group_id', $selectedSubgroup->course_group_id);
+            if ($selectedSubgroup && $selectedSubgroup->subgroup_dates_id) {
+                $query->where('subgroup_dates_id', $selectedSubgroup->subgroup_dates_id);
+            } else {
+                return $this->sendError('Selected subgroup does not have a valid subgroup_dates_id.');
             }
         } elseif (!empty($subgroupIds)) {
             // Para otros scopes, filtrar por los subgroupIds específicos
@@ -887,7 +892,7 @@ class PlannerController extends AppBaseController
             $query->where('id', $subgroupId);
         }
 
-        // Para scope='all', NO filtrar por rango en la query (queremos TODOS los subgroups del level)
+        // Para scope='all', NO filtrar por rango en la query (queremos TODOS los subgroups)
         // Para otros scopes, filtrar por rango en la query (más eficiente)
         if ($startDate && $scope !== 'all') {
             $end = $endDate ?? $startDate;

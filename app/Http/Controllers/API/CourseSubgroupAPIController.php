@@ -130,6 +130,33 @@ class CourseSubgroupAPIController extends AppBaseController
             }
         }
 
+        // NUEVO: Auto-generate subgroup_dates_id for homonymous subgroups
+        if (!isset($input['subgroup_dates_id']) || empty($input['subgroup_dates_id'])) {
+            // Check if another subgroup with same (course_id, degree_id, course_group_id) exists
+            $existingSubgroup = CourseSubgroup::where('course_id', $input['course_id'])
+                ->where('degree_id', $input['degree_id'])
+                ->where('course_group_id', $input['course_group_id'])
+                ->whereNotNull('subgroup_dates_id')
+                ->first();
+
+            if ($existingSubgroup) {
+                $input['subgroup_dates_id'] = $existingSubgroup->subgroup_dates_id;
+            } else {
+                // Generate new ID
+                $maxNum = \Illuminate\Support\Facades\DB::table('course_subgroups')
+                    ->whereNotNull('subgroup_dates_id')
+                    ->get()
+                    ->map(function($row) {
+                        $matches = [];
+                        preg_match('/SG-(\d+)/', $row->subgroup_dates_id, $matches);
+                        return isset($matches[1]) ? (int)$matches[1] : 0;
+                    })
+                    ->max() ?? 0;
+
+                $input['subgroup_dates_id'] = 'SG-' . str_pad($maxNum + 1, 6, '0', STR_PAD_LEFT);
+            }
+        }
+
         $courseSubgroup = $this->courseSubgroupRepository->create($input);
 
         // FIXED BUG #3: Auto-sync monitor assignment to CourseIntervalMonitor table
@@ -283,6 +310,39 @@ class CourseSubgroupAPIController extends AppBaseController
                     ]);
 
                     return $this->sendError('El monitor no está disponible en este horario (tiene reservas, NWDs u otros cursos asignados)', 409);
+                }
+            }
+        }
+
+        // NUEVO: Ensure subgroup_dates_id is maintained or generated if needed
+        if (!isset($input['subgroup_dates_id']) || empty($input['subgroup_dates_id'])) {
+            if ($courseSubgroup->subgroup_dates_id) {
+                // Keep existing ID
+                $input['subgroup_dates_id'] = $courseSubgroup->subgroup_dates_id;
+            } else {
+                // Generate new ID for existing subgroup
+                $existingSubgroup = CourseSubgroup::where('course_id', $courseSubgroup->course_id)
+                    ->where('degree_id', $courseSubgroup->degree_id)
+                    ->where('course_group_id', $courseSubgroup->course_group_id)
+                    ->where('id', '!=', $id)
+                    ->whereNotNull('subgroup_dates_id')
+                    ->first();
+
+                if ($existingSubgroup) {
+                    $input['subgroup_dates_id'] = $existingSubgroup->subgroup_dates_id;
+                } else {
+                    // Generate new ID
+                    $maxNum = \Illuminate\Support\Facades\DB::table('course_subgroups')
+                        ->whereNotNull('subgroup_dates_id')
+                        ->get()
+                        ->map(function($row) {
+                            $matches = [];
+                            preg_match('/SG-(\d+)/', $row->subgroup_dates_id, $matches);
+                            return isset($matches[1]) ? (int)$matches[1] : 0;
+                        })
+                        ->max() ?? 0;
+
+                    $input['subgroup_dates_id'] = 'SG-' . str_pad($maxNum + 1, 6, '0', STR_PAD_LEFT);
                 }
             }
         }
