@@ -10,15 +10,24 @@ class BackfillSubgroupDatesIds extends Seeder
     /**
      * Run the seeder to backfill subgroup_dates_id for all existing subgroups.
      *
-     * This groups subgroups by (course_id, degree_id, course_group_id) and assigns
-     * a unique ID to each homonym group (e.g., all instances of "A1" get SG-000001).
+     * This groups subgroups by (course_id, degree_id) and assigns
+     * a unique ID to each homonym group (e.g., all instances of "Black Prince" get SG-000001).
+     *
+     * IMPORTANTE: En legacy, cada fecha genera un course_group_id diferente,
+     * por lo que NO se debe usar course_group_id para agrupar homónimos.
+     * Los homónimos se identifican por (course_id, degree_id) porque:
+     * - Un subgrupo de un grado específico siempre está en TODAS las fechas del curso
+     * - Para cursos con intervalos, el grado siempre está en TODAS las fechas del mismo intervalo
+     * - El nombre (e.g., "Black Prince/Princess") viene de degree.name
      */
     public function run(): void
     {
-        // Get all unique combinations of course_id, degree_id, course_group_id
-        // These represent homonym groups
+        // Get all unique combinations of course_id, degree_id
+        // These represent homonym groups across all dates
+        // Example: "course 1" + "degree 5" (Black Prince/Princess) is ONE homonym group
+        //          regardless of how many dates it appears on
         $homonymGroups = DB::table('course_subgroups')
-            ->select('course_id', 'degree_id', 'course_group_id')
+            ->select('course_id', 'degree_id')
             ->whereNull('subgroup_dates_id')
             ->distinct()
             ->get();
@@ -29,17 +38,17 @@ class BackfillSubgroupDatesIds extends Seeder
         $updatedCount = 0;
 
         foreach ($homonymGroups as $group) {
-            // Generate deterministic ID based on group composition
-            // This ensures the same (course_id, degree_id, course_group_id) always gets same ID
-            $hash = md5("{$group->course_id}_{$group->degree_id}_{$group->course_group_id}");
+            // Generate deterministic ID based on homonym group composition
+            // This ensures the same (course_id, degree_id) always gets same ID
+            $hash = md5("{$group->course_id}_{$group->degree_id}");
             $numericHash = abs(crc32($hash)) % 999999; // Get a number between 0-999999
             $subgroupDatesId = 'SG-' . str_pad($numericHash + 1, 6, '0', STR_PAD_LEFT);
 
-            // Update all subgroups in this group (they all share same course_id, degree_id, course_group_id)
+            // Update ALL subgroups that are instances of this homonym
+            // (same course and degree, but potentially different dates via different course_group_ids)
             $updated = DB::table('course_subgroups')
                 ->where('course_id', $group->course_id)
                 ->where('degree_id', $group->degree_id)
-                ->where('course_group_id', $group->course_group_id)
                 ->whereNull('subgroup_dates_id')
                 ->update(['subgroup_dates_id' => $subgroupDatesId]);
 
