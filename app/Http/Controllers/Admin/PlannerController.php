@@ -856,65 +856,73 @@ class PlannerController extends AppBaseController
 
         $query = CourseSubgroup::query()
             ->with([
-                'courseDate:id,date,hour_start,hour_end,course_id',
-                'courseDate.course:id,name',
-                'courseGroup:id,course_id',
+                'courseSubgroupDates.courseDate:id,date,hour_start,hour_end,course_id',
+                'courseSubgroupDates.courseDate.course:id,name',
+                'courseGroup:id,course_id,degree_id',
                 'courseGroup.course:id,name',
                 'monitor:id,first_name,last_name'
             ])
-            ->whereHas('courseDate', fn($q) => $q->whereNull('deleted_at'));
+            ->whereHas('courseSubgroupDates.courseDate', fn($q) => $q->whereNull('deleted_at'));
 
         if ($courseId) {
             $query->whereHas('courseGroup.course', fn($q) => $q->where('id', $courseId));
         }
 
-        // For scope='all', ignore the subgroupIds filter to include ALL subgroups of the same degree
-        if (!empty($subgroupIds) && $scope !== 'all') {
+        // Para scope='all', recuperar TODOS los subgroups del MISMO course_group_id
+        if ($scope === 'all' && $subgroupId) {
+            $selectedSubgroup = CourseSubgroup::find($subgroupId);
+            if ($selectedSubgroup) {
+                $query->where('course_group_id', $selectedSubgroup->course_group_id);
+            }
+        } elseif ($scope === 'all' && !empty($subgroupIds)) {
+            $selectedSubgroup = CourseSubgroup::find($subgroupIds[0]);
+            if ($selectedSubgroup) {
+                $query->where('course_group_id', $selectedSubgroup->course_group_id);
+            }
+        } elseif (!empty($subgroupIds)) {
+            // Para otros scopes, filtrar por los subgroupIds específicos
             $query->whereIn('id', $subgroupIds);
-        } elseif ($subgroupId && $scope !== 'all') {
+        } elseif ($subgroupId) {
+            // Para scope='single', filtrar por el subgroup específico
             $query->where('id', $subgroupId);
         }
 
         if ($startDate) {
-            if ($scope === 'single') {
-                $query->whereHas('courseDate', fn($q) => $q->whereDate('date', $startDate));
-            } else {
-                // Para scopes multi-fecha, filtrar por cualquier fecha del subgrupo en el rango
-                $end = $endDate ?? $startDate;
-                $query->whereHas('courseSubgroupDates.courseDate',
-                    fn($q) => $q->whereBetween('date', [$startDate, $end])->whereNull('deleted_at')
-                );
-            }
+            $end = $endDate ?? $startDate;
+            // Filtrar por rango de fechas usando la tabla junction correcta
+            $query->whereHas('courseSubgroupDates.courseDate',
+                fn($q) => $q->whereBetween('date', [$startDate, $end])->whereNull('deleted_at')
+            );
         }
 
-        $subgroups = $query->get()->map(function (CourseSubgroup $subgroup) use ($scope, $courseId) {
-            $courseDate = $subgroup->courseDate;
-            $course = $courseDate?->course ?? $subgroup->courseGroup?->course;
+        $subgroups = $query->get()->map(function (CourseSubgroup $subgroup) use ($scope, $startDate, $endDate) {
+            $course = $subgroup->courseGroup?->course;
             $monitor = $subgroup->monitor;
 
-            // NUEVO: Obtener TODAS las fechas del subgrupo (o del curso si scope='all')
-            if ($scope === 'all' && $courseId) {
-                // Para scope='all', obtener TODAS las fechas del curso
-                $homonymousDates = \App\Models\CourseDate::where('course_id', $courseId)
-                    ->whereNull('deleted_at')
-                    ->orderBy('date', 'asc')
-                    ->select('id', 'date', 'hour_start', 'hour_end')
-                    ->get();
-            } else {
-                // Para otros scopes, obtener solo las fechas del subgrupo
-                $homonymousDates = $subgroup->allCourseDates()
-                    ->orderBy('date', 'asc')
-                    ->select('course_dates.id', 'date', 'hour_start', 'hour_end')
-                    ->get();
+            // Obtener TODAS las fechas del subgrupo desde la tabla junction
+            $homonymousDates = $subgroup->allCourseDates()
+                ->whereNull('course_dates.deleted_at')
+                ->orderBy('course_dates.date', 'asc')
+                ->select('course_dates.id', 'course_dates.date', 'course_dates.hour_start', 'course_dates.hour_end')
+                ->get();
+
+            // Si hay rango de fechas, filtrar las que caen dentro del rango
+            if ($startDate && $endDate) {
+                $homonymousDates = $homonymousDates->filter(function ($date) use ($startDate, $endDate) {
+                    $dateStr = is_string($date->date) ? $date->date : $date->date->format('Y-m-d');
+                    return $dateStr >= $startDate && $dateStr <= $endDate;
+                });
+            } elseif ($startDate) {
+                $homonymousDates = $homonymousDates->filter(function ($date) use ($startDate) {
+                    $dateStr = is_string($date->date) ? $date->date : $date->date->format('Y-m-d');
+                    return $dateStr === $startDate;
+                });
             }
 
             $homonymousDateIds = $homonymousDates->pluck('id')->toArray();
 
             return [
                 'id' => $subgroup->id,
-                'date' => optional($courseDate)->date,
-                'hour_start' => optional($courseDate)->hour_start,
-                'hour_end' => optional($courseDate)->hour_end,
                 'course' => [
                     'id' => $course?->id,
                     'name' => $course?->name
@@ -927,10 +935,9 @@ class PlannerController extends AppBaseController
                     'id' => $monitor->id,
                     'name' => trim(($monitor->first_name ?? '') . ' ' . ($monitor->last_name ?? ''))
                 ] : null,
-                // NUEVO: Retornar todas las fechas del subgrupo
                 'all_dates_in_subgroup' => $homonymousDates->map(fn($d) => [
                     'course_date_id' => $d->id,
-                    'date' => $d->date,
+                    'date' => is_string($d->date) ? $d->date : $d->date->format('Y-m-d'),
                     'hour_start' => $d->hour_start,
                     'hour_end' => $d->hour_end
                 ])->values(),
@@ -945,4 +952,5 @@ class PlannerController extends AppBaseController
 
         return $this->sendResponse($subgroups, 'Monitor transfer preview ready.');
     }
+
 }
