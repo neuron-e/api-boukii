@@ -887,7 +887,9 @@ class PlannerController extends AppBaseController
             $query->where('id', $subgroupId);
         }
 
-        if ($startDate) {
+        // Para scope='all', NO filtrar por rango en la query (queremos TODOS los subgroups del level)
+        // Para otros scopes, filtrar por rango en la query (más eficiente)
+        if ($startDate && $scope !== 'all') {
             $end = $endDate ?? $startDate;
             // Filtrar por rango de fechas usando la tabla junction correcta
             $query->whereHas('courseSubgroupDates.courseDate',
