@@ -358,13 +358,19 @@ class ClientAPIController extends AppBaseController
             return $this->sendError('No existe el subgrupo');
         }
 
+        // Validar que el subgrupo objetivo tiene subgroup_dates_id asignado
+        if (!$targetSubgroup->subgroup_dates_id) {
+            Log::error('Target subgroup missing subgroup_dates_id', ['subgroup_id' => $targetSubgroup->id]);
+            return $this->sendError('Target subgroup is not properly configured (missing subgroup_dates_id)');
+        }
+
         $initialGroup = $initialSubgroup->courseGroup;
         $targetGroup = $targetSubgroup->courseGroup;
 
-        $targetSubgroupPosition =
-            $targetGroup->courseSubgroups->sortBy('id')->search(function ($subgroup) use ($targetSubgroup) {
-                return $subgroup->id == $targetSubgroup->id;
-            });
+        // MEJORADO: Usar subgroup_dates_id en lugar de posición implícita
+        // Esto es más confiable y explícito
+        $targetSubgroupDatesId = $targetSubgroup->subgroup_dates_id;
+
         $today = Carbon::today();
 
         DB::beginTransaction();
@@ -379,15 +385,25 @@ class ClientAPIController extends AppBaseController
                         //** Removed subgroups length, not seems to be reasonable with new features. */
                         /*if ($group->courseSubgroups->count() == $initialGroup->courseSubgroups->count()) {*/
 
-                        $newTargetSubgroup = $group->courseSubgroups->sortBy('id')[$targetSubgroupPosition] ?? null;
+                        // MEJORADO: Usar subgroup_dates_id directamente en lugar de posición
+                        $newTargetSubgroup = $group->courseSubgroups
+                            ->where('subgroup_dates_id', $targetSubgroupDatesId)
+                            ->first();
 
                         if ($newTargetSubgroup) {
                             $subgroupsChanged[] = $newTargetSubgroup;
                             $this->moveUsers($courseDate, $newTargetSubgroup, $request->clientIds);
                         } else {
                             DB::rollBack();
-                            Log::error('Some groups are not identical length', $group->courseSubgroups->sortBy('id')->toArray());
-                            return $this->sendError('Some groups are not identical');
+                            Log::error(
+                                'Target subgroup with subgroup_dates_id not found in group',
+                                [
+                                    'group_id' => $group->id,
+                                    'target_subgroup_dates_id' => $targetSubgroupDatesId,
+                                    'available_subgroup_dates_ids' => $group->courseSubgroups->pluck('subgroup_dates_id')->toArray()
+                                ]
+                            );
+                            return $this->sendError('Target subgroup configuration not found in all course dates');
                         }
                         /*                        } else {
                                                     DB::rollBack();

@@ -902,56 +902,125 @@ class PlannerController extends AppBaseController
             );
         }
 
-        $subgroups = $query->get()->map(function (CourseSubgroup $subgroup) use ($scope, $startDate, $endDate) {
-            $course = $subgroup->courseGroup?->course;
-            $monitor = $subgroup->monitor;
+        $rawSubgroups = $query->get();
 
-            // Obtener TODAS las fechas del subgrupo desde la tabla junction
-            $homonymousDates = $subgroup->allCourseDates()
-                ->whereNull('course_dates.deleted_at')
-                ->orderBy('course_dates.date', 'asc')
-                ->select('course_dates.id', 'course_dates.date', 'course_dates.hour_start', 'course_dates.hour_end')
-                ->get();
+        // MEJORADO: Para scope='all', agrupar por subgroup_dates_id para evitar duplicados
+        // Si tenemos scope='all', todos los subgroups tendrán el mismo subgroup_dates_id
+        // Debemos retornar UN resultado con TODAS las fechas, no N resultados (uno por fecha)
+        if ($scope === 'all' && $rawSubgroups->isNotEmpty()) {
+            $groupedByDatesId = $rawSubgroups->groupBy('subgroup_dates_id');
+            $subgroups = $groupedByDatesId->map(function ($subgroupsGroup) use ($startDate, $endDate) {
+                // Tomar el primer subgroup como referencia (todos comparten mismo subgroup_dates_id y propiedades)
+                $firstSubgroup = $subgroupsGroup->first();
+                $course = $firstSubgroup->courseGroup?->course;
+                $monitor = $firstSubgroup->monitor;
 
-            // Si hay rango de fechas, filtrar las que caen dentro del rango
-            if ($startDate && $endDate) {
-                $homonymousDates = $homonymousDates->filter(function ($date) use ($startDate, $endDate) {
-                    $dateStr = is_string($date->date) ? $date->date : $date->date->format('Y-m-d');
-                    return $dateStr >= $startDate && $dateStr <= $endDate;
-                });
-            } elseif ($startDate) {
-                $homonymousDates = $homonymousDates->filter(function ($date) use ($startDate) {
-                    $dateStr = is_string($date->date) ? $date->date : $date->date->format('Y-m-d');
-                    return $dateStr === $startDate;
-                });
-            }
+                // Recolectar TODAS las fechas de TODOS los subgroups en este grupo
+                $allDates = collect();
+                foreach ($subgroupsGroup as $sg) {
+                    $dates = $sg->allCourseDates()
+                        ->whereNull('course_dates.deleted_at')
+                        ->orderBy('course_dates.date', 'asc')
+                        ->select('course_dates.id', 'course_dates.date', 'course_dates.hour_start', 'course_dates.hour_end')
+                        ->get();
+                    $allDates = $allDates->merge($dates);
+                }
 
-            $homonymousDateIds = $homonymousDates->pluck('id')->toArray();
+                // Eliminar duplicados por course_date_id
+                $allDates = $allDates->unique('id')->sortBy('date')->values();
 
-            return [
-                'id' => $subgroup->id,
-                'course' => [
-                    'id' => $course?->id,
-                    'name' => $course?->name
-                ],
-                'level_label' => $subgroup->name
-                    ?? $subgroup->courseGroup?->name
-                        ?? $subgroup->degree?->name
-                        ?? null,
-                'current_monitor' => $monitor ? [
-                    'id' => $monitor->id,
-                    'name' => trim(($monitor->first_name ?? '') . ' ' . ($monitor->last_name ?? ''))
-                ] : null,
-                'all_dates_in_subgroup' => $homonymousDates->map(fn($d) => [
-                    'course_date_id' => $d->id,
-                    'date' => is_string($d->date) ? $d->date : $d->date->format('Y-m-d'),
-                    'hour_start' => $d->hour_start,
-                    'hour_end' => $d->hour_end
-                ])->values(),
-                'course_subgroup_dates_ids' => $homonymousDateIds,
-                'total_dates_in_subgroup' => count($homonymousDateIds)
-            ];
-        });
+                // Si hay rango de fechas, filtrar
+                if ($startDate && $endDate) {
+                    $allDates = $allDates->filter(function ($date) use ($startDate, $endDate) {
+                        $dateStr = is_string($date->date) ? $date->date : $date->date->format('Y-m-d');
+                        return $dateStr >= $startDate && $dateStr <= $endDate;
+                    });
+                } elseif ($startDate) {
+                    $allDates = $allDates->filter(function ($date) use ($startDate) {
+                        $dateStr = is_string($date->date) ? $date->date : $date->date->format('Y-m-d');
+                        return $dateStr === $startDate;
+                    });
+                }
+
+                $homonymousDateIds = $allDates->pluck('id')->toArray();
+
+                return [
+                    'id' => $firstSubgroup->id,
+                    'course' => [
+                        'id' => $course?->id,
+                        'name' => $course?->name
+                    ],
+                    'level_label' => $firstSubgroup->name
+                        ?? $firstSubgroup->courseGroup?->name
+                            ?? $firstSubgroup->degree?->name
+                            ?? null,
+                    'current_monitor' => $monitor ? [
+                        'id' => $monitor->id,
+                        'name' => trim(($monitor->first_name ?? '') . ' ' . ($monitor->last_name ?? ''))
+                    ] : null,
+                    'all_dates_in_subgroup' => $allDates->map(fn($d) => [
+                        'course_date_id' => $d->id,
+                        'date' => is_string($d->date) ? $d->date : $d->date->format('Y-m-d'),
+                        'hour_start' => $d->hour_start,
+                        'hour_end' => $d->hour_end
+                    ])->values(),
+                    'course_subgroup_dates_ids' => $homonymousDateIds,
+                    'total_dates_in_subgroup' => count($homonymousDateIds)
+                ];
+            })->values();
+        } else {
+            // Para otros scopes, mapear normalmente (cada subgroup es una instancia única)
+            $subgroups = $rawSubgroups->map(function (CourseSubgroup $subgroup) use ($scope, $startDate, $endDate) {
+                $course = $subgroup->courseGroup?->course;
+                $monitor = $subgroup->monitor;
+
+                // Obtener TODAS las fechas del subgrupo desde la tabla junction
+                $homonymousDates = $subgroup->allCourseDates()
+                    ->whereNull('course_dates.deleted_at')
+                    ->orderBy('course_dates.date', 'asc')
+                    ->select('course_dates.id', 'course_dates.date', 'course_dates.hour_start', 'course_dates.hour_end')
+                    ->get();
+
+                // Si hay rango de fechas, filtrar las que caen dentro del rango
+                if ($startDate && $endDate) {
+                    $homonymousDates = $homonymousDates->filter(function ($date) use ($startDate, $endDate) {
+                        $dateStr = is_string($date->date) ? $date->date : $date->date->format('Y-m-d');
+                        return $dateStr >= $startDate && $dateStr <= $endDate;
+                    });
+                } elseif ($startDate) {
+                    $homonymousDates = $homonymousDates->filter(function ($date) use ($startDate) {
+                        $dateStr = is_string($date->date) ? $date->date : $date->date->format('Y-m-d');
+                        return $dateStr === $startDate;
+                    });
+                }
+
+                $homonymousDateIds = $homonymousDates->pluck('id')->toArray();
+
+                return [
+                    'id' => $subgroup->id,
+                    'course' => [
+                        'id' => $course?->id,
+                        'name' => $course?->name
+                    ],
+                    'level_label' => $subgroup->name
+                        ?? $subgroup->courseGroup?->name
+                            ?? $subgroup->degree?->name
+                            ?? null,
+                    'current_monitor' => $monitor ? [
+                        'id' => $monitor->id,
+                        'name' => trim(($monitor->first_name ?? '') . ' ' . ($monitor->last_name ?? ''))
+                    ] : null,
+                    'all_dates_in_subgroup' => $homonymousDates->map(fn($d) => [
+                        'course_date_id' => $d->id,
+                        'date' => is_string($d->date) ? $d->date : $d->date->format('Y-m-d'),
+                        'hour_start' => $d->hour_start,
+                        'hour_end' => $d->hour_end
+                    ])->values(),
+                    'course_subgroup_dates_ids' => $homonymousDateIds,
+                    'total_dates_in_subgroup' => count($homonymousDateIds)
+                ];
+            });
+        }
 
         if ($subgroups->isEmpty()) {
             return $this->sendResponse([], 'No subgroups found for preview.');
