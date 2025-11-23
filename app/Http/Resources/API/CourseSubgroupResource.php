@@ -22,6 +22,7 @@ class CourseSubgroupResource extends JsonResource
             'course_group_id' => $this->course_group_id,
             'monitor_id' => $this->monitor_id,
             'max_participants' => $this->max_participants,
+            'subgroup_dates_id' => $this->subgroup_dates_id,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'deleted_at' => $this->deleted_at
