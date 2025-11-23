@@ -986,7 +986,17 @@ class PlannerController extends AppBaseController
             // Para otros scopes, mapear normalmente (cada subgroup es una instancia única)
             $subgroups = $rawSubgroups->map(function (CourseSubgroup $subgroup) use ($scope, $startDate, $endDate) {
                 $course = $subgroup->courseGroup?->course;
-                $monitor = $subgroup->monitor;
+
+                // MEJORADO: Obtener mapa de course_date_id => monitor para cada fecha
+                // Permite mostrar monitor diferente por fecha incluso en otros scopes
+                $dateMonitorMap = [];
+                $subgroupDates = $subgroup->courseSubgroupDates()
+                    ->with('courseDate')
+                    ->get();
+
+                foreach ($subgroupDates as $sd) {
+                    $dateMonitorMap[$sd->course_date_id] = $subgroup->monitor;
+                }
 
                 // Obtener TODAS las fechas del subgrupo desde la tabla junction
                 $homonymousDates = $subgroup->allCourseDates()
@@ -1020,16 +1030,20 @@ class PlannerController extends AppBaseController
                         ?? $subgroup->courseGroup?->name
                             ?? $subgroup->degree?->name
                             ?? null,
-                    'current_monitor' => $monitor ? [
-                        'id' => $monitor->id,
-                        'name' => trim(($monitor->first_name ?? '') . ' ' . ($monitor->last_name ?? ''))
-                    ] : null,
-                    'all_dates_in_subgroup' => $homonymousDates->map(fn($d) => [
-                        'course_date_id' => $d->id,
-                        'date' => is_string($d->date) ? $d->date : $d->date->format('Y-m-d'),
-                        'hour_start' => $d->hour_start,
-                        'hour_end' => $d->hour_end
-                    ])->values(),
+                    'current_monitor' => null, // Usar monitor por fecha como en scope='all'
+                    'all_dates_in_subgroup' => $homonymousDates->map(function($d) use ($dateMonitorMap) {
+                        $monitor = $dateMonitorMap[$d->id] ?? null;
+                        return [
+                            'course_date_id' => $d->id,
+                            'date' => is_string($d->date) ? $d->date : $d->date->format('Y-m-d'),
+                            'hour_start' => $d->hour_start,
+                            'hour_end' => $d->hour_end,
+                            'current_monitor' => $monitor ? [
+                                'id' => $monitor->id,
+                                'name' => trim(($monitor->first_name ?? '') . ' ' . ($monitor->last_name ?? ''))
+                            ] : null
+                        ];
+                    })->values(),
                     'course_subgroup_dates_ids' => $homonymousDateIds,
                     'total_dates_in_subgroup' => count($homonymousDateIds)
                 ];
