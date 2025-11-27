@@ -76,11 +76,28 @@ class MonitorNotificationService
 
     private function emitEvent(string $type, int $monitorId, array $payload): void
     {
+        $defaultDriver = config('broadcasting.default');
+        if ($defaultDriver === 'pusher' && !class_exists(\Pusher\Pusher::class)) {
+            Log::warning('Monitor notification skipped: pusher library missing', [
+                'monitor_id' => $monitorId,
+                'type' => $type,
+            ]);
+            return;
+        }
+
         $event = str_contains($type, 'removed')
             ? new MonitorRemoved($monitorId, $payload)
             : new MonitorAssigned($monitorId, $payload);
 
-        event($event);
+        try {
+            event($event);
+        } catch (\Throwable $exception) {
+            Log::warning('Monitor notification dispatch failed', [
+                'monitor_id' => $monitorId,
+                'type' => $type,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 
     private function sendEmailFallback(Monitor $monitor, string $type, array $payload): void
