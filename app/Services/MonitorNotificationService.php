@@ -39,7 +39,9 @@ class MonitorNotificationService
 
         Log::info('Monitor notification', $eventPayload);
 
-        if (!$hasBroadcastDriver || empty($monitor->user_id)) {
+        $shouldSendEmail = app()->environment('production');
+
+        if ($shouldSendEmail || !$hasBroadcastDriver || empty($monitor->user_id)) {
             $this->sendEmailFallback($monitor, $type, $normalizedPayload);
         }
     }
@@ -111,11 +113,11 @@ class MonitorNotificationService
         }
 
         $lines = [
-            "Type: {$type}",
-            'Course: ' . ($payload['course_id'] ?? 'n/a'),
-            'Course date: ' . ($payload['course_date_id'] ?? 'n/a'),
-            'Date: ' . ($payload['date'] ?? 'n/a'),
-            'Time: ' . (($payload['hour_start'] ?? '??') . ' - ' . ($payload['hour_end'] ?? '??')),
+            'Tipo: ' . $type,
+            'Curso: ' . ($payload['course_id'] ?? 'n/a'),
+            'Fecha de curso: ' . ($payload['course_date_id'] ?? 'n/a'),
+            'Fecha: ' . ($payload['date'] ?? 'n/a'),
+            'Horario: ' . (($payload['hour_start'] ?? '??') . ' - ' . ($payload['hour_end'] ?? '??')),
         ];
 
         if (!empty($payload['client_ids'])) {
@@ -124,7 +126,7 @@ class MonitorNotificationService
             $lines[] = 'Client: ' . $payload['client_id'];
         }
 
-        $subject = '[Boukii] Monitor notification';
+        $subject = '[Boukii] Notificacion de monitor';
         $body = implode("\n", $lines);
 
         try {
