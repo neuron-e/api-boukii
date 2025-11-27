@@ -55,7 +55,7 @@ class CourseCapacityController extends AppBaseController
                     ->whereBetween('date', [$dateFrom->toDateString(), $dateTo->toDateString()])
                     ->orderBy('date')
                     ->with(['courseGroups' => function ($groupQuery) use ($degreeId) {
-                        $groupQuery->select(['id', 'course_date_id', 'degree_id', 'name'])
+                        $groupQuery->select(['id', 'course_date_id', 'degree_id'])
                             ->when($degreeId, function ($inner) use ($degreeId) {
                                 $inner->where('degree_id', $degreeId);
                             });
