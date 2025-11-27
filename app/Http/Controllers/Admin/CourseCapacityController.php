@@ -47,7 +47,6 @@ class CourseCapacityController extends AppBaseController
                 'sport_id',
                 'school_id',
                 'duration',
-                'duration_minutes',
                 'price',
                 'currency'
             ])
@@ -110,7 +109,7 @@ class CourseCapacityController extends AppBaseController
                 'school_id' => $course->school_id,
                 'price' => $course->price,
                 'currency' => $course->currency,
-                'duration' => $course->duration_minutes ?? $course->duration,
+                'duration' => $course->duration,
                 'dates' => $dates,
             ];
         })->values();
