@@ -14,8 +14,10 @@ use App\Models\BookingUserExtra;
 use App\Models\Client;
 use App\Models\Course;
 use App\Models\CourseExtra;
+use App\Models\CourseDate;
 use App\Models\CourseGroup;
 use App\Models\CourseSubgroup;
+use App\Models\Monitor;
 use App\Models\Degree;
 use App\Models\DiscountCode;
 use App\Models\MonitorNwd;
@@ -28,6 +30,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\DiscountCodeService;
+use App\Services\MonitorNotificationService;
 use Illuminate\Support\Arr;
 use Validator;
 
@@ -100,6 +103,35 @@ class BookingController extends SlugAuthController
             foreach ($cartItems as $cartItem) {
                 $details = Arr::get($cartItem, 'details', []);
                 foreach ($details as $detail) {
+                    $courseType = Arr::get($detail, "course.course_type", Arr::get($detail, "course_type"));
+                    if ((int) $courseType === 2) {
+                        $timingError = $this->validatePrivateTiming([
+                            "course_date_id" => $detail["course_date_id"] ?? null,
+                            "date" => $detail["date"] ?? null,
+                            "hour_start" => $detail["hour_start"] ?? null,
+                            "hour_end" => $detail["hour_end"] ?? null,
+                        ]);
+                        if ($timingError) {
+                            DB::rollBack();
+                            return response()->json([
+                                "message" => $timingError,
+                                "errors" => ["time" => [$timingError]]
+                            ], 422);
+                        }
+                        $overbookingError = $this->validatePrivateOverbooking(
+                            $detail["date"] ?? null,
+                            $detail["hour_start"] ?? null,
+                            $detail["hour_end"] ?? null,
+                            $detail["course"]["sport_id"] ?? $detail["course_sport_id"] ?? null
+                        );
+                        if ($overbookingError) {
+                            DB::rollBack();
+                            return response()->json([
+                                "message" => $overbookingError,
+                                "errors" => ["overbooking" => [$overbookingError]]
+                            ], 422);
+                        }
+                    }
                     if (!empty($detail['course_id'])) {
                         $courseIds[] = (int) $detail['course_id'];
                     }
@@ -423,6 +455,8 @@ class BookingController extends SlugAuthController
                 'user_id' => $client->user->id,
             ]);
 
+            $this->notifyMonitorAssignments($bookingUsers);
+
             // Confirmar la transacciÃ³n
             DB::commit();
 
@@ -478,6 +512,19 @@ class BookingController extends SlugAuthController
         // Obtiene informaciÃ³n comÃºn para todos los bookingUsers
         foreach ($request->bookingUsers as $bookingUser) {
             if ($bookingUser['course']['course_type'] == 2) {
+                $timingError = $this->validatePrivateTiming($bookingUser);
+                if ($timingError) {
+                    return $this->sendError($timingError, [], 422);
+                }
+                $overbookingError = $this->validatePrivateOverbooking(
+                    $date,
+                    $startTime,
+                    $endTime,
+                    $bookingUser['course']['sport_id'] ?? null
+                );
+                if ($overbookingError) {
+                    return $this->sendError($overbookingError, [], 422);
+                }
                 $clientIds[] = $bookingUser['client']['id'];
 
                 // Verificar si degree_id existe antes de acceder
@@ -673,6 +720,124 @@ class BookingController extends SlugAuthController
             }
         }
         return false; // NingÃºn monitor estÃ¡ disponible en el rango
+    }
+
+    private function getSchoolSettings(): array
+    {
+        $settings = $this->school->settings ?? [];
+
+        if (is_string($settings)) {
+            $decoded = json_decode($settings, true);
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        return is_array($settings) ? $settings : [];
+    }
+
+    private function getPrivateLeadMinutes(): int
+    {
+        $settings = $this->getSchoolSettings();
+        $value = $settings['booking']['private_min_lead_minutes'] ?? null;
+
+        if (is_numeric($value) && (int) $value >= 0) {
+            return (int) $value;
+        }
+
+        return 30;
+    }
+
+    private function getPrivateOverbookingLimit(): int
+    {
+        $settings = $this->getSchoolSettings();
+        $value = $settings['booking']['private_overbooking_limit'] ?? null;
+
+        if (is_numeric($value) && (int) $value >= 0) {
+            return (int) $value;
+        }
+
+        return 0;
+    }
+
+    private function validatePrivateOverbooking(?string $date, ?string $startTime, ?string $endTime, $sportId = null): ?string
+    {
+        if (!$date || !$startTime || !$endTime) {
+            return null;
+        }
+
+        $availableMonitors = $this->getMonitorsAvailable(new Request([
+            'date' => $date,
+            'startTime' => $startTime,
+            'endTime' => $endTime,
+            'sportId' => $sportId,
+            'clientIds' => [],
+            'minimumDegreeId' => null,
+        ]));
+
+        $availableCount = is_array($availableMonitors) ? count($availableMonitors) : 0;
+        $overbookingLimit = $this->getPrivateOverbookingLimit();
+        $concurrentBookings = $this->getConcurrentPrivateBookings($date, $startTime, $endTime);
+
+        if ($availableCount + $overbookingLimit <= $concurrentBookings) {
+            return 'No hay monitores disponibles para ese horario (límite de overbooking alcanzado)';
+        }
+
+        return null;
+    }
+
+    private function getConcurrentPrivateBookings(string $date, string $startTime, string $endTime): int
+    {
+        return BookingUser::whereDate('date', $date)
+            ->where(function ($query) use ($startTime, $endTime) {
+                $query->whereTime('hour_start', '<', Carbon::createFromFormat('H:i', $endTime))
+                    ->whereTime('hour_end', '>', Carbon::createFromFormat('H:i', $startTime));
+            })
+            ->where('status', 1)
+            ->whereHas('booking', function ($query) {
+                $query->where('status', '!=', 2);
+            })
+            ->whereHas('course', function ($query) {
+                $query->where('course_type', 2);
+            })
+            ->count();
+    }
+
+    private function validatePrivateTiming(array $bookingUser): ?string
+    {
+        $courseDateId = $bookingUser['course_date_id'] ?? null;
+        $date = $bookingUser['date'] ?? null;
+        $startTime = $bookingUser['hour_start'] ?? null;
+        $endTime = $bookingUser['hour_end'] ?? null;
+
+        if (!$courseDateId || !$date || !$startTime || !$endTime) {
+            return 'Horario de reserva inválido';
+        }
+
+        /** @var CourseDate|null $courseDate */
+        $courseDate = CourseDate::find($courseDateId);
+        if (!$courseDate) {
+            return 'Fecha de curso no válida';
+        }
+
+        $start = Carbon::parse(sprintf('%s %s', $date, $startTime));
+        $end = Carbon::parse(sprintf('%s %s', $date, $endTime));
+
+        if ($end->lessThanOrEqualTo($start)) {
+            return 'La hora de fin debe ser posterior a la hora de inicio';
+        }
+
+        $courseStart = Carbon::parse(sprintf('%s %s', $courseDate->date->format('Y-m-d'), $courseDate->hour_start));
+        $courseEnd = Carbon::parse(sprintf('%s %s', $courseDate->date->format('Y-m-d'), $courseDate->hour_end));
+
+        if ($start->lt($courseStart) || $end->gt($courseEnd)) {
+            return 'La reserva debe estar dentro del horario configurado para el curso';
+        }
+
+        $minStart = Carbon::now()->addMinutes($this->getPrivateLeadMinutes());
+        if ($start->lt($minStart)) {
+            return sprintf('La reserva de privados debe hacerse con al menos %d minutos de antelación', $this->getPrivateLeadMinutes());
+        }
+
+        return null;
     }
 
     /**
@@ -909,8 +1074,41 @@ class BookingController extends SlugAuthController
 
     }
 
-}
+    private function notifyMonitorAssignments(array $bookingUsers): void
+    {
+        $settings = $this->getSchoolSettings();
+        $monitorNotificationService = app(MonitorNotificationService::class);
 
+        foreach ($bookingUsers as $bookingUser) {
+            if (!$bookingUser->monitor_id) {
+                continue;
+            }
+
+            $payload = [
+                'course_id' => $bookingUser->course_id,
+                'course_date_id' => $bookingUser->course_date_id,
+                'date' => $bookingUser->date,
+                'hour_start' => $bookingUser->hour_start,
+                'hour_end' => $bookingUser->hour_end,
+                'client_id' => $bookingUser->client_id,
+                'booking_id' => $bookingUser->booking_id,
+                'group_id' => $bookingUser->group_id,
+                'course_subgroup_id' => $bookingUser->course_subgroup_id,
+                'course_group_id' => $bookingUser->course_group_id,
+                'school_id' => $this->school->id ?? null,
+            ];
+
+            $monitorNotificationService->notifyAssignment(
+                $bookingUser->monitor_id,
+                'private_assigned',
+                $payload,
+                $settings,
+                auth()->id()
+            );
+        }
+    }
+
+}
 
 
 

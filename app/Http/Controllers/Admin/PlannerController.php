@@ -12,6 +12,7 @@ use App\Models\MonitorNwd;
 use App\Models\MonitorSportAuthorizedDegree;
 use App\Models\MonitorsSchool;
 use App\Models\Station;
+use App\Services\MonitorNotificationService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\JsonResponse;
@@ -119,7 +120,7 @@ class PlannerController extends AppBaseController
                         'client:id,first_name,last_name,birth_date,language1_id',
                         'client.sports' => function ($query) {
                             $query->select('sports.id', 'sports.name');
-                            // withPivot('degree_id') ya está en el modelo, se incluye automáticamente
+                            // withPivot('degree_id') ya est en el modelo, se incluye automticamente
                         }
                     ]);
             }
@@ -127,7 +128,7 @@ class PlannerController extends AppBaseController
             ->select('id', 'course_group_id', 'course_date_id', 'course_id', 'monitor_id',
                 'degree_id', 'max_participants')
             ->whereHas('courseGroup.course', function ($query) use ($schoolId) {
-                // Agrega la comprobación de la escuela aquí
+                // Agrega la comprobacin de la escuela aqu
                 $query->where('school_id', $schoolId)->where('active', 1);
             })
             ->whereHas('courseDate', function ($query) use ($dateStart, $dateEnd) {
@@ -140,7 +141,7 @@ class PlannerController extends AppBaseController
                 } else {
                     $today = Carbon::today();
 
-                    // Busca en el día de hoy para las reservas
+                    // Busca en el da de hoy para las reservas
                     $query->whereDate('date', $today)->where('active', 1);
                 }
             });
@@ -155,7 +156,7 @@ class PlannerController extends AppBaseController
             'client:id,first_name,last_name,birth_date,language1_id',
             'client.sports' => function ($query) {
                 $query->select('sports.id', 'sports.name');
-                // withPivot('degree_id') ya está en el modelo, se incluye automáticamente
+                // withPivot('degree_id') ya est en el modelo, se incluye automticamente
             }
         ])
             ->select('id', 'booking_id', 'client_id', 'course_id', 'course_date_id', 'course_subgroup_id',
@@ -196,25 +197,25 @@ class PlannerController extends AppBaseController
                 ->whereDate('end_date', '>=', $dateStart)
                 ->whereDate('end_date', '<=', $dateEnd);
         } else {
-            // Si no se proporcionan fechas, busca en el día de hoy
+            // Si no se proporcionan fechas, busca en el da de hoy
             $today = Carbon::today();
 
-            // Busca en el día de hoy para las reservas
+            // Busca en el da de hoy para las reservas
             $bookingQuery->whereDate('date', $today);
 
-            // Busca en el día de hoy para los MonitorNwd
+            // Busca en el da de hoy para los MonitorNwd
             $nwdQuery->whereDate('start_date', '<=', $today)
                 ->whereDate('end_date', '>=', $today);
         }
 
 
         if ($monitorId) {
-            // Filtra solo las reservas y los NWD para el monitor específico
+            // Filtra solo las reservas y los NWD para el monitor especfico
             $bookingQuery->where('monitor_id', $monitorId);
             $nwdQuery->where('monitor_id', $monitorId);
             $subgroupsQuery->where('monitor_id', $monitorId);
 
-            // Obtén solo el monitor específico
+            // Obtn solo el monitor especfico
             // OPTIMIZACION: Cargar solo campos necesarios del monitor
             $monitors = MonitorsSchool::with([
                 'monitor:id,first_name,last_name',
@@ -240,7 +241,7 @@ class PlannerController extends AppBaseController
                 ->get()
                 ->pluck('monitor');
         } else {
-            // Si no se proporcionó monitor_id, obtén todos los monitores como antes
+            // Si no se proporcion monitor_id, obtn todos los monitores como antes
             // OPTIMIZACION: Cargar solo campos necesarios del monitor
             $monitorSchools = MonitorsSchool::with([
                 'monitor:id,first_name,last_name',
@@ -288,7 +289,7 @@ class PlannerController extends AppBaseController
             }
         }
 
-        // Obtén los resultados para las reservas y los MonitorNwd
+        // Obtn los resultados para las reservas y los MonitorNwd
         $nwd = $nwdQuery->get();
         $subgroups = $subgroupsQuery->get();
         $bookings = $bookingQuery->get();
@@ -343,7 +344,7 @@ class PlannerController extends AppBaseController
         foreach ($monitors as $monitor) {
             $monitorBookings = $bookings->where('monitor_id', $monitor->id)
                 ->groupBy(function ($booking) use ($subgroupsPerGroup) {
-                    // Diferencia la agrupación basada en el course_type
+                    // Diferencia la agrupacin basada en el course_type
                     if ($booking->course->course_type == 2 || $booking->course->course_type == 3) {
                         // Agrupa por booking.course_id y booking.course_date_id para el tipo 2
                         return $booking->course_id . '-' . $booking->course_date_id;
@@ -385,7 +386,7 @@ class PlannerController extends AppBaseController
                 // Define la misma nomenclatura que en los bookings
                 $nomenclature = $courseId . '-' . $courseDateId . '-' . $subgroupId;
 
-                // Agrega el subgrupo al array con la nomenclatura como índice
+                // Agrega el subgrupo al array con la nomenclatura como ndice
                 $subgroupsArray[$nomenclature] = $subgroup;
             });
 
@@ -403,7 +404,7 @@ class PlannerController extends AppBaseController
         }
         $bookingsWithoutMonitor = $bookings->whereNull('monitor_id')->groupBy(function ($booking) use ($subgroupsPerGroup) {
             if ($booking->course->course_type == 2 || $booking->course->course_type == 3) {
-                // Si tiene group_id, agrúpalo por course_id, course_date_id y group_id
+                // Si tiene group_id, agrpalo por course_id, course_date_id y group_id
                 if ($booking->group_id) {
                     return $booking->course_id . '-' . $booking->course_date_id . '-' . $booking->booking_id . '-' . $booking->group_id;
                 }
@@ -446,7 +447,7 @@ class PlannerController extends AppBaseController
             // Define la misma nomenclatura que en los bookings
             $nomenclature = $courseId . '-' . $courseDateId . '-' . $subgroupId;
 
-            // Agrega el subgrupo al array con la nomenclatura como índice
+            // Agrega el subgrupo al array con la nomenclatura como ndice
             $subgroupsArray[$nomenclature] = $subgroup;
         });
 
@@ -525,7 +526,7 @@ class PlannerController extends AppBaseController
         $endDate = $request->input('end_date');
         $courseId = $request->input('course_id');
         $bookingId = $request->input('booking_id');
-        $courseSubgroupId = $request->input('subgroup_id');     // en front lo llamáis subgroup_id
+        $courseSubgroupId = $request->input('subgroup_id');     // en front lo llamis subgroup_id
         $courseDateId = $request->input('course_date_id');
         $degreeIdInput = $request->input('degree_id') ?: optional(CourseSubgroup::find($courseSubgroupId))->degree_id;
         $providedSubgroupIds = collect($request->input('subgroup_ids', []) ?? [])
@@ -533,6 +534,10 @@ class PlannerController extends AppBaseController
             ->map(fn($id) => (int)$id)
             ->unique()
             ->values();
+        $school = $this->getSchool($request);
+        $schoolSettings = $this->getSchoolSettings($school);
+        $monitorNotificationService = app(MonitorNotificationService::class);
+        $notifications = [];
 
         if ($providedSubgroupIds->isNotEmpty() && !$degreeIdInput) {
             $degreeIdInput = CourseSubgroup::whereIn('id', $providedSubgroupIds)->pluck('degree_id')->first();
@@ -545,7 +550,7 @@ class PlannerController extends AppBaseController
             if (!$monitor) return $this->sendError('Monitor not found');
         }
 
-        // 1) Preparar conjunto válido de course_dates (no eliminadas)
+        // 1) Preparar conjunto vlido de course_dates (no eliminadas)
         $validCourseDateIds = collect();
         if ($courseId) {
             $cdQuery = CourseDate::where('course_id', $courseId)->whereNull('deleted_at');
@@ -560,7 +565,7 @@ class PlannerController extends AppBaseController
                     break;
                 case 'single':
                 case 'interval':
-                    // se resolverán por date/subgrupo
+                    // se resolvern por date/subgrupo
                     break;
             }
             $validCourseDateIds = $cdQuery->pluck('id');
@@ -579,7 +584,7 @@ class PlannerController extends AppBaseController
             }
         }
 
-        // 2) Resolver BookingUsers objetivo (si no llegan explícitos)
+        // 2) Resolver BookingUsers objetivo (si no llegan explcitos)
         $targets = collect();
 
         if (!empty($bookingUserIds)) {
@@ -657,10 +662,10 @@ class PlannerController extends AppBaseController
             // si no logramos determinar degree, mejor no tocar masivamente
             // (puedes convertir esto en warning si lo prefieres)
             return $this->sendError('Degree not determinable for bulk transfer');
-            // fallback: seguimos pero sólo tocaremos BUs y subgrupos con degree conocido
+            // fallback: seguimos pero slo tocaremos BUs y subgrupos con degree conocido
         }
 
-        // 3) Resolver Subgrupos objetivo (aunque vacíos), con courseDate viva y degree filtrado
+        // 3) Resolver Subgrupos objetivo (aunque vacos), con courseDate viva y degree filtrado
         $targetSubgroups = collect();
 
         $subgroupBase = CourseSubgroup::with('courseDate')
@@ -770,7 +775,7 @@ class PlannerController extends AppBaseController
             ->unique()
             ->values()
             ->all();
-        // 3.1) Filtrar BookingUsers por degree también (según esquema)
+        // 3.1) Filtrar BookingUsers por degree tambin (segn esquema)
         /*        if ($degreeIdContext) {
                     // Si BookingUser tiene columna degree_id:
                     if (Schema::hasColumn((new BookingUser)->getTable(), 'degree_id')) {
@@ -787,8 +792,47 @@ class PlannerController extends AppBaseController
             return $this->sendError('No booking users or subgroups found for the given scope/degree');
         }
 
-        // 4) Si monitorId === null → desasignar en ambos niveles
+        // 4) Si monitorId === null  desasignar en ambos niveles
         if ($monitorId === null) {
+            foreach ($targets as $bu) {
+                if ($bu->monitor_id) {
+                    $notifications[] = [
+                        'monitor_id' => $bu->monitor_id,
+                        'type' => ($bu->course_subgroup_id ? 'group' : 'private') . '_removed',
+                        'payload' => [
+                            'booking_id' => $bu->booking_id,
+                            'course_id' => $bu->course_id,
+                            'course_date_id' => $bu->course_date_id,
+                            'date' => $bu->date,
+                            'hour_start' => $bu->hour_start,
+                            'hour_end' => $bu->hour_end,
+                            'client_id' => $bu->client_id,
+                            'course_subgroup_id' => $bu->course_subgroup_id,
+                            'course_group_id' => $bu->course_group_id,
+                            'group_id' => $bu->group_id,
+                            'school_id' => $school->id ?? null,
+                        ],
+                    ];
+                }
+            }
+            foreach ($targetSubgroups as $sg) {
+                if ($sg->monitor_id) {
+                    $notifications[] = [
+                        'monitor_id' => $sg->monitor_id,
+                        'type' => 'group_removed',
+                        'payload' => [
+                            'course_id' => $sg->course_id,
+                            'course_date_id' => $sg->course_date_id,
+                            'date' => optional($sg->courseDate)->date,
+                            'hour_start' => optional($sg->courseDate)->hour_start,
+                            'hour_end' => optional($sg->courseDate)->hour_end,
+                            'course_subgroup_id' => $sg->id,
+                            'course_group_id' => $sg->course_group_id,
+                            'school_id' => $school->id ?? null,
+                        ],
+                    ];
+                }
+            }
             DB::transaction(function () use ($targets, $targetSubgroups) {
                 foreach ($targets as $bu) {
                     $bu->update(['monitor_id' => null, 'accepted' => true]);
@@ -797,6 +841,15 @@ class PlannerController extends AppBaseController
                     $sg->update(['monitor_id' => null]);
                 }
             });
+            foreach ($notifications as $notification) {
+                $monitorNotificationService->notifyAssignment(
+                    $notification['monitor_id'],
+                    $notification['type'],
+                    $notification['payload'],
+                    $schoolSettings,
+                    auth()->id()
+                );
+            }
             return $this->sendResponse(null, 'Monitor removed successfully.');
         }
 
@@ -819,6 +872,86 @@ class PlannerController extends AppBaseController
             }
         }
 
+        foreach ($targets as $bu) {
+            $typePrefix = $bu->course_subgroup_id ? 'group' : 'private';
+
+            if ($bu->monitor_id && $bu->monitor_id !== $monitorId) {
+                $notifications[] = [
+                    'monitor_id' => $bu->monitor_id,
+                    'type' => "{$typePrefix}_removed",
+                    'payload' => [
+                        'booking_id' => $bu->booking_id,
+                        'course_id' => $bu->course_id,
+                        'course_date_id' => $bu->course_date_id,
+                        'date' => $bu->date,
+                        'hour_start' => $bu->hour_start,
+                        'hour_end' => $bu->hour_end,
+                        'client_id' => $bu->client_id,
+                        'course_subgroup_id' => $bu->course_subgroup_id,
+                        'course_group_id' => $bu->course_group_id,
+                        'group_id' => $bu->group_id,
+                        'school_id' => $school->id ?? null,
+                    ],
+                ];
+            }
+
+            if ($bu->monitor_id !== $monitorId) {
+                $notifications[] = [
+                    'monitor_id' => $monitorId,
+                    'type' => "{$typePrefix}_assigned",
+                    'payload' => [
+                        'booking_id' => $bu->booking_id,
+                        'course_id' => $bu->course_id,
+                        'course_date_id' => $bu->course_date_id,
+                        'date' => $bu->date,
+                        'hour_start' => $bu->hour_start,
+                        'hour_end' => $bu->hour_end,
+                        'client_id' => $bu->client_id,
+                        'course_subgroup_id' => $bu->course_subgroup_id,
+                        'course_group_id' => $bu->course_group_id,
+                        'group_id' => $bu->group_id,
+                        'school_id' => $school->id ?? null,
+                    ],
+                ];
+            }
+        }
+
+        foreach ($targetSubgroups as $sg) {
+            if ($sg->monitor_id && $sg->monitor_id !== $monitorId) {
+                $notifications[] = [
+                    'monitor_id' => $sg->monitor_id,
+                    'type' => 'group_removed',
+                    'payload' => [
+                        'course_id' => $sg->course_id,
+                        'course_date_id' => $sg->course_date_id,
+                        'date' => optional($sg->courseDate)->date,
+                        'hour_start' => optional($sg->courseDate)->hour_start,
+                        'hour_end' => optional($sg->courseDate)->hour_end,
+                        'course_subgroup_id' => $sg->id,
+                        'course_group_id' => $sg->course_group_id,
+                        'school_id' => $school->id ?? null,
+                    ],
+                ];
+            }
+
+            if ($sg->monitor_id !== $monitorId) {
+                $notifications[] = [
+                    'monitor_id' => $monitorId,
+                    'type' => 'group_assigned',
+                    'payload' => [
+                        'course_id' => $sg->course_id,
+                        'course_date_id' => $sg->course_date_id,
+                        'date' => optional($sg->courseDate)->date,
+                        'hour_start' => optional($sg->courseDate)->hour_start,
+                        'hour_end' => optional($sg->courseDate)->hour_end,
+                        'course_subgroup_id' => $sg->id,
+                        'course_group_id' => $sg->course_group_id,
+                        'school_id' => $school->id ?? null,
+                    ],
+                ];
+            }
+        }
+
         // 7) Aplicar cambios
         DB::transaction(function () use ($monitorId, $scope, $targets, $targetSubgroups) {
             foreach ($targets as $bu) {
@@ -832,6 +965,16 @@ class PlannerController extends AppBaseController
                 $sg->update(['monitor_id' => $monitorId]);
             }
         });
+
+        foreach ($notifications as $notification) {
+            $monitorNotificationService->notifyAssignment(
+                $notification['monitor_id'],
+                $notification['type'],
+                $notification['payload'],
+                $schoolSettings,
+                auth()->id()
+            );
+        }
 
         return $this->sendResponse($monitor, 'Monitor updated successfully for scope: ' . $scope);
     }
@@ -869,7 +1012,7 @@ class PlannerController extends AppBaseController
         }
 
         // MEJORADO: Para scope='all', recuperar TODOS los subgroups con el MISMO subgroup_dates_id
-        // Esto es más eficiente y explícito que buscar por course_group_id
+        // Esto es ms eficiente y explcito que buscar por course_group_id
         if ($scope === 'all' && $subgroupId) {
             $selectedSubgroup = CourseSubgroup::find($subgroupId);
             if ($selectedSubgroup && $selectedSubgroup->subgroup_dates_id) {
@@ -885,15 +1028,15 @@ class PlannerController extends AppBaseController
                 return $this->sendError('Selected subgroup does not have a valid subgroup_dates_id.');
             }
         } elseif (!empty($subgroupIds)) {
-            // Para otros scopes, filtrar por los subgroupIds específicos
+            // Para otros scopes, filtrar por los subgroupIds especficos
             $query->whereIn('id', $subgroupIds);
         } elseif ($subgroupId) {
-            // Para scope='single', filtrar por el subgroup específico
+            // Para scope='single', filtrar por el subgroup especfico
             $query->where('id', $subgroupId);
         }
 
         // Para scope='all', NO filtrar por rango en la query (queremos TODOS los subgroups)
-        // Para otros scopes, filtrar por rango en la query (más eficiente)
+        // Para otros scopes, filtrar por rango en la query (ms eficiente)
         if ($startDate && $scope !== 'all') {
             $end = $endDate ?? $startDate;
             // Filtrar por rango de fechas usando la tabla junction correcta
@@ -905,7 +1048,7 @@ class PlannerController extends AppBaseController
         $rawSubgroups = $query->get();
 
         // MEJORADO: Para scope='all', agrupar por subgroup_dates_id para evitar duplicados
-        // Si tenemos scope='all', todos los subgroups tendrán el mismo subgroup_dates_id
+        // Si tenemos scope='all', todos los subgroups tendrn el mismo subgroup_dates_id
         // Debemos retornar UN resultado con TODAS las fechas, no N resultados (uno por fecha)
         if ($scope === 'all' && $rawSubgroups->isNotEmpty()) {
             $groupedByDatesId = $rawSubgroups->groupBy('subgroup_dates_id');
@@ -915,7 +1058,7 @@ class PlannerController extends AppBaseController
                 $course = $firstSubgroup->courseGroup?->course;
 
                 // MEJORADO: Crear mapa de course_date_id => monitor
-                // Cada subgrupo está en fechas diferentes y puede tener monitor diferente
+                // Cada subgrupo est en fechas diferentes y puede tener monitor diferente
                 $dateMonitorMap = [];
                 foreach ($subgroupsGroup as $sg) {
                     $courseDateIds = $sg->courseSubgroupDates()->pluck('course_date_id');
@@ -983,7 +1126,7 @@ class PlannerController extends AppBaseController
                 ];
             })->values();
         } else {
-            // Para otros scopes, mapear normalmente (cada subgroup es una instancia única)
+            // Para otros scopes, mapear normalmente (cada subgroup es una instancia nica)
             $subgroups = $rawSubgroups->map(function (CourseSubgroup $subgroup) use ($scope, $startDate, $endDate) {
                 $course = $subgroup->courseGroup?->course;
 
@@ -1055,6 +1198,18 @@ class PlannerController extends AppBaseController
         }
 
         return $this->sendResponse($subgroups, 'Monitor transfer preview ready.');
+    }
+
+    private function getSchoolSettings($school): array
+    {
+        $settings = $school->settings ?? [];
+
+        if (is_string($settings)) {
+            $decoded = json_decode($settings, true);
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        return is_array($settings) ? $settings : [];
     }
 
 }

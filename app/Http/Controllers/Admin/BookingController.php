@@ -24,6 +24,7 @@ use App\Models\Payment;
 use App\Models\Voucher;
 use App\Models\VouchersLog;
 use App\Repositories\BookingRepository;
+use App\Services\MonitorNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -123,7 +124,7 @@ class BookingController extends AppBaseController
         //TODO: Check OVERLAP
         $data = $request->all();
 
-        // VALIDACIÓN CRÍTICA: Verificar coherencia cliente-participantes
+        // VALIDACIN CRTICA: Verificar coherencia cliente-participantes
         if (isset($data['client_main_id']) && isset($data['cart'])) {
             $clientMainId = $data['client_main_id'];
             $mainClient = Client::with('utilizers')->find($clientMainId);
@@ -132,13 +133,13 @@ class BookingController extends AppBaseController
                 return $this->sendError('Cliente principal no encontrado');
             }
 
-            // Obtener IDs válidos: cliente principal + sus utilizers
+            // Obtener IDs vlidos: cliente principal + sus utilizers
             $validClientIds = [$clientMainId];
             foreach ($mainClient->utilizers as $utilizer) {
                 $validClientIds[] = $utilizer->id;
             }
 
-            // Verificar que todos los participantes sean válidos
+            // Verificar que todos los participantes sean vlidos
             foreach ($data['cart'] as $cartItem) {
                 if (!in_array($cartItem['client_id'], $validClientIds)) {
                     $invalidClient = Client::find($cartItem['client_id']);
@@ -154,7 +155,7 @@ class BookingController extends AppBaseController
 
         $basketData = $this->createBasket($data);
 
-        $basketJson = json_encode($basketData); // Asegúrate de que no haya problemas con la conversión a JSON
+        $basketJson = json_encode($basketData); // Asegrate de que no haya problemas con la conversin a JSON
 
         DB::beginTransaction();
         try {
@@ -182,7 +183,7 @@ class BookingController extends AppBaseController
                 'basket' => $basketJson,
                 'source' => 'admin',
                 'status' => 1,
-                'currency' => $data['cart'][0]['currency'] // Si todas las líneas tienen la misma moneda
+                'currency' => $data['cart'][0]['currency'] // Si todas las lneas tienen la misma moneda
             ]);
 
             // Crear BookingUser para cada detalle
@@ -205,9 +206,9 @@ class BookingController extends AppBaseController
                     'group_id' => $cartItem['group_id']
                 ]);
 
-                // MEJORA CRÍTICA: Verificación y asignación atómica de subgrupos para cursos colectivos
+                // MEJORA CRTICA: Verificacin y asignacin atmica de subgrupos para cursos colectivos
                 if ($cartItem['course_type'] == 1) {
-                    // LOGGING: Registrar intento de reserva para análisis de concurrencia
+                    // LOGGING: Registrar intento de reserva para anlisis de concurrencia
                     Log::info('BOOKING_CONCURRENCY_ATTEMPT', [
                         'course_date_id' => $cartItem['course_date_id'],
                         'degree_id' => $cartItem['degree_id'],
@@ -216,13 +217,13 @@ class BookingController extends AppBaseController
                         'user_agent' => request()->userAgent()
                     ]);
 
-                    // SOLUCIÓN CONCURRENCIA: Usar transacción con lock pessimista
+                    // SOLUCIN CONCURRENCIA: Usar transaccin con lock pessimista
                     $subgroupAssigned = DB::transaction(function () use ($cartItem, $bookingUser) {
 
                         // 1. Obtener todos los subgrupos candidatos con LOCK FOR UPDATE
                         $candidateSubgroups = CourseSubgroup::where('course_date_id', $cartItem['course_date_id'])
                             ->where('degree_id', $cartItem['degree_id'])
-                            ->lockForUpdate() // ⚠️ LOCK PESSIMISTA - Previene race conditions
+                            ->lockForUpdate() //  LOCK PESSIMISTA - Previene race conditions
                             ->get();
 
                         // 2. Verificar disponibilidad real contando BookingUsers activos
@@ -231,13 +232,13 @@ class BookingController extends AppBaseController
                                 ->where('status', 1)
                                 ->count();
 
-                            // 3. Verificación atómica: ¿hay espacio disponible?
+                            // 3. Verificacin atmica: hay espacio disponible?
                             if ($currentParticipants < $subgroup->max_participants) {
-                                // ✅ ÉXITO: Asignar inmediatamente mientras tenemos el lock
+                                //  XITO: Asignar inmediatamente mientras tenemos el lock
                                 $bookingUser->course_group_id = $subgroup->course_group_id;
                                 $bookingUser->course_subgroup_id = $subgroup->id;
 
-                                // LOGGING: Registro exitoso de asignación
+                                // LOGGING: Registro exitoso de asignacin
                                 Log::info('BOOKING_CONCURRENCY_SUCCESS', [
                                     'subgroup_id' => $subgroup->id,
                                     'participants_before' => $currentParticipants,
@@ -259,12 +260,12 @@ class BookingController extends AppBaseController
                         return false; // No hay subgrupos disponibles
                     });
 
-                    // 4. Verificar resultado de la asignación atómica
+                    // 4. Verificar resultado de la asignacin atmica
                     if (!$subgroupAssigned) {
                         DB::rollBack();
                         return $this->sendError(
                             'No hay plazas disponibles en el nivel ' . $cartItem['degree_id'] .
-                            ' para la fecha solicitada. El curso está completo.',
+                            ' para la fecha solicitada. El curso est completo.',
                             ['course_date_id' => $cartItem['course_date_id'], 'degree_id' => $cartItem['degree_id']]
                         );
                     }
@@ -330,7 +331,7 @@ class BookingController extends AppBaseController
                 'user_id' => $data['user_id']
             ]);
 
-            // Crear un registro de pago si el método de pago es 1 o 4
+            // Crear un registro de pago si el mtodo de pago es 1 o 4
             if (
                 isset($data['payment_method_id']) &&
                 in_array($data['payment_method_id'], [1, 4]) &&
@@ -342,16 +343,16 @@ class BookingController extends AppBaseController
                     'booking_id' => $booking->id,
                     'school_id' => $school['id'],
                     'amount' => $remainingAmount,
-                    'status' => 'paid', // Puedes ajustar el estado según tu lógica
+                    'status' => 'paid', // Puedes ajustar el estado segn tu lgica
                     'notes' => $data['selectedPaymentOption'] ?? null,
-                    'payrexx_reference' => null, // Aquí puedes integrar Payrexx si lo necesitas
+                    'payrexx_reference' => null, // aqui puedes integrar Payrexx si lo necesitas
                     'payrexx_transaction' => null
                 ]);
             }
 
 
             DB::commit();
-            return $this->sendResponse($booking, 'Reserva creada con éxito', 201);
+            return $this->sendResponse($booking, 'Reserva creada con xito', 201);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -418,7 +419,7 @@ class BookingController extends AppBaseController
 
         //TODO: pagos
 
-        // Crear un registro de pago si el método de pago es 1 o 4
+        // Crear un registro de pago si el mtodo de pago es 1 o 4
         if (in_array($data['payment_method_id'], [1, 4])) {
 
             $remainingAmount = $data['price_total'] - $voucherAmount;
@@ -427,9 +428,9 @@ class BookingController extends AppBaseController
                 'booking_id' => $booking->id,
                 'school_id' => $school['id'],
                 'amount' => $remainingAmount,
-                'status' => 'paid', // Puedes ajustar el estado según tu lógica
+                'status' => 'paid', // Puedes ajustar el estado segn tu lgica
                 'notes' => $data['selectedPaymentOption'],
-                'payrexx_reference' => null, // Aquí puedes integrar Payrexx si lo necesitas
+                'payrexx_reference' => null, // aqui puedes integrar Payrexx si lo necesitas
                 'payrexx_transaction' => null
             ]);
         }
@@ -440,13 +441,15 @@ class BookingController extends AppBaseController
 
     public function update(Request $request) {
         $school = $this->getSchool($request);
+        $schoolSettings = $this->getSchoolSettings($school);
+        $monitorNotificationService = app(MonitorNotificationService::class);
 
         $groupId = $request->group_id;
         $bookingId = $request->booking_id;
         $dates = $request->dates;
         $total = $request->total;
 
-        // MEJORA CRÍTICA: Logging del intento de actualización para auditoría
+        // MEJORA CRTICA: Logging del intento de actualizacin para auditora
         Log::info('BOOKING_UPDATE_ATTEMPT', [
             'booking_id' => $bookingId,
             'group_id' => $groupId,
@@ -456,7 +459,7 @@ class BookingController extends AppBaseController
             'ip' => request()->ip()
         ]);
 
-        // MEJORA CRÍTICA: Validar que la reserva existe y pertenece a la escuela
+        // MEJORA CRTICA: Validar que la reserva existe y pertenece a la escuela
         $booking = Booking::where('id', $bookingId)
             ->where('school_id', $school['id'])
             ->first();
@@ -477,7 +480,7 @@ class BookingController extends AppBaseController
                 ->get();
 
             $originalPriceTotal = $bookingUsers[0]->price;
-            // Lista para almacenar los IDs de los booking_users que están presentes en la solicitud
+            // Lista para almacenar los IDs de los booking_users que estn presentes en la solicitud
             $requestBookingUserIds = [];
 
             // 2. Iterar sobre los datos recibidos y actualizar o crear los BookingUsers
@@ -486,12 +489,12 @@ class BookingController extends AppBaseController
                     foreach ($date['booking_users'] as $bookingUserData) {
                         $requestBookingUserIds[] = $bookingUserData['id'];
 
-                        // MEJORA CRÍTICA: Buscar el BookingUser con relaciones para optimizar queries
+                        // MEJORA CRTICA: Buscar el BookingUser con relaciones para optimizar queries
                         $bookingUser = BookingUser::with(['course', 'courseSubGroup'])
                             ->find($bookingUserData['id']);
 
                         if ($bookingUser) {
-                            // MEJORA CRÍTICA: Si es curso colectivo y se cambia la fecha/subgrupo, validar capacidad
+                            // MEJORA CRTICA: Si es curso colectivo y se cambia la fecha/subgrupo, validar capacidad
                             $isChangingCriticalData = (
                                 $bookingUser->course_date_id != $date['course_date_id'] ||
                                 $bookingUser->date != $date['date']
@@ -506,7 +509,7 @@ class BookingController extends AppBaseController
                                     'new_course_date_id' => $date['course_date_id']
                                 ]);
 
-                                // SOLUCIÓN CONCURRENCIA: Validar disponibilidad con lock para curso colectivo
+                                // SOLUCIN CONCURRENCIA: Validar disponibilidad con lock para curso colectivo
                                 $capacityAvailable = DB::transaction(function () use ($date, $bookingUser) {
                                     // Buscar subgrupos candidatos con lock
                                     $candidateSubgroups = CourseSubgroup::where('course_date_id', $date['course_date_id'])
@@ -539,6 +542,25 @@ class BookingController extends AppBaseController
                                 }
                             }
 
+                            $newMonitorId = isset($date['monitor']) ? $date['monitor']['id'] : null;
+                            $previousMonitorId = $bookingUser->monitor_id;
+                            $isGroup = ($bookingUser->course && (int) $bookingUser->course->course_type === 1) || $bookingUser->course_subgroup_id;
+                            $typePrefix = $isGroup ? 'group' : 'private';
+
+                            $removalPayload = [
+                                'booking_id' => $bookingUser->booking_id,
+                                'course_id' => $bookingUser->course_id,
+                                'course_date_id' => $bookingUser->course_date_id,
+                                'date' => $bookingUser->date,
+                                'hour_start' => $bookingUser->hour_start,
+                                'hour_end' => $bookingUser->hour_end,
+                                'client_id' => $bookingUser->client_id,
+                                'course_subgroup_id' => $bookingUser->course_subgroup_id,
+                                'course_group_id' => $bookingUser->course_group_id,
+                                'group_id' => $bookingUser->group_id,
+                                'school_id' => $school['id'] ?? null,
+                            ];
+
                             // Actualizar los campos si el BookingUser existe
                             $bookingUser->update([
                                 'date' => $date['date'],
@@ -546,21 +568,55 @@ class BookingController extends AppBaseController
                                 'hour_start' => $date['startHour'],
                                 'hour_end' => $date['endHour'],
                                 'price' => $date['price'],
-                                'monitor_id' => isset($date['monitor']) ? $date['monitor']['id'] : null,
-                                // Otros campos adicionales aquí
+                                'monitor_id' => $newMonitorId,
+                                // Otros campos adicionales aqui
                             ]);
+
+                            $assignmentPayload = [
+                                'booking_id' => $bookingUser->booking_id,
+                                'course_id' => $bookingUser->course_id,
+                                'course_date_id' => $date['course_date_id'],
+                                'date' => $date['date'],
+                                'hour_start' => $date['startHour'],
+                                'hour_end' => $date['endHour'],
+                                'client_id' => $bookingUser->client_id,
+                                'course_subgroup_id' => $bookingUser->course_subgroup_id,
+                                'course_group_id' => $bookingUser->course_group_id,
+                                'group_id' => $bookingUser->group_id,
+                                'school_id' => $school['id'] ?? null,
+                            ];
+
+                            if ($previousMonitorId && $previousMonitorId !== $newMonitorId) {
+                                $monitorNotificationService->notifyAssignment(
+                                    $previousMonitorId,
+                                    "{$typePrefix}_removed",
+                                    $removalPayload,
+                                    $schoolSettings,
+                                    auth()->id()
+                                );
+                            }
+
+                            if ($newMonitorId && $newMonitorId !== $previousMonitorId) {
+                                $monitorNotificationService->notifyAssignment(
+                                    $newMonitorId,
+                                    "{$typePrefix}_assigned",
+                                    $assignmentPayload,
+                                    $schoolSettings,
+                                    auth()->id()
+                                );
+                            }
 
                             // 3. Actualizar los extras: eliminamos los existentes y los creamos nuevamente
                             BookingUserExtra::where('booking_user_id', $bookingUser->id)->delete();
 
                         } else {
-                            // Si el bookingUser no se encuentra, podrías lanzar un error o manejarlo de otra forma.
+                            // Si el bookingUser no se encuentra, podras lanzar un error o manejarlo de otra forma.
                             return $this->sendError('BookingUser not found', [], 404);
                         }
                     }
                     foreach ($date['utilizers'] as $utilizer) {
                         $bookingUser = BookingUser::where('client_id', $utilizer['id'])
-                            ->where('date', $date['date']) // Asegurarse de que coincida con la fecha también
+                            ->where('date', $date['date']) // Asegurarse de que coincida con la fecha tambin
                             ->first();
 
                         if ($bookingUser) {
@@ -576,9 +632,34 @@ class BookingController extends AppBaseController
                 }
             }
 
-            // 4. Poner el status en 2 a los BookingUsers que no están presentes en la solicitud
+            // 4. Poner el status en 2 a los BookingUsers que no estan presentes en la solicitud
             $bookingUsersNotInRequest = $bookingUsers->whereNotIn('id', $requestBookingUserIds);
             foreach ($bookingUsersNotInRequest as $bookingUser) {
+                if ($bookingUser->monitor_id) {
+                    $bookingUser->loadMissing('course');
+                    $isGroupCancelled = ($bookingUser->course && (int) $bookingUser->course->course_type === 1) || $bookingUser->course_subgroup_id;
+                    $cancelTypePrefix = $isGroupCancelled ? 'group' : 'private';
+                    $cancelPayload = [
+                        'booking_id' => $bookingUser->booking_id,
+                        'course_id' => $bookingUser->course_id,
+                        'course_date_id' => $bookingUser->course_date_id,
+                        'date' => $bookingUser->date,
+                        'hour_start' => $bookingUser->hour_start,
+                        'hour_end' => $bookingUser->hour_end,
+                        'client_id' => $bookingUser->client_id,
+                        'course_subgroup_id' => $bookingUser->course_subgroup_id,
+                        'course_group_id' => $bookingUser->course_group_id,
+                        'group_id' => $bookingUser->group_id,
+                        'school_id' => $school['id'] ?? null,
+                    ];
+                    $monitorNotificationService->notifyAssignment(
+                        $bookingUser->monitor_id,
+                        "{$cancelTypePrefix}_removed",
+                        $cancelPayload,
+                        $schoolSettings,
+                        auth()->id()
+                    );
+                }
                 $bookingUser->update(['status' => 2]);
             }
 
@@ -607,7 +688,7 @@ class BookingController extends AppBaseController
                 "bookingLogs"
             ]);
 
-            // MEJORA CRÍTICA: Crear log de la actualización para auditoría
+            // MEJORA CRTICA: Crear log de la actualizacin para auditora
             BookingLog::create([
                 'booking_id' => $bookingId,
                 'action' => 'updated via admin panel',
@@ -620,7 +701,7 @@ class BookingController extends AppBaseController
                 ])
             ]);
 
-            // LOGGING: Éxito de la actualización
+            // LOGGING: xito de la actualizacin
             Log::info('BOOKING_UPDATE_SUCCESS', [
                 'booking_id' => $bookingId,
                 'group_id' => $groupId,
@@ -631,7 +712,7 @@ class BookingController extends AppBaseController
             ]);
 
             DB::commit();
-            return $this->sendResponse($booking, 'Reserva actualizada con éxito', 201);
+            return $this->sendResponse($booking, 'Reserva actualizada con xito', 201);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -680,6 +761,18 @@ class BookingController extends AppBaseController
         return $this->sendResponse($booking, 'Meeting point updated successfully');
     }
 
+    private function getSchoolSettings($school): array
+    {
+        $settings = $school->settings ?? [];
+
+        if (is_string($settings)) {
+            $decoded = json_decode($settings, true);
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        return is_array($settings) ? $settings : [];
+    }
+
     function createBasket($bookingData) {
         // Agrupar por group_id
         $groupedCartItems = $this->groupCartItemsByGroupId($bookingData['cart']);
@@ -721,7 +814,7 @@ class BookingController extends AppBaseController
                 'quantity' => 1,
                 'price' => -$bookingData['price_reduction']
             ] : null,
-            // Puedes añadir más campos comunes aquí
+            // Puedes aadir ms campos comunes aqui
         ];
 
         foreach ($groupedCartItems as $group) {
@@ -851,7 +944,7 @@ class BookingController extends AppBaseController
                 }
             }
 
-            // Guardar los detalles de cada ítem en el grupo
+            // Guardar los detalles de cada tem en el grupo
             $groupedItems[$group_id]['items'][] = $item;
         }
 
@@ -937,12 +1030,12 @@ class BookingController extends AppBaseController
     {
         $school = $this->getSchool($request);
 
-        // MEJORA CRÍTICA: Validación de entrada
+        // MEJORA CRTICA: Validacin de entrada
         $request->validate([
             'payment_method_id' => 'sometimes|integer|in:1,2,3,4',
         ]);
 
-        // MEJORA CRÍTICA: Validar que la reserva existe y pertenece a la escuela
+        // MEJORA CRTICA: Validar que la reserva existe y pertenece a la escuela
         $booking = Booking::where('id', $id)
             ->where('school_id', $school['id'])
             ->with(['clientMain', 'bookingUsers'])
@@ -957,16 +1050,16 @@ class BookingController extends AppBaseController
             return $this->sendError('Booking not found or access denied', [], 404);
         }
 
-        // MEJORA CRÍTICA: Verificar que la reserva no esté ya pagada
+        // MEJORA CRTICA: Verificar que la reserva no est ya pagada
         if ($booking->paid) {
             Log::warning('PAY_BOOKING_ALREADY_PAID', [
                 'booking_id' => $id,
                 'user_id' => auth()->id()
             ]);
-            return $this->sendError('Esta reserva ya está pagada');
+            return $this->sendError('Esta reserva ya est pagada');
         }
 
-        // MEJORA CRÍTICA: Verificar que la reserva no esté cancelada
+        // MEJORA CRTICA: Verificar que la reserva no est cancelada
         if ($booking->status == 2) {
             Log::warning('PAY_BOOKING_CANCELLED', [
                 'booking_id' => $id,
@@ -977,7 +1070,7 @@ class BookingController extends AppBaseController
 
         $paymentMethod = $request->get('payment_method_id') ?? $booking->payment_method_id;
 
-        // MEJORA CRÍTICA: Logging del intento de pago
+        // MEJORA CRTICA: Logging del intento de pago
         Log::info('PAY_BOOKING_ATTEMPT', [
             'booking_id' => $id,
             'payment_method' => $paymentMethod,
@@ -989,14 +1082,14 @@ class BookingController extends AppBaseController
             'ip' => request()->ip()
         ]);
 
-        // MEJORA CRÍTICA: Usar transacción para actualizar método de pago
+        // MEJORA CRTICA: Usar transaccin para actualizar mtodo de pago
         DB::beginTransaction();
         try {
             $previousPaymentMethod = $booking->payment_method_id;
             $booking->payment_method_id = $paymentMethod;
             $booking->save();
 
-            // Crear log del cambio de método de pago
+            // Crear log del cambio de mtodo de pago
             BookingLog::create([
                 'booking_id' => $booking->id,
                 'action' => 'payment_method_updated',
@@ -1014,7 +1107,7 @@ class BookingController extends AppBaseController
                 'booking_id' => $id,
                 'error' => $e->getMessage()
             ]);
-            return $this->sendError('Error actualizando método de pago: ' . $e->getMessage(), 500);
+            return $this->sendError('Error actualizando mtodo de pago: ' . $e->getMessage(), 500);
         }
 
 
@@ -1038,7 +1131,7 @@ class BookingController extends AppBaseController
                 );
 
                 if ($payrexxLink) {
-                    // LOGGING: Éxito creando link de pago
+                    // LOGGING: xito creando link de pago
                     Log::info('PAY_BOOKING_GATEWAY_SUCCESS', [
                         'booking_id' => $id,
                         'payment_method' => $paymentMethod,
@@ -1292,7 +1385,7 @@ class BookingController extends AppBaseController
         // Obtiene la escuela
         $school = $this->getSchool($request);
 
-        // MEJORA CRÍTICA: Validación de entrada
+        // MEJORA CRTICA: Validacin de entrada
         $request->validate([
             'bookingUsers' => 'required|array|min:1',
             'bookingUsers.*' => 'integer|exists:booking_users,id',
@@ -1300,7 +1393,7 @@ class BookingController extends AppBaseController
             'cancelReason' => 'sometimes|string|max:500'
         ]);
 
-        // MEJORA CRÍTICA: Logging del intento de cancelación
+        // MEJORA CRTICA: Logging del intento de cancelacin
         Log::info('BOOKING_CANCEL_ATTEMPT', [
             'booking_users_ids' => $request->bookingUsers,
             'user_id' => auth()->id(),
@@ -1311,7 +1404,7 @@ class BookingController extends AppBaseController
             'ip' => request()->ip()
         ]);
 
-        // Obtiene los BookingUsers de la solicitud con validación de permisos
+        // Obtiene los BookingUsers de la solicitud con validacin de permisos
         $bookingUsers = BookingUser::whereIn('id', $request->bookingUsers)
             ->whereHas('booking', function($query) use ($school) {
                 $query->where('school_id', $school['id']);
@@ -1327,7 +1420,7 @@ class BookingController extends AppBaseController
             return $this->sendError('Booking users not found or access denied', [], 404);
         }
 
-        // MEJORA CRÍTICA: Verificar que todos los BookingUsers pertenecen a la misma reserva
+        // MEJORA CRTICA: Verificar que todos los BookingUsers pertenecen a la misma reserva
         $uniqueBookingIds = $bookingUsers->pluck('booking_id')->unique();
         if ($uniqueBookingIds->count() > 1) {
             Log::error('BOOKING_CANCEL_MULTIPLE_BOOKINGS', [
@@ -1337,13 +1430,13 @@ class BookingController extends AppBaseController
             return $this->sendError('Los BookingUsers deben pertenecer a la misma reserva');
         }
 
-        // MEJORA CRÍTICA: Verificar que ningún BookingUser ya está cancelado
+        // MEJORA CRTICA: Verificar que ningn BookingUser ya est cancelado
         $alreadyCancelled = $bookingUsers->where('status', 2);
         if ($alreadyCancelled->isNotEmpty()) {
             Log::warning('BOOKING_CANCEL_ALREADY_CANCELLED', [
                 'cancelled_ids' => $alreadyCancelled->pluck('id')->toArray()
             ]);
-            return $this->sendError('Algunos BookingUsers ya están cancelados');
+            return $this->sendError('Algunos BookingUsers ya estn cancelados');
         }
 
         // Obtiene la reserva asociada
@@ -1368,7 +1461,7 @@ class BookingController extends AppBaseController
             "bookingLogs"
         ]);
 
-        // MEJORA CRÍTICA: Usar transacción para operaciones atómicas
+        // MEJORA CRTICA: Usar transaccin para operaciones atmicas
         DB::beginTransaction();
         try {
             $cancelledPriceTotal = 0;
@@ -1379,7 +1472,7 @@ class BookingController extends AppBaseController
                 $bookingUser->status = 2;
                 $bookingUser->save();
 
-                // MEJORA CRÍTICA: Liberar la plaza en cursos colectivos
+                // MEJORA CRTICA: Liberar la plaza en cursos colectivos
                 if ($bookingUser->course_subgroup_id) {
                     Log::info('BOOKING_CANCEL_CAPACITY_FREED', [
                         'booking_user_id' => $bookingUser->id,
@@ -1395,21 +1488,21 @@ class BookingController extends AppBaseController
 
             $previousStatus = $booking->status;
 
-            // Si no hay más bookingUsers activos, cambia el status de la reserva a 2 (completamente cancelada)
+            // Si no hay ms bookingUsers activos, cambia el status de la reserva a 2 (completamente cancelada)
             if (!$activeBookingUsers) {
                 $booking->status = 2; // Completamente cancelado
             } else {
                 $booking->status = 3; // Parcialmente cancelado
             }
 
-            // MEJORA CRÍTICA: Recalcular precio solo si no está pagado
+            // MEJORA CRTICA: Recalcular precio solo si no est pagado
             if(!$booking->paid) {
                 $booking->reloadPrice();
             }
 
             $booking->save();
 
-            // MEJORA CRÍTICA: Crear log detallado de la cancelación
+            // MEJORA CRTICA: Crear log detallado de la cancelacin
             BookingLog::create([
                 'booking_id' => $booking->id,
                 'action' => 'cancelled via admin panel',
@@ -1426,7 +1519,7 @@ class BookingController extends AppBaseController
 
             DB::commit();
 
-            // LOGGING: Éxito de la cancelación
+            // LOGGING: xito de la cancelacin
             Log::info('BOOKING_CANCEL_SUCCESS', [
                 'booking_id' => $booking->id,
                 'cancelled_booking_users' => $bookingUsers->pluck('id')->toArray(),
@@ -1481,3 +1574,4 @@ class BookingController extends AppBaseController
         return $this->sendResponse($booking, 'Cancel completed successfully');
     }
 }
+
