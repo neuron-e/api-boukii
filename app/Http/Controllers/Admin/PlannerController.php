@@ -714,12 +714,33 @@ class PlannerController extends AppBaseController
 
                 case 'all':
                     if ($courseId) {
-                        $cdIds = $validCourseDateIds->isNotEmpty()
-                            ? $validCourseDateIds
-                            : CourseDate::where('course_id', $courseId)->whereNull('deleted_at')->pluck('id');
+                        // Si se proporciona un courseSubgroupId, buscar TODOS los subgrupos homónimos
+                        // con el mismo subgroup_dates_id (en todas las fechas)
+                        if ($courseSubgroupId) {
+                            $selectedSubgroup = CourseSubgroup::find($courseSubgroupId);
+                            if ($selectedSubgroup && $selectedSubgroup->subgroup_dates_id) {
+                                $targetSubgroups = (clone $subgroupBase)
+                                    ->where('course_id', $courseId)
+                                    ->where('subgroup_dates_id', $selectedSubgroup->subgroup_dates_id)
+                                    ->when($degreeIdContext, fn($q) => $q->where('degree_id', $degreeIdContext))
+                                    ->get();
+                            } else {
+                                // Fallback si no tiene subgroup_dates_id: usar todas las fechas del course
+                                $cdIds = $validCourseDateIds->isNotEmpty()
+                                    ? $validCourseDateIds
+                                    : CourseDate::where('course_id', $courseId)->whereNull('deleted_at')->pluck('id');
+                                $q = (clone $subgroupBase)->whereIn('course_date_id', $cdIds);
+                                $targetSubgroups = $applyDegreeFilter($q)->get();
+                            }
+                        } else {
+                            // Sin courseSubgroupId especificado: obtener todos los subgrupos en todas las fechas
+                            $cdIds = $validCourseDateIds->isNotEmpty()
+                                ? $validCourseDateIds
+                                : CourseDate::where('course_id', $courseId)->whereNull('deleted_at')->pluck('id');
 
-                        $q = (clone $subgroupBase)->whereIn('course_date_id', $cdIds);
-                        $targetSubgroups = $applyDegreeFilter($q)->get();
+                            $q = (clone $subgroupBase)->whereIn('course_date_id', $cdIds);
+                            $targetSubgroups = $applyDegreeFilter($q)->get();
+                        }
                     }
                     break;
 
