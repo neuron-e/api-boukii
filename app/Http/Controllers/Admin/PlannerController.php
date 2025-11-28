@@ -1046,28 +1046,19 @@ class PlannerController extends AppBaseController
         // Para scope='all', NO filtrar por rango en la query (queremos TODOS los subgroups)
         // Para otros scopes, filtrar por rango en la query (ms eficiente)
         $_dateFiltered = false;
-        if ($startDate && $scope !== 'all') {
+        if ($startDate && $scope === 'single') {
             $end = $endDate ?? $startDate;
-            // MEJORADO: Para 'from' y 'range', intentar with junction table
-            // Si falla o no hay resultados, continuar sin ese filtro
-            // (se filtrará en memoria para compatibilidad con legacy courses)
+            // Para scope='single', intentar filtrar por fecha con junction table
             try {
-                $testQuery = clone $query;
-                $testResults = $testQuery->whereHas('courseSubgroupDates.courseDate',
+                $query->whereHas('courseSubgroupDates.courseDate',
                     fn($q) => $q->whereBetween('date', [$startDate, $end])->whereNull('deleted_at')
-                )->limit(1)->get();
-
-                if ($testResults->isNotEmpty()) {
-                    // Si hay resultados con junction table, aplicar el filtro
-                    $query->whereHas('courseSubgroupDates.courseDate',
-                        fn($q) => $q->whereBetween('date', [$startDate, $end])->whereNull('deleted_at')
-                    );
-                    $_dateFiltered = true;
-                }
+                );
+                $_dateFiltered = true;
             } catch (\Exception $e) {
-                // Si hay error, continuar sin este filtro (legacy courses)
+                // Si falla, continuar sin este filtro
             }
         }
+        // Para scope='from' y 'range': NO filtrar en la query, solo en memoria
 
         $rawSubgroups = $query->get();
 
