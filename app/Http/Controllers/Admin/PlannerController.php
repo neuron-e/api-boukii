@@ -1142,26 +1142,72 @@ class PlannerController extends AppBaseController
             })->values();
         } else {
             // Para otros scopes, mapear normalmente (cada subgroup es una instancia nica)
-            $subgroups = $rawSubgroups->map(function (CourseSubgroup $subgroup) use ($scope, $startDate, $endDate, $_dateFiltered) {
+            $subgroups = $rawSubgroups->map(function (CourseSubgroup $subgroup) use ($scope, $startDate, $endDate, $_dateFiltered, $courseId) {
                 $course = $subgroup->courseGroup?->course;
 
                 // MEJORADO: Obtener mapa de course_date_id => monitor para cada fecha
-                // Permite mostrar monitor diferente por fecha incluso en otros scopes
+                // Para scope='from' y 'range', incluir monitors de todos los subgrupos homónimos
                 $dateMonitorMap = [];
-                $subgroupDates = $subgroup->courseSubgroupDates()
-                    ->with('courseDate')
-                    ->get();
 
-                foreach ($subgroupDates as $sd) {
-                    $dateMonitorMap[$sd->course_date_id] = $subgroup->monitor;
+                if (in_array($scope, ['from', 'range']) && $subgroup->subgroup_dates_id) {
+                    // Obtener monitors de todos los subgrupos homónimos
+                    $homonymousSubgroups = CourseSubgroup::where('course_id', $courseId)
+                        ->where('subgroup_dates_id', $subgroup->subgroup_dates_id)
+                        ->get();
+
+                    foreach ($homonymousSubgroups as $homSg) {
+                        $subgroupDates = $homSg->courseSubgroupDates()
+                            ->with('courseDate')
+                            ->get();
+
+                        foreach ($subgroupDates as $sd) {
+                            $dateMonitorMap[$sd->course_date_id] = $homSg->monitor;
+                        }
+                    }
+                } else {
+                    // Para scope='single': solo el monitor del subgroup actual
+                    $subgroupDates = $subgroup->courseSubgroupDates()
+                        ->with('courseDate')
+                        ->get();
+
+                    foreach ($subgroupDates as $sd) {
+                        $dateMonitorMap[$sd->course_date_id] = $subgroup->monitor;
+                    }
                 }
 
-                // Obtener TODAS las fechas del subgrupo desde la tabla junction
-                $homonymousDates = $subgroup->allCourseDates()
-                    ->whereNull('course_dates.deleted_at')
-                    ->orderBy('course_dates.date', 'asc')
-                    ->select('course_dates.id', 'course_dates.date', 'course_dates.hour_start', 'course_dates.hour_end')
-                    ->get();
+                // Para scope='from' y 'range', obtener fechas de TODOS los subgrupos homónimos
+                // Para scope='single', usar solo las fechas del subgroup actual
+                if (in_array($scope, ['from', 'range']) && $subgroup->subgroup_dates_id) {
+                    // Buscar todos los subgrupos homónimos con el mismo subgroup_dates_id
+                    $homonymousSubgroups = CourseSubgroup::where('course_id', $courseId)
+                        ->where('subgroup_dates_id', $subgroup->subgroup_dates_id)
+                        ->get();
+
+                    // Consolidar fechas de todos los subgrupos homónimos
+                    $dateIds = [];
+                    $homonymousDates = collect([]);
+                    foreach ($homonymousSubgroups as $homSg) {
+                        $dates = $homSg->allCourseDates()
+                            ->whereNull('course_dates.deleted_at')
+                            ->select('course_dates.id', 'course_dates.date', 'course_dates.hour_start', 'course_dates.hour_end')
+                            ->get();
+
+                        foreach ($dates as $date) {
+                            if (!in_array($date->id, $dateIds)) {
+                                $dateIds[] = $date->id;
+                                $homonymousDates->push($date);
+                            }
+                        }
+                    }
+                    $homonymousDates = $homonymousDates->sortBy('date')->values();
+                } else {
+                    // Para scope='single': usar solo las fechas del subgroup actual
+                    $homonymousDates = $subgroup->allCourseDates()
+                        ->whereNull('course_dates.deleted_at')
+                        ->orderBy('course_dates.date', 'asc')
+                        ->select('course_dates.id', 'course_dates.date', 'course_dates.hour_start', 'course_dates.hour_end')
+                        ->get();
+                }
 
                 // Si hay rango de fechas, filtrar las que caen dentro del rango
                 // Aplicar filtrado en memoria si no fue filtrado en la query (legacy courses)
