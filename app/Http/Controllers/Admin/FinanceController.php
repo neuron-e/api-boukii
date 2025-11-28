@@ -6,6 +6,7 @@ use App\Http\Controllers\AppBaseController;
 use App\Http\Controllers\PayrexxHelpers;
 use App\Http\Services\BookingPriceCalculatorService;
 use App\Models\Booking;
+use App\Models\Course;
 use App\Models\Season;
 use App\Models\School;
 use Carbon\Carbon;
@@ -28,6 +29,7 @@ class FinanceController extends AppBaseController
     ];
 
     protected $priceCalculator;
+    protected string $exportLocale = '';
 
     public function __construct(BookingPriceCalculatorService $priceCalculator)
     {
@@ -1947,7 +1949,7 @@ class FinanceController extends AppBaseController
             foreach ($exportData['sections'] as $sectionKey => $section) {
                 $csvContent .= strtoupper($section['title']) . "\n";
 
-                foreach ($section['data'] as $row) {
+                foreach ($section['datadebugg'] as $row) {
                     // Escapar comillas y agregar comillas a cada campo
                     $escapedRow = array_map(function($field) {
                         return '"' . str_replace('"', '""', $field) . '"';
@@ -3819,6 +3821,7 @@ class FinanceController extends AppBaseController
      */
     public function exportSeasonDashboard(Request $request): JsonResponse
     {
+        Log::warning('EXPORT_SEASON_DASHBOARD_CALLED', ['url' => $request->url(), 'params' => $request->all()]);
 /*        $request->validate([
             'school_id' => 'required|integer|exists:schools,id',
             'season_id' => 'nullable|integer|exists:seasons,id',
@@ -3830,10 +3833,17 @@ class FinanceController extends AppBaseController
         ]);*/
 
         try {
-
             $this->ensureSchoolInRequest($request);
+
+            // Resolve and set export locale
+            $this->exportLocale = $this->resolveExportLocale($request);
+            app()->setLocale($this->exportLocale);
+
+            // Normalize format
+            $format = strtolower($request->input('format', 'csv'));
+
             // 1. Obtener datos del dashboard
-            $dashboardRequest = new Request($request->except(['format', 'sections']));
+            $dashboardRequest = new Request($request->except(['format', 'sections', 'locale', 'lang']));
             $dashboardResponse = $this->getSeasonFinancialDashboard($dashboardRequest);
             $dashboardData = json_decode($dashboardResponse->content(), true)['data'];
 
@@ -3841,7 +3851,8 @@ class FinanceController extends AppBaseController
             $exportData = $this->prepareExportData($dashboardData, $request);
 
             // 3. Generar archivo segÃºn formato
-            switch ($request->input('format')) {
+            Log::info('Export format', ['format' => $format, 'input_format' => $request->input('format')]);
+            switch ($format) {
                 case 'csv':
                     return $this->generateCsvExport($exportData, $dashboardData);
                 case 'pdf':
@@ -3853,7 +3864,12 @@ class FinanceController extends AppBaseController
             }
 
         } catch (\Exception $e) {
-            Log::error('Error exportando dashboard: ' . $e->getMessage());
+            Log::error('Error exportando dashboard', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile()
+            ]);
             return $this->sendError('Error en exportaciÃ³n: ' . $e->getMessage(), 500);
         }
     }

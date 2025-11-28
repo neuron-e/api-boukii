@@ -891,8 +891,9 @@ class PayrexxHelpers
             $gr = new GatewayRequest();
             $payrexx_reference = $voucherData->generatePayrexxReference();
             $gr->setReferenceId($payrexx_reference);
+            $currency = $schoolData->currency ?? data_get($schoolData, 'taxes.currency') ?? 'CHF';
             $gr->setAmount($voucherData->quantity * 100);
-            $gr->setCurrency('CHF');
+            $gr->setCurrency($currency);
             $gr->setVatRate(null);                  // TODO TBD as of 2022-10 all Schools are at Switzerland and there's no VAT ???
 
             // Add School's legal terms, if set

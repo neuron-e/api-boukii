@@ -136,6 +136,9 @@ Route::get('/debug-books', [StatisticsController::class, 'debugSpecificBookings'
 Route::get('/debug-test-detection', [FinanceController::class, 'debugTestDetection']);
 Route::get('/finance/season-dashboard', [FinanceController::class, 'getSeasonFinancialDashboard']);
 Route::get('/finance/export-dashboard', [FinanceController::class, 'exportSeasonDashboard']);
+// Alias para la ruta usada en el front/admin
+Route::get('/admin/finance/season-dashboard/export', [FinanceController::class, 'exportSeasonDashboard']);
+Route::get('/admin/finance/debug-export-params', [FinanceController::class, 'debugExportParams']);
 
 Route::get('/debug-bookings', [\App\Http\Controllers\Admin\FinanceController::class, 'getCompleteFinancialAnalysis']);
 Route::get('bookings/{id}/financial-debug', [FinanceController::class, 'getBookingFinancialDebug'])
