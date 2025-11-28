@@ -1017,15 +1017,23 @@ class PlannerController extends AppBaseController
             $selectedSubgroup = CourseSubgroup::find($subgroupId);
             if ($selectedSubgroup && $selectedSubgroup->subgroup_dates_id) {
                 $query->where('subgroup_dates_id', $selectedSubgroup->subgroup_dates_id);
+            } elseif ($selectedSubgroup) {
+                // FALLBACK: Si no tiene subgroup_dates_id, usar posición para encontrar homónimos
+                // Esto es para compatibilidad con cursos legacy o mal creados
+                $this->applyPositionBasedFallback($query, $selectedSubgroup);
             } else {
-                return $this->sendError('Selected subgroup does not have a valid subgroup_dates_id.');
+                return $this->sendError('Selected subgroup not found.');
             }
         } elseif ($scope === 'all' && !empty($subgroupIds)) {
             $selectedSubgroup = CourseSubgroup::find($subgroupIds[0]);
             if ($selectedSubgroup && $selectedSubgroup->subgroup_dates_id) {
                 $query->where('subgroup_dates_id', $selectedSubgroup->subgroup_dates_id);
+            } elseif ($selectedSubgroup) {
+                // FALLBACK: Si no tiene subgroup_dates_id, usar posición para encontrar homónimos
+                // Esto es para compatibilidad con cursos legacy o mal creados
+                $this->applyPositionBasedFallback($query, $selectedSubgroup);
             } else {
-                return $this->sendError('Selected subgroup does not have a valid subgroup_dates_id.');
+                return $this->sendError('Selected subgroup not found.');
             }
         } elseif (!empty($subgroupIds)) {
             // Para otros scopes, filtrar por los subgroupIds especficos
@@ -1198,6 +1206,70 @@ class PlannerController extends AppBaseController
         }
 
         return $this->sendResponse($subgroups, 'Monitor transfer preview ready.');
+    }
+
+    /**
+     * FALLBACK: Apply position-based filtering for legacy courses without subgroup_dates_id
+     *
+     * When a subgroup doesn't have subgroup_dates_id, we find all homonymous copies
+     * by matching position within the same course_group on the same course_date
+     * This ensures legacy/poorly created courses still work with transfer-preview
+     */
+    private function applyPositionBasedFallback(&$query, CourseSubgroup $selectedSubgroup)
+    {
+        $courseGroup = $selectedSubgroup->courseGroup;
+        $courseDate = $selectedSubgroup->courseDate;
+
+        if (!$courseGroup || !$courseDate) {
+            // If we can't determine position context, just return the selected subgroup
+            $query->where('id', $selectedSubgroup->id);
+            return;
+        }
+
+        // Get the position of this subgroup within its course_group (0-indexed)
+        $position = $courseGroup->courseSubgroups()
+            ->orderBy('id')
+            ->pluck('id')
+            ->search($selectedSubgroup->id);
+
+        if ($position === false) {
+            // Fallback if position can't be determined
+            $query->where('id', $selectedSubgroup->id);
+            return;
+        }
+
+        // Get the course to find all dates with this course_group
+        $course = $courseGroup->course;
+        if (!$course) {
+            $query->where('id', $selectedSubgroup->id);
+            return;
+        }
+
+        // Find all course_groups with the same structure across all course dates
+        // Then find the subgroup at the same position in each group
+        $courseDates = $course->courseDates()->whereNull('deleted_at')->pluck('id');
+
+        // Get all subgroup IDs that are at the same position in their respective groups
+        $homonymousIds = DB::table('course_groups')
+            ->whereIn('course_date_id', $courseDates)
+            ->where('degree_id', $courseGroup->degree_id)
+            ->get()
+            ->flatMap(function($group) use ($position) {
+                return CourseSubgroup::where('course_group_id', $group->id)
+                    ->orderBy('id')
+                    ->get()
+                    ->skip($position)
+                    ->take(1)
+                    ->pluck('id');
+            })
+            ->unique();
+
+        if ($homonymousIds->isNotEmpty()) {
+            $query->whereIn('id', $homonymousIds);
+        } else {
+            // Fallback: just use the selected subgroup
+            $query->where('id', $selectedSubgroup->id);
+        }
     }
 
     private function getSchoolSettings($school): array
