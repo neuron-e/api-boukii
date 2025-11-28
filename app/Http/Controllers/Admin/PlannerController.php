@@ -1045,12 +1045,28 @@ class PlannerController extends AppBaseController
 
         // Para scope='all', NO filtrar por rango en la query (queremos TODOS los subgroups)
         // Para otros scopes, filtrar por rango en la query (ms eficiente)
+        $_dateFiltered = false;
         if ($startDate && $scope !== 'all') {
             $end = $endDate ?? $startDate;
-            // Filtrar por rango de fechas usando la tabla junction correcta
-            $query->whereHas('courseSubgroupDates.courseDate',
-                fn($q) => $q->whereBetween('date', [$startDate, $end])->whereNull('deleted_at')
-            );
+            // MEJORADO: Para 'from' y 'range', intentar with junction table
+            // Si falla o no hay resultados, continuar sin ese filtro
+            // (se filtrará en memoria para compatibilidad con legacy courses)
+            try {
+                $testQuery = clone $query;
+                $testResults = $testQuery->whereHas('courseSubgroupDates.courseDate',
+                    fn($q) => $q->whereBetween('date', [$startDate, $end])->whereNull('deleted_at')
+                )->limit(1)->get();
+
+                if ($testResults->isNotEmpty()) {
+                    // Si hay resultados con junction table, aplicar el filtro
+                    $query->whereHas('courseSubgroupDates.courseDate',
+                        fn($q) => $q->whereBetween('date', [$startDate, $end])->whereNull('deleted_at')
+                    );
+                    $_dateFiltered = true;
+                }
+            } catch (\Exception $e) {
+                // Si hay error, continuar sin este filtro (legacy courses)
+            }
         }
 
         $rawSubgroups = $query->get();
@@ -1135,7 +1151,7 @@ class PlannerController extends AppBaseController
             })->values();
         } else {
             // Para otros scopes, mapear normalmente (cada subgroup es una instancia nica)
-            $subgroups = $rawSubgroups->map(function (CourseSubgroup $subgroup) use ($scope, $startDate, $endDate) {
+            $subgroups = $rawSubgroups->map(function (CourseSubgroup $subgroup) use ($scope, $startDate, $endDate, $_dateFiltered) {
                 $course = $subgroup->courseGroup?->course;
 
                 // MEJORADO: Obtener mapa de course_date_id => monitor para cada fecha
@@ -1157,16 +1173,32 @@ class PlannerController extends AppBaseController
                     ->get();
 
                 // Si hay rango de fechas, filtrar las que caen dentro del rango
-                if ($startDate && $endDate) {
-                    $homonymousDates = $homonymousDates->filter(function ($date) use ($startDate, $endDate) {
-                        $dateStr = is_string($date->date) ? $date->date : $date->date->format('Y-m-d');
-                        return $dateStr >= $startDate && $dateStr <= $endDate;
-                    });
-                } elseif ($startDate) {
-                    $homonymousDates = $homonymousDates->filter(function ($date) use ($startDate) {
-                        $dateStr = is_string($date->date) ? $date->date : $date->date->format('Y-m-d');
-                        return $dateStr === $startDate;
-                    });
+                // Aplicar filtrado en memoria si no fue filtrado en la query (legacy courses)
+                if ($scope !== 'all' && !$_dateFiltered && $startDate) {
+                    if ($startDate && $endDate && $scope === 'range') {
+                        $homonymousDates = $homonymousDates->filter(function ($date) use ($startDate, $endDate) {
+                            $dateStr = is_string($date->date) ? $date->date : $date->date->format('Y-m-d');
+                            return $dateStr >= $startDate && $dateStr <= $endDate;
+                        });
+                    } elseif ($startDate && $scope === 'from') {
+                        $homonymousDates = $homonymousDates->filter(function ($date) use ($startDate) {
+                            $dateStr = is_string($date->date) ? $date->date : $date->date->format('Y-m-d');
+                            return $dateStr >= $startDate;
+                        });
+                    }
+                } elseif ($scope === 'all') {
+                    // Para scope='all', aplicar filtrado si existe rango
+                    if ($startDate && $endDate) {
+                        $homonymousDates = $homonymousDates->filter(function ($date) use ($startDate, $endDate) {
+                            $dateStr = is_string($date->date) ? $date->date : $date->date->format('Y-m-d');
+                            return $dateStr >= $startDate && $dateStr <= $endDate;
+                        });
+                    } elseif ($startDate) {
+                        $homonymousDates = $homonymousDates->filter(function ($date) use ($startDate) {
+                            $dateStr = is_string($date->date) ? $date->date : $date->date->format('Y-m-d');
+                            return $dateStr === $startDate;
+                        });
+                    }
                 }
 
                 $homonymousDateIds = $homonymousDates->pluck('id')->toArray();
