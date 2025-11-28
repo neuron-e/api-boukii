@@ -455,7 +455,7 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
 
         Route::get('/season-dashboard', [FinanceController::class, 'getSeasonFinancialDashboard']);
 
-        Route::get('/season-dashboard/export', [FinanceController::class, 'exportRealSalesReport']);
+        Route::get('/season-dashboard/export', [FinanceController::class, 'exportSeasonDashboard']);
         /*        Route::get('/season-dashboard', [FinanceControllerRefactor::class, 'getSeasonFinancialDashboard'])
                     ->name('finance.season-dashboard');*/
 

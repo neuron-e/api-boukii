@@ -8567,6 +8567,63 @@ class FinanceController extends AppBaseController
 
         return $testAnalysis;
     }
+
+
+    /**
+     * Helper: Resolve export locale from request parameters
+     */
+    protected function resolveExportLocale(Request $request): string
+    {
+        $locale = $request->input('locale') ?? $request->input('lang') ?? config('app.locale', 'en');
+        $supported = ['es', 'en', 'fr', 'it', 'de'];
+        return in_array($locale, $supported) ? $locale : config('app.locale', 'en');
+    }
+
+    /**
+     * Helper: Get translated label for export headers
+     */
+    protected function label(string $key, string $fallback = ''): string
+    {
+        $currentLocale = app()->getLocale();
+        app()->setLocale($this->exportLocale);
+        $translation = trans($key);
+        app()->setLocale($currentLocale);
+        return $translation ?: $fallback;
+    }
+
+    /**
+     * Helper: Get course name in the export locale
+     */
+    protected function getCourseNameForLocale($course): string
+    {
+        if (!$course) return '';
+        if (is_object($course) && isset($course->translations)) {
+            $translations = $course->translations;
+            if (is_string($translations)) $translations = json_decode($translations, true);
+            if (is_array($translations) && isset($translations[$this->exportLocale]))
+                return $translations[$this->exportLocale] ?? $course->name ?? '';
+        }
+        return $course->name ?? $course;
+    }
+
+    /**
+     * Helper: Localize course names in dashboard data
+     */
+    protected function localizeDashboardCourses(array $dashboardData): array
+    {
+        if (isset($dashboardData['courses']) && is_array($dashboardData['courses'])) {
+            foreach ($dashboardData['courses'] as &$courseData) {
+                if (isset($courseData['course']) || isset($courseData['id'])) {
+                    $courseId = $courseData['course'] ?? $courseData['id'] ?? null;
+                    if ($courseId) {
+                        $course = Course::find($courseId);
+                        if ($course) {
+                            $courseData['name'] = $this->getCourseNameForLocale($course);
+                        }
+                    }
+                }
+            }
+        }
+        return $dashboardData;
+    }
 }
-
-
