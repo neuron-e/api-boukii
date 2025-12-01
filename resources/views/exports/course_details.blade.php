@@ -29,7 +29,12 @@
                     <td>{{ $date->hour_start }} - {{ $date->hour_end }}</td>
                     <td>{{ __('messages.Privado') }}</td>
                     <td>-</td>
-                    <td>{{ $bookingUser->monitor->fullname ?? __('messages.Sin asignar') }}</td>
+                    @php
+                        $monitorName = $bookingUser->monitor->fullname
+                            ?? optional($bookingUser->courseSubGroup?->monitor)->fullname
+                            ?? __('messages.Sin asignar');
+                    @endphp
+                    <td>{{ $monitorName }}</td>
                     <td>{{ $bookingUser->client->fullname ?? '' }}</td>
                     @php
                         $birthDate = $bookingUser->client->birth_date ?? null;

@@ -39,6 +39,7 @@ class CourseDetailsExport implements FromView, WithTitle
             $course->load([
                 'courseDates.bookingUsers.client',
                 'courseDates.bookingUsers.monitor',
+                'courseDates.bookingUsers.courseSubGroup.monitor',
                 'courseDates.bookingUsers.booking.clientMain',
                 'courseDates.bookingUsers.bookingUserExtras.courseExtra',
             ]);
