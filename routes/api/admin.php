@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\AnalyticsProfessionalController;
 use App\Http\Controllers\Admin\CourseIntervalMonitorController;
+use App\Http\Controllers\Admin\FrontendLogController;
 use App\Http\Controllers\Admin\ReferenceDataController;
 use App\Http\Controllers\Admin\FinanceController;
 use App\Http\Controllers\Admin\FinanceControllerRefactor;
@@ -31,6 +32,7 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
     Route::get('/courses/check-availability', [App\Http\Controllers\Admin\CourseCapacityController::class, 'previewAvailability'])
         ->name('api.admin.courses.preview-availability');
     Route::post('/courses/validate-booking', [App\Http\Controllers\Admin\CourseCapacityController::class, 'validateBookingCapacity']);
+    Route::post('/frontend/logs', [FrontendLogController::class, 'store'])->name('api.admin.frontend.logs.store');
 
     Route::resource('courses', App\Http\Controllers\Admin\CourseController::class)
         ->except(['create', 'edit'])->names([
@@ -42,6 +44,7 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
         ]);
 
     Route::get('/courses/{id}/export/{lang}', [App\Http\Controllers\Admin\CourseController::class, 'exportDetails']);
+    Route::get('/schools/{id}/courses/export/{lang}', [App\Http\Controllers\Admin\CourseController::class, 'exportDetailsBySchool']);
 
     Route::get('/courses/{id}/sells/', [App\Http\Controllers\Admin\CourseController::class, 'getSellStats']);
 

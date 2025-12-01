@@ -15,6 +15,7 @@ use App\Models\Season;
 use App\Repositories\CourseRepository;
 use App\Support\IntervalDiscountHelper;
 use App\Traits\Utils;
+use App\Exports\CoursesBySchoolExport;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
@@ -221,18 +222,28 @@ class CourseController extends AppBaseController
         $school = $this->getSchool($request);
 
         app()->setLocale($lang);
-        // Valida el ID del curso
-        $course = Course::with([
-            'courseDates.courseGroups.bookingUsers.client'
-        ])->where('school_id', $school->id)->findOrFail($courseId);
 
-        if (empty($course)) {
+        // Cargar curso con relaciones específicas según tipo (colectivo vs privado)
+        $course = Course::where('school_id', $school->id)->findOrFail($courseId);
+
+        if (!$course) {
             return $this->sendError('Course does not exist in this school');
         }
 
-        //dd($course->courseDates[0]);
-        // Exporta el archivo
         return (new CourseDetailsExport($courseId))->download('course_details.xlsx');
+    }
+
+    public function exportDetailsBySchool(Request $request, $schoolId, $lang = 'fr')
+    {
+        $school = $this->getSchool($request);
+
+        if ($school && (int)$school->id !== (int)$schoolId) {
+            return $this->sendError('School mismatch');
+        }
+
+        app()->setLocale($lang);
+
+        return (new CoursesBySchoolExport((int)$schoolId))->download("school_courses_{$schoolId}.xlsx");
     }
 
     /**
@@ -413,11 +424,102 @@ class CourseController extends AppBaseController
             if ($course->course_type === 1) {
                 $hasWeekDays = is_array($weekDays) && count(array_filter($weekDays)) > 0;
 
-                // PASO 1: Crear todas las dates primero
+                // Preparar mapa de subgroup_dates_id por nivel+índice para mantener consistencia
+                $slotIdMap = [];
+                $maxNum = DB::table('course_subgroups')
+                    ->whereNotNull('subgroup_dates_id')
+                    ->get()
+                    ->map(function($row) {
+                        $matches = [];
+                        preg_match('/SG-(\d+)/', $row->subgroup_dates_id, $matches);
+                        return isset($matches[1]) ? (int)$matches[1] : 0;
+                    })
+                    ->max() ?? 0;
+                $nextSeq = $maxNum + 1;
+
+                // Normalizar subgroup_dates_id en el payload, manteniendo los enviados y generando sólo si faltan
+                foreach ($courseData['course_dates'] as &$dateData) {
+                    $groups = $dateData['course_groups'] ?? $dateData['groups'] ?? [];
+                    if (!is_array($groups)) {
+                        $groups = [];
+                    }
+                    foreach ($groups as $gIdx => &$group) {
+                        if (!isset($group['course_subgroups']) && isset($group['subgroups'])) {
+                            $group['course_subgroups'] = $group['subgroups'];
+                        }
+                        $subgroups = $group['course_subgroups'] ?? [];
+                        if (!is_array($subgroups)) {
+                            $subgroups = [];
+                        }
+                        foreach ($subgroups as $sgIdx => &$sg) {
+                            $levelId = $group['degree_id'] ?? $group['degreeId'] ?? null;
+                            $slotKey = $levelId . '|' . $sgIdx;
+                            if (empty($sg['subgroup_dates_id'])) {
+                                if (isset($slotIdMap[$slotKey])) {
+                                    $sg['subgroup_dates_id'] = $slotIdMap[$slotKey];
+                                } else {
+                                    $sg['subgroup_dates_id'] = 'SG-' . str_pad($nextSeq, 6, '0', STR_PAD_LEFT);
+                                    $slotIdMap[$slotKey] = $sg['subgroup_dates_id'];
+                                    $nextSeq++;
+                                }
+                            } else {
+                                $slotIdMap[$slotKey] = $sg['subgroup_dates_id'];
+                            }
+                        }
+                        $group['course_subgroups'] = $subgroups;
+                        // Alinear campo legacy
+                        $group['subgroups'] = $subgroups;
+                    }
+                    $dateData['course_groups'] = $groups;
+                    $dateData['groups'] = $groups;
+                }
+                unset($dateData);
+
+                // PASO 1: Crear todas las dates primero, preservando el origen de grupos
                 $createdDates = [];
-                $referenceGroups = null; // Para replicar los grupos de la primera fecha a todas las demás
 
                 foreach ($courseData['course_dates'] as $dateData) {
+                    // Normalizar grupos/subgrupos a arrays simples
+                    $groups = $dateData['course_groups'] ?? $dateData['groups'] ?? [];
+                    if (!is_array($groups)) {
+                        $groups = [];
+                    }
+                    $normalizedGroups = [];
+                    foreach ($groups as $gIdx => $group) {
+                        if ($group instanceof \App\Models\CourseGroup) {
+                            $group = $group->toArray();
+                        }
+                        $subs = $group['course_subgroups'] ?? $group['subgroups'] ?? [];
+                        if (!is_array($subs)) {
+                            $subs = [];
+                        }
+                        foreach ($subs as $sgIdx => &$sg) {
+                            if ($sg instanceof \App\Models\CourseSubgroup) {
+                                $sg = $sg->toArray();
+                            }
+                            $levelId = $group['degree_id'] ?? $group['degreeId'] ?? null;
+                            $slotKey = $levelId . '|' . $sgIdx;
+                            if (empty($sg['subgroup_dates_id'])) {
+                                if (isset($slotIdMap[$slotKey])) {
+                                    $sg['subgroup_dates_id'] = $slotIdMap[$slotKey];
+                                } else {
+                                    $sg['subgroup_dates_id'] = 'SG-' . str_pad($nextSeq, 6, '0', STR_PAD_LEFT);
+                                    $slotIdMap[$slotKey] = $sg['subgroup_dates_id'];
+                                    $nextSeq++;
+                                }
+                            } else {
+                                $slotIdMap[$slotKey] = $sg['subgroup_dates_id'];
+                            }
+                        }
+                        unset($sg);
+                        $group['course_subgroups'] = $subs;
+                        $group['subgroups'] = $subs;
+                        $normalizedGroups[] = $group;
+                    }
+                    unset($group);
+                    $dateData['course_groups'] = $normalizedGroups;
+                    $dateData['groups'] = $normalizedGroups;
+
                     // Validar o calcular hour_end
                     if (empty($dateData['hour_end']) && !empty($dateData['duration'])) {
                         $dateData['hour_end'] = $this->calculateHourEnd($dateData['hour_start'], $dateData['duration']);
@@ -426,84 +528,64 @@ class CourseController extends AppBaseController
                         return $this->sendError('Either hour_end or duration must be provided.');
                     }
 
+                    $datePayload = $dateData;
+                    unset($datePayload['groups'], $datePayload['course_groups']);
+
                     if ($hasWeekDays) {
                         $date = new \DateTime($dateData['date']);
                         $dayOfWeek = strtolower($date->format('l'));
 
                         if (isset($weekDays[$dayOfWeek]) && $weekDays[$dayOfWeek]) {
-                            $createdDate = $course->courseDates()->create($dateData);
-                            $createdDates[] = $createdDate;
+                            $createdDate = $course->courseDates()->create($datePayload);
+                            $createdDates[] = ['model' => $createdDate, 'groups' => $dateData['course_groups'] ?? []];
                         } else {
                             continue;
                         }
                     } else {
-                        $createdDate = $course->courseDates()->create($dateData);
-                        $createdDates[] = $createdDate;
-                    }
-
-                    // Guardar los grupos de la primera fecha para replicarlos
-                    if ($referenceGroups === null && isset($dateData['groups'])) {
-                        $referenceGroups = $dateData['groups'];
+                        $createdDate = $course->courseDates()->create($datePayload);
+                        $createdDates[] = ['model' => $createdDate, 'groups' => $dateData['course_groups'] ?? []];
                     }
                 }
 
-                // PASO 2: Replicar grupos/subgrupos de la PRIMERA fecha a TODAS las demás fechas
-                // Usar un mapa para reutilizar subgroup_dates_id consistentemente
-                if ($referenceGroups !== null && count($createdDates) > 0) {
-                    $subgroupDatesMap = []; // Key: "groupIndex_subgroupIndex" → ID
+                // PASO 2: Crear grupos/subgrupos según cada fecha sin replicar desde la primera
+                foreach ($createdDates as $entry) {
+                    /** @var \App\Models\CourseDate $dateModel */
+                    $dateModel = $entry['model'];
+                    $groups = $entry['groups'] ?? [];
+                    foreach ($groups as $groupData) {
+                        if ($groupData instanceof \App\Models\CourseGroup) {
+                            $groupData = $groupData->toArray();
+                        }
+                        $subgroups = $groupData['course_subgroups'] ?? $groupData['subgroups'] ?? [];
+                        unset($groupData['course_subgroups'], $groupData['subgroups']);
+                        $groupData['course_id'] = $course->id;
+                        $groupData['course_date_id'] = $dateModel->id;
+                        $group = $dateModel->courseGroups()->create($groupData);
 
-                    foreach ($createdDates as $date) {
-                        foreach ($referenceGroups as $groupIndex => $groupData) {
-                            $groupData['course_id'] = $course->id;
-                            $group = $date->courseGroups()->create($groupData);
-
-                            if (isset($groupData['subgroups'])) {
-                                foreach ($groupData['subgroups'] as $subgroupIndex => &$subgroup) {
-                                    $subgroup['course_id'] = $course->id;
-                                    $subgroup['course_date_id'] = $date->id;
-
-                                    // Key for this subgroup position (group index + subgroup index)
-                                    $subgroupKey = "{$groupIndex}_{$subgroupIndex}";
-
-                                    // If first time seeing this subgroup position, assign new ID
-                                    if (!isset($subgroupDatesMap[$subgroupKey])) {
-                                        // Generate new ID
-                                        $maxNum = DB::table('course_subgroups')
-                                            ->whereNotNull('subgroup_dates_id')
-                                            ->get()
-                                            ->map(function($row) {
-                                                $matches = [];
-                                                preg_match('/SG-(\d+)/', $row->subgroup_dates_id, $matches);
-                                                return isset($matches[1]) ? (int)$matches[1] : 0;
-                                            })
-                                            ->max() ?? 0;
-
-                                        $subgroupDatesMap[$subgroupKey] = 'SG-' . str_pad($maxNum + 1, 6, '0', STR_PAD_LEFT);
-                                    }
-
-                                    // Reuse the subgroup_dates_id for all dates
-                                    $subgroup['subgroup_dates_id'] = $subgroupDatesMap[$subgroupKey];
+                        if (is_array($subgroups) && count($subgroups) > 0) {
+                            $subgroups = array_map(function ($sg) use ($course, $dateModel, $group) {
+                                if ($sg instanceof \App\Models\CourseSubgroup) {
+                                    $sg = $sg->toArray();
                                 }
-
-                                // Create subgroups
-                                $createdSubgroups = $group->courseSubgroups()->createMany($groupData['subgroups']);
-                            }
+                                $sg['subgroup_dates_id'] = $sg['subgroup_dates_id'] ?? null;
+                                $sg['course_id'] = $course->id;
+                                $sg['course_date_id'] = $dateModel->id;
+                                $sg['course_group_id'] = $group->id;
+                                return $sg;
+                            }, $subgroups);
+                            $group->courseSubgroups()->createMany($subgroups);
                         }
                     }
                 }
 
                 // FIX: Create CourseSubgroupDate junction records for all subgroups
-                // After all dates/groups/subgroups are created, link each subgroup to ALL dates where its homonymous version exists
-                // This ensures transfer-preview shows all dates for each subgroup
                 $allCreatedSubgroups = CourseSubgroup::where('course_id', $course->id)->get();
                 foreach ($allCreatedSubgroups as $subgroup) {
                     if ($subgroup->subgroup_dates_id) {
-                        // Find ALL subgroups with this subgroup_dates_id (they are homonymous copies across different dates)
                         $homonymousSubgroups = CourseSubgroup::where('course_id', $course->id)
                             ->where('subgroup_dates_id', $subgroup->subgroup_dates_id)
                             ->get();
 
-                        // For each homonymous subgroup, create junction record to its date
                         foreach ($homonymousSubgroups as $homonySg) {
                             CourseSubgroupDate::firstOrCreate(
                                 [
@@ -712,6 +794,31 @@ class CourseController extends AppBaseController
             $emailGroups = [];
             $courseData = $request->all();
             $course = Course::findOrFail($id); // Suponiendo que tienes el ID del curso que deseas editar
+            $courseDatesIncoming = $courseData['course_dates'] ?? [];
+            $datesSummary = collect($courseDatesIncoming)->map(function ($cd) {
+                $groups = collect($cd['course_groups'] ?? []);
+                return [
+                    'id' => $cd['id'] ?? null,
+                    'date' => $cd['date'] ?? null,
+                    'interval_id' => $cd['interval_id'] ?? null,
+                    'groups' => $groups->map(function ($g) {
+                        $subs = collect($g['course_subgroups'] ?? []);
+                        return [
+                            'id' => $g['id'] ?? null,
+                            'degree_id' => $g['degree_id'] ?? null,
+                            'subgroup_ids' => $subs->pluck('id')->filter()->values(),
+                            'subgroup_dates_ids' => $subs->pluck('subgroup_dates_id')->filter()->values(),
+                            'subgroups_count' => $subs->count(),
+                        ];
+                    })->values(),
+                ];
+            })->values();
+            Log::debug('course.update.payload.summary', [
+                'course_id' => $id,
+                'course_type' => $courseData['course_type'] ?? null,
+                'dates_count' => count($courseDatesIncoming),
+                'dates' => $datesSummary,
+            ]);
 
             if (!empty($courseData['image'])) {
                 $base64Image = $request->input('image');
@@ -934,6 +1041,21 @@ class CourseController extends AppBaseController
                     $updatedCourseDates[] = $date->id;
 
                     if (isset($dateData['course_groups'])) {
+                        Log::debug('course.update.date.groups.incoming', [
+                            'course_id' => $course->id,
+                            'course_date_id' => $date->id,
+                            'date' => $dateData['date'] ?? null,
+                            'groups' => collect($dateData['course_groups'])->map(function ($g) {
+                                $subs = collect($g['course_subgroups'] ?? []);
+                                return [
+                                    'id' => $g['id'] ?? null,
+                                    'degree_id' => $g['degree_id'] ?? null,
+                                    'subgroup_ids' => $subs->pluck('id')->filter()->values(),
+                                    'subgroup_dates_ids' => $subs->pluck('subgroup_dates_id')->filter()->values(),
+                                ];
+                            })->values(),
+                        ]);
+
                         $updatedCourseGroups = [];
                         foreach ($dateData['course_groups'] as $groupData) {
                             // Verifica si existe 'id' antes de usarlo
@@ -1032,17 +1154,24 @@ class CourseController extends AppBaseController
                                     }
                                     $updatedSubgroups[] = $subgroup->id;
 
-                                    if ($monitorProvided || $previousMonitorId !== $subgroup->monitor_id) {
-                                        $this->syncBookingUsersMonitor($subgroup);
-                                    }
+                                if ($monitorProvided || $previousMonitorId !== $subgroup->monitor_id) {
+                                    $this->syncBookingUsersMonitor($subgroup);
                                 }
-
-                                // Eliminar los subgrupos que ya no están en la request
-                                $group->courseSubgroups()->whereNotIn('id', $updatedSubgroups)->delete();
                             }
+
+                            // Eliminar los subgrupos que ya no están en la request
+                            Log::debug('course.update.group.subgroups.sync', [
+                                'course_id' => $course->id,
+                                'course_date_id' => $date->id,
+                                'course_group_id' => $group->id,
+                                'incoming_subgroup_ids' => $updatedSubgroups,
+                                'delete_missing' => true,
+                            ]);
+                            $group->courseSubgroups()->whereNotIn('id', $updatedSubgroups)->delete();
                         }
-                        $date->courseGroups()->whereNotIn('id', $updatedCourseGroups)->delete();
                     }
+                    $date->courseGroups()->whereNotIn('id', $updatedCourseGroups)->delete();
+                }
                 }
                 $course->courseDates()->whereNotIn('id', $updatedCourseDates)->delete();
             }
