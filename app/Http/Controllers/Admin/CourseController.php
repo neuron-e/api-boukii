@@ -794,6 +794,43 @@ class CourseController extends AppBaseController
             $emailGroups = [];
             $courseData = $request->all();
             $course = Course::findOrFail($id); // Suponiendo que tienes el ID del curso que deseas editar
+            $isPartial = $request->isMethod('patch') && !$request->has('course_dates');
+
+            if ($isPartial) {
+                $partialKeys = [
+                    'name', 'description', 'summary', 'short_description',
+                    'claim_text', 'status', 'visibility', 'course_type',
+                    'sport_id', 'station_id', 'price', 'price_range',
+                    'age_min', 'age_max', 'min_participants', 'max_participants',
+                    'settings', 'translations', 'is_flexible', 'duration'
+                ];
+
+                $payload = [];
+                foreach ($partialKeys as $key) {
+                    if ($request->has($key)) {
+                        $payload[$key] = $courseData[$key];
+                    }
+                }
+
+                // Decode settings if needed
+                if (isset($payload['settings']) && is_string($payload['settings'])) {
+                    $decoded = json_decode($payload['settings'], true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        $payload['settings'] = $decoded;
+                    }
+                }
+
+                if (empty($payload)) {
+                    return $this->sendResponse($course, 'No changes detected');
+                }
+
+                DB::beginTransaction();
+                $course->fill($payload);
+                $course->save();
+                DB::commit();
+
+                return $this->sendResponse($course->fresh(), 'Course updated successfully');
+            }
             $courseDatesIncoming = $courseData['course_dates'] ?? [];
             $datesSummary = collect($courseDatesIncoming)->map(function ($cd) {
                 $groups = collect($cd['course_groups'] ?? []);
