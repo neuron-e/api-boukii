@@ -24,6 +24,7 @@ class CourseDetailsExport implements FromView, WithTitle
     {
         // Cargar curso y relaciones específicas según tipo
         $course = Course::with(['courseDates'])->findOrFail($this->courseId);
+        $bookingUsersPrivate = collect();
 
         if ($course->course_type == 1) {
             // Colectivos: incluir grupos/subgrupos y booking users relacionados
@@ -35,18 +36,26 @@ class CourseDetailsExport implements FromView, WithTitle
                 'courseDates.courseGroups.degree',
             ]);
         } else {
-            // Privados: no hay grupos; usar bookingUsers por fecha
-            $course->load([
-                'courseDates.bookingUsers.client',
-                'courseDates.bookingUsers.monitor',
-                'courseDates.bookingUsers.courseSubGroup.monitor',
-                'courseDates.bookingUsers.booking.clientMain',
-                'courseDates.bookingUsers.bookingUserExtras.courseExtra',
-            ]);
+            // Privados: obtener bookingUsers directamente del curso (incluye date/hour)
+            $bookingUsersPrivate = $course->bookingUsers()
+                ->with([
+                    'client',
+                    'monitor',
+                    'courseGroup.monitor',
+                    'courseSubGroup.monitor',
+                    'booking.clientMain',
+                    'bookingUserExtras.courseExtra',
+                ])
+                ->orderBy('date')
+                ->orderBy('hour_start')
+                ->get();
         }
 
         // Retorna la vista con los datos
-        return view('exports.course_details', compact('course'));
+        return view('exports.course_details', [
+            'course' => $course,
+            'bookingUsersPrivate' => $bookingUsersPrivate,
+        ]);
     }
 
     // Aplicar estilos básicos a la hoja de cálculo
