@@ -279,12 +279,23 @@ class BookingController extends AppBaseController
                 if ($course) {
                     $sportId = $course->sport_id;
 
-                    $existingClientSport = $client->clientSports()
+                    // Incluir registros soft-deleted para evitar violar la restricciÃ³n Ãºnica
+                    $existingClientSport = ClientSport::withTrashed()
+                        ->where('client_id', $client->id)
                         ->where('sport_id', $sportId)
                         ->where('school_id', $school['id'])
                         ->first();
 
-                    if (!$existingClientSport) {
+                    if ($existingClientSport) {
+                        // Si estaba eliminado, restaurar; actualizar degree si aplica
+                        if ($existingClientSport->trashed()) {
+                            $existingClientSport->restore();
+                        }
+                        if (!empty($cartItem['degree_id'])) {
+                            $existingClientSport->degree_id = $cartItem['degree_id'];
+                            $existingClientSport->save();
+                        }
+                    } else {
                         ClientSport::create([
                             'client_id' => $client->id,
                             'sport_id' => $sportId,
