@@ -800,9 +800,12 @@ class CourseController extends AppBaseController
                 $partialKeys = [
                     'name', 'description', 'summary', 'short_description',
                     'claim_text', 'status', 'visibility', 'course_type',
-                    'sport_id', 'station_id', 'price', 'price_range',
+                    'sport_id', 'station_id', 'price', 'price_range', 'currency',
                     'age_min', 'age_max', 'min_participants', 'max_participants',
-                    'settings', 'translations', 'is_flexible', 'duration'
+                    'confirm_attendance', 'active', 'online', 'highlighted',
+                    'options', 'unique', 'settings', 'translations', 'is_flexible', 'duration',
+                    'date_start_res', 'date_end_res', 'hour_min', 'hour_max',
+                    'meeting_point', 'meeting_point_address', 'meeting_point_instructions',
                 ];
 
                 $payload = [];
