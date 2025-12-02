@@ -371,6 +371,7 @@ class ClientController extends SlugAuthController
             if (!$client->user) {
                 // Si no tiene usuario, crea uno
                 $newUser = new User($input);
+                $newUser->active = true;
                 $newUser->type = 'client';
                 $newUser->save();
                 $client->user_id = $newUser->id;
@@ -392,6 +393,7 @@ class ClientController extends SlugAuthController
         ]);
 
         $newUser = new User($input);
+        $newUser->active = true;
         $newUser->type = 'client';
         $newUser->save();
         $newClient->user_id = $newUser->id;
