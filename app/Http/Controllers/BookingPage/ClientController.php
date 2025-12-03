@@ -166,6 +166,37 @@ class ClientController extends SlugAuthController
         ];
     }
 
+    private function normalizeLanguageIds(array $input): array
+    {
+        $languageFields = ['language1_id', 'language2_id', 'language3_id'];
+
+        foreach ($languageFields as $field) {
+            if (!array_key_exists($field, $input)) {
+                continue;
+            }
+
+            $value = $input[$field];
+
+            if (is_array($value) && array_key_exists('id', $value)) {
+                $value = $value['id'];
+            }
+
+            if ($value === '' || $value === null) {
+                $input[$field] = null;
+                continue;
+            }
+
+            if (is_numeric($value)) {
+                $input[$field] = (int) $value;
+                continue;
+            }
+
+            $input[$field] = $value;
+        }
+
+        return $input;
+    }
+
     /**
      * @OA\Get(
      *      path="/slug/clients/{id}/utilizers",
@@ -339,20 +370,23 @@ class ClientController extends SlugAuthController
      */
     public function store(Request $request): JsonResponse
     {
-        // Valida los datos de la solicitud, asegúrate de que contenga al menos los campos necesarios
-        $request->validate([
+        $input = $this->normalizeLanguageIds($request->all());
+
+        $validator = Validator::make($input, [
             'first_name' => 'required|string',
             'last_name' => 'required|string',
             'birth_date' => 'required',
             'phone' => 'required',
             'email' => 'required',
             'password' => 'required',
-            'language1_id' => 'required',
-            'language2_id' => 'nullable',
-            'language3_id' => 'nullable'
+            'language1_id' => 'required|integer',
+            'language2_id' => 'nullable|integer',
+            'language3_id' => 'nullable|integer',
+            'accepts_newsletter' => 'nullable|boolean'
         ]);
 
-        $input = $request->all();
+        $validator->validate();
+        $input = $validator->validated();
 
         if(!empty($input['password'])) {
             $input['password'] = bcrypt($input['password']);
