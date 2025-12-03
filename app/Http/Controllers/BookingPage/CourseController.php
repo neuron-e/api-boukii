@@ -109,6 +109,8 @@ class CourseController extends SlugAuthController
             // Cache for 5 minutes (300 seconds) for course listings
             $courses = Cache::remember($cacheKey, 300, function() use ($type, $startDate, $endDate, $sportId, $clientId, $getLowerDegrees, $degreeOrderArray, $minAge, $maxAge, $highlighted, $today) {
                 $todayDate = now()->format('Y-m-d');
+                $requestedStart = $startDate;
+                $requestedEnd = $endDate;
 
                 $hasCapacityOnCourseDate = function(int $courseDateId, int $courseType, int $maxParticipants): bool {
                     // Colectivos (tipo 1): disponibilidad por subgrupos
@@ -166,17 +168,20 @@ class CourseController extends SlugAuthController
                         ->orderBy('highlighted', 'desc')
                         ->orderBy('name')
                         ->get()
-                        ->filter(function($course) use ($todayDate, $hasCapacityOnCourseDate) {
+                        ->filter(function($course) use ($requestedStart, $requestedEnd, $hasCapacityOnCourseDate) {
                             // FIXED BUG #2: Improved booking period logic
 
-                            // 1. Check if today is within the course's bookable period
+                            // 1. Check if the requested window overlaps the course's bookable period
                             $isWithinBookingPeriod = true;
                             if ($course->date_start_res && $course->date_end_res) {
-                                $isWithinBookingPeriod = ($todayDate >= $course->date_start_res && $todayDate <= $course->date_end_res);
+                                $isWithinBookingPeriod = !(
+                                    ($requestedEnd < $course->date_start_res) ||
+                                    ($requestedStart > $course->date_end_res)
+                                );
                             }
 
                             if (!$isWithinBookingPeriod) {
-                                return false; // Course not bookable today
+                                return false; // Course not bookable in requested window
                             }
 
                             // 2. Parse settings

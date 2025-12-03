@@ -30,6 +30,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Arr;
 use Payrexx\Payrexx;
 use Response;
 use Validator;
@@ -157,6 +158,16 @@ class BookingController extends AppBaseController
 
         $basketJson = json_encode($basketData); // Asegrate de que no haya problemas con la conversin a JSON
 
+        $courseIds = collect($data['cart'] ?? [])
+            ->pluck('course_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $meetingPointData = $this->resolveMeetingPointFromCourses($courseIds);
+
         DB::beginTransaction();
         try {
             $voucherAmount = array_sum(array_column($data['vouchers'], 'bonus.reducePrice'));
@@ -183,7 +194,10 @@ class BookingController extends AppBaseController
                 'basket' => $basketJson,
                 'source' => 'admin',
                 'status' => 1,
-                'currency' => $data['cart'][0]['currency'] // Si todas las lneas tienen la misma moneda
+                'currency' => $data['cart'][0]['currency'], // Si todas las lneas tienen la misma moneda
+                'meeting_point' => Arr::get($data, 'meeting_point', $meetingPointData['meeting_point']),
+                'meeting_point_address' => Arr::get($data, 'meeting_point_address', $meetingPointData['meeting_point_address']),
+                'meeting_point_instructions' => Arr::get($data, 'meeting_point_instructions', $meetingPointData['meeting_point_instructions']),
             ]);
 
             // Crear BookingUser para cada detalle
@@ -1583,6 +1597,55 @@ class BookingController extends AppBaseController
         }
 
         return $this->sendResponse($booking, 'Cancel completed successfully');
+    }
+
+    private function resolveMeetingPointFromCourses(array $courseIds): array
+    {
+        $defaults = [
+            'meeting_point' => null,
+            'meeting_point_address' => null,
+            'meeting_point_instructions' => null,
+        ];
+
+        $uniqueCourseIds = array_values(array_unique(array_filter($courseIds)));
+        if (empty($uniqueCourseIds)) {
+            return $defaults;
+        }
+
+        $courses = Course::whereIn('id', $uniqueCourseIds)
+            ->get(['id', 'meeting_point', 'meeting_point_address', 'meeting_point_instructions']);
+
+        if ($courses->isEmpty()) {
+            return $defaults;
+        }
+
+        $meetingData = $courses->map(function ($course) {
+            return [
+                'meeting_point' => $course->meeting_point,
+                'meeting_point_address' => $course->meeting_point_address,
+                'meeting_point_instructions' => $course->meeting_point_instructions,
+            ];
+        });
+
+        $withMeeting = $meetingData->filter(fn ($mp) => !empty($mp['meeting_point']));
+
+        if ($withMeeting->isEmpty()) {
+            return $defaults;
+        }
+
+        if ($meetingData->count() === 1) {
+            return $withMeeting->first();
+        }
+
+        $first = $withMeeting->first();
+        $allHaveMeeting = $withMeeting->count() === $meetingData->count();
+        $allSame = $allHaveMeeting && $withMeeting->every(function ($mp) use ($first) {
+            return $mp['meeting_point'] === $first['meeting_point']
+                && $mp['meeting_point_address'] === $first['meeting_point_address']
+                && $mp['meeting_point_instructions'] === $first['meeting_point_instructions'];
+        });
+
+        return $allSame ? $first : $defaults;
     }
 }
 

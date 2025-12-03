@@ -211,6 +211,8 @@ class BookingController extends SlugAuthController
 
             $netPriceTotal = max(0, $grossPriceTotal - $discountCodeAmount);
 
+            $meetingPointData = $this->resolveMeetingPointFromCourses($courseIds);
+
             // Crear la reserva (Booking)
             $booking = Booking::create([
                 'school_id' => Arr::get($data, 'school_id'),
@@ -228,6 +230,9 @@ class BookingController extends SlugAuthController
                 'currency' => 'CHF',
                 'discount_code_id' => $discountCodeId,
                 'discount_code_value' => $discountCodeAmount,
+                'meeting_point' => Arr::get($data, 'meeting_point', $meetingPointData['meeting_point']),
+                'meeting_point_address' => Arr::get($data, 'meeting_point_address', $meetingPointData['meeting_point_address']),
+                'meeting_point_instructions' => Arr::get($data, 'meeting_point_instructions', $meetingPointData['meeting_point_instructions']),
             ]);
 
             // Crear BookingUser para cada detalle
@@ -1108,9 +1113,56 @@ class BookingController extends SlugAuthController
         }
     }
 
+    private function resolveMeetingPointFromCourses(array $courseIds): array
+    {
+        $defaults = [
+            'meeting_point' => null,
+            'meeting_point_address' => null,
+            'meeting_point_instructions' => null,
+        ];
+
+        $uniqueCourseIds = array_values(array_unique(array_filter($courseIds)));
+        if (empty($uniqueCourseIds)) {
+            return $defaults;
+        }
+
+        $courses = Course::whereIn('id', $uniqueCourseIds)
+            ->get(['id', 'meeting_point', 'meeting_point_address', 'meeting_point_instructions']);
+
+        if ($courses->isEmpty()) {
+            return $defaults;
+        }
+
+        $meetingData = $courses->map(function ($course) {
+            return [
+                'meeting_point' => $course->meeting_point,
+                'meeting_point_address' => $course->meeting_point_address,
+                'meeting_point_instructions' => $course->meeting_point_instructions,
+            ];
+        });
+
+        $withMeeting = $meetingData->filter(fn ($mp) => !empty($mp['meeting_point']));
+
+        if ($withMeeting->isEmpty()) {
+            return $defaults;
+        }
+
+        if ($meetingData->count() === 1) {
+            return $withMeeting->first();
+        }
+
+        $first = $withMeeting->first();
+        $allHaveMeeting = $withMeeting->count() === $meetingData->count();
+        $allSame = $allHaveMeeting && $withMeeting->every(function ($mp) use ($first) {
+            return $mp['meeting_point'] === $first['meeting_point']
+                && $mp['meeting_point_address'] === $first['meeting_point_address']
+                && $mp['meeting_point_instructions'] === $first['meeting_point_instructions'];
+        });
+
+        return $allSame ? $first : $defaults;
+    }
+
 }
-
-
 
 
 
