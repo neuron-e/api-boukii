@@ -45,6 +45,12 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
 
     Route::get('/courses/{id}/export/{lang}', [App\Http\Controllers\Admin\CourseController::class, 'exportDetails']);
     Route::get('/schools/{id}/courses/export/{lang}', [App\Http\Controllers\Admin\CourseController::class, 'exportDetailsBySchool']);
+    Route::get('/exports/courses-by-season', [App\Http\Controllers\Admin\CourseController::class, 'exportCoursesBySeason'])
+        ->name('api.admin.exports.courses-by-season');
+    Route::get('/exports/clients', [App\Http\Controllers\Admin\ClientExportController::class, 'exportClients'])
+        ->name('api.admin.exports.clients');
+    Route::get('/exports/vouchers', [App\Http\Controllers\Admin\VoucherExportController::class, 'export'])
+        ->name('api.admin.exports.vouchers');
 
     Route::get('/courses/{id}/sells/', [App\Http\Controllers\Admin\CourseController::class, 'getSellStats']);
 

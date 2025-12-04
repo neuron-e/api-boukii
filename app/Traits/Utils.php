@@ -39,6 +39,13 @@ trait Utils
         }
 
         $dates = $course->courseDates;
+        $dates = $dates->filter(function ($date) {
+            // Keep default behavior for null; exclude explicit inactive dates
+            return $date->active !== 0;
+        });
+        if ($dates->isEmpty()) {
+            $dates = $course->courseDates;
+        }
         $today = Carbon::today();
         $season = Season::whereDate('start_date', '<=', $today) // Fecha de inicio menor o igual a hoy
         ->whereDate('end_date', '>=', $today)   // Fecha de fin mayor o igual a hoy
@@ -57,13 +64,35 @@ trait Utils
             });
         }
 
+        $dedupeSubgroups = function ($courseDate) {
+            $subgroups = collect();
+
+            if ($courseDate->relationLoaded('courseGroups') && $courseDate->courseGroups) {
+                $subgroups = collect($courseDate->courseGroups)->flatMap(function ($group) {
+                    return $group->courseSubgroups ?? collect();
+                });
+            } else {
+                $subgroups = collect($courseDate->courseSubgroups);
+            }
+
+            return $subgroups
+                ->filter(function ($sg) {
+                    return !method_exists($sg, 'trashed') || !$sg->trashed();
+                })
+                ->unique(function ($sg) {
+                    $dateKey = $sg->course_date_id ?? 'date';
+                    $subKey = $sg->subgroup_dates_id ?? $sg->id ?? spl_object_hash($sg);
+                    return $dateKey . '|' . $subKey;
+                })
+                ->values();
+        };
+
         // Cursos de tipo 1
         if ($course->course_type == 1) {
             if ($course->is_flexible) {
-                // Calcular usando agregados directos para evitar inconsistencias de relaciones
+                // Calcular usando subgrupos únicos por fecha para evitar inflar capacidad
                 $dateIds = $dates->pluck('id')->all();
                 if (!empty($dateIds)) {
-                    // Para cursos flexibles: cada entrada de booking_user cuenta como una reserva individual
                     $totalBookingsPlaces = DB::table('booking_users')
                         ->join('bookings','bookings.id','=','booking_users.booking_id')
                         ->where('booking_users.course_id', $course->id)
@@ -72,14 +101,18 @@ trait Utils
                         ->where('bookings.status','!=',2)
                         ->count();
 
-                    // Capacidad total como suma de max_participants de subgrupos
-                    $totalPlaces = (int) DB::table('course_subgroups')
-                        ->whereIn('course_date_id', $dateIds)
-                        ->sum('max_participants');
+                    $allSubgroups = $dates->flatMap(function ($courseDate) use ($dedupeSubgroups) {
+                        return $dedupeSubgroups($courseDate);
+                    });
+                    $totalPlaces = (int) $allSubgroups->sum(function ($sg) {
+                        return (int) ($sg->max_participants ?? 0);
+                    });
 
-                    // Horas totales disponibles
                     foreach ($dates as $courseDate) {
-                        $dayCapacity = $courseDate->courseSubgroups ? $courseDate->courseSubgroups->sum('max_participants') : 0;
+                        $daySubgroups = $dedupeSubgroups($courseDate);
+                        $dayCapacity = $daySubgroups->sum(function ($sg) {
+                            return (int) ($sg->max_participants ?? 0);
+                        });
                         $hoursThisDate = $this->convertSecondsToHours(
                             $this->convertTimeRangeToSeconds($courseDate->hour_start, $courseDate->hour_end)
                         ) * $dayCapacity;
@@ -94,7 +127,8 @@ trait Utils
 
                     // âœ… VERIFICAR QUE TENGA SUBGRUPOS
                     $firstDate = $dates->first();
-                    if ($firstDate->courseSubgroups && $firstDate->courseSubgroups->count() > 0) {
+                    $firstDateSubgroups = $dedupeSubgroups($firstDate);
+                    if ($firstDateSubgroups && $firstDateSubgroups->count() > 0) {
 
                         $bookings = $course->bookingUsers()
                             ->where('status', 1)
@@ -113,8 +147,9 @@ trait Utils
                         $totalBookingsPlaces += $uniqueBookings->count();
 
                         // Para cursos NO flexibles, la capacidad es la de un dÃ­a/tanda (no multiplicar por nÂº de fechas)
-                        $firstSub = $firstDate->courseSubgroups->first();
-                        $capPerDate = $firstSub ? ($firstSub->max_participants * $firstDate->courseSubgroups->count()) : 0;
+                        $capPerDate = $firstDateSubgroups->sum(function ($sg) {
+                            return (int) ($sg->max_participants ?? 0);
+                        });
                         $totalPlaces += $capPerDate;
 
 

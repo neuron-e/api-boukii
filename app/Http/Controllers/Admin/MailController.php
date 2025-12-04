@@ -72,7 +72,9 @@ class MailController extends AppBaseController
 
         $validator = Validator::make($request->all(), [
             'subject' => 'required',
-            'body' => 'required'
+            'body' => 'required',
+            'emails' => 'sometimes|array',
+            'emails.*' => 'email'
         ]);
 
         if ($validator->fails()) {
@@ -81,14 +83,30 @@ class MailController extends AppBaseController
 
 
         $school = $this->getSchool($request);
-        //TODO: review dates
+        $subject = $request->input('subject');
+        $body = $request->input('body');
+        $explicitEmails = $request->input('emails', []);
 
+        // If explicit emails are provided (test send), bypass course/date filters.
+        if (!empty($explicitEmails)) {
+            $uniqueEmails = array_values(array_unique($explicitEmails));
+            $this->dispatchChunks($uniqueEmails, $subject, $body, $school);
+            EmailLog::create([
+                'school_id' => $school->id,
+                'date' => Carbon::today(),
+                'from' => 'booking@boukii.ch',
+                'to' => implode(', ', $uniqueEmails),
+                'subject' => $subject,
+                'body' => $body
+            ]);
+            return $this->sendResponse($uniqueEmails, 'Correo enviado correctamente');
+        }
+
+        //TODO: review dates
         $startDate = Carbon::parse($request->input('start_date'))->toDateString(); // "2024-12-21"
         $endDate = Carbon::parse($request->input('end_date'))->addDay()->toDateString(); // "2024-12-22"
 
         $courseIds = $request->input('course_ids');
-        $subject = $request->input('subject');
-        $body = $request->input('body');
         $sendToMonitors = $request->input('monitors', false);
         $sendToClients = $request->input('clients', false);
 
@@ -186,22 +204,8 @@ class MailController extends AppBaseController
 
         // Enviar el correo a los correos únicos
         if (!empty($uniqueEmails)) {
-            $maxRecipientsPerEmail = 50; // Puedes ajustar este valor según tus necesidades
             $uniqueEmails[] = 'theboukiiteam@boukii.ch';
-            $chunks = array_chunk($uniqueEmails, $maxRecipientsPerEmail);
-
-            foreach ($chunks as $recipientChunk) {
-                $blankMailer = new BlankMailer($subject, $body, [], $recipientChunk, $school);
-                dispatch(function () use ($school, $recipientChunk, $blankMailer) {
-                    // N.B. try-catch because some test users enter unexistant emails, throwing Swift_TransportException
-                    try {
-                        Mail::bcc($recipientChunk)->send($blankMailer);
-                    } catch (\Exception $ex) {
-                        \Illuminate\Support\Facades\Log::debug('Admin/MailController SenMailer: ' .
-                            $ex->getMessage());
-                    }
-                })->afterResponse();
-            }
+            $this->dispatchChunks($uniqueEmails, $subject, $body, $school);
 
             EmailLog::create([
                 'school_id' => $school->id,
@@ -217,6 +221,24 @@ class MailController extends AppBaseController
 
         return $this->sendError('Emails not found');
 
+    }
+
+    private function dispatchChunks(array $emails, string $subject, string $body, $school): void
+    {
+        $maxRecipientsPerEmail = 50;
+        $chunks = array_chunk($emails, $maxRecipientsPerEmail);
+
+        foreach ($chunks as $recipientChunk) {
+            $blankMailer = new BlankMailer($subject, $body, [], $recipientChunk, $school);
+            dispatch(function () use ($school, $recipientChunk, $blankMailer) {
+                try {
+                    Mail::bcc($recipientChunk)->send($blankMailer);
+                } catch (\Exception $ex) {
+                    \Illuminate\Support\Facades\Log::debug('Admin/MailController sendMail: ' .
+                        $ex->getMessage());
+                }
+            })->afterResponse();
+        }
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Exports\CourseDetailsExport;
+use App\Exports\CoursesBySeasonExport;
 use App\Http\Controllers\AppBaseController;
 use App\Mail\BookingInfoUpdateMailer;
 use App\Models\Booking;
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -244,6 +246,61 @@ class CourseController extends AppBaseController
         app()->setLocale($lang);
 
         return (new CoursesBySchoolExport((int)$schoolId))->download("school_courses_{$schoolId}.xlsx");
+    }
+
+    public function exportCoursesBySeason(Request $request)
+    {
+        $school = $this->getSchool($request);
+
+        $validator = Validator::make($request->all(), [
+            'season_id' => 'nullable|integer|exists:seasons,id',
+            'date_from' => 'nullable|date|required_without:season_id',
+            'date_to' => 'nullable|date|required_without:season_id|after_or_equal:date_from',
+            'include_archived' => 'nullable|boolean',
+            'lang' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->sendError('Validation Error.', $validator->errors(), 422);
+        }
+
+        $seasonId = $request->input('season_id');
+        $includeArchived = $request->boolean('include_archived', false);
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+        $lang = $request->input('lang', 'fr');
+
+        if (!$seasonId && (!$dateFrom || !$dateTo)) {
+            return $this->sendError('Provide season_id or date_from and date_to', [], 400);
+        }
+
+        $season = null;
+        if ($seasonId) {
+            $season = Season::where('id', $seasonId)
+                ->where('school_id', $school->id)
+                ->first();
+
+            if (!$season) {
+                return $this->sendError('Season not found for this school', [], 404);
+            }
+
+            $dateFrom = $season->start_date->format('Y-m-d');
+            $dateTo = $season->end_date->format('Y-m-d');
+        }
+
+        app()->setLocale($lang);
+
+        $seasonPart = $season ? 'season-' . ($season->name ?? $season->id) : "{$dateFrom}_to_{$dateTo}";
+        $safeSeasonPart = str_replace([' ', '/'], '-', $seasonPart);
+        $filename = "courses_{$school->id}_{$safeSeasonPart}.xlsx";
+
+        return (new CoursesBySeasonExport(
+            $school->id,
+            $seasonId,
+            $dateFrom,
+            $dateTo,
+            $includeArchived
+        ))->download($filename);
     }
 
     /**
@@ -827,6 +884,8 @@ class CourseController extends AppBaseController
                     return $this->sendResponse($course, 'No changes detected');
                 }
 
+                $this->refreshTranslationsOnBaseChange($course, $payload);
+
                 DB::beginTransaction();
                 $course->fill($payload);
                 $course->save();
@@ -834,6 +893,9 @@ class CourseController extends AppBaseController
 
                 return $this->sendResponse($course->fresh(), 'Course updated successfully');
             }
+            // Auto-translate if base fields changed (full update)
+            $this->refreshTranslationsOnBaseChange($course, $courseData);
+
             $courseDatesIncoming = $courseData['course_dates'] ?? [];
             $datesSummary = collect($courseDatesIncoming)->map(function ($cd) {
                 $groups = collect($cd['course_groups'] ?? []);
@@ -1301,6 +1363,79 @@ class CourseController extends AppBaseController
                 'monitor_id' => $subgroup->monitor_id,
                 'updated_at' => now()
             ]);
+    }
+
+    private function refreshTranslationsOnBaseChange(Course $course, array &$payload): void
+    {
+        $baseFields = ['name', 'short_description', 'description'];
+        $baseChanged = false;
+
+        foreach ($baseFields as $field) {
+            if (array_key_exists($field, $payload) && $payload[$field] !== $course->{$field}) {
+                $baseChanged = true;
+                break;
+            }
+        }
+
+        if (!$baseChanged) {
+            return;
+        }
+
+        $translationsSource = $payload['translations'] ?? $course->translations;
+        if (is_string($translationsSource)) {
+            $decoded = json_decode($translationsSource, true);
+            $translationsSource = json_last_error() === JSON_ERROR_NONE ? $decoded : [];
+        }
+        $translationsSource = is_array($translationsSource) ? $translationsSource : [];
+
+        $source = [
+            'name' => $payload['name'] ?? $course->name,
+            'short_description' => $payload['short_description'] ?? $course->short_description,
+            'description' => $payload['description'] ?? $course->description,
+        ];
+
+        $languages = ['fr', 'en', 'de', 'es', 'it'];
+        $updatedTranslations = $translationsSource;
+
+        foreach ($languages as $lang) {
+            $langKey = strtoupper($lang);
+            $updatedTranslations[$lang] = [
+                'name' => $this->translateText($source['name'], $langKey) ?: ($updatedTranslations[$lang]['name'] ?? ''),
+                'short_description' => $this->translateText($source['short_description'], $langKey) ?: ($updatedTranslations[$lang]['short_description'] ?? ''),
+                'description' => $this->translateText($source['description'], $langKey) ?: ($updatedTranslations[$lang]['description'] ?? ''),
+            ];
+        }
+
+        $payload['translations'] = json_encode($updatedTranslations);
+    }
+
+    private function translateText(?string $text, string $targetLang): ?string
+    {
+        $deeplApiKey = env('DEEPL_API_KEY');
+        $deeplApiUrl = env('DEEPL_API_URL');
+
+        if (!$text || !$deeplApiKey || !$deeplApiUrl) {
+            return $text;
+        }
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'DeepL-Auth-Key ' . $deeplApiKey,
+            ])->post($deeplApiUrl, [
+                'text' => [$text],
+                'target_lang' => $targetLang,
+            ]);
+
+            if ($response->successful()) {
+                $json = $response->json();
+                return $json['translations'][0]['text'] ?? $text;
+            }
+            Log::warning('translateText failed', ['status' => $response->status(), 'body' => $response->json()]);
+        } catch (\Exception $e) {
+            Log::error('translateText exception', ['message' => $e->getMessage()]);
+        }
+
+        return $text;
     }
 
     public function getSellStats($id, Request $request): JsonResponse
