@@ -29,6 +29,7 @@ use App\Models\StationService;
 use App\Models\User;
 use App\Support\IntervalDiscountHelper;
 use App\Traits\Utils;
+use App\Http\Controllers\API\TranslationAPIController;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -1661,3 +1662,5 @@ Route::prefix('bookings')->group(function () {
 });
 Route::get('/courses/{courseId}/intervals/{intervalId}/available-discounts', [App\Http\Controllers\API\BookingDiscountAPIController::class, 'getAvailableDiscounts']);
 /* BOOKING DISCOUNTS API */
+
+Route::middleware('auth:sanctum')->post('/admin/courses/{id}/translate', [TranslationAPIController::class, 'translateCourse']);

@@ -278,6 +278,96 @@ class CourseAPIController extends AppBaseController
     }
 
     /**
+     * @OA\Patch(
+     *      path="/courses/{id}",
+     *      summary="patchCourse",
+     *      tags={"Course"},
+     *      description="Partially update Course (lightweight fields only - optimized)",
+     *      @OA\Parameter(
+     *          name="id",
+     *          description="id of Course",
+     *           @OA\Schema(
+     *             type="integer"
+     *          ),
+     *          required=true,
+     *          in="path"
+     *      ),
+     *      @OA\RequestBody(
+     *          required=true,
+     *          @OA\JsonContent(ref="#/components/schemas/Course")
+     *      ),
+     *      @OA\Response(
+     *          response=200,
+     *          description="successful operation",
+     *          @OA\JsonContent(
+     *              type="object",
+     *              @OA\Property(
+     *                  property="success",
+     *                  type="boolean"
+     *              ),
+     *              @OA\Property(
+     *                  property="data",
+     *                  ref="#/components/schemas/Course"
+     *              ),
+     *              @OA\Property(
+     *                  property="message",
+     *                  type="string"
+     *              )
+     *          )
+     *      )
+     * )
+     */
+    public function patchCourse($id, Request $request): JsonResponse
+    {
+        // Validar solo los campos permitidos para PATCH (campos ligeros/textuales)
+        $validated = $request->validate([
+            'name' => 'sometimes|string',
+            'short_description' => 'sometimes|string',
+            'description' => 'sometimes|string',
+            'translations' => 'sometimes|json',
+            'claim_text' => 'sometimes|string|nullable',
+            'summary' => 'sometimes|string|nullable',
+            'image' => 'sometimes|string|nullable',
+        ]);
+
+        /** @var Course $course */
+        $course = $this->courseRepository->find($id);
+
+        if (empty($course)) {
+            return $this->sendError('Course not found');
+        }
+
+        // Procesar imagen si viene (base64 → file)
+        if (isset($validated['image']) && !empty($validated['image'])) {
+            $base64Image = $validated['image'];
+
+            if (preg_match('/^data:image\/(\w+);base64,/', $base64Image, $type)) {
+                $imageData = substr($base64Image, strpos($base64Image, ',') + 1);
+                $type = strtolower($type[1]);
+                $imageData = base64_decode($imageData);
+
+                if ($imageData !== false) {
+                    $imageName = 'course/image_'.time().'.'.$type;
+                    Storage::disk('public')->put($imageName, $imageData);
+                    $validated['image'] = url(Storage::url($imageName));
+                } else {
+                    return $this->sendError('base64_decode failed');
+                }
+            } else if (!filter_var($validated['image'], FILTER_VALIDATE_URL)) {
+                // Si no es base64 ni URL válida, error
+                return $this->sendError('Invalid image format');
+            }
+            // Si es URL válida, mantenerla como está
+        }
+
+        // Actualizar solo los campos enviados (no toca relaciones)
+        $course->update($validated);
+
+        // Devolver curso actualizado (sin cargar todas las relaciones)
+        return $this->sendResponse(new CourseResource($course), 'Course updated successfully (lightweight patch)');
+    }
+
+    /**
      * @OA\Delete(
      *      path="/courses/{id}",
      *      summary="deleteCourse",

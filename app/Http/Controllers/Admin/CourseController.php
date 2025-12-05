@@ -15,6 +15,7 @@ use App\Models\CourseSubgroupDate;
 use App\Models\Season;
 use App\Repositories\CourseRepository;
 use App\Support\IntervalDiscountHelper;
+use App\Jobs\TranslateCourseJob;
 use App\Traits\Utils;
 use App\Exports\CoursesBySchoolExport;
 use Carbon\Carbon;
@@ -915,7 +916,7 @@ class CourseController extends AppBaseController
                     })->values(),
                 ];
             })->values();
-            Log::debug('course.update.payload.summary', [
+            $this->debugCourseUpdate('course.update.payload.summary', [
                 'course_id' => $id,
                 'course_type' => $courseData['course_type'] ?? null,
                 'dates_count' => count($courseDatesIncoming),
@@ -1143,7 +1144,7 @@ class CourseController extends AppBaseController
                     $updatedCourseDates[] = $date->id;
 
                     if (isset($dateData['course_groups'])) {
-                        Log::debug('course.update.date.groups.incoming', [
+                        $this->debugCourseUpdate('course.update.date.groups.incoming', [
                             'course_id' => $course->id,
                             'course_date_id' => $date->id,
                             'date' => $dateData['date'] ?? null,
@@ -1262,7 +1263,7 @@ class CourseController extends AppBaseController
                             }
 
                             // Eliminar los subgrupos que ya no están en la request
-                            Log::debug('course.update.group.subgroups.sync', [
+                            $this->debugCourseUpdate('course.update.group.subgroups.sync', [
                                 'course_id' => $course->id,
                                 'course_date_id' => $date->id,
                                 'course_group_id' => $group->id,
@@ -1397,31 +1398,44 @@ class CourseController extends AppBaseController
         $languages = ['fr', 'en', 'de', 'es', 'it'];
         $updatedTranslations = $translationsSource;
 
-        foreach ($languages as $lang) {
-            $langKey = strtoupper($lang);
-            $updatedTranslations[$lang] = [
-                'name' => $this->translateText($source['name'], $langKey) ?: ($updatedTranslations[$lang]['name'] ?? ''),
-                'short_description' => $this->translateText($source['short_description'], $langKey) ?: ($updatedTranslations[$lang]['short_description'] ?? ''),
-                'description' => $this->translateText($source['description'], $langKey) ?: ($updatedTranslations[$lang]['description'] ?? ''),
-            ];
-        }
-
+        // Guardar sin bloquear y traducir despuÉs de enviar la respuesta
         $payload['translations'] = json_encode($updatedTranslations);
+
+        // Desencolar traducción asíncrona; si la cola es sync, evitamos bloquear
+        if (config('queue.default') === 'sync') {
+            Log::warning('translateBulk skipped: queue driver is sync, translations not refreshed automatically');
+        } else {
+            TranslateCourseJob::dispatch(
+                $course->id,
+                $source,
+                $updatedTranslations,
+                $languages
+            )->onQueue('translations');
+        }
     }
 
     private function translateText(?string $text, string $targetLang): ?string
     {
-        $deeplApiKey = env('DEEPL_API_KEY');
-        $deeplApiUrl = env('DEEPL_API_URL');
+        $deeplApiKey = config('services.deepl.key');
+        $deeplApiUrl = config('services.deepl.url');
 
         if (!$text || !$deeplApiKey || !$deeplApiUrl) {
+            Log::warning('translateText skipped: missing credentials or empty text', [
+                'lang' => $targetLang,
+                'has_key' => !empty($deeplApiKey),
+                'has_url' => !empty($deeplApiUrl),
+                'empty_text' => empty($text),
+            ]);
             return $text;
         }
 
         try {
             $response = Http::withHeaders([
                 'Authorization' => 'DeepL-Auth-Key ' . $deeplApiKey,
-            ])->post($deeplApiUrl, [
+            ])
+            ->timeout(3)
+            ->connectTimeout(2)
+            ->post($deeplApiUrl, [
                 'text' => [$text],
                 'target_lang' => $targetLang,
             ]);
@@ -1430,12 +1444,81 @@ class CourseController extends AppBaseController
                 $json = $response->json();
                 return $json['translations'][0]['text'] ?? $text;
             }
-            Log::warning('translateText failed', ['status' => $response->status(), 'body' => $response->json()]);
+            Log::warning('translateText failed', [
+                'lang' => $targetLang,
+                'status' => $response->status(),
+                'body' => $response->json(),
+            ]);
         } catch (\Exception $e) {
-            Log::error('translateText exception', ['message' => $e->getMessage()]);
+            Log::error('translateText exception', ['lang' => $targetLang, 'message' => $e->getMessage()]);
         }
 
         return $text;
+    }
+
+    private function translateBulk(array $source, array $languages): array
+    {
+        $deeplApiKey = config('services.deepl.key');
+        $deeplApiUrl = config('services.deepl.url');
+
+        if (!$deeplApiKey || !$deeplApiUrl) {
+            Log::warning('translateBulk skipped: missing credentials', [
+                'has_key' => !empty($deeplApiKey),
+                'has_url' => !empty($deeplApiUrl),
+            ]);
+            return [];
+        }
+
+        $texts = [
+            $source['name'] ?? '',
+            $source['short_description'] ?? '',
+            $source['description'] ?? '',
+        ];
+
+        $responses = Http::pool(function ($pool) use ($languages, $deeplApiKey, $deeplApiUrl, $texts) {
+            $requests = [];
+            foreach ($languages as $lang) {
+                $requests[] = $pool->asForm()
+                    ->withHeaders(['Authorization' => 'DeepL-Auth-Key ' . $deeplApiKey])
+                    ->timeout(4)
+                    ->connectTimeout(2)
+                    ->post($deeplApiUrl, [
+                        'text' => $texts,
+                        'target_lang' => strtoupper($lang),
+                    ]);
+            }
+            return $requests;
+        });
+
+        $results = [];
+        foreach ($languages as $index => $lang) {
+            $resp = $responses[$index] ?? null;
+            if (!$resp || !$resp->successful()) {
+                Log::warning('translateBulk failed', [
+                    'lang' => $lang,
+                    'status' => $resp?->status(),
+                    'body' => $resp?->json(),
+                ]);
+                continue;
+            }
+            $json = $resp->json();
+            $translations = $json['translations'] ?? [];
+            $results[$lang] = [
+                'name' => $translations[0]['text'] ?? ($source['name'] ?? ''),
+                'short_description' => $translations[1]['text'] ?? ($source['short_description'] ?? ''),
+                'description' => $translations[2]['text'] ?? ($source['description'] ?? ''),
+            ];
+        }
+
+        return $results;
+    }
+
+    private function debugCourseUpdate(string $message, array $context = []): void
+    {
+        if (!config('app.debug_course_update', false)) {
+            return;
+        }
+        Log::debug($message, $context);
     }
 
     public function getSellStats($id, Request $request): JsonResponse

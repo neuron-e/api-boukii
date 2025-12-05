@@ -43,6 +43,11 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
             'destroy' => 'api.admin.courses.destroy',
         ]);
 
+    // PATCH endpoint for lightweight course updates (optimized performance)
+    // Uses the same update() method but with PATCH verb to trigger $isPartial logic
+    Route::patch('/courses/{id}', [App\Http\Controllers\Admin\CourseController::class, 'update'])
+        ->name('api.admin.courses.patch');
+
     Route::get('/courses/{id}/export/{lang}', [App\Http\Controllers\Admin\CourseController::class, 'exportDetails']);
     Route::get('/schools/{id}/courses/export/{lang}', [App\Http\Controllers\Admin\CourseController::class, 'exportDetailsBySchool']);
     Route::get('/exports/courses-by-season', [App\Http\Controllers\Admin\CourseController::class, 'exportCoursesBySeason'])

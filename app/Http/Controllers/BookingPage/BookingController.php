@@ -513,6 +513,7 @@ class BookingController extends SlugAuthController
         $date = null;
         $startTime = null;
         $endTime = null;
+        $bookingUserIds = is_array($request->input('bookingUserIds')) ? $request->input('bookingUserIds') : [];
 
         // Obtiene informaciÃ³n comÃºn para todos los bookingUsers
         foreach ($request->bookingUsers as $bookingUser) {
@@ -564,8 +565,8 @@ class BookingController extends SlugAuthController
 
 
 
-            // Check for overlapping bookings and get details
-            $overlaps = BookingUser::getOverlappingBookings($bookingUser, []);
+            // Check for overlapping bookings and get details (exclude current booking users if provided)
+            $overlaps = BookingUser::getOverlappingBookings($bookingUser, $bookingUserIds);
             if (!empty($overlaps)) {
                 return $this->sendError(
                     'Client has overlapping booking(s) on that date',
@@ -1163,7 +1164,6 @@ class BookingController extends SlugAuthController
     }
 
 }
-
 
 
 
