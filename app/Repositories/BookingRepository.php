@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\Booking;
 use App\Repositories\BaseRepository;
+use Illuminate\Http\Request;
 
 class BookingRepository extends BaseRepository
 {
@@ -30,5 +31,20 @@ class BookingRepository extends BaseRepository
     public function model(): string
     {
         return Booking::class;
+    }
+
+    /**
+     * Aplica filtro de status (acepta lista separada por comas o array)
+     */
+    public function applyStatusFilter($query, Request $request): void
+    {
+        if ($request->filled('status')) {
+            $status = $request->input('status');
+            $status = is_array($status) ? $status : explode(',', $status);
+            $status = array_filter($status, fn($s) => $s !== '' && $s !== null);
+            if (!empty($status)) {
+                $query->whereIn('status', $status);
+            }
+        }
     }
 }

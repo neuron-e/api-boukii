@@ -70,7 +70,7 @@ class BookingAPIController extends AppBaseController
             searchArray: $request->except([
                 'skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order',
                 'orderColumn', 'page', 'with', 'isMultiple', 'course_types',
-                'course_type', 'finished', 'all'
+                'course_type', 'finished', 'all', 'status'
             ]),
             search: $request->get('search'),
             skip: $request->get('skip'),
@@ -80,7 +80,7 @@ class BookingAPIController extends AppBaseController
             order: $request->get('order', 'desc'),
             orderColumn: $request->get('orderColumn', 'id'),
             additionalConditions: function ($query) use ($request) {
-                $this->applyStatusFilter($query, $request);
+                $this->bookingRepository->applyStatusFilter($query, $request);
                 $this->applyIsMultipleFilter($query, $request);
                 $this->applyCourseTypeFilter($query, $request);
                 $this->applyCourseIdFilter($query, $request);

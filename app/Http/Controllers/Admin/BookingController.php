@@ -83,6 +83,15 @@ class BookingController extends AppBaseController
     {
         $bookings = Booking::where('school_id', $request->school_id);
 
+        if ($request->filled('status')) {
+            $statuses = array_filter(array_map('trim', explode(',', $request->input('status'))), function ($value) {
+                return $value !== '';
+            });
+            if (!empty($statuses)) {
+                $bookings->whereIn('status', $statuses);
+            }
+        }
+
         return $this->sendResponse(BookingResource::collection($bookings), 'Bookings retrieved successfully');
     }
 
