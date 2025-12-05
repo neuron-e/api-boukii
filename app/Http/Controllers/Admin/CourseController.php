@@ -1206,16 +1206,11 @@ class CourseController extends AppBaseController
                                                 if ($homonymousSubgroup) {
                                                     $subgroupData['subgroup_dates_id'] = $homonymousSubgroup->subgroup_dates_id;
                                                 } else {
-                                                    // Generate new ID
+                                                    // Generate new ID - OPTIMIZED: Use SQL to extract numeric part
                                                     $maxNum = DB::table('course_subgroups')
                                                         ->whereNotNull('subgroup_dates_id')
-                                                        ->get()
-                                                        ->map(function($row) {
-                                                            $matches = [];
-                                                            preg_match('/SG-(\d+)/', $row->subgroup_dates_id, $matches);
-                                                            return isset($matches[1]) ? (int)$matches[1] : 0;
-                                                        })
-                                                        ->max() ?? 0;
+                                                        ->selectRaw('MAX(CAST(SUBSTRING(subgroup_dates_id, 4) AS UNSIGNED)) as max_num')
+                                                        ->value('max_num') ?? 0;
 
                                                     $subgroupData['subgroup_dates_id'] = 'SG-' . str_pad($maxNum + 1, 6, '0', STR_PAD_LEFT);
                                                 }
@@ -1231,16 +1226,11 @@ class CourseController extends AppBaseController
                                             if ($existingSubgroup) {
                                                 $subgroupData['subgroup_dates_id'] = $existingSubgroup->subgroup_dates_id;
                                             } else {
-                                                // Generate new ID
+                                                // Generate new ID - OPTIMIZED: Use SQL to extract numeric part
                                                 $maxNum = DB::table('course_subgroups')
                                                     ->whereNotNull('subgroup_dates_id')
-                                                    ->get()
-                                                    ->map(function($row) {
-                                                        $matches = [];
-                                                        preg_match('/SG-(\d+)/', $row->subgroup_dates_id, $matches);
-                                                        return isset($matches[1]) ? (int)$matches[1] : 0;
-                                                    })
-                                                    ->max() ?? 0;
+                                                    ->selectRaw('MAX(CAST(SUBSTRING(subgroup_dates_id, 4) AS UNSIGNED)) as max_num')
+                                                    ->value('max_num') ?? 0;
 
                                                 $subgroupData['subgroup_dates_id'] = 'SG-' . str_pad($maxNum + 1, 6, '0', STR_PAD_LEFT);
                                             }
@@ -1279,28 +1269,46 @@ class CourseController extends AppBaseController
                 $course->courseDates()->whereNotIn('id', $updatedCourseDates)->delete();
             }
 
-            // FIX: Create CourseSubgroupDate junction records for all subgroups
+            // OPTIMIZED: Create CourseSubgroupDate junction records using bulk insert
             // After all dates/groups/subgroups are updated, link each subgroup to ALL dates where its homonymous version exists
             // This ensures transfer-preview shows all dates for each subgroup
-            $allCreatedSubgroups = CourseSubgroup::where('course_id', $course->id)->get();
-            foreach ($allCreatedSubgroups as $subgroup) {
-                if ($subgroup->subgroup_dates_id) {
-                    // Find ALL subgroups with this subgroup_dates_id (they are homonymous copies across different dates)
-                    $homonymousSubgroups = CourseSubgroup::where('course_id', $course->id)
-                        ->where('subgroup_dates_id', $subgroup->subgroup_dates_id)
-                        ->get();
 
-                    // For each homonymous subgroup, create junction record to its date
-                    foreach ($homonymousSubgroups as $homonySg) {
-                        CourseSubgroupDate::firstOrCreate(
-                            [
-                                'course_subgroup_id' => $homonySg->id,
-                                'course_date_id' => $homonySg->course_date_id
-                            ],
-                            ['order' => 0]
-                        );
-                    }
+            // Get all subgroups with their dates in a single query
+            $allCreatedSubgroups = CourseSubgroup::where('course_id', $course->id)
+                ->whereNotNull('subgroup_dates_id')
+                ->select('id', 'course_date_id', 'subgroup_dates_id')
+                ->get();
+
+            // Get existing junction records to avoid duplicates
+            $existingJunctions = CourseSubgroupDate::whereIn(
+                'course_subgroup_id',
+                $allCreatedSubgroups->pluck('id')
+            )->get()->map(function($j) {
+                return $j->course_subgroup_id . '-' . $j->course_date_id;
+            })->flip();
+
+            // Build bulk insert data
+            $bulkInsertData = [];
+            $now = now();
+
+            foreach ($allCreatedSubgroups as $subgroup) {
+                $key = $subgroup->id . '-' . $subgroup->course_date_id;
+
+                // Only insert if it doesn't exist
+                if (!isset($existingJunctions[$key])) {
+                    $bulkInsertData[] = [
+                        'course_subgroup_id' => $subgroup->id,
+                        'course_date_id' => $subgroup->course_date_id,
+                        'order' => 0,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
                 }
+            }
+
+            // Bulk insert (much faster than N individual firstOrCreate calls)
+            if (!empty($bulkInsertData)) {
+                CourseSubgroupDate::insert($bulkInsertData);
             }
 
             $allDates = array_column($course->courseDates->toArray(), 'date');
