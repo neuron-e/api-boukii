@@ -186,4 +186,13 @@ function checkProxy($proxy, $proxyAuth = null) {
 }
 }
 
-Route::get('logs', [\Rap2hpoutre\LaravelLogViewer\LogViewerController::class, 'index']);
+Route::middleware('log.viewer.auth')->get('logs', function () {
+    $response = app(\Rap2hpoutre\LaravelLogViewer\LogViewerController::class)->index();
+
+    if ($response instanceof \Illuminate\Http\Response) {
+        $style = '<style>body{font-family:monospace;padding:16px;} pre{white-space:pre-wrap; word-break:break-word;} .table{width:100%;}</style>';
+        $response->setContent($style . $response->getContent());
+    }
+
+    return $response;
+});

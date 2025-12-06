@@ -72,5 +72,6 @@ class Kernel extends HttpKernel
         'admin.rate.limit' => \App\Http\Middleware\AdminRateLimit::class,
         'api.key' => \App\Http\Middleware\ApiKeyMiddleware::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
+        'log.viewer.auth' => \App\Http\Middleware\LogViewerBasicAuth::class,
     ];
 }

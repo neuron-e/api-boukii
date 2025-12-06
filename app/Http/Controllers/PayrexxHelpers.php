@@ -8,6 +8,7 @@ use App\Models\Client;
 use App\Models\Course;
 use App\Models\Payment;
 use App\Models\User;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 
 use Illuminate\Support\Facades\Mail;
@@ -66,523 +67,154 @@ class PayrexxHelpers
                 $gr->addField('terms', $schoolData->conditions_url);
             }
 
-            // Calcular el precio total del "basket"
-            $totalAmount = array_reduce($basketData->all(), function($carry, $item) {
-                return $carry + $item['amount'];
-            }, 0);
-
-            $gr->setBasket($basketData->all());
-            $gr->setAmount($totalAmount);
-
-            // Buyer data
-            if ($buyerUser) {
-                $gr->addField('forename', $buyerUser->first_name);
-                $gr->addField('surname', $buyerUser->last_name);
-                $gr->addField('phone', $buyerUser->phone);
-                $gr->addField('email', $buyerUser->email);
-                $gr->addField('street', $buyerUser->address);
-                $gr->addField('postcode', $buyerUser->cp);
-
-                $gr->addField('place', $buyerUser->province);
-                $gr->addField('country',  $buyerUser->country);
-            }
-
-            // OK/error pages to redirect user after payment
-            if ($redirectTo == 'panel') {
-                $gr->setSuccessRedirectUrl(env('ADMIM_URL') . '/bookings?status=success');
-                $gr->setFailedRedirectUrl(env('ADMIM_URL') . '/bookings?status=failed');
-                $gr->setCancelRedirectUrl(env('ADMIM_URL') . '/bookings?status=cancel');
-            } else if ($redirectTo == 'app') {
-                $gr->setSuccessRedirectUrl(route('api.payrexx.finish', ['status' => 'success']));
-                $gr->setFailedRedirectUrl(route('api.payrexx.finish', ['status' => 'failed']));
-                $gr->setCancelRedirectUrl(route('api.payrexx.finish', ['status' => 'cancel']));
-            } else if ($redirectTo != null) {
-                $gr->setSuccessRedirectUrl($redirectTo . '?status=success');
-                $gr->setFailedRedirectUrl($redirectTo . '?status=failed');
-                $gr->setCancelRedirectUrl($redirectTo . '?status=cancel');
-            }
-
-            if($bookingData->source == 'web') {
-                $gr->setValidity(15);
-            }
-
-
-            // Launch it
-            $payrexx = new Payrexx(
-                $schoolData->getPayrexxInstance(),
-                $schoolData->getPayrexxKey(),
-                '',
-                config('services.payrexx.base_domain', 'pay.boukii.com')
-            );
-
-            $gateway = $payrexx->create($gr);
-
-            if ($gateway) {
-                $link = $gateway->getLink();
-            }
-
-        } catch (\Exception $e) {
-            // Altought not stated by API documentation (as of 2022-10),
-            // missing or wrong params will throw an Exception, plus other connection etc issues
-            Log::error('PayrexxHelpers createGatewayLink Booking ID=' . $bookingData->id);
-            Log::error($e->getMessage());
-            Log::error('Error line:'. $e->getLine());
-            Log::error('Error file:'. $e->getFile());
-            $link = '';
-        }
-
-        return $link;
-    }
-
-    public static function createGatewayLink($schoolData, $bookingData,
-                                             $basketData, Client $buyerUser = null, $redirectTo = null)
-    {
-        $link = '';
-
-        try {
-            // Check that School has Payrexx credentials
-            //dd($schoolData->getPayrexxInstance());
-            if (!$schoolData->getPayrexxInstance() || !$schoolData->getPayrexxKey()) {
-                throw new \Exception('No credentials for School ID=' . $schoolData->id);
-            }
-
-            // Prepare gateway: basic data
-            $gr = new GatewayRequest();
-            $gr->setReferenceId($bookingData->getOrGeneratePayrexxReference());
-            $gr->setAmount($bookingData->price_total * 100);
-            $gr->setCurrency($bookingData->currency);
-            $gr->setVatRate($schoolData->bookings_comission_cash);                  // TODO TBD as of 2022-10 all Schools are at Switzerland and there's no VAT ???
-
-            // Add School's legal terms, if set
-            if ($schoolData->conditions_url) {
-                $gr->addField('terms', $schoolData->conditions_url);
-            }
-
-            // Product basket i.e. courses booked plus maybe cancellation insurance
             $basket = [];
 
             $totalAmount = 0;
+            $pendingAmount = (float) Arr::get(
+                $basketPayload,
+                'pending_amount',
+                $bookingData->pending_amount ?? $bookingData->price_total ?? 0
+            );
 
-// Agregar el precio base
-            $basket[] = [
-                'name' => [1 => $basketData['price_base']['name']],
-                'quantity' => $basketData['price_base']['quantity'],
-                'amount' => $basketData['price_base']['price'] * 100, // Convertir a centavos
-            ];
-            $totalAmount += $basketData['price_base']['price'] * 100;
-
-// Agregar reducción
-            if (isset($basketData['reduction'])) {
+            $addItem = function ($name, $price, $quantity = 1) use (&$basket, &$totalAmount) {
+                if ($price === null) {
+                    return;
+                }
+                $quantity = (int) ($quantity ?: 1);
+                $amountCents = (float) $price * 100;
                 $basket[] = [
-                    'name' => [1 => $basketData['reduction']['name']],
-                    'quantity' => $basketData['reduction']['quantity'],
-                    'amount' => $basketData['reduction']['price'] * 100,
+                    'name' => [1 => $name],
+                    'quantity' => $quantity,
+                    'amount' => $amountCents,
                 ];
-                $totalAmount += $basketData['reduction']['price'] * 100;
-            }
+                $totalAmount += $amountCents;
+            };
 
-// Agregar el campo "tva"
-            $basket[] = [
-                'name' => [1 => $basketData['tva']['name']],
-                'quantity' => $basketData['tva']['quantity'],
-                'amount' => $basketData['tva']['price'] * 100,
-            ];
-            $totalAmount += $basketData['tva']['price'] * 100;
-
-
-// Agregar "Cancellation Insurance"
-            $basket[] = [
-                'name' => [1 => $basketData['cancellation_insurance']['name']],
-                'quantity' => $basketData['cancellation_insurance']['quantity'],
-                'amount' => $basketData['cancellation_insurance']['price'] * 100,
-            ];
-            $totalAmount += $basketData['cancellation_insurance']['price'] * 100;
-
-// Agregar extras
-            if (isset($basketData['extras']['extras']) && count($basketData['extras']['extras']) > 0) {
-                foreach ($basketData['extras']['extras'] as $extra) {
-                    $basket[] = [
-                        'name' => [1 => $extra['name']],
-                        'quantity' => $extra['quantity'],
-                        'amount' => $extra['price'] * 100,
-                    ];
-                    $totalAmount += $extra['price'] * 100;
-                }
-            }
-
-// Agregar bonos
-            if (isset($basketData['bonus']['bonuses']) && count($basketData['bonus']['bonuses']) > 0) {
-                foreach ($basketData['bonus']['bonuses'] as $bonus) {
-                    $basket[] = [
-                        'name' => [1 => $bonus['name']],
-                        'quantity' => $bonus['quantity'],
-                        'amount' => $bonus['price'] * 100,
-                    ];
-                    $totalAmount += $bonus['price'] * 100;
-                }
-            }
-
-// Agregar descuentos de intervalo
-            if (isset($basketData['interval_discounts']['discounts']) && count($basketData['interval_discounts']['discounts']) > 0) {
-                foreach ($basketData['interval_discounts']['discounts'] as $discount) {
-                    $basket[] = [
-                        'name' => [1 => $discount['name']],
-                        'quantity' => $discount['quantity'],
-                        'amount' => $discount['price'] * 100,
-                    ];
-                    $totalAmount += $discount['price'] * 100;
-                }
-            }
-
-// DEBUG: Log basket calculation
-            Log::channel('payrexx')->info('BASKET_CALCULATION', [
-                'booking_id' => $bookingData->id,
-                'calculated_total' => $totalAmount / 100,
-                'pending_amount_received' => $basketData['pending_amount'] ?? 'NOT_SET',
-                'pending_amount_float' => floatval($basketData['pending_amount'] ?? 0),
-                'difference' => abs(($totalAmount / 100) - floatval($basketData['pending_amount'] ?? 0)),
-                'will_adjust' => abs(($totalAmount / 100) - floatval($basketData['pending_amount'] ?? 0)) > 0.01
-            ]);
-
-// CRITICAL: Rechazar si discrepancia > 1 EUR (prevenir casos como 192 -> 2628)
-            $calculatedTotal = $totalAmount / 100;
-            $expectedTotal = floatval($basketData['pending_amount'] ?? 0);
-            $difference = abs($calculatedTotal - $expectedTotal);
-
-            if ($difference > 1.00) {
-                Log::channel('payrexx')->error('CRITICAL_PRICE_MISMATCH_REJECTED', [
+            // Base price (fallback to pending_amount when missing)
+            $baseName = Arr::get($basketPayload, 'price_base.name', 'Base');
+            $basePrice = Arr::get($basketPayload, 'price_base.price');
+            $baseQty = Arr::get($basketPayload, 'price_base.quantity', 1);
+            if ($basePrice === null && $pendingAmount > 0) {
+                Log::channel('payrexx')->warning('price_base missing, using pending_amount fallback', [
                     'booking_id' => $bookingData->id,
-                    'calculated' => $calculatedTotal,
-                    'expected' => $expectedTotal,
-                    'difference' => $difference,
-                    'basket' => $basketData,
-                    'threshold' => 1.00
+                    'pending_amount' => $pendingAmount,
+                    'basket_keys' => array_keys($basketPayload),
                 ]);
-                return ''; // Rechazar creación de link
+                $basePrice = $pendingAmount;
+            }
+            $addItem($baseName, $basePrice, $baseQty);
+
+            // Reduction (optional)
+            $reductionPrice = Arr::get($basketPayload, 'reduction.price');
+            if ($reductionPrice !== null) {
+                $addItem(
+                    Arr::get($basketPayload, 'reduction.name', 'Reduction'),
+                    $reductionPrice,
+                    Arr::get($basketPayload, 'reduction.quantity', 1)
+                );
             }
 
-            if ($difference > 0.10) {
-                Log::channel('payrexx')->warning('PRICE_MISMATCH_ALLOWED', [
-                    'booking_id' => $bookingData->id,
-                    'difference' => $difference
-                ]);
+            // Taxes
+            $tvaPrice = Arr::get($basketPayload, 'tva.price');
+            if ($tvaPrice !== null) {
+                $addItem(
+                    Arr::get($basketPayload, 'tva.name', 'TVA'),
+                    $tvaPrice,
+                    Arr::get($basketPayload, 'tva.quantity', 1)
+                );
             }
 
-// CRITICAL: Rechazar si discrepancia > 1 EUR (prevenir casos como 192 -> 2628)
-            $calculatedTotal = $totalAmount / 100;
-            $expectedTotal = floatval($basketData['pending_amount'] ?? 0);
-            $difference = abs($calculatedTotal - $expectedTotal);
-
-            if ($difference > 1.00) {
-                Log::channel('payrexx')->error('CRITICAL_PRICE_MISMATCH_REJECTED_PAYLINK', [
-                    'booking_id' => $bookingData->id,
-                    'calculated' => $calculatedTotal,
-                    'expected' => $expectedTotal,
-                    'difference' => $difference,
-                    'basket' => $basketData,
-                    'threshold' => 1.00
-                ]);
-                return ''; // Rechazar creación de link
+            // Boukii care (optional)
+            $carePrice = Arr::get($basketPayload, 'boukii_care.price');
+            if ($carePrice !== null) {
+                $addItem(
+                    Arr::get($basketPayload, 'boukii_care.name', 'Boukii care'),
+                    $carePrice,
+                    Arr::get($basketPayload, 'boukii_care.quantity', 1)
+                );
             }
 
-            if ($difference > 0.10) {
-                Log::channel('payrexx')->warning('PRICE_MISMATCH_ALLOWED_PAYLINK', [
-                    'booking_id' => $bookingData->id,
-                    'difference' => $difference
-                ]);
+            // Cancellation insurance (optional)
+            $cancellationPrice = Arr::get($basketPayload, 'cancellation_insurance.price');
+            if ($cancellationPrice !== null) {
+                $addItem(
+                    Arr::get($basketPayload, 'cancellation_insurance.name', 'Cancellation insurance'),
+                    $cancellationPrice,
+                    Arr::get($basketPayload, 'cancellation_insurance.quantity', 1)
+                );
             }
 
-// Verificar si la suma del basket coincide con pending_amount
-            if (abs(($totalAmount / 100) - floatval($basketData['pending_amount'])) > 0.01) {
-                // Si no coincide, eliminar bonos y recalcular
-                foreach ($basket as $key => $item) {
-                    if (strpos($item['name'][1], 'BOU') !== false) {
-                        $totalAmount -= $item['amount'];
-                        unset($basket[$key]);
-
-                        // Verificar si ahora coincide
-                        if (abs(($totalAmount / 100) - floatval($basketData['pending_amount'])) <= 0.01) {
-                            break;
-                        }
+            // Extras
+            $extras = Arr::get($basketPayload, 'extras.extras', []);
+            if (is_array($extras)) {
+                for ($i = 0; $i < count($extras); $i++) {
+                    $extra = $extras[$i];
+                    $extraPrice = Arr::get($extra, 'price');
+                    if ($extraPrice === null) {
+                        continue;
                     }
-                }
-
-                // Si aún no coincide, ajustar con un campo adicional
-                $adjustment = (floatval($basketData['pending_amount']) * 100) - $totalAmount;
-
-                if ($adjustment != 0) { // Solo añadir el ajuste si es diferente de 0
-                    $basket[] = [
-                        'name' => [1 => 'Adjustment'],
-                        'quantity' => 1,
-                        'amount' => $adjustment,
-                    ];
-                    $totalAmount += $adjustment;
+                    $addItem(
+                        Arr::get($extra, 'name', 'Extra'),
+                        $extraPrice,
+                        Arr::get($extra, 'quantity', 1)
+                    );
                 }
             }
 
-            // FINAL: Log basket completo antes de enviar a Payrexx
-            Log::channel('payrexx')->info('BASKET_FINAL_GATEWAY', [
+            // Bonuses
+            $bonuses = Arr::get($basketPayload, 'bonus.bonuses', []);
+            if (is_array($bonuses)) {
+                for ($i = 0; $i < count($bonuses); $i++) {
+                    $bonus = $bonuses[$i];
+                    $bonusPrice = Arr::get($bonus, 'price');
+                    if ($bonusPrice === null) {
+                        continue;
+                    }
+                    $addItem(
+                        Arr::get($bonus, 'name', 'Bonus'),
+                        $bonusPrice,
+                        Arr::get($bonus, 'quantity', 1)
+                    );
+                }
+            }
+
+            // Interval discounts
+            $intervalDiscounts = Arr::get($basketPayload, 'interval_discounts.discounts', []);
+            if (is_array($intervalDiscounts)) {
+                for ($i = 0; $i < count($intervalDiscounts); $i++) {
+                    $discount = $intervalDiscounts[$i];
+                    $discountPrice = Arr::get($discount, 'price');
+                    if ($discountPrice === null) {
+                        continue;
+                    }
+                    $addItem(
+                        Arr::get($discount, 'name', 'Interval discount'),
+                        $discountPrice,
+                        Arr::get($discount, 'quantity', 1)
+                    );
+                }
+            }
+
+            // Adjust to pending amount if there is a mismatch
+            if ($pendingAmount > 0) {
+                $difference = round($pendingAmount * 100 - $totalAmount);
+                if ($difference !== 0) {
+                    $addItem('Adjustment', $difference / 100, 1);
+                }
+            }
+
+            Log::channel('payrexx')->info('BASKET_NORMALIZED_PAYLINK', [
                 'booking_id' => $bookingData->id,
                 'basket_items' => $basket,
                 'total_amount_cents' => $totalAmount,
-                'total_amount_eur' => $totalAmount / 100,
-                'pending_amount' => $basketData['pending_amount'] ?? null,
-                'source' => 'createGatewayLink'
+                'pending_amount' => $pendingAmount,
+                'difference_cents' => isset($difference) ? $difference : 0,
+                'source' => 'createPayLink'
             ]);
-
-            $gr->setBasket($basket);
-            $gr->setAmount($totalAmount);
-
-            // Buyer data
-            if ($buyerUser) {
-                $gr->addField('forename', $buyerUser->first_name);
-                $gr->addField('surname', $buyerUser->last_name);
-                $gr->addField('phone', $buyerUser->phone);
-                $gr->addField('email', $buyerUser->email);
-                $gr->addField('street', $buyerUser->address);
-                $gr->addField('postcode', $buyerUser->cp);
-
-                $gr->addField('place', $buyerUser->province);
-                $gr->addField('country',  $buyerUser->country);
-            }
-
-            // OK/error pages to redirect user after payment
-            if ($redirectTo == 'panel') {
-                $gr->setSuccessRedirectUrl(env('ADMIM_URL') . '/bookings?status=success');
-                $gr->setFailedRedirectUrl(env('ADMIM_URL') . '/bookings?status=failed');
-                $gr->setCancelRedirectUrl(env('ADMIM_URL') . '/bookings?status=cancel');
-            } else if ($redirectTo == 'app') {
-                $gr->setSuccessRedirectUrl(route('api.payrexx.finish', ['status' => 'success']));
-                $gr->setFailedRedirectUrl(route('api.payrexx.finish', ['status' => 'failed']));
-                $gr->setCancelRedirectUrl(route('api.payrexx.finish', ['status' => 'cancel']));
-            } else if ($redirectTo != null) {
-                $gr->setSuccessRedirectUrl($redirectTo . '?status=success');
-                $gr->setFailedRedirectUrl($redirectTo . '?status=failed');
-                $gr->setCancelRedirectUrl($redirectTo . '?status=cancel');
-            }
-
-            if($bookingData->source == 'web') {
-                $gr->setValidity(15);
-            }
-
-            Log::channel('payrexx')->info('Link prepared amount: '. $totalAmount);
-
-
-            // Launch it
-            $payrexx = new Payrexx(
-                $schoolData->getPayrexxInstance(),
-                $schoolData->getPayrexxKey(),
-                '',
-                config('services.payrexx.base_domain', 'pay.boukii.com')
-            );
-
-            $gateway = $payrexx->create($gr);
-
-            if ($gateway) {
-                $link = $gateway->getLink();
-            }
-
-        } catch (\Exception $e) {
-            // Altought not stated by API documentation (as of 2022-10),
-            // missing or wrong params will throw an Exception, plus other connection etc issues
-            Log::error('PayrexxHelpers createGatewayLink Booking ID=' . $bookingData->id);
-            Log::error($e->getMessage());
-            Log::error($e->getLine());
-            Log::error('Error:', $e->getTrace());
-            $link = '';
-        }
-
-        return $link;
-    }
-
-    /**
-     * Download from Payrexx the details of a Transaction.
-     * @see https://developers.payrexx.com/reference/retrieve-a-transaction
-     *
-     * @param string $payrexxInstance
-     * @param string $payrexxKey
-     * @param int $transactionID
-     * @return Payrexx\Models\Response\Transaction|null
-     */
-    public static function retrieveTransaction($payrexxInstance, $payrexxKey, $transactionID)
-    {
-        try {
-            $tr = new TransactionRequest();
-            $tr->setId($transactionID);
-
-            $payrexx = new Payrexx(
-                $payrexxInstance,
-                $payrexxKey,
-                '',
-                config('services.payrexx.base_domain', 'pay.boukii.com')
-            );
-            return $payrexx->getOne($tr);
-        } catch (PayrexxException $pe) {
-            // Altough not stated by API documentation (as of 2022-10),
-            // if it was a wrong ID, getOne will throw an Exception "No Transaction found with id xxx".
-            // Plus other connection etc issues
-            Log::channel('payrexx')->error('PayrexxHelpers retrieveTransaction ID=' . $transactionID);
-            Log::channel('payrexx')->error($pe->getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * Prepare a Payrexx direct pay link.
-     * @see https://developers.payrexx.com/reference/create-a-paylink
-     *
-     * @param School $schoolData i.e. who wants the money
-     * @param Booking $bookingData i.e. the Booking ID this payment is for
-     * @param User $buyerUser to get his payment & contact details
-     *
-     * @return string empty if something failed
-     */
-    public static function createPayLink($schoolData, $bookingData, $basketData, Client $buyerUser = null)
-    {
-        $link = '';
-
-        try {
-            // Check that School has Payrexx credentials
-            /*            if (!$schoolData->getPayrexxInstance() || !$schoolData->getPayrexxKey()) {
-                            throw new \Exception('No credentials for School ID=' . $schoolData->id);
-                        }*/
-
-
-            // Prepare invoice: basic data
-            $ir = new InvoiceRequest();
-            $ir->setReferenceId($bookingData->getOrGeneratePayrexxReference());
-            //$ir->setAmount($bookingData->price_total * 100);
-            $ir->setCurrency($bookingData->currency);
-            $ir->setVatRate($schoolData->bookings_comission_cash);                  // TODO TBD as of 2022-10 all Schools are at Switzerland and there's no VAT ???
-
-            // Add School's legal terms, if set
-            if ($schoolData->conditions_url) {
-                $ir->addField('terms', $schoolData->conditions_url);
-            }
-            // Product data i.e. courses booked plus maybe cancellation insurance
-            $ir->setTitle($schoolData->name);
-
-            // Calcular el precio total del "basket"
-            /*        $totalAmount = array_reduce($basketData->all(), function($carry, $item) {
-                        return $carry + $item['amount'];
-                    }, 0);*/
-
-            $basket = [];
-
-            $totalAmount = 0;
-
-// Agregar el precio base
-            $basket[] = [
-                'name' => [1 => $basketData['price_base']['name']],
-                'quantity' => $basketData['price_base']['quantity'],
-                'amount' => $basketData['price_base']['price'] * 100, // Convertir a centavos
-            ];
-            $totalAmount += $basketData['price_base']['price'] * 100;
-
-// Agregar reducción
-            if (isset($basketData['reduction'])) {
-                $basket[] = [
-                    'name' => [1 => $basketData['reduction']['name']],
-                    'quantity' => $basketData['reduction']['quantity'],
-                    'amount' => $basketData['reduction']['price'] * 100,
-                ];
-                $totalAmount += $basketData['reduction']['price'] * 100;
-            }
-
-// Agregar el campo "tva"
-            $basket[] = [
-                'name' => [1 => $basketData['tva']['name']],
-                'quantity' => $basketData['tva']['quantity'],
-                'amount' => $basketData['tva']['price'] * 100,
-            ];
-            $totalAmount += $basketData['tva']['price'] * 100;
-
-// Agregar "Boukii Care"
-            $basket[] = [
-                'name' => [1 => $basketData['boukii_care']['name']],
-                'quantity' => $basketData['boukii_care']['quantity'],
-                'amount' => $basketData['boukii_care']['price'] * 100,
-            ];
-            $totalAmount += $basketData['boukii_care']['price'] * 100;
-
-// Agregar "Cancellation Insurance"
-            $basket[] = [
-                'name' => [1 => $basketData['cancellation_insurance']['name']],
-                'quantity' => $basketData['cancellation_insurance']['quantity'],
-                'amount' => $basketData['cancellation_insurance']['price'] * 100,
-            ];
-            $totalAmount += $basketData['cancellation_insurance']['price'] * 100;
-
-// Agregar extras
-            if (isset($basketData['extras']['extras']) && count($basketData['extras']['extras']) > 0) {
-                foreach ($basketData['extras']['extras'] as $extra) {
-                    $basket[] = [
-                        'name' => [1 => $extra['name']],
-                        'quantity' => $extra['quantity'],
-                        'amount' => $extra['price'] * 100,
-                    ];
-                    $totalAmount += $extra['price'] * 100;
-                }
-            }
-
-// Agregar bonos
-            if (isset($basketData['bonus']['bonuses']) && count($basketData['bonus']['bonuses']) > 0) {
-                foreach ($basketData['bonus']['bonuses'] as $bonus) {
-                    $basket[] = [
-                        'name' => [1 => $bonus['name']],
-                        'quantity' => $bonus['quantity'],
-                        'amount' => $bonus['price'] * 100,
-                    ];
-                    $totalAmount += $bonus['price'] * 100;
-                }
-            }
-
-// Agregar descuentos de intervalo
-            if (isset($basketData['interval_discounts']['discounts']) && count($basketData['interval_discounts']['discounts']) > 0) {
-                foreach ($basketData['interval_discounts']['discounts'] as $discount) {
-                    $basket[] = [
-                        'name' => [1 => $discount['name']],
-                        'quantity' => $discount['quantity'],
-                        'amount' => $discount['price'] * 100,
-                    ];
-                    $totalAmount += $discount['price'] * 100;
-                }
-            }
-
-// Verificar si la suma del basket coincide con pending_amount
-            if (abs(($totalAmount / 100) - floatval($basketData['pending_amount'])) > 0.01) {
-                // Si no coincide, eliminar bonos y recalcular
-                foreach ($basket as $key => $item) {
-                    if (strpos($item['name'][1], 'BOU') !== false) {
-                        $totalAmount -= $item['amount'];
-                        unset($basket[$key]);
-
-                        // Verificar si ahora coincide
-                        if (abs(($totalAmount / 100) - floatval($basketData['pending_amount'])) <= 0.01) {
-                            break;
-                        }
-                    }
-                }
-
-                // Si aún no coincide, ajustar con un campo adicional
-                $adjustment = (floatval($basketData['pending_amount']) * 100) - $totalAmount;
-
-                if ($adjustment != 0) { // Solo añadir el ajuste si es diferente de 0
-                    $basket[] = [
-                        'name' => [1 => 'Adjustment'],
-                        'quantity' => 1,
-                        'amount' => $adjustment,
-                    ];
-                    $totalAmount += $adjustment;
-                }
-            }
-
-            //$totalAmount = $basketData['pending_amount'] * 100;
-
-            Log::channel('payrexx')->info('Basket, ', $basket);
 
 
             $paymentSummary = self::generatePaymentSummary($basket);
+
 
 
             // FINAL: Log basket completo antes de enviar a Payrexx
@@ -591,7 +223,8 @@ class PayrexxHelpers
                 'basket_items' => $basket,
                 'total_amount_cents' => $totalAmount,
                 'total_amount_eur' => $totalAmount / 100,
-                'pending_amount' => $basketData['pending_amount'] ?? null,
+                'pending_amount' => $pendingAmount ?? null,
+                'difference_cents' => isset($difference) ? $difference : 0,
                 'source' => 'createPayLink'
             ]);
 
@@ -642,12 +275,13 @@ class PayrexxHelpers
                 $link = $invoice->getLink();
             }
         } catch (\Exception $e) {
-            // Altought not stated by API documentation (as of 2022-10),
-            // missing or wrong params will throw an Exception, plus other connection etc issues
-            Log::channel('payrexx')->error('PayrexxHelpers createPayLink Booking ID=' . $bookingData->id);
-            Log::channel('payrexx')->error($e->getMessage());
-            Log::channel('payrexx')->error($e->getLine());
-
+            Log::channel('payrexx')->error('PayrexxHelpers createPayLink failed', [
+                'booking_id' => $bookingData->id ?? null,
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
+                'basket_keys' => isset($basketPayload) ? array_keys($basketPayload) : [],
+            ]);
             $link = '';
         }
 
