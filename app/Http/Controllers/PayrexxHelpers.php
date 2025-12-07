@@ -236,19 +236,15 @@ class PayrexxHelpers
                 'source' => 'createPayLink'
             ]);
 
+            $ir = new InvoiceRequest();
+            $ir->setReferenceId($bookingData->getOrGeneratePayrexxReference());
+            $ir->setCurrency($bookingData->currency);
+            $ir->setVatRate($schoolData->bookings_comission_cash);
             $ir->setAmount($totalAmount);
-/*
-            Log::channel('payrexx')->info('Pending Amount:', ['pending_amount' => $basket['pending_amount']]);
-            Log::channel('payrexx')->info('Total Amount in Cents:', ['total_amount' => $totalAmount]);
-            Log::channel('payrexx')->info('InvoiceRequest Amount:', ['amount' => $ir->getAmount()]);*/
-            // $ir->setDescription($basketData->all());
             $ir->setName($bookingData->getOrGeneratePayrexxReference());
-            //  $ir->setPurpose($basketData->all());
             $ir->setTitle($paymentSummary['title']);
-            $ir->setPurpose('Booking: #'.$bookingData->id);
+            $ir->setPurpose('Booking: #' . $bookingData->id);
             $ir->setDescription($paymentSummary['description']);
-            // Add School's legal terms, if set
-            // (InvoiceRequest DOES accept "terms" as a valid field)
             if ($schoolData->conditions_url) {
                 $ir->addField('terms', true, $schoolData->conditions_url);
             }
@@ -260,25 +256,21 @@ class PayrexxHelpers
                 $ir->addField('email', $buyerUser->email);
                 $ir->addField('street', $buyerUser->address);
                 $ir->addField('postcode', $buyerUser->cp);
-
                 $ir->addField('place', $buyerUser->province);
-                $ir->addField('country',  $buyerUser->country);
+                $ir->addField('country', $buyerUser->country);
             }
 
-            Log::channel('payrexx')->info('Link prepared amount: '. $totalAmount);
+            Log::channel('payrexx')->info('Link prepared amount: ' . $totalAmount);
 
-            // Launch it
             $payrexx = new Payrexx(
                 $schoolData->getPayrexxInstance(),
                 $schoolData->getPayrexxKey(),
                 '',
                 config('services.payrexx.base_domain', 'pay.boukii.com')
             );
-            // dd($ir);
+
             Log::channel('payrexx')->info('InvoiceRequest Amount after changes:', ['amount' => $ir->getAmount()]);
             $invoice = $payrexx->create($ir);
-            //Log::channel('payrexx')->info('Info', $invoice);
-            Log::channel('payrexx')->info($invoice->getLink());
             if ($invoice) {
                 $link = $invoice->getLink();
             }
@@ -288,6 +280,7 @@ class PayrexxHelpers
                 'message' => $e->getMessage(),
                 'line' => $e->getLine(),
                 'file' => $e->getFile(),
+                'trace' => $e->getTraceAsString(),
                 'basket_keys' => isset($basketPayload) ? array_keys($basketPayload) : [],
             ]);
             $link = '';
