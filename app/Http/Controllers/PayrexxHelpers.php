@@ -48,6 +48,14 @@ class PayrexxHelpers
         $link = '';
 
         try {
+            $basketPayload = [];
+            if ($basketData instanceof \Illuminate\Http\Request) {
+                $basketPayload = $basketData->all();
+            } elseif ($basketData instanceof \Illuminate\Support\Collection) {
+                $basketPayload = $basketData->toArray();
+            } elseif (is_array($basketData)) {
+                $basketPayload = $basketData;
+            }
 
             // Check that School has Payrexx credentials
             //dd($schoolData->getPayrexxInstance());
@@ -286,6 +294,14 @@ class PayrexxHelpers
         }
 
         return $link;
+    }
+
+    /**
+     * Backwards-compatible alias for pay links (used by admin).
+     */
+    public static function createPayLink($schoolData, $bookingData, $basketData, Client $buyerUser = null)
+    {
+        return self::createGatewayLinkNew($schoolData, $bookingData, $basketData, $buyerUser);
     }
 
     public static function generatePaymentSummary($basketData)
