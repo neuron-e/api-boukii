@@ -304,6 +304,15 @@ class PayrexxHelpers
         return self::createGatewayLinkNew($schoolData, $bookingData, $basketData, $buyerUser);
     }
 
+    /**
+     * Legacy alias used by older controllers expecting createGatewayLink.
+     */
+    public static function createGatewayLink($schoolData, $bookingData,
+                                             $basketData, Client $buyerUser = null, $redirectTo = null)
+    {
+        return self::createGatewayLinkNew($schoolData, $bookingData, $basketData, $buyerUser, $redirectTo);
+    }
+
     public static function generatePaymentSummary($basketData)
     {
         $title = "Payment";
