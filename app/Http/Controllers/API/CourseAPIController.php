@@ -328,6 +328,8 @@ class CourseAPIController extends AppBaseController
             'claim_text' => 'sometimes|string|nullable',
             'summary' => 'sometimes|string|nullable',
             'image' => 'sometimes|string|nullable',
+            'age_min' => 'sometimes|integer|nullable|min:0|max:99',
+            'age_max' => 'sometimes|integer|nullable|min:0|max:99',
         ]);
 
         /** @var Course $course */
