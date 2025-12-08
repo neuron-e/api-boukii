@@ -92,7 +92,7 @@ class BookingController extends SlugAuthController
                 ], 422);
             }
 
-            $grossPriceTotal = (float) Arr::get($data, 'price_total', 0);
+            $grossPriceTotal = (float) Arr::get($data, 'price_total_before_discount_code', Arr::get($data, 'amount', Arr::get($data, 'price_total', 0)));
             $discountCodeId = Arr::get($data, 'discount_code_id');
             $discountCodeAmount = 0.0;
 
@@ -193,6 +193,7 @@ class BookingController extends SlugAuthController
                     'amount' => $grossPriceTotal,
                     'user_id' => $client->user->id,
                     'client_id' => $client->id,
+                    'discount_code_amount' => Arr::get($data, 'discount_code_amount', 0),
                 ];
 
                 $validation = app(DiscountCodeService::class)->validateCode($discountCode->code, $validationPayload);
@@ -312,7 +313,7 @@ class BookingController extends SlugAuthController
                         'hour_end' => $detail['hour_end'],
                         'group_id' => $groupId,
                         'accepted' => !empty($courseSubgroupId),
-                        'deleted_at' => now(),
+                        'deleted_at' => $netPriceTotal <= 0 ? null : now(),
                     ]);
 
                     $bookingUser->save();
@@ -330,7 +331,16 @@ class BookingController extends SlugAuthController
                 }
                 $groupId++; // Incrementar el `group_id` para el siguiente `cartItem`
             }
-            $booking->deleted_at = now();
+            $booking->deleted_at = $netPriceTotal <= 0 ? null : now();
+            if ($netPriceTotal <= 0) {
+                $booking->paid = true;
+                $booking->paid_total = 0;
+                // Reactivar todos los booking_users si estaban marcados
+                foreach ($bookingUsers as $bookingUser) {
+                    $bookingUser->deleted_at = null;
+                    $bookingUser->save();
+                }
+            }
 
             if (!empty($vouchersPayload)) {
                 $voucherApplications = [];
@@ -1164,10 +1174,6 @@ class BookingController extends SlugAuthController
     }
 
 }
-
-
-
-
 
 
 

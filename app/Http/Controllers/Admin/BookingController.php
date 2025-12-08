@@ -183,6 +183,11 @@ class BookingController extends AppBaseController
             if($voucherAmount > 0){
                 $data['paid'] = $data['price_total'] <= $voucherAmount;
             }
+            // Si el total es 0 (cubierto por descuento o bonos), marcar como pagado
+            if (isset($data['price_total']) && (float)$data['price_total'] <= 0) {
+                $data['paid'] = true;
+                $data['paid_total'] = 0;
+            }
             // Crear la reserva (Booking)
             $booking = Booking::create([
                 'school_id' => $school['id'],
@@ -1657,4 +1662,3 @@ class BookingController extends AppBaseController
         return $allSame ? $first : $defaults;
     }
 }
-
