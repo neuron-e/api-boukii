@@ -113,8 +113,11 @@ class DiscountCodeService
 
         $applicableTo = $discountCode->applicable_to ?? 'all';
 
+        // Validación de restricciones por curso
         if ($applicableTo === 'specific_courses') {
             $allowedCourseIds = array_map('intval', Arr::wrap($discountCode->course_ids));
+
+            // Verificar que el código tenga cursos configurados
             if (empty($allowedCourseIds)) {
                 return [
                     'valid' => false,
@@ -123,8 +126,30 @@ class DiscountCodeService
                     'discount_amount' => 0
                 ];
             }
+
+            // Verificar que la reserva incluya cursos
+            if (empty($courseIds)) {
+                return [
+                    'valid' => false,
+                    'discount_code' => $discountCode,
+                    'message' => 'Código no aplicable: no hay cursos en la reserva',
+                    'discount_amount' => 0
+                ];
+            }
+
+            // Verificar que los cursos de la reserva coincidan con los permitidos
+            $invalidCourseIds = array_diff($courseIds, $allowedCourseIds);
+            if (!empty($invalidCourseIds)) {
+                return [
+                    'valid' => false,
+                    'discount_code' => $discountCode,
+                    'message' => 'Código no aplicable a los cursos seleccionados',
+                    'discount_amount' => 0
+                ];
+            }
         }
 
+        // Validación de restricciones por cliente
         if ($applicableTo === 'specific_clients') {
             $allowedClientIds = array_map('intval', Arr::wrap($discountCode->client_ids));
             $matchesClient = $clientId && in_array((int) $clientId, $allowedClientIds, true);
@@ -140,6 +165,7 @@ class DiscountCodeService
             }
         }
 
+        // Validación de restricciones por escuela
         if (!$discountCode->isValidForSchool($schoolId)) {
             return [
                 'valid' => false,
@@ -149,35 +175,24 @@ class DiscountCodeService
             ];
         }
 
-        $allowedCourseIds = array_map('intval', Arr::wrap($discountCode->course_ids));
-        if (!empty($allowedCourseIds)) {
-            if (empty($courseIds)) {
+        // Validación de restricciones por deporte (solo si applicable_to lo especifica)
+        if ($applicableTo === 'specific_sports') {
+            $allowedSportIds = array_map('intval', Arr::wrap($discountCode->sport_ids));
+
+            if (empty($allowedSportIds)) {
                 return [
                     'valid' => false,
                     'discount_code' => $discountCode,
-                    'message' => 'Código no aplicable a los cursos seleccionados',
+                    'message' => 'Código no aplicable: el código no tiene deportes configurados',
                     'discount_amount' => 0
                 ];
             }
 
-            $invalidCourseIds = array_diff($courseIds, $allowedCourseIds);
-            if (!empty($invalidCourseIds)) {
-                return [
-                    'valid' => false,
-                    'discount_code' => $discountCode,
-                    'message' => 'Código no aplicable a los cursos seleccionados',
-                    'discount_amount' => 0
-                ];
-            }
-        }
-
-        $allowedSportIds = array_map('intval', Arr::wrap($discountCode->sport_ids));
-        if (!empty($allowedSportIds)) {
             if (empty($sportIds)) {
                 return [
                     'valid' => false,
                     'discount_code' => $discountCode,
-                    'message' => 'Código no aplicable a este deporte',
+                    'message' => 'Código no aplicable: no hay deportes en la reserva',
                     'discount_amount' => 0
                 ];
             }
@@ -193,13 +208,24 @@ class DiscountCodeService
             }
         }
 
-        $allowedDegreeIds = array_map('intval', Arr::wrap($discountCode->degree_ids));
-        if (!empty($allowedDegreeIds)) {
+        // Validación de restricciones por nivel (solo si applicable_to lo especifica)
+        if ($applicableTo === 'specific_degrees') {
+            $allowedDegreeIds = array_map('intval', Arr::wrap($discountCode->degree_ids));
+
+            if (empty($allowedDegreeIds)) {
+                return [
+                    'valid' => false,
+                    'discount_code' => $discountCode,
+                    'message' => 'Código no aplicable: el código no tiene niveles configurados',
+                    'discount_amount' => 0
+                ];
+            }
+
             if (empty($degreeIds)) {
                 return [
                     'valid' => false,
                     'discount_code' => $discountCode,
-                    'message' => 'Código no aplicable a este nivel',
+                    'message' => 'Código no aplicable: no hay niveles en la reserva',
                     'discount_amount' => 0
                 ];
             }
