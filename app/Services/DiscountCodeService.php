@@ -137,9 +137,9 @@ class DiscountCodeService
                 ];
             }
 
-            // Verificar que los cursos de la reserva coincidan con los permitidos
-            $invalidCourseIds = array_diff($courseIds, $allowedCourseIds);
-            if (!empty($invalidCourseIds)) {
+            // Verificar solapamiento: al menos uno de los cursos de la reserva debe estar permitido
+            $overlap = array_intersect($courseIds, $allowedCourseIds);
+            if (empty($overlap)) {
                 return [
                     'valid' => false,
                     'discount_code' => $discountCode,
@@ -562,7 +562,6 @@ class DiscountCodeService
         ]);
     }
 }
-
 
 
 

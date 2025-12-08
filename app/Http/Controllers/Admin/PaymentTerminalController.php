@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\BlankMailer;
 use App\Services\Payrexx\PayrexxService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Payrexx\Models\Request\Gateway as GatewayRequest;
 use Payrexx\Payrexx;
@@ -87,6 +89,7 @@ class PaymentTerminalController extends Controller
         $validator = Validator::make($request->all(), [
             'amount' => 'required|numeric|min:0.01',
             'description' => 'nullable|string|max:255',
+            'subject' => 'nullable|string|max:255',
             'client_email' => 'nullable|email',
             'client_name' => 'nullable|string|max:255',
         ]);
@@ -178,6 +181,42 @@ class PaymentTerminalController extends Controller
                 'amount' => $amount,
                 'link' => $paymentLink
             ]);
+
+            // Optionally email the payment link
+            if (!empty($clientEmail)) {
+                $subject = $request->input('subject', 'Payment link');
+                $safeDescription = $description ? e($description) : '';
+
+                $bodyParts = [];
+                if ($safeDescription !== '') {
+                    $bodyParts[] = $safeDescription;
+                }
+                $bodyParts[] = 'Amount: ' . number_format($amount, 2) . ' CHF';
+                $bodyParts[] = '<a href="' . e($paymentLink) . '">' . e($paymentLink) . '</a>';
+                $bodyContent = implode('<br><br>', $bodyParts);
+
+                $mailer = new BlankMailer($subject, $bodyContent, [$clientEmail], [], $school);
+
+                dispatch(function () use ($mailer, $clientEmail, $school, $amount, $paymentLink) {
+                    try {
+                        Mail::send($mailer);
+                        Log::info('Payment terminal link emailed', [
+                            'school_id' => $school->id,
+                            'user_id' => Auth::id(),
+                            'amount' => $amount,
+                            'link' => $paymentLink,
+                            'client_email' => $clientEmail
+                        ]);
+                    } catch (\Exception $mailEx) {
+                        Log::error('Failed to email payment terminal link', [
+                            'school_id' => $school->id,
+                            'user_id' => Auth::id(),
+                            'client_email' => $clientEmail,
+                            'error' => $mailEx->getMessage()
+                        ]);
+                    }
+                })->afterResponse();
+            }
 
             return response()->json([
                 'success' => true,
