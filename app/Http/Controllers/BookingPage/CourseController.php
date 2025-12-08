@@ -139,7 +139,8 @@ class CourseController extends SlugAuthController
 
                 return Course::withAvailableDates($type, $startDate, $endDate, $sportId, $clientId, null, $getLowerDegrees,
                         $degreeOrderArray, $minAge, $maxAge)
-                        ->select(['id', 'name', 'description', 'price', 'max_participants', 'course_type', 'sport_id', 'school_id', 'highlighted', 'is_flexible', 'duration', 'image', 'price_range', 'settings', 'intervals_config_mode'])
+                        ->select(['id', 'name', 'description', 'price', 'max_participants', 'course_type', 'sport_id', 'school_id', 'translations',
+                            'highlighted', 'is_flexible', 'duration', 'image', 'price_range', 'settings', 'intervals_config_mode'])
                         ->with([
                             'sport:id,name,icon_prive,icon_collective,icon_activity,icon_selected,icon_unselected',
                             'courseDates' => function($query) use ($startDate, $endDate) {
