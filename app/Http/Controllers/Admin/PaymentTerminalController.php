@@ -141,25 +141,6 @@ class PaymentTerminalController extends Controller
             // Set validity to 60 minutes
             $gateway->setValidity(60);
 
-            // Set client information if provided
-            $fields = [];
-            if (!empty($clientEmail)) {
-                $fields['email'] = [
-                    'value' => $clientEmail,
-                    'mandatory' => false
-                ];
-            }
-            if (!empty($clientName)) {
-                $fields['forename'] = [
-                    'value' => $clientName,
-                    'mandatory' => false
-                ];
-            }
-
-            if (!empty($fields)) {
-                $gateway->setFields($fields);
-            }
-
             // Set success/cancel redirect URLs (optional - can point to admin panel)
             $gateway->setSuccessRedirectUrl(config('app.frontend_url') . '/payment-terminal?status=success');
             $gateway->setCancelRedirectUrl(config('app.frontend_url') . '/payment-terminal?status=cancel');
