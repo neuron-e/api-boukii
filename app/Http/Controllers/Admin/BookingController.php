@@ -1469,13 +1469,26 @@ class BookingController extends AppBaseController
             return $this->sendError('Los BookingUsers deben pertenecer a la misma reserva');
         }
 
-        // MEJORA CRTICA: Verificar que ningn BookingUser ya est cancelado
-        $alreadyCancelled = $bookingUsers->where('status', 2);
-        if ($alreadyCancelled->isNotEmpty()) {
-            Log::warning('BOOKING_CANCEL_ALREADY_CANCELLED', [
-                'cancelled_ids' => $alreadyCancelled->pluck('id')->toArray()
+        // MEJORA CRÍTICA: Separar los ya cancelados de los activos
+        $alreadyCancelled     = $bookingUsers->where('status', 2);
+        $bookingUsersToCancel = $bookingUsers->where('status', '!=', 2);
+
+        // Si TODOS los BookingUsers ya estaban cancelados, no tiene sentido continuar
+        if ($bookingUsersToCancel->isEmpty()) {
+            Log::info('BOOKING_CANCEL_ALL_ALREADY_CANCELLED', [
+                'booking_users_ids'    => $bookingUsers->pluck('id')->toArray(),
+                'already_cancelled_ids'=> $alreadyCancelled->pluck('id')->toArray(),
             ]);
-            return $this->sendError('Algunos BookingUsers ya estn cancelados');
+
+            return $this->sendError('Todos los BookingUsers ya están cancelados');
+        }
+
+        // Si hay algunos ya cancelados, lo registramos pero seguimos adelante con el resto
+        if ($alreadyCancelled->isNotEmpty()) {
+            Log::info('BOOKING_CANCEL_SOME_ALREADY_CANCELLED_IGNORED', [
+                'already_cancelled_ids' => $alreadyCancelled->pluck('id')->toArray(),
+                'to_cancel_ids'         => $bookingUsersToCancel->pluck('id')->toArray(),
+            ]);
         }
 
         // Obtiene la reserva asociada
