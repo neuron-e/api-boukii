@@ -32,6 +32,7 @@ class PayrexxController
     {
         // 0. Log Payrexx response
         Log::channel('payrexx')->debug('processNotification');
+        Log::channel('payrexx')->debug($request->transaction);
         Log::channel('payrexx')->debug(print_r($request->all(), 1));
 
         // Can be Booking, Voucher or GiftVoucher
