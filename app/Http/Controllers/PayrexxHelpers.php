@@ -434,6 +434,28 @@ class PayrexxHelpers
             return false;
         }
     }
+    /**
+     * Retrieve a Payrexx transaction by ID
+     * 
+     * @param string $instance Payrexx instance name
+     * @param string $apiKey Payrexx API key
+     * @param int $transactionId Transaction ID to retrieve
+     * @return PayrexxModelsResponseTransaction|null
+     */
+    public static function retrieveTransaction($instance, $apiKey, $transactionId)
+    {
+        try {
+            $payrexx = new Payrexx($instance, $apiKey);
+            $transactionRequest = new TransactionRequest();
+            $transactionRequest->setId($transactionId);
+            $transaction = $payrexx->getOne($transactionRequest);
+            return $transaction;
+        } catch (\Exception $e) {
+            Log::channel('payrexx')->error('PayrexxHelpers retrieveTransaction failed for ID=' . $transactionId);
+            Log::channel('payrexx')->error($e->getMessage());
+            return null;
+        }
+    }
 
     private static function performRefund($payment, $refundAmount)
     {
