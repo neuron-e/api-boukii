@@ -29,6 +29,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Services\CriticalErrorNotifier;
 use App\Services\DiscountCodeService;
 use App\Services\MonitorNotificationService;
 use Illuminate\Support\Arr;
@@ -475,6 +476,7 @@ class BookingController extends SlugAuthController
             // Confirmar la transacciÃ³n
             DB::commit();
 
+
             return response()->json(['message' => 'Reserva creada con Ã©xito', 'booking_id' => $booking->id], 201);
 
         } catch (\Exception $e) {
@@ -482,6 +484,16 @@ class BookingController extends SlugAuthController
                 $e->getTrace());
             // Revertir la transacciÃ³n si ocurre un error
             DB::rollBack();
+
+            app(\App\Services\CriticalErrorNotifier::class)->notify(
+                'Booking page creation failed',
+                [
+                    'school_id' => \Illuminate\Support\Arr::get($data ?? [], 'school_id'),
+                    'client_main_id' => \Illuminate\Support\Arr::get($data ?? [], 'client_main_id'),
+                ],
+                $e
+            );
+
             return response()->json(['message' => 'Error al crear la reserva', 'error' => $e->getMessage()], 500);
         }
     }
@@ -1174,8 +1186,6 @@ class BookingController extends SlugAuthController
     }
 
 }
-
-
 
 
 

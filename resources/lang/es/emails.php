@@ -41,6 +41,9 @@ return [
             'date' => 'Fecha',
             'participant' => 'Participante:',
             'monitor' => 'Monitor:',
+            'meeting_point' => 'Punto de encuentro:',
+            'meeting_point_address' => 'Dirección:',
+            'meeting_point_instructions' => 'Instrucciones:',
             'price' => 'Precio base',
             'extras' => 'Extras',
             'total' => 'Total',
@@ -70,9 +73,11 @@ return [
             'school_name' => 'La Escuela :schoolName',
             'paid' => 'Pagado',
             'title' => 'Enlace de pago',
+            'client_label' => 'Cliente',
             'pay' => 'Pagar reserva',
             'click' => 'Click en el enlace',
-            'scan' => 'Escanea éste código con tu teléfono'
+            'scan' => 'Escanea éste código con tu teléfono',
+            'qr_note' => 'Nota: Este código QR y el botón te llevan directamente al enlace de pago seguro; no es el identificador de tu reserva.'
         ],
     'bookingCancel' =>
         ['subject' => 'Tu reserva en Boukii ha sido cancelada',

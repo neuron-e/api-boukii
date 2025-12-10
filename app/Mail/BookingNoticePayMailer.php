@@ -8,8 +8,7 @@ namespace App\Mail;
 
 use App\Models\Mail;
 use Illuminate\Mail\Mailable;
-
-use App\Models\Language;
+use App\Support\LocaleHelper;
 
 class BookingNoticePayMailer extends Mailable
 {
@@ -42,11 +41,10 @@ class BookingNoticePayMailer extends Mailable
      */
     public function build()
     {
-        // Apply that user's language - or default
-        $defaultLocale = config('app.fallback_locale');
+        $this->bookingData->loadMissing(['clientMain']);
+
         $oldLocale = \App::getLocale();
-        $userLang = Language::find( $this->userData->language1_id );
-        $userLocale = $userLang ? $userLang->code : $defaultLocale;
+        $userLocale = LocaleHelper::resolve(null, $this->userData, $this->bookingData);
         \App::setLocale($userLocale);
 
         $templateView = 'mailsv2.newBookingPayNotice';
@@ -69,8 +67,10 @@ class BookingNoticePayMailer extends Mailable
             'bookingNotes' => $this->bookingData->notes,
             'booking' => $this->bookingData,
             'courses' => $this->bookingData->parseBookedGroupedWithCourses(),
+            'bookings' => $this->bookingData->bookingUsers,
+            'client' => $this->bookingData->clientMain,
             'hasCancellationInsurance' => $this->bookingData->has_cancellation_insurance,
-            'amount' => number_format($this->bookingData->price_total, 2),
+            'amount' => number_format($this->bookingData->price_total - $this->bookingData->paid_total, 2),
             'currency' => $this->bookingData->currency,
             'actionURL' => $this->payLink,
             'footerView' => $footerView

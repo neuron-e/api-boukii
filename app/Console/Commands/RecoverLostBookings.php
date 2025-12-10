@@ -22,14 +22,12 @@ class RecoverLostBookings extends Command
                               {--to-date= : End date}
                               {--dry-run : Preview}
                               {--booking-id= : Specific booking ID to recover}
-                              {--verbose : Show detailed transaction info}
-                              {--fix-duplicates : Remove duplicate booking_users}';
+                              {--verbose : Show detailed transaction info}';
 
-    protected $description = 'Recover soft-deleted bookings paid in Payrexx with correct price calculation';
+    protected $description = 'Recover soft-deleted bookings paid in Payrexx';
 
     private $dryRun = false;
     private $verbose = false;
-    private $fixDuplicates = false;
     private $recovered = 0;
     private $failed = 0;
     private $skipped = 0;
@@ -41,7 +39,6 @@ class RecoverLostBookings extends Command
         $toDate = $this->option('to-date') ?? now()->format('Y-m-d');
         $this->dryRun = $this->option('dry-run');
         $this->verbose = $this->option('verbose');
-        $this->fixDuplicates = $this->option('fix-duplicates');
         $specificBookingId = $this->option('booking-id');
 
         if ($this->dryRun) {
@@ -52,9 +49,6 @@ class RecoverLostBookings extends Command
         $this->info("Date range: {$fromDate} to {$toDate}");
         if ($specificBookingId) {
             $this->info("Targeting specific booking: #{$specificBookingId}");
-        }
-        if ($this->fixDuplicates) {
-            $this->info("Will remove duplicate booking_users");
         }
         $this->newLine();
 

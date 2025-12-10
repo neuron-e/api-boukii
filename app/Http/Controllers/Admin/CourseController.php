@@ -217,6 +217,7 @@ class CourseController extends AppBaseController
         $course->total_available_places = $availability['total_available_places'];
         $course->total_places = $availability['total_places'];
 
+        Log::info('[DEBUG] CourseController show - courseGroups:', ['course_id' => $course->id, 'courseGroups' => ($course->courseGroups ?? collect())->map(fn($g) => ['id' => $g->id, 'degree_id' => $g->degree_id, 'age_min' => $g->age_min, 'age_max' => $g->age_max])->toArray()]);
         return $this->sendResponse($course, 'Course retrieved successfully');
     }
 
@@ -1163,7 +1164,19 @@ class CourseController extends AppBaseController
                         foreach ($dateData['course_groups'] as $groupData) {
                             // Verifica si existe 'id' antes de usarlo
                             $groupId = isset($groupData['id']) ? $groupData['id'] : null;
+                            Log::info('[DEBUG] Backend updateOrCreate groupData:', [
+                                'group_id' => $groupId,
+                                'degree_id' => $groupData['degree_id'] ?? null,
+                                'age_min' => $groupData['age_min'] ?? 'NOT SET',
+                                'age_max' => $groupData['age_max'] ?? 'NOT SET',
+                            ]);
                             $group = $date->courseGroups()->updateOrCreate(['id' => $groupId], $groupData);
+                            Log::info('[DEBUG] Backend AFTER updateOrCreate - group from DB:', [
+                                'group_id' => $group->id,
+                                'degree_id' => $group->degree_id,
+                                'age_min' => $group->age_min ?? 'NULL',
+                                'age_max' => $group->age_max ?? 'NULL',
+                            ]);
                             $updatedCourseGroups[] = $group->id;
 
                             if (isset($groupData['course_subgroups'])) {

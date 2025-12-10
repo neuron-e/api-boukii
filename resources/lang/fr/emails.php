@@ -41,6 +41,9 @@ return [
             'date' => 'Date',
             'participant' => 'Participant :',
             'monitor' => 'Moniteur :',
+            'meeting_point' => 'Point de rendez-vous :',
+            'meeting_point_address' => 'Adresse :',
+            'meeting_point_instructions' => 'Instructions :',
             'price' => 'Prix de base',
             'extras' => 'Extras',
             'total' => 'Total',
@@ -69,10 +72,12 @@ return [
             'booking_notes' => ':bookingNotes',
             'school_name' => 'L\'école :schoolName',
             'title' => 'Lien de paiement',
+            'client_label' => 'Client',
             'paid' => 'Payé',
             'pay' => 'Payer la réservation',
             'click' => 'Cliquez sur le lien',
             'scan' => 'Scannez ce code avec votre téléphone',
+            'qr_note' => 'Remarque : ce code QR et ce bouton vous mènent directement vers le lien de paiement sécurisé ; ce n’est pas votre identifiant de réservation.',
 
         ],
     'bookingCancel' =>

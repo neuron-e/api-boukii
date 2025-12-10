@@ -3,8 +3,7 @@
 namespace App\Mail;
 
 use Illuminate\Mail\Mailable;
-
-use App\Models\Language;
+use App\Support\LocaleHelper;
 
 
 class WelcomeToMailer extends Mailable
@@ -24,11 +23,8 @@ class WelcomeToMailer extends Mailable
 
     public function build()
     {
-        // Apply that user's language - or default
-        $defaultLocale = config('app.fallback_locale');
         $oldLocale = \App::getLocale();
-        $userLang = Language::find( $this->user->language1_id );
-        $userLocale = $userLang ? $userLang->code : $defaultLocale;
+        $userLocale = LocaleHelper::resolve(null, $this->user);
         \App::setLocale($userLocale);
 
         $templateView = \View::exists('mails.welcomeTo');

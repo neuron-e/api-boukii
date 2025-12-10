@@ -24,6 +24,8 @@ use App\Models\Payment;
 use App\Models\Voucher;
 use App\Models\VouchersLog;
 use App\Repositories\BookingRepository;
+use App\Services\BookingConfirmationService;
+use App\Services\CriticalErrorNotifier;
 use App\Services\MonitorNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -391,6 +393,9 @@ class BookingController extends AppBaseController
 
 
             DB::commit();
+
+            app(BookingConfirmationService::class)->sendConfirmation($booking, (bool) $booking->paid);
+
             return $this->sendResponse($booking, 'Reserva creada con xito', 201);
 
         } catch (\Exception $e) {
@@ -398,6 +403,16 @@ class BookingController extends AppBaseController
             Log::error('Error: '. $e->getFile());
             Log::error('Error: '. $e->getLine());
             Log::error('Error: '. $e->getMessage());
+
+            app(CriticalErrorNotifier::class)->notify(
+                'Admin booking creation failed',
+                [
+                    'school_id' => $school['id'] ?? null,
+                    'user_id' => $data['user_id'] ?? null,
+                    'payload_keys' => array_keys($data ?? []),
+                ],
+                $e
+            );
             return $this->sendError('Error al crear la reserva: ' . $e->getMessage(), 500);
         }
     }

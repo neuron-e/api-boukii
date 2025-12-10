@@ -104,6 +104,8 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    'critical_recipient' => env('MAIL_CRITICAL_RECIPIENT', 'andf1992@gmail.com'),
+
     /*
     |--------------------------------------------------------------------------
     | Markdown Mail Settings

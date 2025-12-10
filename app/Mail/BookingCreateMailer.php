@@ -8,9 +8,7 @@ namespace App\Mail;
 
 use App\Models\Mail;
 use Illuminate\Mail\Mailable;
-
-use App\Models\Language;
-use Illuminate\Support\Facades\Log;
+use App\Support\LocaleHelper;
 
 /**
  * When a new Booking is created, whatever the chosen payment method,
@@ -48,11 +46,8 @@ class BookingCreateMailer extends Mailable
      */
     public function build()
     {
-        // Apply that user's language - or default
-        $defaultLocale = config('app.fallback_locale');
         $oldLocale = \App::getLocale();
-        $userLang = Language::find( $this->userData->language1_id );
-        $userLocale = $userLang ? $userLang->code : $defaultLocale;
+        $userLocale = LocaleHelper::resolve(null, $this->userData, $this->bookingData);
         \App::setLocale($userLocale);
 
         $templateView = 'mailsv2.newBookingCreate';

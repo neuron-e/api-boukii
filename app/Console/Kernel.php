@@ -10,6 +10,15 @@ use Illuminate\Support\Facades\Cache;
 class Kernel extends ConsoleKernel
 {
     /**
+     * The Artisan commands provided by the application.
+     *
+     * @var array<int, class-string>
+     */
+    protected $commands = [
+        \App\Console\Commands\SendBookingConfirmations::class,
+    ];
+
+    /**
      * Define the application's command schedule.
      */
     protected function schedule(Schedule $schedule): void

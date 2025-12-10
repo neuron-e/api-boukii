@@ -147,6 +147,36 @@
                                                             </font>
                                                         </td>
                                                     </tr>
+                                                    @php
+                                                        $meetingPointName = $booking->meeting_point ?? $course['course']->meeting_point ?? null;
+                                                        $meetingPointAddress = $booking->meeting_point_address ?? $course['course']->meeting_point_address ?? null;
+                                                        $meetingPointInstructions = $booking->meeting_point_instructions ?? $course['course']->meeting_point_instructions ?? null;
+                                                    @endphp
+                                                    @if($meetingPointName || $meetingPointAddress || $meetingPointInstructions)
+                                                        <tr>
+                                                            <td width="100" align="left"
+                                                                style="font-size:14px; line-height:19px; padding:0px 0px;">
+                                                                <font face="Arial, Helvetica, sans-serif"
+                                                                      style="font-size:14px; line-height:19px; color:#000000;">
+                                                                    {{ __('emails.bookingCreate.meeting_point') }}</font>
+                                                            </td>
+                                                            <td align="left"
+                                                                style="font-size:14px; line-height:19px; padding:0px 0px;">
+                                                                <font face="Arial, Helvetica, sans-serif"
+                                                                      style="font-size:14px; line-height:19px; color:#000000;">
+                                                                    @if($meetingPointName)
+                                                                        <strong>{{ $meetingPointName }}</strong><br>
+                                                                    @endif
+                                                                    @if($meetingPointAddress)
+                                                                        {{ __('emails.bookingCreate.meeting_point_address') }} {{ $meetingPointAddress }}<br>
+                                                                    @endif
+                                                                    @if($meetingPointInstructions)
+                                                                        {{ __('emails.bookingCreate.meeting_point_instructions') }} {!! nl2br(e($meetingPointInstructions)) !!}
+                                                                    @endif
+                                                                </font>
+                                                            </td>
+                                                        </tr>
+                                                    @endif
                                                     <tr>
                                                         <td width="100" align="left"
                                                             style="font-size:14px; line-height:19px; padding:0px 0px;display: block">

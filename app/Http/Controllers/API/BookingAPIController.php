@@ -14,6 +14,8 @@ use App\Models\Client;
 use App\Models\DiscountCode;
 use App\Models\User;
 use App\Repositories\BookingRepository;
+use App\Services\BookingConfirmationService;
+use App\Services\CriticalErrorNotifier;
 use App\Services\DiscountCodeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -124,7 +126,8 @@ class BookingAPIController extends AppBaseController
      */
     public function store(CreateBookingAPIRequest $request): JsonResponse
     {
-        $input = $request->all();
+        try {
+            $input = $request->all();
 
         $grossPrice = (float) Arr::get($input, 'price_total', 0);
         $discountCodeAmount = 0.0;
@@ -175,29 +178,47 @@ class BookingAPIController extends AppBaseController
             $input['discount_code_value'] = 0;
         }
 
-        unset($input['discount_code']);
+            unset($input['discount_code']);
 
-        $booking = $this->bookingRepository->create($input);
+            $booking = $this->bookingRepository->create($input);
 
-        if ($discountCodeModel && $client && $client->user) {
-            $this->discountCodeService->recordCodeUsage(
-                $discountCodeModel->id,
-                $client->user->id,
-                $booking->id,
-                $discountCodeAmount
+            if ($discountCodeModel && $client && $client->user) {
+                $this->discountCodeService->recordCodeUsage(
+                    $discountCodeModel->id,
+                    $client->user->id,
+                    $booking->id,
+                    $discountCodeAmount
+                );
+            }
+
+            $logData = [
+                'booking_id' => $booking->id,
+                'action' => 'created by api',
+                'user_id' => $booking->user_id,
+                'description' => 'Booking created',
+            ];
+
+            BookingLog::create($logData);
+
+            app(BookingConfirmationService::class)->sendConfirmation($booking, (bool) $booking->paid);
+
+            return $this->sendResponse(new BookingResource($booking), 'Booking saved successfully');
+        } catch (\Exception $e) {
+            Log::error('API_BOOKING_CREATE_FAILED', [
+                'error' => $e->getMessage(),
+                'user_id' => $request->user()->id ?? null,
+            ]);
+
+            app(CriticalErrorNotifier::class)->notify(
+                'API booking creation failed',
+                [
+                    'user_id' => $request->user()->id ?? null,
+                ],
+                $e
             );
+
+            return $this->sendError('Error al crear la reserva: ' . $e->getMessage(), 500);
         }
-
-        $logData = [
-            'booking_id' => $booking->id,
-            'action' => 'created by api',
-            'user_id' => $booking->user_id,
-            'description' => 'Booking created',
-        ];
-
-        BookingLog::create($logData);
-
-        return $this->sendResponse(new BookingResource($booking), 'Booking saved successfully');
     }
 
     /**

@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Mail\BookingCreateMailer;
 use App\Mail\GiftVoucherDeliveredMail;
 use App\Models\Booking;
 use App\Models\Client;
 use App\Models\GiftVoucher;
 use App\Models\Payment;
 use App\Models\User;
+use App\Services\BookingConfirmationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -115,21 +115,8 @@ class PayrexxController
                                         }
                                     }
                                     // As of 2022-10-25 tell buyer user by email at this point, even before payment, and continue
-                                    dispatch(function () use ($schoolData, $booking, $buyerUser) {
-                                        // N.B. try-catch because some test users enter unexistant emails, throwing Swift_TransportException
-                                        try {
-                                            \Mail::to($buyerUser->email)
-                                                ->send(new BookingCreateMailer(
-                                                    $schoolData,
-                                                    $booking,
-                                                    $buyerUser,
-                                                    true
-                                                ));
-                                        } catch (\Exception $ex) {
-                                            \Illuminate\Support\Facades\Log::debug('BookingController->createBooking BookingCreateMailer: ' .
-                                                $ex->getMessage());
-                                        }
-                                    })->afterResponse();
+                                    app(BookingConfirmationService::class)
+                                        ->sendConfirmation($booking, true);
                                 }
 
                                 // Everything seems to fit, so mark booking as paid,
@@ -197,21 +184,8 @@ class PayrexxController
                                 $buyerUser = User::find($booking->client_main_id);
                                 if ($booking->payment_method_id == 2 && $booking->source == 'web') {
                                     // As of 2022-10-25 tell buyer user by email at this point, even before payment, and continue
-                                    dispatch(function () use ($schoolData, $booking, $buyerUser) {
-                                        // N.B. try-catch because some test users enter unexistant emails, throwing Swift_TransportException
-                                        try {
-                                            \Mail::to($buyerUser->email)
-                                                ->send(new BookingCreateMailer(
-                                                    $schoolData,
-                                                    $booking,
-                                                    $buyerUser,
-                                                    true
-                                                ));
-                                        } catch (\Exception $ex) {
-                                            \Illuminate\Support\Facades\Log::debug('PayrexxController->processNotification BookingCreateMailer: ' .
-                                                $ex->getMessage());
-                                        }
-                                    })->afterResponse();
+                                    app(BookingConfirmationService::class)
+                                        ->sendConfirmation($booking, true);
                                 }
 
                                 $voucher->payed = true;

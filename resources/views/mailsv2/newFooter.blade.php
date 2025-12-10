@@ -17,10 +17,10 @@
                                 <td width="20" class="center-on-narrow" valign="middle" style="border-left:1px solid #222222;">&nbsp;</td>
                                 <td class="center-on-narrow">
                                     <font face="Arial, Helvetica, sans-serif" style="font-size:12px; line-height:17px; color:#222222;">
-                                        This email has been generated automatically and cannot receive replies.
+                                        {{ __('emails.footer.automatic_email') }}
                                     </font>
                                     <font face="Arial, Helvetica, sans-serif" style="font-size:12px; line-height:17px; color:#222222;">
-                                        For more information, contact {{$schoolName}}
+                                        {{ __('emails.footer.contact_school', ['schoolName' => $schoolName]) }}
                                     </font>
                                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 10px 0px!important;">
                                         <tr>
@@ -33,9 +33,17 @@
                                             </td>
                                         </tr>
                                     </table>
-                                    <font face="Arial, Helvetica, sans-serif" style="font-size:12px; line-height:17px; color:#222222;">
-                                        Conditions generales de vente
-                                    </font>
+                                    @if(!empty($schoolConditionsURL))
+                                        <a href="{{$schoolConditionsURL}}" target="_blank" style="color:#222222; text-decoration:none;">
+                                            <font face="Arial, Helvetica, sans-serif" style="font-size:12px; line-height:17px; color:#222222;">
+                                                {{ __('emails.footer.school_conditions') }}
+                                            </font>
+                                        </a>
+                                    @else
+                                        <font face="Arial, Helvetica, sans-serif" style="font-size:12px; line-height:17px; color:#222222;">
+                                            {{ __('emails.footer.school_conditions') }}
+                                        </font>
+                                    @endif
                                 </td>
                             </tr>
                         </table>
@@ -52,7 +60,7 @@
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" align="center" class="email-container">
                 <tr>
                     <td class="center-on-narrow" align="center" style="padding: 20px 0px;">
-                        <font face="Arial, Helvetica, sans-serif" style="font-size:12px; line-height:17px; color:#222222;">Boukii &copy; 2024</font>
+                        <font face="Arial, Helvetica, sans-serif" style="font-size:12px; line-height:17px; color:#222222;">{{ __('emails.footer.copyright') }}</font>
                     </td>
                 </tr>
             </table>

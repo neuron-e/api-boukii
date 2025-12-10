@@ -8,9 +8,7 @@ namespace App\Mail;
 
 use App\Models\Mail;
 use Illuminate\Mail\Mailable;
-
-use App\Models\Language;
-use Illuminate\Support\Facades\Log;
+use App\Support\LocaleHelper;
 
 /**
  * When a new Booking is created, and chose "Payment Online",
@@ -49,12 +47,9 @@ class BookingPayMailer extends Mailable
      */
     public function build()
     {
-
-        // Apply that user's language - or default
-        $defaultLocale = config('app.fallback_locale');
+        $this->bookingData->loadMissing(['clientMain']);
         $oldLocale = \App::getLocale();
-        $userLang = Language::find( $this->userData->language1_id );
-        $userLocale = $userLang ? $userLang->code : $defaultLocale;
+        $userLocale = LocaleHelper::resolve(null, $this->userData, $this->bookingData);
         \App::setLocale($userLocale);
 
         $templateView = 'mailsv2.newBookingPay';
@@ -78,6 +73,7 @@ class BookingPayMailer extends Mailable
             'booking' => $this->bookingData,
             'courses' => $this->bookingData->parseBookedGroupedWithCourses(),
             'bookings' => $this->bookingData->bookingUsers,
+            'client' => $this->bookingData->clientMain,
             'hasCancellationInsurance' => $this->bookingData->has_cancellation_insurance,
             'amount' => number_format($this->bookingData->price_total - $this->bookingData->paid_total, 2),
             'currency' => $this->bookingData->currency,
