@@ -12,6 +12,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 
 use Illuminate\Support\Facades\Mail;
+use App\Services\Payrexx\PayrexxService;
 use Payrexx\Models\Request\Gateway as GatewayRequest;
 use Payrexx\Models\Request\Invoice as InvoiceRequest;
 use Payrexx\Models\Request\Transaction as TransactionRequest;
@@ -444,13 +445,29 @@ class PayrexxHelpers
      */
     public static function retrieveTransaction($instance, $apiKey, $transactionId)
     {
+        if (empty($instance) || empty($apiKey)) {
+            Log::channel('payrexx')->warning('PayrexxHelpers retrieveTransaction aborted: missing credentials', [
+                'transaction_id' => $transactionId,
+                'has_instance' => !empty($instance),
+                'has_key' => !empty($apiKey),
+            ]);
+            return null;
+        }
+
         try {
-            $payrexx = new Payrexx($instance, $apiKey);
-            $transactionRequest = new TransactionRequest();
-            $transactionRequest->setId($transactionId);
-            $transaction = $payrexx->getOne($transactionRequest);
+            /** @var PayrexxService $payrexxService */
+            $payrexxService = app(PayrexxService::class);
+            $transaction = $payrexxService->retrieveTransaction($instance, $apiKey, (int) $transactionId);
+
+            if (!$transaction) {
+                Log::channel('payrexx')->error('PayrexxHelpers retrieveTransaction returned null', [
+                    'transaction_id' => $transactionId,
+                    'instance' => $instance,
+                ]);
+            }
+
             return $transaction;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::channel('payrexx')->error('PayrexxHelpers retrieveTransaction failed for ID=' . $transactionId);
             Log::channel('payrexx')->error($e->getMessage());
             return null;

@@ -155,6 +155,13 @@ class PayrexxController
                                 $payment->save();
 
                                 $booking->save();
+                            } else {
+                                Log::channel('payrexx')->warning('Payrexx webhook transaction could not be verified for booking', [
+                                    'booking_id' => $booking->id,
+                                    'reference' => $referenceID,
+                                    'transaction_id' => $transactionID,
+                                    'school_id' => $schoolData->id ?? null,
+                                ]);
                             }
                         }
                     }
@@ -211,6 +218,13 @@ class PayrexxController
                                 ]);
 
                                 $voucher->save();
+                            } else {
+                                Log::channel('payrexx')->warning('Payrexx webhook transaction could not be verified for voucher', [
+                                    'voucher_id' => $voucher->id,
+                                    'reference' => $referenceID,
+                                    'transaction_id' => $transactionID,
+                                    'school_id' => $schoolData->id ?? null,
+                                ]);
                             }
                         }
                     }
@@ -284,6 +298,13 @@ class PayrexxController
                                         ]);
 
                                         return response()->json(['status' => 'success', 'type' => 'gift_voucher']);
+                                    } else {
+                                        Log::channel('payrexx')->warning('Payrexx webhook transaction could not be verified for gift voucher', [
+                                            'gift_voucher_id' => $giftVoucher->id,
+                                            'reference' => $referenceID,
+                                            'transaction_id' => $transactionID,
+                                            'school_id' => $schoolData->id ?? null,
+                                        ]);
                                     }
                                 }
                             }
