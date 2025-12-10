@@ -45,6 +45,7 @@ class PayrexxController
                 $referenceID = $data['invoice']['paymentLink']['referenceId']
                     ?? $data['invoice']['referenceId']
                     ?? $data['referenceId']
+                    ?? $data['invoice']['number']
                     ?? '';
 
                 $referenceID = trim($referenceID);
