@@ -17,6 +17,7 @@ class SendBookingConfirmations extends Command
      */
     protected $signature = 'bookings:send-confirmations 
         {--status= : Comma separated list of booking status codes to include (default: 1,3)}
+        {--school= : School ID to scope the resend (optional)}
         {--force : Resend even if a confirmation log already exists}
         {--dry-run : Only report the bookings that would be processed}';
 
@@ -40,12 +41,14 @@ class SendBookingConfirmations extends Command
     public function handle(): int
     {
         $statuses = $this->resolveStatuses();
+        $schoolId = $this->resolveSchoolId();
         $force = (bool) $this->option('force');
         $dryRun = (bool) $this->option('dry-run');
 
         $this->info(sprintf(
-            'Scanning bookings (statuses: %s, force: %s, dry-run: %s)',
+            'Scanning bookings (statuses: %s, school: %s, force: %s, dry-run: %s)',
             implode(',', $statuses),
+            $schoolId ? $schoolId : 'all',
             $force ? 'yes' : 'no',
             $dryRun ? 'yes' : 'no'
         ));
@@ -54,6 +57,10 @@ class SendBookingConfirmations extends Command
             ->with(['school', 'clientMain'])
             ->whereNull('deleted_at')
             ->whereIn('status', $statuses);
+
+        if ($schoolId) {
+            $query->where('school_id', $schoolId);
+        }
 
         if (!$force) {
             $query->whereDoesntHave('bookingLogs', function ($q) {
@@ -124,5 +131,21 @@ class SendBookingConfirmations extends Command
             ->unique()
             ->values()
             ->all() ?: [1, 3];
+    }
+
+    private function resolveSchoolId(): ?int
+    {
+        $option = $this->option('school');
+        if ($option === null || $option === '') {
+            return null;
+        }
+
+        if (!is_numeric($option)) {
+            $this->warn('Invalid --school option provided; ignoring.');
+            return null;
+        }
+
+        $schoolId = (int) $option;
+        return $schoolId > 0 ? $schoolId : null;
     }
 }
