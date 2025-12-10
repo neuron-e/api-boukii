@@ -32,7 +32,6 @@ class PayrexxController
     {
         // 0. Log Payrexx response
         Log::channel('payrexx')->debug('processNotification');
-        Log::channel('payrexx')->debug('TRansaction:', $request->transaction);
         Log::channel('payrexx')->debug(print_r($request->all(), 1));
 
         // Can be Booking, Voucher or GiftVoucher
@@ -44,7 +43,7 @@ class PayrexxController
                 // 2. Pick related Booking from our database:
                 // we sent its ReferenceID when the payment was requested
                 $referenceID = trim($data['referenceId'] ?? '');
-
+                Log::channel('payrexx')->debug('ReferenceID: ' . $referenceID );
                 $booking = (strlen($referenceID) > 2)
                     ? Booking::withTrashed()->with(['school', 'bookingUsers'])
                         ->where('payrexx_reference', '=', $referenceID)
