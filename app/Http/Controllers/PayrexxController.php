@@ -42,8 +42,15 @@ class PayrexxController
                 $data['status'] === TransactionResponse::CONFIRMED) {
                 // 2. Pick related Booking from our database:
                 // we sent its ReferenceID when the payment was requested
-                $referenceID = trim($data['referenceId'] ?? '');
+                $referenceID = $data['invoice']['paymentLink']['referenceId']
+                    ?? $data['invoice']['referenceId']
+                    ?? $data['referenceId']
+                    ?? '';
+
+                $referenceID = trim($referenceID);
+
                 Log::channel('payrexx')->debug('ReferenceID: ' . $referenceID );
+
                 $booking = (strlen($referenceID) > 2)
                     ? Booking::withTrashed()->with(['school', 'bookingUsers'])
                         ->where('payrexx_reference', '=', $referenceID)
