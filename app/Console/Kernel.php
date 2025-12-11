@@ -41,6 +41,12 @@ class Kernel extends ConsoleKernel
         $schedule->call(function () {
             Cache::flush(); // En producción, implementar limpieza más selectiva
         })->hourly();
+
+        // Mantener integridad de datos de cursos (migrar booking_users huérfanos)
+        // Se ejecuta diariamente a las 3 AM
+        $schedule->command('course:maintain-data-integrity --notify-email=' . config('mail.from.address'))
+            ->dailyAt('03:00')
+            ->runInBackground();
     }
 
     /**
