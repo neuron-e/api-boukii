@@ -1276,10 +1276,30 @@ class CourseController extends AppBaseController
                             $group->courseSubgroups()->whereNotIn('id', $updatedSubgroups)->delete();
                         }
                     }
+                    // Delete groups that are no longer in the updated list
                     $date->courseGroups()->whereNotIn('id', $updatedCourseGroups)->delete();
+
+                    // CRITICAL FIX: Clean up orphaned subgroups whose parent groups were soft-deleted
+                    // These subgroups belong to groups that no longer exist (soft deleted)
+                    // but weren't deleted in line 1276 because they were deleted after their parent groups
+                    CourseSubgroup::whereHas('courseGroup', function($q) {
+                        $q->whereNotNull('deleted_at');
+                    })
+                    ->where('course_date_id', $date->id)
+                    ->whereNull('deleted_at')
+                    ->delete();
                 }
                 }
                 $course->courseDates()->whereNotIn('id', $updatedCourseDates)->delete();
+
+                // CRITICAL FIX: Clean up ALL orphaned subgroups for this course
+                // that reference soft-deleted course_groups
+                CourseSubgroup::whereHas('courseGroup', function($q) {
+                    $q->whereNotNull('deleted_at');
+                })
+                ->where('course_id', $course->id)
+                ->whereNull('deleted_at')
+                ->delete();
             }
 
             // OPTIMIZED: Create CourseSubgroupDate junction records using bulk insert
