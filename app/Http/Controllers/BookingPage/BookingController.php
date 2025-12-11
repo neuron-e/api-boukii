@@ -367,11 +367,15 @@ class BookingController extends SlugAuthController
 
                     if (isset($detail['extra']) && is_array($detail['extra'])) {
                         foreach ($detail['extra'] as $extra) {
-                            BookingUserExtra::create([
-                                'booking_user_id' => $bookingUser->id,
-                                'course_extra_id' => $extra['id'],
-                                'quantity' => 1
-                            ]);
+                            // Only create BookingUserExtra if the ID is numeric (CourseExtra from database)
+                            // School settings extras have string IDs like 'FOR-65307287' and are not CourseExtras
+                            if (isset($extra['id']) && is_numeric($extra['id'])) {
+                                BookingUserExtra::create([
+                                    'booking_user_id' => $bookingUser->id,
+                                    'course_extra_id' => (int) $extra['id'],
+                                    'quantity' => 1
+                                ]);
+                            }
                         }
                     }
                 }
