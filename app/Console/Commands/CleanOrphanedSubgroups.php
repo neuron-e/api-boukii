@@ -69,7 +69,7 @@ class CleanOrphanedSubgroups extends Command
             $orphanedSubgroups->map(function ($subgroup) {
                 // Count only booking_users with active (non-soft-deleted) bookings
                 $bookingUsersCount = DB::table('booking_users')
-                    ->leftJoin('bookings', 'booking_users.booking_id', '=', 'bookings.id')
+                    ->join('bookings', 'booking_users.booking_id', '=', 'bookings.id')
                     ->where('booking_users.course_subgroup_id', $subgroup->id)
                     ->whereNull('booking_users.deleted_at')
                     ->whereNull('bookings.deleted_at')
@@ -95,7 +95,7 @@ class CleanOrphanedSubgroups extends Command
         // Check if any have booking_users with active bookings
         $subgroupsWithBookings = $orphanedSubgroups->filter(function ($subgroup) {
             return DB::table('booking_users')
-                ->leftJoin('bookings', 'booking_users.booking_id', '=', 'bookings.id')
+                ->join('bookings', 'booking_users.booking_id', '=', 'bookings.id')
                 ->where('booking_users.course_subgroup_id', $subgroup->id)
                 ->whereNull('booking_users.deleted_at')
                 ->whereNull('bookings.deleted_at')
