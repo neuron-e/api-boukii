@@ -88,14 +88,17 @@ class MaintainCourseDataIntegrity extends Command
         $skippedNoTarget = 0;
         $skippedNoActiveBooking = 0;
 
-        // Find orphaned subgroups with booking_users
+        // Find orphaned subgroups with booking_users that have active bookings
         $query = CourseSubgroup::query()
             ->select('course_subgroups.*')
             ->join('course_groups', 'course_subgroups.course_group_id', '=', 'course_groups.id')
             ->whereNotNull('course_groups.deleted_at')
             ->whereNull('course_subgroups.deleted_at')
             ->whereHas('bookingUsers', function($q) {
-                $q->whereNull('deleted_at');
+                $q->whereNull('deleted_at')
+                    ->whereHas('booking', function($bq) {
+                        $bq->whereNull('deleted_at');
+                    });
             });
 
         if ($schoolId) {
