@@ -29,6 +29,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Services\CourseAvailabilityService;
 use App\Services\CriticalErrorNotifier;
 use App\Services\DiscountCodeService;
 use App\Services\MonitorNotificationService;
@@ -240,8 +241,10 @@ class BookingController extends SlugAuthController
             // Crear BookingUser para cada detalle
             $groupId = 1; // Inicia el contador de grupo
             $bookingUsers = []; // Para almacenar los objetos BookingUser
+            $availabilityService = app(CourseAvailabilityService::class);
             $courseGroupCache = [];
             $courseSubgroupCache = [];
+            $courseDateCache = [];
 
             foreach ($cartItems as $cartItem) {
                 foreach ($cartItem['details'] as $detail) {
@@ -249,7 +252,25 @@ class BookingController extends SlugAuthController
                     $degreeId = $detail['degree_id'] ?? null;
                     $courseGroupId = Arr::get($detail, 'course_group_id');
                     $courseSubgroupId = Arr::get($detail, 'course_subgroup_id');
+                    $courseType = (int) ($detail['course']['course_type'] ?? $detail['course_type'] ?? 0);
 
+                    $normalizedDate = null;
+                    $rawDate = $detail['date'] ?? null;
+                    if ($rawDate) {
+                        $normalizedDate = Carbon::parse($rawDate)->format('Y-m-d');
+                    } elseif (!empty($detail['course_date_id'])) {
+                        if (!isset($courseDateCache[$detail['course_date_id']])) {
+                            $courseDateCache[$detail['course_date_id']] = CourseDate::find($detail['course_date_id']);
+                        }
+                        $courseDateRecord = $courseDateCache[$detail['course_date_id']];
+                        if ($courseDateRecord && $courseDateRecord->date) {
+                            $normalizedDate = $courseDateRecord->date instanceof Carbon
+                                ? $courseDateRecord->date->format('Y-m-d')
+                                : Carbon::parse($courseDateRecord->date)->format('Y-m-d');
+                        }
+                    }
+
+                    $courseSubgroup = null;
                     if ($courseSubgroupId) {
                         if (!isset($courseSubgroupCache[$courseSubgroupId])) {
                             $courseSubgroupCache[$courseSubgroupId] = CourseSubgroup::find($courseSubgroupId);
@@ -295,6 +316,30 @@ class BookingController extends SlugAuthController
                         }
                     } else {
                         $courseGroupId = null;
+                    }
+
+                    if ($courseType === 1 && $courseSubgroup && $normalizedDate) {
+                        $availableSlots = $availabilityService->getAvailableSlots($courseSubgroup, $normalizedDate);
+
+                        if ($availableSlots <= 0) {
+                            Log::warning('BOOKING_PAGE_COLLECTIVE_FULL', [
+                                'course_id' => $detail['course_id'] ?? null,
+                                'course_date_id' => $detail['course_date_id'] ?? null,
+                                'course_subgroup_id' => $courseSubgroupId,
+                                'degree_id' => $degreeId,
+                                'date' => $normalizedDate,
+                            ]);
+
+                            DB::rollBack();
+                            return response()->json([
+                                'message' => 'El subgrupo seleccionado ya no tiene plazas disponibles.',
+                                'errors' => [
+                                    'course_subgroup_id' => [
+                                        "El subgrupo {$courseSubgroupId} no tiene plazas disponibles para la fecha {$normalizedDate}."
+                                    ],
+                                ],
+                            ], 422);
+                        }
                     }
 
                     $bookingUser = new BookingUser([
@@ -1186,8 +1231,6 @@ class BookingController extends SlugAuthController
     }
 
 }
-
-
 
 
 

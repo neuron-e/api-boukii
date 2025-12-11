@@ -14,6 +14,7 @@ use App\Models\MonitorNwd;
 use App\Models\MonitorSportsDegree;
 use App\Models\MonitorsSchool;
 use App\Models\Season;
+use App\Services\CourseAvailabilityService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -352,10 +353,20 @@ class CourseController extends SlugAuthController
         } else {
             $availableDegreeIds = collect();
             $unAvailableDegreeIds = collect();
+            $availabilityService = app(CourseAvailabilityService::class);
+            $dateAvailabilityMap = [];
             foreach ($course->courseDates as $courseDate) {
+                $dateAvailabilityMap[$courseDate->id] = false;
+                $dateString = null;
+                if ($courseDate->date instanceof Carbon) {
+                    $dateString = $courseDate->date->format('Y-m-d');
+                } elseif (!empty($courseDate->date)) {
+                    $dateString = Carbon::parse($courseDate->date)->format('Y-m-d');
+                }
                 foreach ($courseDate->courseGroups as $group) {
-                    $group->courseSubgroups = $group->courseSubgroups->filter(function ($subgroup) use ($availableDegreeIds, $unAvailableDegreeIds, $group) {
-                        $hasAvailability = $subgroup->booking_users_count < $subgroup->max_participants;
+                    $group->courseSubgroups = $group->courseSubgroups->filter(function ($subgroup) use ($availableDegreeIds, $unAvailableDegreeIds, $group, $course, $dateString, $availabilityService, $courseDate, &$dateAvailabilityMap) {
+                        $capacity = $this->buildSubgroupCapacitySnapshot($course, $subgroup, $dateString, $availabilityService);
+                        $hasAvailability = $capacity['has_availability'];
 
                         // Crear la estructura de datos del degree
                         $availableDegree = [
@@ -376,6 +387,16 @@ class CourseController extends SlugAuthController
                             }
                         }
 
+                        if ($hasAvailability) {
+                            $dateAvailabilityMap[$courseDate->id] = true;
+                        }
+
+                        $subgroup->capacity_info = [
+                            'max_participants' => $capacity['max_participants'],
+                            'current_bookings' => $capacity['current_bookings'],
+                            'available_slots' => $capacity['available_slots']
+                        ];
+
                         return $hasAvailability;
                     });
 
@@ -387,6 +408,41 @@ class CourseController extends SlugAuthController
                     }
                 }
             }
+
+            $filteredCourseDates = collect();
+            $intervalsWithCapacity = [];
+            foreach ($course->courseDates as $courseDate) {
+                $hasAvailability = $dateAvailabilityMap[$courseDate->id] ?? false;
+                $courseDate->active = $hasAvailability ? 1 : 0;
+
+                if (!$hasAvailability) {
+                    $courseDate->setRelation('courseGroups', collect());
+                    $courseDate->setRelation('courseSubgroups', collect());
+                } else {
+                    $courseDate->setRelation('courseGroups', $courseDate->courseGroups->filter(function ($group) {
+                        return $group->courseSubgroups->isNotEmpty();
+                    })->values());
+
+                    $filteredCourseDates->push($courseDate);
+                    $intervalKey = $courseDate->course_interval_id ?? $courseDate->interval_id;
+                    if ($intervalKey !== null) {
+                        $intervalsWithCapacity[(string)$intervalKey] = true;
+                    }
+                }
+            }
+
+            $course->setRelation('courseDates', $filteredCourseDates);
+            if ($course->relationLoaded('courseIntervals')) {
+                $course->setRelation('courseIntervals', $course->courseIntervals->filter(function ($interval) use ($intervalsWithCapacity) {
+                    $intervalKey = $interval->id ?? $interval->interval_id;
+                    if (!$intervalKey) {
+                        return false;
+                    }
+                    return !empty($intervalsWithCapacity[(string)$intervalKey]);
+                })->values());
+            }
+
+            $this->filterIntervalSettings($course, $dateAvailabilityMap, $intervalsWithCapacity);
 
 
             $uniqueDegrees = $availableDegreeIds->unique(function ($item) {
@@ -421,13 +477,13 @@ class CourseController extends SlugAuthController
 
         $course = $courseDate->course;
         $startTime = $request->hour_start;
-        $endTime = $courseDate->hour_end; // Hora máxima del curso
+        $endTime = $courseDate->hour_end; // Hora m?xima del curso
 
         if (!$startTime || !strtotime($startTime)) {
             return $this->sendError('Invalid start time.');
         }
 
-        // Verificar si es un día festivo
+        // Verificar si es un d?a festivo
         if ($this->isHoliday($courseDate->school_id, $courseDate->date)) {
             return $this->sendResponse([], 'No availability: holiday.');
         }
@@ -439,12 +495,11 @@ class CourseController extends SlugAuthController
         }
 
         foreach ($request->bookingUsers as $bookingUser) {
-            if($bookingUser['course']['course_type'] == 2) {
+            if ($bookingUser['course']['course_type'] == 2) {
                 $clientIds[] = $bookingUser['client']['id'];
             }
 
             $request['clientIds'] = $clientIds;
-
 
 /*            if (BookingUser::hasOverlappingBookings($bookingUser, [])) {
                 return $this->sendError('Client has booking on that date');
@@ -458,7 +513,7 @@ class CourseController extends SlugAuthController
             return $this->sendResponse([], 'No availability.');
         }
 
-        // Eliminar duplicados basados en la duración
+        // Eliminar duplicados basados en la duraci?n
         $uniqueDurationsWithMonitors = $this->removeDuplicateDurations($durationsWithMonitors);
 
         return $this->sendResponse($uniqueDurationsWithMonitors, 'Available durations and monitors fetched successfully.');
@@ -470,6 +525,8 @@ class CourseController extends SlugAuthController
         foreach ($durationsWithMonitors as $item) {
             $unique[$item['duration']] = $item; // Utiliza la duración como clave
         }
+
+
         return array_values($unique); // Devuelve los valores únicos
     }
 
@@ -784,5 +841,220 @@ class CourseController extends SlugAuthController
     }
 
 
+
+
+
+
+    private function resolveEffectiveMaxParticipants(Course $course, CourseSubgroup $subgroup, ?string $dateString, CourseAvailabilityService $service): ?int
+    {
+        $dateForCalc = $dateString;
+        if (!$dateForCalc) {
+            $dateForCalc = optional($subgroup->courseDate)->date
+                ? Carbon::parse($subgroup->courseDate->date)->format('Y-m-d')
+                : null;
+        }
+
+        if ($course->intervals_config_mode === 'independent' && $dateForCalc) {
+            return $service->getMaxParticipants($subgroup, $dateForCalc);
+        }
+
+        return $subgroup->max_participants;
+    }
+
+    /**
+     * Construir un snapshot de capacidad real del subgrupo considerando intervalos y reservas activas.
+     */
+    private function buildSubgroupCapacitySnapshot(
+        Course $course,
+        CourseSubgroup $subgroup,
+        ?string $dateString,
+        CourseAvailabilityService $availabilityService
+    ): array {
+        $effectiveMax = $this->resolveEffectiveMaxParticipants($course, $subgroup, $dateString, $availabilityService);
+
+        // Valores por defecto
+        $relationBookings = $subgroup->booking_users_count ?? null;
+        if ($relationBookings === null) {
+            $relationBookings = $subgroup->bookingUsers()->count();
+        }
+        $relationBookings = $relationBookings ?? 0;
+        $availableSlots = $effectiveMax === null ? null : max(0, $effectiveMax - $relationBookings);
+        $hasAvailability = $effectiveMax === null ? true : $availableSlots > 0;
+        $serviceBookings = null;
+
+        // Para cursos colectivos y con fecha concreta calculamos usando el servicio central
+        if ((int) $course->course_type === 1 && $dateString) {
+            $availableSlots = $availabilityService->getAvailableSlots($subgroup, $dateString);
+
+            if ($effectiveMax === null) {
+                $serviceBookings = null;
+                $hasAvailability = $availableSlots > 0;
+            } else {
+                $serviceBookings = max(0, $effectiveMax - $availableSlots);
+                $hasAvailability = $availableSlots > 0;
+            }
+        }
+
+        $currentBookings = $serviceBookings !== null
+            ? max($serviceBookings, $relationBookings)
+            : $relationBookings;
+
+        if ($effectiveMax !== null) {
+            $availableSlots = max(0, $effectiveMax - $currentBookings);
+            $hasAvailability = $availableSlots > 0;
+        }
+
+        return [
+            'has_availability' => $hasAvailability,
+            'max_participants' => $effectiveMax,
+            'current_bookings' => $currentBookings,
+            'available_slots' => $effectiveMax === null ? null : $availableSlots,
+        ];
+    }
+
+        /**
+     * Ajusta la metadata de intervalos/fechas del curso seg?n la disponibilidad calculada.
+     */
+    private function filterIntervalSettings(Course $course, array $dateAvailabilityMap, array $intervalsWithCapacity): void
+    {
+        $settings = $course->settings;
+        if (is_string($settings)) {
+            $decoded = json_decode($settings, true);
+            $settings = is_array($decoded) ? $decoded : $settings;
+        }
+
+        if (!is_array($settings)) {
+            $course->settings = $settings;
+            return;
+        }
+
+        $keptIndexes = [];
+        $keptIds = [];
+
+        if (!empty($settings['intervals']) && is_array($settings['intervals'])) {
+            [$settings['intervals'], $keptIndexes, $keptIds] = $this->filterIntervalEntries($settings['intervals'], $dateAvailabilityMap, $intervalsWithCapacity);
+        }
+
+        if (!empty($settings['intervalConfiguration']['intervals']) && is_array($settings['intervalConfiguration']['intervals'])) {
+            $validIds = !empty($keptIds) ? $keptIds : $intervalsWithCapacity;
+            $settings['intervalConfiguration']['intervals'] = $this->filterIntervalConfigurationEntries(
+                $settings['intervalConfiguration']['intervals'],
+                $dateAvailabilityMap,
+                $validIds
+            );
+        }
+
+        if (!empty($settings['intervalGroups']) && is_array($settings['intervalGroups'])) {
+            if (!empty($keptIndexes)) {
+                $settings['intervalGroups'] = array_values(array_filter(
+                    $settings['intervalGroups'],
+                    function ($value, $index) use ($keptIndexes) {
+                        return in_array($index, $keptIndexes, true);
+                    },
+                    ARRAY_FILTER_USE_BOTH
+                ));
+            } else {
+                $settings['intervalGroups'] = [];
+            }
+        }
+
+        if (!empty($settings['intervalGroupsById']) && is_array($settings['intervalGroupsById'])) {
+            if (!empty($keptIds)) {
+                $settings['intervalGroupsById'] = array_intersect_key(
+                    $settings['intervalGroupsById'],
+                    $keptIds
+                );
+            } else {
+                $settings['intervalGroupsById'] = [];
+            }
+        }
+
+        $course->settings = $settings;
+    }
+
+    private function filterIntervalEntries(array $intervals, array $dateAvailabilityMap, array $intervalsWithCapacity): array
+    {
+        $filtered = [];
+        $keptIndexes = [];
+        $keptIds = [];
+
+        foreach ($intervals as $index => $intervalData) {
+            $intervalId = $this->normalizeIntervalIdentifier($intervalData['id'] ?? $intervalData['intervalId'] ?? null);
+            if (!$intervalId || empty($intervalsWithCapacity[$intervalId])) {
+                continue;
+            }
+
+            $intervalData['dates'] = $this->filterIntervalDates($intervalData['dates'] ?? [], $dateAvailabilityMap);
+            if (empty($intervalData['dates'])) {
+                continue;
+            }
+
+            $filtered[] = $intervalData;
+            $keptIndexes[] = $index;
+            $keptIds[$intervalId] = true;
+        }
+
+        return [array_values($filtered), $keptIndexes, $keptIds];
+    }
+
+    private function filterIntervalConfigurationEntries(array $intervals, array $dateAvailabilityMap, array $validIds): array
+    {
+        $filtered = [];
+
+        foreach ($intervals as $intervalData) {
+            $intervalId = $this->normalizeIntervalIdentifier($intervalData['id'] ?? $intervalData['intervalId'] ?? null);
+            if (!empty($validIds) && (!$intervalId || empty($validIds[$intervalId]))) {
+                continue;
+            }
+
+            $intervalData['dates'] = $this->filterIntervalDates($intervalData['dates'] ?? [], $dateAvailabilityMap);
+            if (empty($intervalData['dates'])) {
+                continue;
+            }
+
+            $filtered[] = $intervalData;
+        }
+
+        return array_values($filtered);
+    }
+
+    private function filterIntervalDates(array $dates, array $dateAvailabilityMap): array
+    {
+        $filtered = [];
+
+        foreach ($dates as $dateEntry) {
+            $courseDateId = $dateEntry['course_date_id'] ?? $dateEntry['id'] ?? null;
+            if (!$courseDateId) {
+                continue;
+            }
+
+            $hasAvailability = $dateAvailabilityMap[$courseDateId] ?? $dateAvailabilityMap[(string)$courseDateId] ?? false;
+            $dateEntry['active'] = $hasAvailability ? 1 : 0;
+            $dateEntry['is_available'] = $hasAvailability;
+
+            if ($hasAvailability) {
+                $filtered[] = $dateEntry;
+            }
+        }
+
+        return array_values($filtered);
+    }
+
+    private function normalizeIntervalIdentifier($value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_numeric($value)) {
+            return (string)$value;
+        }
+
+        if (is_string($value)) {
+            return $value;
+        }
+
+        return null;
+    }
 
 }
