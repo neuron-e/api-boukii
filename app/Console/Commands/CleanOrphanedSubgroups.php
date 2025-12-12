@@ -13,7 +13,7 @@ class CleanOrphanedSubgroups extends Command
      *
      * @var string
      */
-    protected $signature = 'course:clean-orphaned-subgroups {--dry-run : Run without making changes} {--school_id= : Filter by specific school}';
+    protected $signature = 'course:clean-orphaned-subgroups {--dry-run : Run without making changes} {--school_id= : Filter by specific school} {--force : Run without confirmation}';
 
     /**
      * The console command description.
@@ -119,9 +119,11 @@ class CleanOrphanedSubgroups extends Command
             return 0;
         }
 
-        if (!$this->confirm('Do you want to delete these orphaned subgroups?', false)) {
-            $this->info('Operation cancelled.');
-            return 0;
+        if (!$isDryRun && !$this->option('force')) {
+            if (!$this->confirm('Do you want to delete these orphaned subgroups?', false)) {
+                $this->info('Operation cancelled.');
+                return 0;
+            }
         }
 
         // Perform the deletion
