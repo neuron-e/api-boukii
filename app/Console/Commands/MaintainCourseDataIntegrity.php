@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Models\BookingUser;
 use App\Models\CourseSubgroup;
+use App\Services\OrphanedBookingUserFixer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -11,6 +11,14 @@ use Illuminate\Support\Facades\Log;
 
 class MaintainCourseDataIntegrity extends Command
 {
+    private OrphanedBookingUserFixer $bookingUserFixer;
+
+    public function __construct(OrphanedBookingUserFixer $bookingUserFixer)
+    {
+        parent::__construct();
+        $this->bookingUserFixer = $bookingUserFixer;
+    }
+
     /**
      * The name and signature of the console command.
      *
@@ -79,98 +87,9 @@ class MaintainCourseDataIntegrity extends Command
         return 0;
     }
 
-    /**
-     * Migrate orphaned booking_users to active subgroups
-     */
     private function migrateOrphanedBookingUsers($schoolId)
     {
-        $migratedCount = 0;
-        $skippedNoTarget = 0;
-        $skippedNoActiveBooking = 0;
-
-        // Find orphaned subgroups with booking_users (including cancelled/completed bookings)
-        // Use bookingUserss (double 's') to avoid status filters from bookingUsers() relationship
-        $query = CourseSubgroup::query()
-            ->select('course_subgroups.*')
-            ->join('course_groups', 'course_subgroups.course_group_id', '=', 'course_groups.id')
-            ->whereNotNull('course_groups.deleted_at')
-            ->whereNull('course_subgroups.deleted_at')
-            ->whereHas('bookingUserss', function($q) {
-                $q->whereNull('deleted_at')
-                    ->whereHas('booking', function($bq) {
-                        $bq->whereNull('deleted_at');
-                    });
-            });
-
-        if ($schoolId) {
-            $query->join('courses', 'course_subgroups.course_id', '=', 'courses.id')
-                ->where('courses.school_id', $schoolId);
-        }
-
-        $orphanedSubgroups = $query->get();
-
-        foreach ($orphanedSubgroups as $orphanedSubgroup) {
-            $bookingUsers = BookingUser::where('course_subgroup_id', $orphanedSubgroup->id)
-                ->whereNull('deleted_at')
-                ->get();
-
-            foreach ($bookingUsers as $bookingUser) {
-                // Check if the booking is active
-                if ($bookingUser->booking && $bookingUser->booking->deleted_at !== null) {
-                    $skippedNoActiveBooking++;
-                    continue;
-                }
-
-                if (!$bookingUser->booking) {
-                    $skippedNoActiveBooking++;
-                    continue;
-                }
-
-                // Find the active subgroup
-                $targetSubgroup = CourseSubgroup::whereNull('deleted_at')
-                    ->where('course_id', $orphanedSubgroup->course_id)
-                    ->where('course_date_id', $orphanedSubgroup->course_date_id)
-                    ->where('degree_id', $orphanedSubgroup->degree_id)
-                    ->whereHas('courseGroup', function($q) {
-                        $q->whereNull('deleted_at');
-                    })
-                    ->first();
-
-                // If not found by course_date_id, try to find by the booking_user's date
-                if (!$targetSubgroup && $bookingUser->date) {
-                    $targetSubgroup = CourseSubgroup::whereNull('deleted_at')
-                        ->where('course_id', $orphanedSubgroup->course_id)
-                        ->where('degree_id', $orphanedSubgroup->degree_id)
-                        ->whereHas('courseGroup', function($q) {
-                            $q->whereNull('deleted_at');
-                        })
-                        ->whereHas('courseDate', function($q) use ($bookingUser) {
-                            $q->whereNull('deleted_at')
-                              ->whereDate('date', $bookingUser->date);
-                        })
-                        ->first();
-                }
-
-                if (!$targetSubgroup) {
-                    $skippedNoTarget++;
-                    continue;
-                }
-
-                // Migrate the booking_user
-                $bookingUser->course_subgroup_id = $targetSubgroup->id;
-                $bookingUser->course_group_id = $targetSubgroup->course_group_id;
-                $bookingUser->course_date_id = $targetSubgroup->course_date_id;
-                $bookingUser->save();
-
-                $migratedCount++;
-            }
-        }
-
-        return [
-            'migrated' => $migratedCount,
-            'skipped_no_target' => $skippedNoTarget,
-            'skipped_no_booking' => $skippedNoActiveBooking,
-        ];
+        return $this->bookingUserFixer->migrate(false, $schoolId);
     }
 
     /**
