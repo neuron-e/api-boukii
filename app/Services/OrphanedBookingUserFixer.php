@@ -56,6 +56,7 @@ class OrphanedBookingUserFixer
                     $bookingUser->course_group_id = $targetSubgroup->course_group_id;
                     $bookingUser->course_date_id = $targetSubgroup->course_date_id;
                     $bookingUser->course_id = $targetSubgroup->course_id;
+                    $bookingUser->monitor_id = $targetSubgroup->monitor_id;
                     $bookingUser->save();
                 });
             }
