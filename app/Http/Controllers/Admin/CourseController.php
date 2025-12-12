@@ -1277,6 +1277,13 @@ class CourseController extends AppBaseController
                         }
                     }
                     // Delete groups that are no longer in the updated list
+                    // CRITICAL: First delete all subgroups of groups that will be deleted to avoid orphaned records
+                    $groupsToDelete = $date->courseGroups()->whereNotIn('id', $updatedCourseGroups)->pluck('id');
+                    if ($groupsToDelete->isNotEmpty()) {
+                        CourseSubgroup::whereIn('course_group_id', $groupsToDelete)
+                            ->where('course_date_id', $date->id)
+                            ->delete();
+                    }
                     $date->courseGroups()->whereNotIn('id', $updatedCourseGroups)->delete();
 
                     // CRITICAL FIX: Clean up orphaned subgroups whose parent groups were soft-deleted

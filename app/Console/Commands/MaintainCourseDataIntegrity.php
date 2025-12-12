@@ -136,6 +136,21 @@ class MaintainCourseDataIntegrity extends Command
                     })
                     ->first();
 
+                // If not found by course_date_id, try to find by the booking_user's date
+                if (!$targetSubgroup && $bookingUser->date) {
+                    $targetSubgroup = CourseSubgroup::whereNull('deleted_at')
+                        ->where('course_id', $orphanedSubgroup->course_id)
+                        ->where('degree_id', $orphanedSubgroup->degree_id)
+                        ->whereHas('courseGroup', function($q) {
+                            $q->whereNull('deleted_at');
+                        })
+                        ->whereHas('courseDate', function($q) use ($bookingUser) {
+                            $q->whereNull('deleted_at')
+                              ->whereDate('date', $bookingUser->date);
+                        })
+                        ->first();
+                }
+
                 if (!$targetSubgroup) {
                     $skippedNoTarget++;
                     continue;
@@ -144,6 +159,7 @@ class MaintainCourseDataIntegrity extends Command
                 // Migrate the booking_user
                 $bookingUser->course_subgroup_id = $targetSubgroup->id;
                 $bookingUser->course_group_id = $targetSubgroup->course_group_id;
+                $bookingUser->course_date_id = $targetSubgroup->course_date_id;
                 $bookingUser->save();
 
                 $migratedCount++;

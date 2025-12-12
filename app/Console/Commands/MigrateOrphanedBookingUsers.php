@@ -104,9 +104,28 @@ class MigrateOrphanedBookingUsers extends Command
                     })
                     ->first();
 
+                // If not found by course_date_id, try to find by the booking_user's date
+                if (!$targetSubgroup && $bookingUser->date) {
+                    $targetSubgroup = CourseSubgroup::whereNull('deleted_at')
+                        ->where('course_id', $orphanedSubgroup->course_id)
+                        ->where('degree_id', $orphanedSubgroup->degree_id)
+                        ->whereHas('courseGroup', function($q) {
+                            $q->whereNull('deleted_at');
+                        })
+                        ->whereHas('courseDate', function($q) use ($bookingUser) {
+                            $q->whereNull('deleted_at')
+                              ->whereDate('date', $bookingUser->date);
+                        })
+                        ->first();
+
+                    if ($targetSubgroup) {
+                        $this->line("  → Found by date match: subgroup {$targetSubgroup->id} for date {$bookingUser->date}");
+                    }
+                }
+
                 if (!$targetSubgroup) {
                     $skippedNoTarget++;
-                    $this->warn("  ✗ BookingUser {$bookingUser->id}: No active subgroup found for course {$orphanedSubgroup->course_id}, date {$orphanedSubgroup->course_date_id}, degree {$orphanedSubgroup->degree_id}");
+                    $this->warn("  ✗ BookingUser {$bookingUser->id}: No active subgroup found for course {$orphanedSubgroup->course_id}, date {$orphanedSubgroup->course_date_id} ({$bookingUser->date}), degree {$orphanedSubgroup->degree_id}");
                     $failedMigrations[] = [
                         'booking_user_id' => $bookingUser->id,
                         'booking_id' => $bookingUser->booking_id,
@@ -114,6 +133,7 @@ class MigrateOrphanedBookingUsers extends Command
                         'old_group_id' => $orphanedSubgroup->course_group_id,
                         'course_id' => $orphanedSubgroup->course_id,
                         'course_date_id' => $orphanedSubgroup->course_date_id,
+                        'booking_date' => $bookingUser->date,
                         'degree_id' => $orphanedSubgroup->degree_id,
                     ];
                     continue;
@@ -122,15 +142,17 @@ class MigrateOrphanedBookingUsers extends Command
                 // Migrate the booking_user
                 $oldSubgroupId = $bookingUser->course_subgroup_id;
                 $oldGroupId = $bookingUser->course_group_id;
+                $oldCourseDateId = $bookingUser->course_date_id;
 
                 if (!$isDryRun) {
                     $bookingUser->course_subgroup_id = $targetSubgroup->id;
                     $bookingUser->course_group_id = $targetSubgroup->course_group_id;
+                    $bookingUser->course_date_id = $targetSubgroup->course_date_id;
                     $bookingUser->save();
                 }
 
                 $migratedCount++;
-                $this->info("  ✓ BookingUser {$bookingUser->id} (Booking {$bookingUser->booking_id}): subgroup {$oldSubgroupId} → {$targetSubgroup->id}, group {$oldGroupId} → {$targetSubgroup->course_group_id}");
+                $this->info("  ✓ BookingUser {$bookingUser->id} (Booking {$bookingUser->booking_id}): subgroup {$oldSubgroupId} → {$targetSubgroup->id}, group {$oldGroupId} → {$targetSubgroup->course_group_id}, date {$oldCourseDateId} → {$targetSubgroup->course_date_id}");
             }
         }
 
