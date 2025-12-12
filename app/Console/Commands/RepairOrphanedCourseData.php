@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 namespace App\Console\Commands;
 
@@ -97,3 +97,4 @@ class RepairOrphanedCourseData extends Command
         }
     }
 }
+
