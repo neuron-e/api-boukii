@@ -247,7 +247,7 @@ class BookingController extends AppBaseController
                         'user_agent' => request()->userAgent()
                     ]);
 
-                    // SOLUCIN CONCURRENCIA: Usar transaccin con lock pessimista
+/*                    // SOLUCIN CONCURRENCIA: Usar transaccin con lock pessimista
                     $subgroupAssigned = DB::transaction(function () use ($cartItem, $bookingUser) {
 
                         // 1. Obtener todos los subgrupos candidatos con LOCK FOR UPDATE
@@ -288,17 +288,17 @@ class BookingController extends AppBaseController
                         ]);
 
                         return false; // No hay subgrupos disponibles
-                    });
+                    });*/
 
                     // 4. Verificar resultado de la asignacin atmica
-                    if (!$subgroupAssigned) {
+/*                    if (!$subgroupAssigned) {
                         DB::rollBack();
                         return $this->sendError(
                             'No hay plazas disponibles en el nivel ' . $cartItem['degree_id'] .
                             ' para la fecha solicitada. El curso est completo.',
                             ['course_date_id' => $cartItem['course_date_id'], 'degree_id' => $cartItem['degree_id']]
                         );
-                    }
+                    }*/
                 }
 
                 $bookingUser->save();
