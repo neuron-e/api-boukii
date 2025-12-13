@@ -9,6 +9,7 @@ use App\Http\Resources\API\ClientResource;
 use App\Models\BookingUser;
 use App\Models\Client;
 use App\Models\CourseSubgroup;
+use App\Models\CourseSubgroupDate;
 use App\Repositories\ClientRepository;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -371,50 +372,65 @@ class ClientAPIController extends AppBaseController
         // Esto es más confiable y explícito
         $targetSubgroupDatesId = $targetSubgroup->subgroup_dates_id;
 
-        $today = Carbon::today();
-
         DB::beginTransaction();
         $subgroupsChanged = [];
         if ($request->moveAllDays) {
-            $courseDates = $initialGroup->course->courseDates;
+            $courseDates = $initialGroup->course->courseDates->whereNull('deleted_at');
+            $targetSubgroupDateEntries = CourseSubgroupDate::with('courseSubgroup.courseGroup')
+                ->whereHas('courseSubgroup', function ($subgroupQuery) use ($targetSubgroupDatesId, $targetGroup) {
+                    $subgroupQuery->where('subgroup_dates_id', $targetSubgroupDatesId)
+                        ->whereNull('deleted_at')
+                        ->whereHas('courseGroup', fn($q) => $q->where('degree_id', $targetGroup->degree_id)->whereNull('deleted_at'));
+                })
+                ->whereIn('course_date_id', $courseDates->pluck('id')->all())
+                ->get()
+                ->groupBy('course_date_id');
+
+            $missingDates = [];
+
+            $changedSubgroupIds = [];
             foreach ($courseDates as $courseDate) {
-                $groups = $courseDate->courseGroups->where('degree_id', $targetGroup->degree_id);
+                $entries = $targetSubgroupDateEntries->get($courseDate->id);
+                $targetEntry = $entries?->first();
 
-                foreach ($groups as $group) {
-                    /*if (Carbon::parse($courseDate->date)->gte($today)) {*/
-                        //** Removed subgroups length, not seems to be reasonable with new features. */
-                        /*if ($group->courseSubgroups->count() == $initialGroup->courseSubgroups->count()) {*/
-
-                        // MEJORADO: Usar subgroup_dates_id directamente en lugar de posición
-                        $newTargetSubgroup = $group->courseSubgroups
-                            ->where('subgroup_dates_id', $targetSubgroupDatesId)
-                            ->first();
-
-                        if ($newTargetSubgroup) {
-                            $subgroupsChanged[] = $newTargetSubgroup;
-                            $this->moveUsers($courseDate, $newTargetSubgroup, $request->clientIds);
-                        } else {
-                            DB::rollBack();
-                            Log::error(
-                                'Target subgroup with subgroup_dates_id not found in group',
-                                [
-                                    'group_id' => $group->id,
-                                    'target_subgroup_dates_id' => $targetSubgroupDatesId,
-                                    'available_subgroup_dates_ids' => $group->courseSubgroups->pluck('subgroup_dates_id')->toArray()
-                                ]
-                            );
-                            return $this->sendError('Target subgroup configuration not found in all course dates');
-                        }
-                        /*                        } else {
-                                                    DB::rollBack();
-                                                    Log::error('Initial count'. $initialGroup->courseSubgroups->count() );
-                                                    Log::error('Sned count '. $group->courseSubgroups->count() );
-                                                    return $this->sendError('Some groups are not identical length');
-                                                }*/
-                   /* }*/
-
+                if (!$targetEntry) {
+                    $missingDates[$courseDate->id] = $courseDate->date;
+                    continue;
                 }
 
+                $newTargetSubgroup = $targetEntry->courseSubgroup;
+                if ($newTargetSubgroup) {
+                    if (!in_array($newTargetSubgroup->id, $changedSubgroupIds, true)) {
+                        $subgroupsChanged[] = $newTargetSubgroup;
+                        $changedSubgroupIds[] = $newTargetSubgroup->id;
+                    }
+                    $this->moveUsers($courseDate, $newTargetSubgroup, $request->clientIds);
+                }
+            }
+
+            if (empty($subgroupsChanged)) {
+                DB::rollBack();
+                Log::error(
+                    'Target subgroup with subgroup_dates_id not found in any course date',
+                    [
+                        'course_id' => $initialGroup->course->id,
+                        'target_subgroup_dates_id' => $targetSubgroupDatesId,
+                        'course_date_ids' => $courseDates->pluck('id')->values()->all()
+                    ]
+                );
+                return $this->sendError('Target subgroup configuration not found in any course date');
+            }
+
+            if (!empty($missingDates)) {
+                Log::warning(
+                    'Target subgroup missing for some course dates',
+                    [
+                        'course_id' => $initialGroup->course->id,
+                        'missing_course_date_ids' => array_keys($missingDates),
+                        'missing_dates' => array_values($missingDates),
+                        'target_subgroup_dates_id' => $targetSubgroupDatesId
+                    ]
+                );
             }
         } else {
             $this->moveUsers($initialSubgroup, $targetSubgroup, $request->clientIds);
