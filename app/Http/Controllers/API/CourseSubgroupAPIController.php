@@ -10,6 +10,7 @@ use App\Models\CourseSubgroup;
 use AppModelsCourseIntervalMonitor;
 use AppModelsCourse;
 use App\Repositories\CourseSubgroupRepository;
+use App\Services\CourseRepairDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -21,10 +22,12 @@ class CourseSubgroupAPIController extends AppBaseController
 {
     /** @var  CourseSubgroupRepository */
     private $courseSubgroupRepository;
+    private CourseRepairDispatcher $repairDispatcher;
 
-    public function __construct(CourseSubgroupRepository $courseSubgroupRepo)
+    public function __construct(CourseSubgroupRepository $courseSubgroupRepo, CourseRepairDispatcher $repairDispatcher)
     {
         $this->courseSubgroupRepository = $courseSubgroupRepo;
+        $this->repairDispatcher = $repairDispatcher;
     }
 
     /**
@@ -188,6 +191,7 @@ class CourseSubgroupAPIController extends AppBaseController
             }
         }
 
+        $this->repairDispatcher->dispatchForSchool(optional($courseSubgroup->course)->school_id);
         return $this->sendResponse($courseSubgroup, 'Course Subgroup saved successfully');
     }
 
@@ -378,6 +382,7 @@ class CourseSubgroupAPIController extends AppBaseController
             }
         }
 
+        $this->repairDispatcher->dispatchForSchool(optional($courseSubgroup->course)->school_id);
         return $this->sendResponse(new CourseSubgroupResource($courseSubgroup), 'CourseSubgroup updated successfully');
     }
 
@@ -426,7 +431,9 @@ class CourseSubgroupAPIController extends AppBaseController
             return $this->sendError('Course Subgroup not found');
         }
 
+        $schoolId = optional($courseSubgroup->course)->school_id;
         $courseSubgroup->delete();
+        $this->repairDispatcher->dispatchForSchool($schoolId);
 
         return $this->sendSuccess('Course Subgroup deleted successfully');
     }

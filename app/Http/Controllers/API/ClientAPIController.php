@@ -11,6 +11,7 @@ use App\Models\Client;
 use App\Models\CourseSubgroup;
 use App\Models\CourseSubgroupDate;
 use App\Repositories\ClientRepository;
+use App\Services\CourseRepairDispatcher;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,9 +25,12 @@ use Illuminate\Support\Facades\Storage;
 
 class ClientAPIController extends AppBaseController
 {
-    public function __construct(ClientRepository $clientRepo)
+    private CourseRepairDispatcher $repairDispatcher;
+
+    public function __construct(ClientRepository $clientRepo, CourseRepairDispatcher $repairDispatcher)
     {
         $this->clientRepository = $clientRepo;
+        $this->repairDispatcher = $repairDispatcher;
     }
 
     /**
@@ -436,6 +440,7 @@ class ClientAPIController extends AppBaseController
             $this->moveUsers($initialSubgroup, $targetSubgroup, $request->clientIds);
         }
         DB::commit();
+        $this->repairDispatcher->dispatchForSchool($school->id ?? null);
         if(count($subgroupsChanged)) {
             return $this->sendResponse($subgroupsChanged, 'Clients transfer successfully');
         }

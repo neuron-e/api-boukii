@@ -13,6 +13,7 @@ use App\Models\MonitorSportAuthorizedDegree;
 use App\Models\MonitorsSchool;
 use App\Models\Station;
 use App\Services\MonitorNotificationService;
+use App\Services\CourseRepairDispatcher;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\JsonResponse;
@@ -30,10 +31,11 @@ use Validator;
 
 class PlannerController extends AppBaseController
 {
+    private CourseRepairDispatcher $repairDispatcher;
 
-    public function __construct()
+    public function __construct(CourseRepairDispatcher $repairDispatcher)
     {
-
+        $this->repairDispatcher = $repairDispatcher;
     }
 
 
@@ -1005,6 +1007,7 @@ class PlannerController extends AppBaseController
             );
         }
 
+        $this->repairDispatcher->dispatchForSchool($school->id ?? null);
         return $this->sendResponse($monitor, 'Monitor updated successfully for scope: ' . $scope);
     }
 

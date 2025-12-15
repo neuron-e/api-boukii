@@ -8,6 +8,7 @@ use App\Http\Requests\API\UpdateCourseGroupAPIRequest;
 use App\Http\Resources\API\CourseGroupResource;
 use App\Models\CourseGroup;
 use App\Repositories\CourseGroupRepository;
+use App\Services\CourseRepairDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -19,10 +20,12 @@ class CourseGroupAPIController extends AppBaseController
 {
     /** @var  CourseGroupRepository */
     private $courseGroupRepository;
+    private CourseRepairDispatcher $repairDispatcher;
 
-    public function __construct(CourseGroupRepository $courseGroupRepo)
+    public function __construct(CourseGroupRepository $courseGroupRepo, CourseRepairDispatcher $repairDispatcher)
     {
         $this->courseGroupRepository = $courseGroupRepo;
+        $this->repairDispatcher = $repairDispatcher;
     }
 
     /**
@@ -105,6 +108,7 @@ class CourseGroupAPIController extends AppBaseController
         $input = $request->all();
 
         $courseGroup = $this->courseGroupRepository->create($input);
+        $this->repairDispatcher->dispatchForSchool(optional($courseGroup->course)->school_id);
 
         return $this->sendResponse($courseGroup, 'Course Group saved successfully');
     }
@@ -209,6 +213,7 @@ class CourseGroupAPIController extends AppBaseController
         }
 
         $courseGroup = $this->courseGroupRepository->update($input, $id);
+        $this->repairDispatcher->dispatchForSchool(optional($courseGroup->course)->school_id);
 
         return $this->sendResponse(new CourseGroupResource($courseGroup), 'CourseGroup updated successfully');
     }
@@ -258,7 +263,9 @@ class CourseGroupAPIController extends AppBaseController
             return $this->sendError('Course Group not found');
         }
 
+        $schoolId = optional($courseGroup->course)->school_id;
         $courseGroup->delete();
+        $this->repairDispatcher->dispatchForSchool($schoolId);
 
         return $this->sendSuccess('Course Group deleted successfully');
     }

@@ -8,6 +8,7 @@ use App\Http\Requests\API\UpdateCourseDateAPIRequest;
 use App\Http\Resources\API\CourseDateResource;
 use App\Models\CourseDate;
 use App\Repositories\CourseDateRepository;
+use App\Services\CourseRepairDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,10 +21,12 @@ class CourseDateAPIController extends AppBaseController
 {
     /** @var  CourseDateRepository */
     private $courseDateRepository;
+    private CourseRepairDispatcher $repairDispatcher;
 
-    public function __construct(CourseDateRepository $courseDateRepo)
+    public function __construct(CourseDateRepository $courseDateRepo, CourseRepairDispatcher $repairDispatcher)
     {
         $this->courseDateRepository = $courseDateRepo;
+        $this->repairDispatcher = $repairDispatcher;
     }
 
     /**
@@ -110,6 +113,7 @@ class CourseDateAPIController extends AppBaseController
                 return $this->courseDateRepository->create($input);
             });
 
+            $this->repairDispatcher->dispatchForSchool(optional($courseDate->course)->school_id);
             return $this->sendResponse($courseDate, 'Course Date saved successfully');
         } catch (\Exception $e) {
             return $this->sendError('Error creating course date: ' . $e->getMessage());
@@ -219,6 +223,7 @@ class CourseDateAPIController extends AppBaseController
             $courseDate = DB::transaction(function () use ($input, $id) {
                 return $this->courseDateRepository->update($input, $id);
             });
+            $this->repairDispatcher->dispatchForSchool(optional($courseDate->course)->school_id);
 
             return $this->sendResponse(new CourseDateResource($courseDate), 'CourseDate updated successfully');
         } catch (\Exception $e) {
@@ -272,9 +277,11 @@ class CourseDateAPIController extends AppBaseController
         }
 
         try {
+            $schoolId = optional($courseDate->course)->school_id;
             DB::transaction(function () use ($courseDate) {
                 $courseDate->delete();
             });
+            $this->repairDispatcher->dispatchForSchool($schoolId);
 
             return $this->sendSuccess('Course Date deleted successfully');
         } catch (\Exception $e) {

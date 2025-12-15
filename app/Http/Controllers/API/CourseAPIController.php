@@ -8,6 +8,7 @@ use App\Http\Requests\API\UpdateCourseAPIRequest;
 use App\Http\Resources\API\CourseResource;
 use App\Models\Course;
 use App\Repositories\CourseRepository;
+use App\Services\CourseRepairDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -20,10 +21,12 @@ class CourseAPIController extends AppBaseController
 {
     /** @var  CourseRepository */
     private $courseRepository;
+    private CourseRepairDispatcher $repairDispatcher;
 
-    public function __construct(CourseRepository $courseRepo)
+    public function __construct(CourseRepository $courseRepo, CourseRepairDispatcher $repairDispatcher)
     {
         $this->courseRepository = $courseRepo;
+        $this->repairDispatcher = $repairDispatcher;
     }
 
     /**
@@ -138,6 +141,7 @@ class CourseAPIController extends AppBaseController
         }
 
         $course = $this->courseRepository->create($input);
+        $this->repairDispatcher->dispatchForSchool($course->school_id ?? null);
 
         return $this->sendResponse($course, 'Course saved successfully');
     }
@@ -273,6 +277,7 @@ class CourseAPIController extends AppBaseController
         }
 
         $course = $this->courseRepository->update($input, $id);
+        $this->repairDispatcher->dispatchForSchool($course->school_id ?? null);
 
         return $this->sendResponse(new CourseResource($course), 'Course updated successfully');
     }
