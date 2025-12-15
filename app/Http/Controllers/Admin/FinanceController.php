@@ -31,6 +31,8 @@ class FinanceController extends AppBaseController
     protected $priceCalculator;
     protected string $exportLocale = '';
 
+    const COURSE_DETAIL_SAMPLE_SIZE = 5;
+
     public function __construct(BookingPriceCalculatorService $priceCalculator)
     {
         $this->priceCalculator = $priceCalculator;
@@ -407,7 +409,6 @@ class FinanceController extends AppBaseController
                 'course_type' => $courseType,
                 'is_flexible' => $isFlexible,
                 'calculation_method' => '',
-                'raw_data' => [],
                 'explanation' => ''
             ]
         ];
@@ -454,11 +455,9 @@ class FinanceController extends AppBaseController
                 'booking_id' => $booking->id,
                 'calculation_method' => 'fixed_collective',
                 'participants' => $participants,
-                'explanation' => "Colectivo fijo: {$participants} participantes = {$participants} cursos vendidos",
-                'raw_data' => [
-                    'total_dates' => count($activity['dates'] ?? []),
-                    'utilizers' => $activity['utilizers']
-                ]
+                'dates_count' => count($activity['dates'] ?? []),
+                'utilizers_count' => $participants,
+                'explanation' => "Colectivo fijo: {$participants} participantes = {$participants} cursos vendidos"
             ]
         ];
     }
@@ -482,11 +481,9 @@ class FinanceController extends AppBaseController
                 'calculation_method' => 'flexible_collective',
                 'participants' => $participants,
                 'days' => $totalDays,
+                'dates_count' => $totalDays,
+                'utilizers_count' => $participants,
                 'explanation' => "Colectivo flexible: {$participants} participantes Ã— {$totalDays} dÃ­as = {$coursesSold} unidades vendidas",
-                'raw_data' => [
-                    'dates' => $activity['dates'],
-                    'utilizers' => $activity['utilizers']
-                ]
             ]
         ];
     }
@@ -506,11 +503,9 @@ class FinanceController extends AppBaseController
                 'calculation_method' => 'fixed_private',
                 'sessions' => $totalSessions,
                 'participants' => count($activity['utilizers'] ?? []),
+                'dates_count' => $totalSessions,
+                'utilizers_count' => count($activity['utilizers'] ?? []),
                 'explanation' => "Privado fijo: {$totalSessions} sesiones = {$totalSessions} cursos vendidos",
-                'raw_data' => [
-                    'dates' => $activity['dates'],
-                    'utilizers' => $activity['utilizers']
-                ]
             ]
         ];
     }
@@ -553,12 +548,9 @@ class FinanceController extends AppBaseController
                 'booking_id' => $booking->id,
                 'calculation_method' => 'flexible_private',
                 'unique_sessions' => $coursesSold,
-                'sessions_detail' => array_values($uniqueSessions),
+                'dates_count' => count($activity['dates'] ?? []),
+                'utilizers_count' => count($activity['utilizers'] ?? []),
                 'explanation' => "Privado flexible: {$coursesSold} sesiones Ãºnicas = {$coursesSold} cursos vendidos",
-                'raw_data' => [
-                    'dates' => $activity['dates'],
-                    'utilizers' => $activity['utilizers']
-                ]
             ]
         ];
     }
@@ -577,11 +569,9 @@ class FinanceController extends AppBaseController
                 'calculation_method' => 'activity',
                 'activities' => $totalActivities,
                 'participants' => count($activity['utilizers'] ?? []),
+                'dates_count' => $totalActivities,
+                'utilizers_count' => count($activity['utilizers'] ?? []),
                 'explanation' => "Actividad: {$totalActivities} actividades = {$totalActivities} cursos vendidos",
-                'raw_data' => [
-                    'dates' => $activity['dates'],
-                    'utilizers' => $activity['utilizers']
-                ]
             ]
         ];
     }
@@ -792,6 +782,7 @@ class FinanceController extends AppBaseController
                         // âœ… NUEVO: CURSOS VENDIDOS
                         'courses_sold' => 0,
                         'courses_sold_detail' => [],
+                        'courses_sold_detail_total' => 0,
                         'calculation_method' => $this->getCourseCalculationMethod($course),
 
                         // âœ… MÃ‰TRICAS ADICIONALES
@@ -818,7 +809,10 @@ class FinanceController extends AppBaseController
                     // === NUEVO: CÃLCULO DE CURSOS VENDIDOS ===
                     $salesData = $this->calculateCoursesSoldForActivity($activity, $booking, $course);
                     $courses[$courseId]['courses_sold'] += $salesData['quantity'];
-                    $courses[$courseId]['courses_sold_detail'][] = $salesData['detail'];
+                    $courses[$courseId]['courses_sold_detail_total']++;
+                    if (count($courses[$courseId]['courses_sold_detail']) < self::COURSE_DETAIL_SAMPLE_SIZE) {
+                        $courses[$courseId]['courses_sold_detail'][] = $salesData['detail'];
+                    }
 
                     // âœ… VENTAS CONFIRMADAS
                     if (abs($expectedRevenue - $revenueAssigned) <= 0.50) {

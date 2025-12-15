@@ -2,6 +2,7 @@
 
 namespace App\Console;
 
+use App\Console\Commands\RefreshCashPaidTotals;
 use App\Console\Commands\RepairOrphanedCourseData;
 use App\Jobs\UpdateMonitorForSubgroup;
 use Illuminate\Console\Scheduling\Schedule;
@@ -17,6 +18,7 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
         \App\Console\Commands\SendBookingConfirmations::class,
+        RefreshCashPaidTotals::class,
         RepairOrphanedCourseData::class,
     ];
 

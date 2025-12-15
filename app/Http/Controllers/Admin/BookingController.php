@@ -389,6 +389,7 @@ class BookingController extends AppBaseController
                     'payrexx_reference' => null, // aqui puedes integrar Payrexx si lo necesitas
                     'payrexx_transaction' => null
                 ]);
+                $booking->refreshPaymentTotalsFromPayments();
             }
 
 
@@ -487,6 +488,7 @@ class BookingController extends AppBaseController
                 'payrexx_reference' => null, // aqui puedes integrar Payrexx si lo necesitas
                 'payrexx_transaction' => null
             ]);
+            $booking->refreshPaymentTotalsFromPayments();
         }
 
         return $this->sendResponse($booking, 'Booking updated successfully');

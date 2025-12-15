@@ -384,6 +384,36 @@ class Booking extends Model
         return $this->hasMany(\App\Models\Payment::class, 'booking_id');
     }
 
+    /**
+     * Sincroniza `paid_total`/`paid` con los pagos confirmados y mantiene el `basket` coherente.
+     */
+    public function refreshPaymentTotalsFromPayments(): self
+    {
+        $paid = (float) $this->payments()
+            ->where('status', 'paid')
+            ->sum('amount');
+
+        $paidTotal = round($paid, 2);
+        $priceTotal = (float) ($this->price_total ?? 0);
+        $pendingAmount = max(0, $priceTotal - $paidTotal);
+
+        $this->paid_total = $paidTotal;
+        $this->paid = $pendingAmount <= 0;
+
+        if (is_string($this->basket)) {
+            $basket = json_decode($this->basket, true);
+            if (is_array($basket)) {
+                $basket['paid_total'] = $paidTotal;
+                $basket['pending_amount'] = $pendingAmount;
+                $this->basket = json_encode($basket);
+            }
+        }
+
+        $this->save();
+
+        return $this;
+    }
+
     public function discountCode(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(\App\Models\DiscountCode::class, 'discount_code_id');
