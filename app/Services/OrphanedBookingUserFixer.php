@@ -15,7 +15,7 @@ class OrphanedBookingUserFixer
      * @param int|null $schoolId
      * @return array
      */
-    public function migrate(bool $dryRun = false, ?int $schoolId = null): array
+    public function migrate(bool $dryRun = false, ?int $schoolId = null, ?int $courseId = null): array
     {
         $stats = [
             'migrated' => 0,
@@ -24,7 +24,7 @@ class OrphanedBookingUserFixer
             'failed' => []
         ];
 
-        $bookingUsers = $this->queryOrphanedBookingUsers($schoolId);
+        $bookingUsers = $this->queryOrphanedBookingUsers($schoolId, $courseId);
 
         foreach ($bookingUsers as $bookingUser) {
             if (!$bookingUser->booking || $bookingUser->booking->deleted_at) {
@@ -73,7 +73,7 @@ class OrphanedBookingUserFixer
      * @param int|null $schoolId
      * @return \Illuminate\Support\Collection
      */
-    private function queryOrphanedBookingUsers(?int $schoolId)
+    private function queryOrphanedBookingUsers(?int $schoolId, ?int $courseId)
     {
         return BookingUser::query()
             ->select('booking_users.*')
@@ -97,6 +97,9 @@ class OrphanedBookingUserFixer
             })
             ->when($schoolId, function ($query) use ($schoolId) {
                 $query->where('booking_users.school_id', $schoolId);
+            })
+            ->when($courseId, function ($query) use ($courseId) {
+                $query->where('booking_users.course_id', $courseId);
             })
             ->whereHas('booking', function ($q) {
                 $q->whereNull('deleted_at');

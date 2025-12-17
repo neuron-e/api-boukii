@@ -15,6 +15,7 @@ use App\Models\CourseSubgroupDate;
 use App\Models\Season;
 use App\Repositories\CourseRepository;
 use App\Support\IntervalDiscountHelper;
+use App\Services\OrphanedBookingUserFixer;
 use App\Jobs\TranslateCourseJob;
 use App\Traits\Utils;
 use App\Exports\CoursesBySchoolExport;
@@ -1324,19 +1325,17 @@ class CourseController extends AppBaseController
                                 'delete_missing' => true,
                             ]);
 
-                            // MEJORADO: Eliminar booking_users huérfanos ANTES de eliminar subgrupos
+                            // MEJORADO: Verificar que no queden booking_users antes de eliminar subgrupos
                             $subgroupsToDelete = $group->courseSubgroups()
                                 ->whereNotIn('id', $updatedSubgroups)
                                 ->pluck('id');
 
                             if ($subgroupsToDelete->isNotEmpty()) {
-                                // Eliminar booking_users de los subgrupos que serán eliminados
-                                DB::table('booking_users')
-                                    ->whereIn('course_subgroup_id', $subgroupsToDelete)
-                                    ->delete();
+                                $removable = $this->filterDeletableSubgroupIds($subgroupsToDelete->toArray(), 'subgroup(s)');
+                                if (!empty($removable)) {
+                                    $group->courseSubgroups()->whereIn('id', $removable)->delete();
+                                }
                             }
-
-                            $group->courseSubgroups()->whereNotIn('id', $updatedSubgroups)->delete();
                         }
                     }
                     // Delete groups that are no longer in the updated list
@@ -1349,16 +1348,11 @@ class CourseController extends AppBaseController
                             ->pluck('id');
 
                         if ($subgroupIdsToDelete->isNotEmpty()) {
-                            // Eliminar booking_users de subgrupos que serán eliminados
-                            DB::table('booking_users')
-                                ->whereIn('course_subgroup_id', $subgroupIdsToDelete)
-                                ->delete();
+                            $removable = $this->filterDeletableSubgroupIds($subgroupIdsToDelete->toArray(), 'subgroup(s) inside deleted groups');
+                            if (!empty($removable)) {
+                                CourseSubgroup::whereIn('id', $removable)->delete();
+                            }
                         }
-
-                        // Ahora eliminar los subgrupos
-                        CourseSubgroup::whereIn('course_group_id', $groupsToDelete)
-                            ->where('course_date_id', $date->id)
-                            ->delete();
                     }
                     $date->courseGroups()->whereNotIn('id', $updatedCourseGroups)->delete();
 
@@ -1373,13 +1367,10 @@ class CourseController extends AppBaseController
                     ->pluck('id');
 
                     if ($orphanedSubgroupIds->isNotEmpty()) {
-                        // Eliminar booking_users huérfanos
-                        DB::table('booking_users')
-                            ->whereIn('course_subgroup_id', $orphanedSubgroupIds)
-                            ->delete();
-
-                        // Eliminar subgrupos huérfanos
-                        CourseSubgroup::whereIn('id', $orphanedSubgroupIds)->delete();
+                        $removable = $this->filterDeletableSubgroupIds($orphanedSubgroupIds->toArray(), 'orphaned subgroup(s)');
+                        if (!empty($removable)) {
+                            CourseSubgroup::whereIn('id', $removable)->delete();
+                        }
                     }
                 }
                 }
@@ -1395,23 +1386,11 @@ class CourseController extends AppBaseController
                 ->pluck('id');
 
                 if ($allOrphanedSubgroupIds->isNotEmpty()) {
-                    // MEJORADO: Eliminar booking_users de subgrupos huérfanos antes de eliminarlos
-                    DB::table('booking_users')
-                        ->whereIn('course_subgroup_id', $allOrphanedSubgroupIds)
-                        ->delete();
-
-                    // Eliminar los subgrupos huérfanos
-                    CourseSubgroup::whereIn('id', $allOrphanedSubgroupIds)->delete();
+                    $removable = $this->filterDeletableSubgroupIds($allOrphanedSubgroupIds->toArray(), 'orphaned subgroup(s)');
+                    if (!empty($removable)) {
+                        CourseSubgroup::whereIn('id', $removable)->delete();
+                    }
                 }
-
-                // NUEVO: Limpieza adicional de booking_users completamente huérfanos
-                // (que apuntan a subgrupos que ya no existen)
-                DB::statement("
-                    DELETE FROM booking_users
-                    WHERE course_subgroup_id NOT IN (
-                        SELECT id FROM course_subgroups WHERE deleted_at IS NULL
-                    )
-                ");
             }
 
             // OPTIMIZED: Create CourseSubgroupDate junction records using bulk insert
@@ -1474,6 +1453,18 @@ class CourseController extends AppBaseController
                 ]);
             }
 
+            $bookingFixerStats = app(OrphanedBookingUserFixer::class)
+                ->migrate(false, $school->id, $course->id);
+            if ($bookingFixerStats['migrated'] > 0) {
+                Log::info('Re-aligned orphaned booking_users after course update', [
+                    'course_id' => $course->id,
+                    'school_id' => $school->id,
+                    'migrated' => $bookingFixerStats['migrated'],
+                    'skipped_no_target' => $bookingFixerStats['skipped_no_target'],
+                    'skipped_no_booking' => $bookingFixerStats['skipped_no_booking'],
+                ]);
+            }
+
             DB::commit();
 
             // Ahora, recorre el array de grupos de correo electrónico y envía correos
@@ -1517,6 +1508,40 @@ class CourseController extends AppBaseController
                 'monitor_id' => $subgroup->monitor_id,
                 'updated_at' => now()
             ]);
+    }
+
+    private function filterDeletableSubgroupIds(array $subgroupIds, string $context): array
+    {
+        $ids = array_values(array_filter($subgroupIds));
+        if (empty($ids)) {
+            return [];
+        }
+
+        $activeIds = BookingUser::whereIn('course_subgroup_id', $ids)
+            ->where('status', 1)
+            ->whereHas('booking', function ($query) {
+                $query->where('status', '!=', 2);
+            })
+            ->pluck('course_subgroup_id')
+            ->unique()
+            ->toArray();
+
+        $existingIds = BookingUser::whereIn('course_subgroup_id', $ids)
+            ->pluck('course_subgroup_id')
+            ->unique()
+            ->toArray();
+
+        $blocked = array_values(array_unique(array_merge($activeIds, $existingIds)));
+
+        if (!empty($blocked)) {
+            Log::info('Skipping subgroup deletion due to attached booking_users', [
+                'context' => $context,
+                'blocked_subgroup_ids' => $blocked,
+                'active_subgroup_ids' => $activeIds,
+            ]);
+        }
+
+        return array_values(array_diff($ids, $blocked));
     }
 
     private function refreshTranslationsOnBaseChange(Course $course, array &$payload): void
