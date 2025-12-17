@@ -1138,6 +1138,11 @@ class BookingController extends AppBaseController
             'ip' => request()->ip()
         ]);
 
+        $basketData = json_decode($booking->basket ?? '[]', true);
+        if (!is_array($basketData) || empty($basketData)) {
+            $basketData = $request->all();
+        }
+
         // MEJORA CRTICA: Usar transaccin para actualizar mtodo de pago
         DB::beginTransaction();
         try {
@@ -1181,7 +1186,7 @@ class BookingController extends AppBaseController
                 $payrexxLink = PayrexxHelpers::createGatewayLink(
                     $school,
                     $booking,
-                    $request,
+                    $basketData,
                     $booking->clientMain,
                     'panel'
                 );
@@ -1233,7 +1238,7 @@ class BookingController extends AppBaseController
             $payrexxLink = PayrexxHelpers::createPayLink(
                 $school,
                 $booking,
-                $request,
+                $basketData,
                 $booking->clientMain
             );
 

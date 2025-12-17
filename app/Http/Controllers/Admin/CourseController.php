@@ -423,12 +423,23 @@ class CourseController extends AppBaseController
             $schoolSettings = json_decode($school->settings, true) ?? [];
             $existingExtras = $schoolSettings['extras']['forfait'] ?? [];
 
-
-
+            // Actualizar settings de la escuela con nuevos extras
             if (!empty($courseData['extras'])) {
                 foreach ($courseData['extras'] as $extra) {
-                    if (!collect($existingExtras)->contains('name', $extra['name'])) {
-                        $existingExtras[] = $extra;
+                    // Solo agregar si es un extra nuevo (temporal, con ID tipo aFOR-*)
+                    $isTemporary = isset($extra['id']) && strpos($extra['id'], 'aFOR-') === 0;
+
+                    if ($isTemporary && !collect($existingExtras)->contains('name', $extra['name'])) {
+                        // Generar un ID real para el extra en settings
+                        $newExtra = [
+                            'id' => 'FOR-' . uniqid(),
+                            'name' => $extra['name'],
+                            'product' => $extra['product'],
+                            'price' => $extra['price'],
+                            'tva' => $extra['tva'] ?? 21,
+                            'status' => $extra['status'] ?? true,
+                        ];
+                        $existingExtras[] = $newExtra;
                     }
                 }
                 $schoolSettings['extras']['forfait'] = $existingExtras;
@@ -438,12 +449,21 @@ class CourseController extends AppBaseController
 
             $course = Course::create($courseData);
 
+            // Crear courseExtras solo para los extras seleccionados
             if (!empty($courseData['extras'])) {
                 foreach ($courseData['extras'] as $extra) {
+                    $extraName = $extra['name'] ?? ($extra['description'] ?? '');
+                    $extraProduct = $extra['product'] ?? ($extra['name'] ?? '');
+                    $extraPrice = $extra['price'] ?? 0;
+
+                    if (empty($extraName)) {
+                        continue; // Saltar extras sin nombre
+                    }
+
                     $course->courseExtras()->create([
-                        'name' => $extra['product'],
-                        'description' => $extra['name'],
-                        'price' => $extra['price']
+                        'name' => $extraName,
+                        'description' => $extraProduct,
+                        'price' => $extraPrice
                     ]);
                 }
             }
@@ -952,12 +972,23 @@ class CourseController extends AppBaseController
             $schoolSettings = json_decode($school->settings, true) ?? [];
             $existingExtras = $schoolSettings['extras']['forfait'] ?? [];
 
+            // Actualizar settings de la escuela con nuevos extras
             if (!empty($courseData['extras'])) {
                 foreach ($courseData['extras'] as $extra) {
-                    $extraName = $extra['name'] ?? $extra['product']; // Usa 'name' si existe, sino 'product'
+                    // Solo agregar si es un extra nuevo (temporal, con ID tipo aFOR-*)
+                    $isTemporary = isset($extra['id']) && strpos($extra['id'], 'aFOR-') === 0;
 
-                    if ($extraName && !collect($existingExtras)->contains('name', $extraName)) {
-                        $existingExtras[] = $extra;
+                    if ($isTemporary && !collect($existingExtras)->contains('name', $extra['name'])) {
+                        // Generar un ID real para el extra en settings
+                        $newExtra = [
+                            'id' => 'FOR-' . uniqid(),
+                            'name' => $extra['name'],
+                            'product' => $extra['product'],
+                            'price' => $extra['price'],
+                            'tva' => $extra['tva'] ?? 21,
+                            'status' => $extra['status'] ?? true,
+                        ];
+                        $existingExtras[] = $newExtra;
                     }
                 }
 
@@ -968,18 +999,37 @@ class CourseController extends AppBaseController
 
             $course->update($courseData);
 
+            // Sincronizar courseExtras: eliminar los no seleccionados y crear/actualizar los seleccionados
+            $selectedExtraIds = [];
             if (!empty($courseData['extras'])) {
                 foreach ($courseData['extras'] as $extra) {
-                    $productName = $extra['product'] ?? $extra['name']; // Usar 'product' si existe, sino 'name'
+                    $extraName = $extra['name'] ?? ($extra['description'] ?? '');
+                    $extraProduct = $extra['product'] ?? ($extra['name'] ?? '');
+                    $extraPrice = $extra['price'] ?? 0;
 
-                    $course->courseExtras()->updateOrCreate(
-                        ['name' => $productName], // Condición para buscar si ya existe
+                    if (empty($extraName)) {
+                        continue; // Saltar extras sin nombre
+                    }
+
+                    $courseExtra = $course->courseExtras()->updateOrCreate(
                         [
-                            'description' => $extra['name'],
-                            'price' => $extra['price']
+                            'name' => $extraName,
+                            'description' => $extraProduct
+                        ],
+                        [
+                            'price' => $extraPrice
                         ]
                     );
+                    $selectedExtraIds[] = $courseExtra->id;
                 }
+            }
+
+            // Eliminar extras que ya no están seleccionados
+            if (!empty($selectedExtraIds)) {
+                $course->courseExtras()->whereNotIn('id', $selectedExtraIds)->delete();
+            } else {
+                // Si no hay extras seleccionados, eliminar todos
+                $course->courseExtras()->delete();
             }
 
             $settings = $courseData['settings'] ?? null;
@@ -1273,6 +1323,19 @@ class CourseController extends AppBaseController
                                 'incoming_subgroup_ids' => $updatedSubgroups,
                                 'delete_missing' => true,
                             ]);
+
+                            // MEJORADO: Eliminar booking_users huérfanos ANTES de eliminar subgrupos
+                            $subgroupsToDelete = $group->courseSubgroups()
+                                ->whereNotIn('id', $updatedSubgroups)
+                                ->pluck('id');
+
+                            if ($subgroupsToDelete->isNotEmpty()) {
+                                // Eliminar booking_users de los subgrupos que serán eliminados
+                                DB::table('booking_users')
+                                    ->whereIn('course_subgroup_id', $subgroupsToDelete)
+                                    ->delete();
+                            }
+
                             $group->courseSubgroups()->whereNotIn('id', $updatedSubgroups)->delete();
                         }
                     }
@@ -1280,6 +1343,19 @@ class CourseController extends AppBaseController
                     // CRITICAL: First delete all subgroups of groups that will be deleted to avoid orphaned records
                     $groupsToDelete = $date->courseGroups()->whereNotIn('id', $updatedCourseGroups)->pluck('id');
                     if ($groupsToDelete->isNotEmpty()) {
+                        // MEJORADO: Obtener IDs de subgrupos a eliminar
+                        $subgroupIdsToDelete = CourseSubgroup::whereIn('course_group_id', $groupsToDelete)
+                            ->where('course_date_id', $date->id)
+                            ->pluck('id');
+
+                        if ($subgroupIdsToDelete->isNotEmpty()) {
+                            // Eliminar booking_users de subgrupos que serán eliminados
+                            DB::table('booking_users')
+                                ->whereIn('course_subgroup_id', $subgroupIdsToDelete)
+                                ->delete();
+                        }
+
+                        // Ahora eliminar los subgrupos
                         CourseSubgroup::whereIn('course_group_id', $groupsToDelete)
                             ->where('course_date_id', $date->id)
                             ->delete();
@@ -1289,24 +1365,53 @@ class CourseController extends AppBaseController
                     // CRITICAL FIX: Clean up orphaned subgroups whose parent groups were soft-deleted
                     // These subgroups belong to groups that no longer exist (soft deleted)
                     // but weren't deleted in line 1276 because they were deleted after their parent groups
-                    CourseSubgroup::whereHas('courseGroup', function($q) {
+                    $orphanedSubgroupIds = CourseSubgroup::whereHas('courseGroup', function($q) {
                         $q->whereNotNull('deleted_at');
                     })
                     ->where('course_date_id', $date->id)
                     ->whereNull('deleted_at')
-                    ->delete();
+                    ->pluck('id');
+
+                    if ($orphanedSubgroupIds->isNotEmpty()) {
+                        // Eliminar booking_users huérfanos
+                        DB::table('booking_users')
+                            ->whereIn('course_subgroup_id', $orphanedSubgroupIds)
+                            ->delete();
+
+                        // Eliminar subgrupos huérfanos
+                        CourseSubgroup::whereIn('id', $orphanedSubgroupIds)->delete();
+                    }
                 }
                 }
                 $course->courseDates()->whereNotIn('id', $updatedCourseDates)->delete();
 
                 // CRITICAL FIX: Clean up ALL orphaned subgroups for this course
                 // that reference soft-deleted course_groups
-                CourseSubgroup::whereHas('courseGroup', function($q) {
+                $allOrphanedSubgroupIds = CourseSubgroup::whereHas('courseGroup', function($q) {
                     $q->whereNotNull('deleted_at');
                 })
                 ->where('course_id', $course->id)
                 ->whereNull('deleted_at')
-                ->delete();
+                ->pluck('id');
+
+                if ($allOrphanedSubgroupIds->isNotEmpty()) {
+                    // MEJORADO: Eliminar booking_users de subgrupos huérfanos antes de eliminarlos
+                    DB::table('booking_users')
+                        ->whereIn('course_subgroup_id', $allOrphanedSubgroupIds)
+                        ->delete();
+
+                    // Eliminar los subgrupos huérfanos
+                    CourseSubgroup::whereIn('id', $allOrphanedSubgroupIds)->delete();
+                }
+
+                // NUEVO: Limpieza adicional de booking_users completamente huérfanos
+                // (que apuntan a subgrupos que ya no existen)
+                DB::statement("
+                    DELETE FROM booking_users
+                    WHERE course_subgroup_id NOT IN (
+                        SELECT id FROM course_subgroups WHERE deleted_at IS NULL
+                    )
+                ");
             }
 
             // OPTIMIZED: Create CourseSubgroupDate junction records using bulk insert
