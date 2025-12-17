@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\AppBaseController;
 use App\Http\Controllers\PayrexxHelpers;
 use App\Http\Resources\API\BookingResource;
+use App\Http\Resources\API\BookingListResource;
 use App\Mail\BookingCancelMailer;
 use App\Mail\BookingCreateMailer;
 use App\Mail\BookingInfoMailer;
@@ -83,18 +84,236 @@ class BookingController extends AppBaseController
      */
     public function index(Request $request): JsonResponse
     {
-        $bookings = Booking::where('school_id', $request->school_id);
+        $school = $this->getSchool($request);
+        if (!$school) {
+            return $this->sendError('School not found for the current user', [], 403);
+        }
 
-        if ($request->filled('status')) {
-            $statuses = array_filter(array_map('trim', explode(',', $request->input('status'))), function ($value) {
-                return $value !== '';
-            });
-            if (!empty($statuses)) {
-                $bookings->whereIn('status', $statuses);
+        $perPage = max(1, (int)$request->input('perPage', 10));
+        $orderDirection = strtolower($request->input('order', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $orderColumnRequest = $request->input('orderColumn', 'id');
+        $search = $request->input('search');
+        $with = Arr::wrap($request->input('with', ['bookingUsers.course.sport', 'clientMain']));
+
+        $courseTypes = array_values(array_filter((array)$request->input('course_types', []), fn($value) => $value !== ''));
+        $statusFilter = $this->parseCsvInts($request->input('status'));
+
+        $searchArray = array_filter(
+            array_merge(
+                $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with', 'status', 'course_types']),
+                ['school_id' => $school->id]
+            ),
+            fn($value) => $value !== null && $value !== ''
+        );
+
+        $courseFilter = $request->input('course_id') ?? $request->input('flex_course_id');
+        $courseFilter = $courseFilter ? (int)$courseFilter : null;
+        if ($courseFilter !== null) {
+            unset($searchArray['course_id'], $searchArray['flex_course_id']);
+        }
+
+        $customOrderCallbacks = [
+            'dates' => function ($query, $direction) {
+                $query->orderByRaw("(select min(date) from booking_users where booking_users.booking_id = bookings.id) {$direction}");
+            },
+            'booking_users' => function ($query, $direction) {
+                $query->orderByRaw("(select c.name from courses c inner join booking_users bu on bu.course_id = c.id where bu.booking_id = bookings.id order by bu.date asc limit 1) {$direction}");
+            },
+            'client_main' => function ($query, $direction) {
+                $query->orderByRaw("(select concat(ifnull(cl.last_name,''), ' ', ifnull(cl.first_name,'')) from clients cl where cl.id = bookings.client_main_id) {$direction}");
+            },
+            'sport' => function ($query, $direction) {
+                $query->orderByRaw("(select s.name from booking_users bu inner join courses c on c.id = bu.course_id inner join sports s on s.id = c.sport_id where bu.booking_id = bookings.id order by bu.date asc limit 1) {$direction}");
+            },
+            'has_observations' => function ($query, $direction) {
+                $query->orderByRaw("(select case when exists(select 1 from booking_users bu where bu.booking_id = bookings.id and (bu.notes is not null or bu.notes_school is not null)) then 1 else 0 end) {$direction}");
+            },
+            'bonus' => function ($query, $direction) {
+                $query->orderByRaw("(select case when exists(select 1 from vouchers_log vl where vl.booking_id = bookings.id) then 1 else 0 end) {$direction}");
+            }
+        ];
+        $customOrderCallback = $customOrderCallbacks[$orderColumnRequest] ?? null;
+        $orderColumn = $customOrderCallback ? 'id' : $orderColumnRequest;
+
+        $bookings = $this->bookingRepository->all(
+            searchArray: $searchArray,
+            search: $search,
+            skip: $request->input('skip'),
+            limit: $request->input('limit'),
+            pagination: $perPage,
+            with: $with,
+            order: $orderDirection,
+            orderColumn: $orderColumn,
+            additionalConditions: function ($query) use ($statusFilter, $courseTypes, $courseFilter, $customOrderCallback, $orderDirection) {
+                if (!empty($statusFilter)) {
+                    $query->whereIn('status', $statusFilter);
+                }
+                if (!empty($courseTypes)) {
+                    $query->whereIn('course_type', $courseTypes);
+                }
+                if ($courseFilter) {
+                    $query->whereHas('bookingUsers', function ($subQuery) use ($courseFilter) {
+                        $subQuery->where('course_id', $courseFilter);
+                    });
+                }
+                if ($customOrderCallback) {
+                    $customOrderCallback($query, $orderDirection);
+                }
+            }
+        );
+
+        $payload = BookingResource::collection($bookings)->resolve();
+
+        return response()->json([
+            'success' => true,
+            'data' => $payload['data'] ?? [],
+            'total' => $bookings->total(),
+            'per_page' => $bookings->perPage(),
+            'current_page' => $bookings->currentPage(),
+            'last_page' => $bookings->lastPage(),
+            'message' => 'Bookings retrieved successfully'
+        ]);
+    }
+
+    public function tableList(Request $request): JsonResponse
+    {
+        $school = $this->getSchool($request);
+        if (!$school) {
+            return $this->sendError('School not found for the current user', [], 403);
+        }
+
+        $perPage = max(1, (int)$request->input('perPage', 10));
+        $orderDirection = strtolower($request->input('order', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $orderColumnRequest = $request->input('orderColumn', 'id');
+        $search = $request->input('search');
+        $with = $this->buildAdminBookingTableWiths(Arr::wrap($request->input('with', [])));
+
+        $courseTypes = array_values(array_filter((array)$request->input('course_types', []), fn($value) => $value !== ''));
+        $statusFilter = $this->parseCsvInts($request->input('status'));
+
+        $searchArray = array_filter(
+            array_merge(
+                $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with', 'status', 'course_types']),
+                ['school_id' => $school->id]
+            ),
+            fn($value) => $value !== null && $value !== ''
+        );
+
+        $courseFilter = $request->input('course_id') ?? $request->input('flex_course_id');
+        $courseFilter = $courseFilter ? (int)$courseFilter : null;
+        if ($courseFilter !== null) {
+            unset($searchArray['course_id'], $searchArray['flex_course_id']);
+        }
+
+        $customOrderCallbacks = [
+            'dates' => function ($query, $direction) {
+                $query->orderByRaw("(select min(date) from booking_users where booking_users.booking_id = bookings.id) {$direction}");
+            },
+            'booking_users' => function ($query, $direction) {
+                $query->orderByRaw("(select c.name from courses c inner join booking_users bu on bu.course_id = c.id where bu.booking_id = bookings.id order by bu.date asc limit 1) {$direction}");
+            },
+            'client_main' => function ($query, $direction) {
+                $query->orderByRaw("(select concat(ifnull(cl.last_name,''), ' ', ifnull(cl.first_name,'')) from clients cl where cl.id = bookings.client_main_id) {$direction}");
+            },
+            'sport' => function ($query, $direction) {
+                $query->orderByRaw("(select s.name from booking_users bu inner join courses c on c.id = bu.course_id inner join sports s on s.id = c.sport_id where bu.booking_id = bookings.id order by bu.date asc limit 1) {$direction}");
+            },
+            'has_observations' => function ($query, $direction) {
+                $query->orderByRaw("(select case when exists(select 1 from booking_users bu where bu.booking_id = bookings.id and (bu.notes is not null or bu.notes_school is not null)) then 1 else 0 end) {$direction}");
+            },
+            'bonus' => function ($query, $direction) {
+                $query->orderByRaw("(select case when exists(select 1 from vouchers_log vl where vl.booking_id = bookings.id) then 1 else 0 end) {$direction}");
+            }
+        ];
+        $customOrderCallback = $customOrderCallbacks[$orderColumnRequest] ?? null;
+        $orderColumn = $customOrderCallback ? 'id' : $orderColumnRequest;
+
+        $bookings = $this->bookingRepository->all(
+            searchArray: $searchArray,
+            search: $search,
+            skip: $request->input('skip'),
+            limit: $request->input('limit'),
+            pagination: $perPage,
+            with: $with,
+            order: $orderDirection,
+            orderColumn: $orderColumn,
+            additionalConditions: function ($query) use ($statusFilter, $courseTypes, $courseFilter, $customOrderCallback, $orderDirection) {
+                if (!empty($statusFilter)) {
+                    $query->whereIn('status', $statusFilter);
+                }
+                if (!empty($courseTypes)) {
+                    $query->whereIn('course_type', $courseTypes);
+                }
+                if ($courseFilter) {
+                    $query->whereHas('bookingUsers', function ($subQuery) use ($courseFilter) {
+                        $subQuery->where('course_id', $courseFilter);
+                    });
+                }
+                if ($customOrderCallback) {
+                    $customOrderCallback($query, $orderDirection);
+                }
+            }
+        );
+
+        $payload = BookingListResource::collection($bookings)->resolve();
+
+        return response()->json([
+            'success' => true,
+            'data' => $payload,
+            'total' => $bookings->total(),
+            'per_page' => $bookings->perPage(),
+            'current_page' => $bookings->currentPage(),
+            'last_page' => $bookings->lastPage(),
+            'message' => 'Bookings retrieved successfully'
+        ]);
+    }
+
+    private function parseCsvInts(?string $value): array
+    {
+        if ($value === null || trim($value) === '') {
+            return [];
+        }
+
+        return array_map('intval', array_filter(array_map('trim', explode(',', $value)), fn($chunk) => $chunk !== ''));
+    }
+
+    private function buildAdminBookingTableWiths(array $requestedWith): array
+    {
+        $relations = [
+            'bookingUsers' => function ($query) {
+                $query->select([
+                    'id', 'booking_id', 'client_id', 'course_id',
+                    'course_date_id', 'group_id', 'monitor_id',
+                    'date', 'hour_start', 'hour_end', 'status',
+                    'accepted'
+                ]);
+            },
+            'bookingUsers.course' => function ($query) {
+                $query->select([
+                    'id', 'name', 'translations', 'course_type',
+                    'is_flexible', 'sport_id'
+                ]);
+            },
+            'bookingUsers.course.sport' => function ($query) {
+                $query->select([
+                    'id', 'icon_collective', 'icon_prive', 'icon_activity'
+                ]);
+            },
+            'clientMain' => function ($query) {
+                $query->select([
+                    'id', 'first_name', 'last_name', 'email',
+                    'image', 'language1_id', 'country', 'birth_date'
+                ]);
+            }
+        ];
+
+        foreach ($requestedWith as $relation) {
+            if (!array_key_exists($relation, $relations)) {
+                $relations[] = $relation;
             }
         }
 
-        return $this->sendResponse(BookingResource::collection($bookings), 'Bookings retrieved successfully');
+        return $relations;
     }
 
     /**

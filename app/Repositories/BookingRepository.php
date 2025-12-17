@@ -20,7 +20,8 @@ class BookingRepository extends BaseRepository
         'attendance',
         'notes',
         'paxes',
-        'color'
+        'color',
+        'status'
     ];
 
     public function getFieldsSearchable(): array
