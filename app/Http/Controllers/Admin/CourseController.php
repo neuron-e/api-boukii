@@ -136,15 +136,27 @@ class CourseController extends AppBaseController
         );
 
         $monitorsBySportAndDegree = $this->getGroupedMonitors($school->id);
+        $courseIds = $courses->pluck('id')->filter()->all();
+        $activeBookingCounts = [];
+
+        if (!empty($courseIds)) {
+            $activeBookingCounts = BookingUser::selectRaw('course_id, COUNT(*) as total')
+                ->whereIn('course_id', $courseIds)
+                ->where('status', 1)
+                ->whereHas('booking', function ($query) {
+                    $query->where('status', '!=', 2);
+                })
+                ->groupBy('course_id')
+                ->pluck('total', 'course_id')
+                ->toArray();
+        }
 
         // Calcula reservas y plazas disponibles para cada curso
         foreach ($courses as $course) {
             if($course->course_type == 1) {
                 $availability = $this->getCourseAvailability($course, $monitorsBySportAndDegree);
 
-                // dd($availability);
-
-                $course->total_reservations = $availability['total_reservations_places'];
+                $course->total_reservations = $activeBookingCounts[$course->id] ?? 0;
                 $course->total_available_places = $availability['total_available_places'];
                 $course->total_places = $availability['total_places'];
             } else {

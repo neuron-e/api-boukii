@@ -2,6 +2,7 @@
 
 namespace App\Console;
 
+use App\Console\Commands\CleanupDuplicateBookingUsers;
 use App\Console\Commands\RefreshCashPaidTotals;
 use App\Console\Commands\RepairOrphanedCourseData;
 use App\Console\Commands\RestoreZeroTotalBookings;
@@ -22,6 +23,7 @@ class Kernel extends ConsoleKernel
         RefreshCashPaidTotals::class,
         RepairOrphanedCourseData::class,
         RestoreZeroTotalBookings::class,
+        CleanupDuplicateBookingUsers::class,
     ];
 
     /**
