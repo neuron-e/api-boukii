@@ -409,6 +409,26 @@ class CourseController extends SlugAuthController
                 }
             }
 
+            if ($course->course_type === 2) {
+                $maxParticipants = (int) $course->max_participants;
+                foreach ($course->courseDates as $courseDate) {
+                    if (!empty($dateAvailabilityMap[$courseDate->id])) {
+                        continue;
+                    }
+
+                    $activeBookings = BookingUser::where('course_date_id', $courseDate->id)
+                        ->where('status', 1)
+                        ->whereHas('booking', function ($query) {
+                            $query->where('status', '!=', 2);
+                        })
+                        ->count();
+
+                    if ($maxParticipants <= 0 || $activeBookings < $maxParticipants) {
+                        $dateAvailabilityMap[$courseDate->id] = true;
+                    }
+                }
+            }
+
             $filteredCourseDates = collect();
             $intervalsWithCapacity = [];
             foreach ($course->courseDates as $courseDate) {
