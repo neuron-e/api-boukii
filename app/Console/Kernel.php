@@ -4,6 +4,7 @@ namespace App\Console;
 
 use App\Console\Commands\RefreshCashPaidTotals;
 use App\Console\Commands\RepairOrphanedCourseData;
+use App\Console\Commands\RestoreZeroTotalBookings;
 use App\Jobs\UpdateMonitorForSubgroup;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
@@ -20,6 +21,7 @@ class Kernel extends ConsoleKernel
         \App\Console\Commands\SendBookingConfirmations::class,
         RefreshCashPaidTotals::class,
         RepairOrphanedCourseData::class,
+        RestoreZeroTotalBookings::class,
     ];
 
     /**

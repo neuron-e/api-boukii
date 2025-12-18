@@ -212,7 +212,20 @@ class BookingController extends SlugAuthController
                 $discountCodeId = $discountCode->id;
             }
 
-            $netPriceTotal = max(0, $grossPriceTotal - $discountCodeAmount);
+            $requestTotal = Arr::get($data, 'price_total');
+            $frontEndTotal = $requestTotal !== null ? max(0, (float) $requestTotal) : null;
+            $calculatedTotal = max(0, $grossPriceTotal - $discountCodeAmount);
+            $basketPriceTotal = $this->getBasketPriceTotal(Arr::get($data, 'basket'));
+            $basketZeroOverride = $this->basketIndicatesZeroPrice(Arr::get($data, 'basket'));
+
+            $netPriceTotal = $frontEndTotal ?? $calculatedTotal;
+            if ($basketPriceTotal !== null) {
+                $netPriceTotal = min($netPriceTotal, max(0, $basketPriceTotal));
+            } elseif ($basketZeroOverride) {
+                $netPriceTotal = 0;
+            }
+
+            $zeroTotalBooking = $netPriceTotal <= 0 || $basketZeroOverride;
 
             $meetingPointData = $this->resolveMeetingPointFromCourses($courseIds);
 
@@ -359,7 +372,7 @@ class BookingController extends SlugAuthController
                         'hour_end' => $detail['hour_end'],
                         'group_id' => $groupId,
                         'accepted' => !empty($courseSubgroupId),
-                        'deleted_at' => $netPriceTotal <= 0 ? null : now(),
+                        'deleted_at' => $zeroTotalBooking ? null : now(),
                     ]);
 
                     $bookingUser->save();
@@ -381,8 +394,8 @@ class BookingController extends SlugAuthController
                 }
                 $groupId++; // Incrementar el `group_id` para el siguiente `cartItem`
             }
-            $booking->deleted_at = $netPriceTotal <= 0 ? null : now();
-            if ($netPriceTotal <= 0) {
+            $booking->deleted_at = $zeroTotalBooking ? null : now();
+            if ($zeroTotalBooking) {
                 $booking->paid = true;
                 $booking->paid_total = 0;
                 // Reactivar todos los booking_users si estaban marcados
@@ -500,6 +513,19 @@ class BookingController extends SlugAuthController
                     $booking->paid = true;
 
                     foreach ($bookingUsers as $bookingUser) {
+                        $bookingUser->deleted_at = null;
+                        $bookingUser->save();
+                    }
+                }
+            }
+
+            if ($booking->price_total <= 0) {
+                $booking->deleted_at = null;
+                $booking->paid = true;
+                $booking->paid_total = 0;
+
+                foreach ($bookingUsers as $bookingUser) {
+                    if ($bookingUser->deleted_at !== null) {
                         $bookingUser->deleted_at = null;
                         $bookingUser->save();
                     }
@@ -1232,6 +1258,49 @@ class BookingController extends SlugAuthController
         });
 
         return $allSame ? $first : $defaults;
+    }
+
+    private function getBasketPriceTotal($basket): ?float
+    {
+        $parsed = [];
+        if (is_string($basket)) {
+            $decoded = json_decode($basket, true);
+            $parsed = is_array($decoded) ? $decoded : [];
+        } elseif (is_array($basket)) {
+            $parsed = $basket;
+        }
+
+        $priceTotal = $parsed['price_total'] ?? $parsed['total_price'] ?? null;
+        return is_numeric($priceTotal) ? (float) $priceTotal : null;
+    }
+
+    private function basketIndicatesZeroPrice($basket): bool
+    {
+        $parsed = null;
+        if (is_string($basket)) {
+            $decoded = json_decode($basket, true);
+            if (is_array($decoded)) {
+                $parsed = $decoded;
+            }
+        } elseif (is_array($basket)) {
+            $parsed = $basket;
+        }
+
+        if (is_array($parsed)) {
+            $priceTotal = $parsed['price_total'] ?? $parsed['total_price'] ?? null;
+            if (is_numeric($priceTotal) && (float) $priceTotal <= 0) {
+                return true;
+            }
+        }
+
+        if (is_string($basket)) {
+            $normalized = strtolower(preg_replace('/\\s+/', '', $basket));
+            if (strpos($normalized, '"price_total":0') !== false || strpos($normalized, '"total_price":0') !== false) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
 }
