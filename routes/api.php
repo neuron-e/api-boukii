@@ -2,6 +2,7 @@
 
 use App\Exports\CoursesExport;
 use App\Exports\UsedVouchersExport;
+use App\Http\Controllers\Admin\CourseController;
 use App\Http\Controllers\Admin\FinanceController;
 use App\Http\Controllers\Admin\FinanceControllerRefactor;
 use App\Http\Controllers\Admin\StatisticsController;
@@ -1663,4 +1664,5 @@ Route::prefix('bookings')->group(function () {
 Route::get('/courses/{courseId}/intervals/{intervalId}/available-discounts', [App\Http\Controllers\API\BookingDiscountAPIController::class, 'getAvailableDiscounts']);
 /* BOOKING DISCOUNTS API */
 
+Route::middleware('auth:sanctum')->get('/admin/courses/{id}/structure', [CourseController::class, 'structure']);
 Route::middleware('auth:sanctum')->post('/admin/courses/{id}/translate', [TranslationAPIController::class, 'translateCourse']);

@@ -90,11 +90,11 @@ class CourseController extends AppBaseController
             order: $request->get('order', 'desc'),
             orderColumn: $request->get('orderColumn', 'id'),
             additionalConditions: function ($query) use ($request, $school) {
-                // Obtén el ID de la escuela y añádelo a los parámetros de búsqueda
+                // ObtÃ©n el ID de la escuela y aÃ±Ã¡delo a los parÃ¡metros de bÃºsqueda
 
                 $query->where('school_id', $school->id);
 
-                // Excluir cursos archivados por defecto (a menos que se pida explícitamente incluirlos)
+                // Excluir cursos archivados por defecto (a menos que se pida explÃ­citamente incluirlos)
                 if (!$request->get('include_archived', false)) {
                     $query->whereNull('archived_at');
                 }
@@ -234,13 +234,120 @@ class CourseController extends AppBaseController
         return $this->sendResponse($course, 'Course retrieved successfully');
     }
 
+    public function structure($id, Request $request): JsonResponse
+    {
+        $school = $this->getSchool($request);
+
+        $course = Course::with([
+            'courseDates' => function ($query) {
+                $query->whereNull('deleted_at')->orderBy('date');
+            },
+            'courseDates.courseGroups' => function ($query) {
+                $query->whereNull('deleted_at');
+            },
+            'courseDates.courseGroups.degree',
+            'courseDates.courseGroups.courseSubgroups' => function ($query) {
+                $query->whereNull('deleted_at')->orderBy('subgroup_dates_id');
+            },
+            'courseDates.courseGroups.courseSubgroups.bookingUsers' => function ($query) {
+                $query->where('status', 1)
+                    ->whereHas('booking', function ($bookingQuery) {
+                        $bookingQuery->where('status', '!=', 2);
+                    })
+                    ->with('client');
+            }
+        ])->where('school_id', $school->id)->find($id);
+
+        if (empty($course)) {
+            return $this->sendError('Course does not exist in this school');
+        }
+
+        $courseDates = $course->courseDates ?? collect();
+        $degreeGroups = $courseDates
+            ->flatMap(function ($date) {
+                return $date->courseGroups ?? collect();
+            })
+            ->filter()
+            ->groupBy('degree_id');
+
+        $levels = [];
+
+        foreach ($degreeGroups as $degreeId => $groups) {
+            $firstGroup = $groups->first();
+            $subgroupDatesIds = $courseDates
+                ->flatMap(function ($date) use ($degreeId) {
+                    $group = ($date->courseGroups ?? collect())->firstWhere('degree_id', $degreeId);
+                    if (!$group) {
+                        return collect();
+                    }
+                    return ($group->courseSubgroups ?? collect())->pluck('subgroup_dates_id');
+                })
+                ->filter()
+                ->unique()
+                ->sort()
+                ->values();
+
+            $subgroups = [];
+
+            foreach ($subgroupDatesIds as $subgroupDatesId) {
+                $dates = [];
+                foreach ($courseDates as $courseDate) {
+                    $group = ($courseDate->courseGroups ?? collect())->firstWhere('degree_id', $degreeId);
+                    if (!$group) {
+                        continue;
+                    }
+                    $subgroup = ($group->courseSubgroups ?? collect())->firstWhere('subgroup_dates_id', $subgroupDatesId);
+                    if (!$subgroup) {
+                        continue;
+                    }
+                    $bookingUsers = $subgroup->bookingUsers ?? collect();
+                    $dates[] = [
+                        'course_date_id' => $courseDate->id,
+                        'date' => $courseDate->date,
+                        'subgroup_id' => $subgroup->id,
+                        'booking_users' => $bookingUsers->map(function ($bookingUser) {
+                            return [
+                                'id' => $bookingUser->id,
+                                'client_id' => $bookingUser->client_id,
+                                'client_name' => optional($bookingUser->client)->name,
+                                'client_surname' => optional($bookingUser->client)->surname,
+                                'status' => $bookingUser->status
+                            ];
+                        })->values(),
+                    ];
+                }
+
+                $subgroups[] = [
+                    'subgroup_dates_id' => $subgroupDatesId,
+                    'dates' => $dates
+                ];
+            }
+
+            $levels[] = [
+                'degree_id' => $degreeId,
+                'degree_name' => $firstGroup?->degree?->name,
+                'age_min' => $firstGroup?->age_min,
+                'age_max' => $firstGroup?->age_max,
+                'subgroups' => $subgroups,
+            ];
+        }
+
+        $structure = [
+            'course_id' => $course->id,
+            'course_type' => $course->course_type,
+            'levels' => array_values($levels),
+        ];
+
+        return $this->sendResponse($structure, 'Course structure retrieved successfully');
+    }
+
     public function exportDetails(Request $request, $courseId, $lang = 'fr')
     {
         $school = $this->getSchool($request);
 
         app()->setLocale($lang);
 
-        // Cargar curso con relaciones específicas según tipo (colectivo vs privado)
+        // Cargar curso con relaciones especÃ­ficas segÃºn tipo (colectivo vs privado)
         $course = Course::where('school_id', $school->id)->findOrFail($courseId);
 
         if (!$course) {
@@ -491,7 +598,7 @@ class CourseController extends AppBaseController
             }
 
             if (!is_array($settings)) {
-                $settings = []; // Si no es un array válido, inicializamos uno vacío
+                $settings = []; // Si no es un array vÃ¡lido, inicializamos uno vacÃ­o
             }
             // Safely read weekDays; may be absent
             $weekDays = $settings['weekDays'] ?? null;
@@ -516,7 +623,7 @@ class CourseController extends AppBaseController
             if ($course->course_type === 1) {
                 $hasWeekDays = is_array($weekDays) && count(array_filter($weekDays)) > 0;
 
-                // Preparar mapa de subgroup_dates_id por nivel+índice para mantener consistencia
+                // Preparar mapa de subgroup_dates_id por nivel+Ã­ndice para mantener consistencia
                 $slotIdMap = [];
                 $maxNum = DB::table('course_subgroups')
                     ->whereNotNull('subgroup_dates_id')
@@ -529,7 +636,7 @@ class CourseController extends AppBaseController
                     ->max() ?? 0;
                 $nextSeq = $maxNum + 1;
 
-                // Normalizar subgroup_dates_id en el payload, manteniendo los enviados y generando sólo si faltan
+                // Normalizar subgroup_dates_id en el payload, manteniendo los enviados y generando sÃ³lo si faltan
                 foreach ($courseData['course_dates'] as &$dateData) {
                     $groups = $dateData['course_groups'] ?? $dateData['groups'] ?? [];
                     if (!is_array($groups)) {
@@ -639,7 +746,7 @@ class CourseController extends AppBaseController
                     }
                 }
 
-                // PASO 2: Crear grupos/subgrupos según cada fecha sin replicar desde la primera
+                // PASO 2: Crear grupos/subgrupos segÃºn cada fecha sin replicar desde la primera
                 foreach ($createdDates as $entry) {
                     /** @var \App\Models\CourseDate $dateModel */
                     $dateModel = $entry['model'];
@@ -701,8 +808,8 @@ class CourseController extends AppBaseController
                 rsort($allHourEnds); // Orden inverso para obtener el mayor
 
                 $course->update([
-                    'date_start'  => $allDates[0],   // Primera fecha (mínima)
-                    'date_end'    => end($allDates), // Última fecha (máxima)
+                    'date_start'  => $allDates[0],   // Primera fecha (mÃ­nima)
+                    'date_end'    => end($allDates), // Ãšltima fecha (mÃ¡xima)
                     'hour_min'  => $allHourStarts[0],  // Menor hora de inicio
                     'hour_max'    => $allHourEnds[0],    // Mayor hora de fin
                     'settings'    => $settings
@@ -710,7 +817,7 @@ class CourseController extends AppBaseController
             }
 
             DB::commit();
-            return $this->sendResponse($course, 'Curso creado con éxito');
+            return $this->sendResponse($course, 'Curso creado con Ã©xito');
         } catch (\Exception $e) {
             DB::rollback();
             \Illuminate\Support\Facades\Log::debug('An error occurred while creating the course: : ' .
@@ -731,7 +838,7 @@ class CourseController extends AppBaseController
         $maxFrequency = reset($counted);
         $mostCommon = array_keys($counted, $maxFrequency);
 
-        // Si hay empate, devolver la mayor duración
+        // Si hay empate, devolver la mayor duraciÃ³n
         usort($mostCommon, function ($a, $b) {
             return strtotime($b) - strtotime($a);
         });
@@ -887,6 +994,8 @@ class CourseController extends AppBaseController
             $courseData = $request->all();
             $course = Course::findOrFail($id); // Suponiendo que tienes el ID del curso que deseas editar
             $isPartial = $request->isMethod('patch') && !$request->has('course_dates');
+            $forceRepairOrphans = $request->boolean('force_repair_orphans', false);
+            $repairOrphans = false;
 
             if ($isPartial) {
                 $partialKeys = [
@@ -1037,7 +1146,7 @@ class CourseController extends AppBaseController
                 }
             }
 
-            // Eliminar extras que ya no están seleccionados
+            // Eliminar extras que ya no estÃ¡n seleccionados
             if (!empty($selectedExtraIds)) {
                 $course->courseExtras()->whereNotIn('id', $selectedExtraIds)->delete();
             } else {
@@ -1052,7 +1161,7 @@ class CourseController extends AppBaseController
             }
 
             if (!is_array($settings)) {
-                $settings = []; // Si no es un array válido, inicializamos uno vacío
+                $settings = []; // Si no es un array vÃ¡lido, inicializamos uno vacÃ­o
             }
             // Safely read weekDays; may be absent
             $weekDays = $settings['weekDays'] ?? null;
@@ -1106,7 +1215,7 @@ class CourseController extends AppBaseController
                      return strtotime($a['date']) - strtotime($b['date']);
                  });
 
-                 // Obtener la primera y última fecha de la request
+                 // Obtener la primera y Ãºltima fecha de la request
                  $requestFirstDate = $courseData['course_dates'][0]['date'] ?? null;
                  $requestLastDate = end($courseData['course_dates'])['date'] ?? null;
 
@@ -1118,7 +1227,7 @@ class CourseController extends AppBaseController
                      $period = new DatePeriod(
                          new DateTime($courseStartDate),
                          new DateInterval('P1D'),
-                         (new DateTime($courseEndDate))->modify('+1 day') // Incluir la última fecha
+                         (new DateTime($courseEndDate))->modify('+1 day') // Incluir la Ãºltima fecha
                      );
 
                      foreach ($period as $date) {
@@ -1165,7 +1274,7 @@ class CourseController extends AppBaseController
                         if ($date) {
                             $providedDate = $dateData['date'];
 
-                            // Verificar si la fecha ya está en el formato 'Y-m-d'
+                            // Verificar si la fecha ya estÃ¡ en el formato 'Y-m-d'
                             if (strpos($providedDate, 'T') !== false) {
                                 // Convierte la fecha del formato 'Y-m-d\TH:i:s.u\Z' a 'Y-m-d'
                                 $providedDate = date_create_from_format('Y-m-d\TH:i:s.u\Z', $providedDate);
@@ -1191,13 +1300,13 @@ class CourseController extends AppBaseController
                                     ]);
 
                                     if (array_key_exists($clientEmail, $emailGroups)) {
-                                        // Verificar si el booking ID ya está en el grupo del correo electrónico
+                                        // Verificar si el booking ID ya estÃ¡ en el grupo del correo electrÃ³nico
                                         if (!in_array($bookingId, $emailGroups[$clientEmail])) {
-                                            // Si no está, agregarlo al grupo del correo electrónico
+                                            // Si no estÃ¡, agregarlo al grupo del correo electrÃ³nico
                                             $emailGroups[$clientEmail][] = $bookingId;
                                         }
                                     } else {
-                                        // Si el correo electrónico no está en el array, crear un nuevo grupo
+                                        // Si el correo electrÃ³nico no estÃ¡ en el array, crear un nuevo grupo
                                         $emailGroups[$clientEmail] = [$bookingId];
                                     }
                                 }
@@ -1225,14 +1334,36 @@ class CourseController extends AppBaseController
 
                         $updatedCourseGroups = [];
                         foreach ($dateData['course_groups'] as $groupData) {
-                            // Verifica si existe 'id' antes de usarlo
+                            // CRITICAL FIX: Buscar por degree_id y course_date_id, no solo por id
+                            // El frontend puede enviar degree_id como id, lo cual es incorrecto
                             $groupId = isset($groupData['id']) ? $groupData['id'] : null;
+                            $degreeId = $groupData['degree_id'] ?? null;
+
                             Log::info('[DEBUG] Backend updateOrCreate groupData:', [
                                 'group_id' => $groupId,
-                                'degree_id' => $groupData['degree_id'] ?? null,
+                                'degree_id' => $degreeId,
                                 'age_min' => $groupData['age_min'] ?? 'NOT SET',
                                 'age_max' => $groupData['age_max'] ?? 'NOT SET',
                             ]);
+
+                            // Buscar grupo existente por degree_id y course_date_id
+                            if ($degreeId) {
+                                $existingGroup = $date->courseGroups()
+                                    ->where('degree_id', $degreeId)
+                                    ->whereNull('deleted_at')
+                                    ->first();
+
+                                if ($existingGroup) {
+                                    $groupId = $existingGroup->id;
+                                    $groupData['id'] = $existingGroup->id;
+                                    Log::info('[GROUP_RECOVERY] Found existing group by degree_id', [
+                                        'course_date_id' => $date->id,
+                                        'degree_id' => $degreeId,
+                                        'recovered_id' => $groupId,
+                                    ]);
+                                }
+                            }
+
                             $group = $date->courseGroups()->updateOrCreate(['id' => $groupId], $groupData);
                             Log::info('[DEBUG] Backend AFTER updateOrCreate - group from DB:', [
                                 'group_id' => $group->id,
@@ -1243,6 +1374,24 @@ class CourseController extends AppBaseController
                             $updatedCourseGroups[] = $group->id;
 
                             if (isset($groupData['course_subgroups'])) {
+                                Log::info('[SUBGROUP_UPDATE_START]', [
+                                    'course_id' => $course->id,
+                                    'course_date_id' => $date->id,
+                                    'course_group_id' => $group->id,
+                                    'incoming_subgroups' => collect($groupData['course_subgroups'])->map(function ($sg) {
+                                        return [
+                                            'id' => $sg['id'] ?? null,
+                                            'subgroup_dates_id' => $sg['subgroup_dates_id'] ?? null,
+                                        ];
+                                    })->values(),
+                                    'existing_subgroups' => $group->courseSubgroups()->get()->map(function ($sg) {
+                                        return [
+                                            'id' => $sg->id,
+                                            'subgroup_dates_id' => $sg->subgroup_dates_id,
+                                            'booking_users_count' => $sg->bookingUsers()->count(),
+                                        ];
+                                    })->values(),
+                                ]);
                                 $updatedSubgroups = [];
                                 foreach ($groupData['course_subgroups'] as $subgroupData) {
                                     $subgroupData['course_id'] = $course->id;
@@ -1256,6 +1405,33 @@ class CourseController extends AppBaseController
                                     $previousMonitorId = null;
                                     // Verifica si existe 'id' antes de usarlo
                                     $subgroupId = $subgroupData['id'] ?? null;
+                                    $subgroupDatesId = $subgroupData['subgroup_dates_id'] ?? null;
+                                    if ($course->course_type === 1 && empty($subgroupDatesId)) {
+                                        DB::rollback();
+                                        return $this->sendError('Missing subgroup_dates_id in subgroup payload.', [
+                                            'course_id' => $course->id,
+                                            'course_date_id' => $date->id,
+                                            'course_group_id' => $group->id,
+                                        ]);
+                                    }
+                                    if (!empty($subgroupDatesId)) {
+                                        $existingByDatesId = CourseSubgroup::where('course_group_id', $group->id)
+                                            ->where('course_date_id', $date->id)
+                                            ->where('subgroup_dates_id', $subgroupDatesId)
+                                            ->whereNull('deleted_at')
+                                            ->first();
+                                        if ($existingByDatesId && $subgroupId !== $existingByDatesId->id) {
+                                            $subgroupId = $existingByDatesId->id;
+                                            $subgroupData['id'] = $existingByDatesId->id;
+                                            Log::info('[SUBGROUP_RECOVERY] Found existing subgroup by subgroup_dates_id', [
+                                                'course_id' => $course->id,
+                                                'course_date_id' => $date->id,
+                                                'course_group_id' => $group->id,
+                                                'subgroup_dates_id' => $subgroupDatesId,
+                                                'recovered_id' => $subgroupId,
+                                            ]);
+                                        }
+                                    }
                                     if ($subgroupId) {
                                         $existingSubgroup = $group->courseSubgroups()->find($subgroupId);
                                         if ($existingSubgroup) {
@@ -1292,24 +1468,13 @@ class CourseController extends AppBaseController
                                                 }
                                             }
                                         } else {
-                                            // For new subgroups
-                                            $existingSubgroup = CourseSubgroup::where('course_id', $course->id)
-                                                ->where('degree_id', $subgroupData['degree_id'])
-                                                ->where('course_group_id', $group->id)
+                                            // For new subgroups, always generate a new subgroup_dates_id
+                                            $maxNum = DB::table('course_subgroups')
                                                 ->whereNotNull('subgroup_dates_id')
-                                                ->first();
+                                                ->selectRaw('MAX(CAST(SUBSTRING(subgroup_dates_id, 4) AS UNSIGNED)) as max_num')
+                                                ->value('max_num') ?? 0;
 
-                                            if ($existingSubgroup) {
-                                                $subgroupData['subgroup_dates_id'] = $existingSubgroup->subgroup_dates_id;
-                                            } else {
-                                                // Generate new ID - OPTIMIZED: Use SQL to extract numeric part
-                                                $maxNum = DB::table('course_subgroups')
-                                                    ->whereNotNull('subgroup_dates_id')
-                                                    ->selectRaw('MAX(CAST(SUBSTRING(subgroup_dates_id, 4) AS UNSIGNED)) as max_num')
-                                                    ->value('max_num') ?? 0;
-
-                                                $subgroupData['subgroup_dates_id'] = 'SG-' . str_pad($maxNum + 1, 6, '0', STR_PAD_LEFT);
-                                            }
+                                            $subgroupData['subgroup_dates_id'] = 'SG-' . str_pad($maxNum + 1, 6, '0', STR_PAD_LEFT);
                                         }
                                     }
 
@@ -1328,7 +1493,7 @@ class CourseController extends AppBaseController
                                 }
                             }
 
-                            // Eliminar los subgrupos que ya no están en la request
+                            // Eliminar los subgrupos que ya no estÃ¡n en la request
                             $this->debugCourseUpdate('course.update.group.subgroups.sync', [
                                 'course_id' => $course->id,
                                 'course_date_id' => $date->id,
@@ -1338,16 +1503,46 @@ class CourseController extends AppBaseController
                             ]);
 
                             // MEJORADO: Verificar que no queden booking_users antes de eliminar subgrupos
+                            // CRITICAL FIX: Solo buscar subgrupos de esta course_date_id específica
                             $subgroupsToDelete = $group->courseSubgroups()
+                                ->where('course_date_id', $date->id)
                                 ->whereNotIn('id', $updatedSubgroups)
                                 ->pluck('id');
 
                             if ($subgroupsToDelete->isNotEmpty()) {
-                                $removable = $this->filterDeletableSubgroupIds($subgroupsToDelete->toArray(), 'subgroup(s)');
+                                $subgroupsToDeleteIds = $subgroupsToDelete->toArray();
+
+                                // CRITICAL FIX: Verificar booking_users solo de esta fecha
+                                $bookingUsersCount = BookingUser::whereIn('course_subgroup_id', $subgroupsToDeleteIds)
+                                    ->where('course_date_id', $date->id)
+                                    ->whereNull('deleted_at')
+                                    ->count();
+
+                                if ($bookingUsersCount > 0) {
+                                    DB::rollback();
+                                    return $this->sendError('Cannot delete subgroups with existing booking users. Transfer students first.', [
+                                        'course_id' => $course->id,
+                                        'course_date_id' => $date->id,
+                                        'course_group_id' => $group->id,
+                                        'blocked_subgroup_ids' => $subgroupsToDeleteIds,
+                                    ]);
+                                }
+                                $removable = $this->filterDeletableSubgroupIds($subgroupsToDeleteIds, 'subgroup(s)');
                                 if (!empty($removable)) {
-                                    $group->courseSubgroups()->whereIn('id', $removable)->delete();
+                                    // CRITICAL FIX: Solo eliminar subgrupos de esta fecha
+                                    $group->courseSubgroups()
+                                        ->where('course_date_id', $date->id)
+                                        ->whereIn('id', $removable)
+                                        ->delete();
                                 }
                             }
+                            Log::info('[SUBGROUP_UPDATE_END]', [
+                                'course_id' => $course->id,
+                                'course_date_id' => $date->id,
+                                'course_group_id' => $group->id,
+                                'updated_subgroup_ids' => $updatedSubgroups,
+                                'deleted_subgroup_ids' => $subgroupsToDelete->toArray(),
+                            ]);
                         }
                     }
                     // Delete groups that are no longer in the updated list
@@ -1360,47 +1555,67 @@ class CourseController extends AppBaseController
                             ->pluck('id');
 
                         if ($subgroupIdsToDelete->isNotEmpty()) {
-                            $removable = $this->filterDeletableSubgroupIds($subgroupIdsToDelete->toArray(), 'subgroup(s) inside deleted groups');
+                            $subgroupIdsToDeleteIds = $subgroupIdsToDelete->toArray();
+
+                            // CRITICAL FIX: Verificar booking_users solo de esta fecha
+                            $bookingUsersCount = BookingUser::whereIn('course_subgroup_id', $subgroupIdsToDeleteIds)
+                                ->where('course_date_id', $date->id)
+                                ->whereNull('deleted_at')
+                                ->count();
+
+                            if ($bookingUsersCount > 0) {
+                                DB::rollback();
+                                return $this->sendError('Cannot delete groups with subgroups that have booking users. Transfer students first.', [
+                                    'course_id' => $course->id,
+                                    'course_date_id' => $date->id,
+                                    'blocked_subgroup_ids' => $subgroupIdsToDeleteIds,
+                                ]);
+                            }
+                            $removable = $this->filterDeletableSubgroupIds($subgroupIdsToDeleteIds, 'subgroup(s) inside deleted groups');
                             if (!empty($removable)) {
-                                CourseSubgroup::whereIn('id', $removable)->delete();
+                                // CRITICAL FIX: Solo eliminar subgrupos de esta fecha
+                                CourseSubgroup::where('course_date_id', $date->id)
+                                    ->whereIn('id', $removable)
+                                    ->delete();
                             }
                         }
                     }
                     $date->courseGroups()->whereNotIn('id', $updatedCourseGroups)->delete();
 
-                    // CRITICAL FIX: Clean up orphaned subgroups whose parent groups were soft-deleted
-                    // These subgroups belong to groups that no longer exist (soft deleted)
-                    // but weren't deleted in line 1276 because they were deleted after their parent groups
-                    $orphanedSubgroupIds = CourseSubgroup::whereHas('courseGroup', function($q) {
-                        $q->whereNotNull('deleted_at');
-                    })
-                    ->where('course_date_id', $date->id)
-                    ->whereNull('deleted_at')
-                    ->pluck('id');
+                    if ($forceRepairOrphans) {
+                        // Clean up orphaned subgroups whose parent groups were soft-deleted
+                        $orphanedSubgroupIds = CourseSubgroup::whereHas('courseGroup', function($q) {
+                            $q->whereNotNull('deleted_at');
+                        })
+                        ->where('course_date_id', $date->id)
+                        ->whereNull('deleted_at')
+                        ->pluck('id');
 
-                    if ($orphanedSubgroupIds->isNotEmpty()) {
-                        $removable = $this->filterDeletableSubgroupIds($orphanedSubgroupIds->toArray(), 'orphaned subgroup(s)');
-                        if (!empty($removable)) {
-                            CourseSubgroup::whereIn('id', $removable)->delete();
+                        if ($orphanedSubgroupIds->isNotEmpty()) {
+                            $removable = $this->filterDeletableSubgroupIds($orphanedSubgroupIds->toArray(), 'orphaned subgroup(s)');
+                            if (!empty($removable)) {
+                                CourseSubgroup::whereIn('id', $removable)->delete();
+                            }
                         }
                     }
                 }
                 }
                 $course->courseDates()->whereNotIn('id', $updatedCourseDates)->delete();
 
-                // CRITICAL FIX: Clean up ALL orphaned subgroups for this course
-                // that reference soft-deleted course_groups
-                $allOrphanedSubgroupIds = CourseSubgroup::whereHas('courseGroup', function($q) {
-                    $q->whereNotNull('deleted_at');
-                })
-                ->where('course_id', $course->id)
-                ->whereNull('deleted_at')
-                ->pluck('id');
+                if ($forceRepairOrphans) {
+                    // Clean up orphaned subgroups for this course that reference soft-deleted course_groups
+                    $allOrphanedSubgroupIds = CourseSubgroup::whereHas('courseGroup', function($q) {
+                        $q->whereNotNull('deleted_at');
+                    })
+                    ->where('course_id', $course->id)
+                    ->whereNull('deleted_at')
+                    ->pluck('id');
 
-                if ($allOrphanedSubgroupIds->isNotEmpty()) {
-                    $removable = $this->filterDeletableSubgroupIds($allOrphanedSubgroupIds->toArray(), 'orphaned subgroup(s)');
-                    if (!empty($removable)) {
-                        CourseSubgroup::whereIn('id', $removable)->delete();
+                    if ($allOrphanedSubgroupIds->isNotEmpty()) {
+                        $removable = $this->filterDeletableSubgroupIds($allOrphanedSubgroupIds->toArray(), 'orphaned subgroup(s)');
+                        if (!empty($removable)) {
+                            CourseSubgroup::whereIn('id', $removable)->delete();
+                        }
                     }
                 }
             }
@@ -1457,35 +1672,37 @@ class CourseController extends AppBaseController
                 rsort($allHourEnds); // Orden inverso para obtener el mayor
 
                 $course->update([
-                    'date_start'  => $allDates[0],   // Primera fecha (mínima)
-                    'date_end'    => end($allDates), // Última fecha (máxima)
+                    'date_start'  => $allDates[0],   // Primera fecha (mÃ­nima)
+                    'date_end'    => end($allDates), // Ãšltima fecha (mÃ¡xima)
                     'hour_min'  => $allHourStarts[0],  // Menor hora de inicio
                     'hour_max'    => $allHourEnds[0],    // Mayor hora de fin
                     'settings'    => $settings
                 ]);
             }
 
-            $bookingFixerStats = app(OrphanedBookingUserFixer::class)
-                ->migrate(false, $school->id, $course->id);
-            if ($bookingFixerStats['migrated'] > 0) {
-                Log::info('Re-aligned orphaned booking_users after course update', [
-                    'course_id' => $course->id,
-                    'school_id' => $school->id,
-                    'migrated' => $bookingFixerStats['migrated'],
-                    'skipped_no_target' => $bookingFixerStats['skipped_no_target'],
-                    'skipped_no_booking' => $bookingFixerStats['skipped_no_booking'],
-                ]);
+            if ($forceRepairOrphans) {
+                $bookingFixerStats = app(OrphanedBookingUserFixer::class)
+                    ->migrate(false, $school->id, $course->id);
+                if ($bookingFixerStats['migrated'] > 0) {
+                    Log::info('Re-aligned orphaned booking_users after course update', [
+                        'course_id' => $course->id,
+                        'school_id' => $school->id,
+                        'migrated' => $bookingFixerStats['migrated'],
+                        'skipped_no_target' => $bookingFixerStats['skipped_no_target'],
+                        'skipped_no_booking' => $bookingFixerStats['skipped_no_booking'],
+                    ]);
+                }
             }
 
             DB::commit();
 
-            // Ahora, recorre el array de grupos de correo electrónico y envía correos
+            // Ahora, recorre el array de grupos de correo electrÃ³nico y envÃ­a correos
             foreach ($emailGroups as $clientEmail => $bookingIds) {
                 foreach ($bookingIds as $bookingId) {
-                    // Obtener el booking asociado a este correo electrónico y booking ID
+                    // Obtener el booking asociado a este correo electrÃ³nico y booking ID
                     $booking = Booking::with('clientMain')->find($bookingId);
 
-                    // Envía el correo electrónico aquí usando Laravel Mail
+                    // EnvÃ­a el correo electrÃ³nico aquÃ­ usando Laravel Mail
 
 
                     dispatch(function () use ($school, $booking, $clientEmail) {
@@ -1588,10 +1805,10 @@ class CourseController extends AppBaseController
         $languages = ['fr', 'en', 'de', 'es', 'it'];
         $updatedTranslations = $translationsSource;
 
-        // Guardar sin bloquear y traducir despuÉs de enviar la respuesta
+        // Guardar sin bloquear y traducir despuÃ‰s de enviar la respuesta
         $payload['translations'] = json_encode($updatedTranslations);
 
-        // Desencolar traducción asíncrona; si la cola es sync, evitamos bloquear
+        // Desencolar traducciÃ³n asÃ­ncrona; si la cola es sync, evitamos bloquear
         if (config('queue.default') === 'sync') {
             Log::warning('translateBulk skipped: queue driver is sync, translations not refreshed automatically');
         } else {
@@ -1723,7 +1940,7 @@ class CourseController extends AppBaseController
                 ->whereDate('end_date', '>=', $today)
                 ->first();
 
-            // Utiliza start_date y end_date de la request si están presentes, sino usa las fechas de la temporada
+            // Utiliza start_date y end_date de la request si estÃ¡n presentes, sino usa las fechas de la temporada
             $startDate = $request->start_date ?? $season->start_date;
             $endDate = $request->end_date ?? $season->end_date;
 
@@ -1733,7 +1950,7 @@ class CourseController extends AppBaseController
                 return $this->sendError('Course not found', [], 404);
             }
 
-            // Obtener reservas para el curso específico
+            // Obtener reservas para el curso especÃ­fico
             $bookingusersReserved = BookingUser::whereBetween('date', [$startDate, $endDate])
                 ->whereHas('booking', function ($query) {
                     $query->where('status', '!=', 2); // Excluir reservas canceladas
@@ -1770,7 +1987,7 @@ class CourseController extends AppBaseController
                         $groupedResults[$degreeId] = $groupResult;
                     } else {
                         if($course->is_flexible) {
-                            // Si ya existe, sumamos los valores numéricos
+                            // Si ya existe, sumamos los valores numÃ©ricos
                             $groupedResults[$degreeId]['total_places'] += $groupResult['total_places'];
                             $groupedResults[$degreeId]['booked_places'] += $groupResult['booked_places'];
                             $groupedResults[$degreeId]['available_places'] += $groupResult['available_places'];
@@ -1811,7 +2028,7 @@ class CourseController extends AppBaseController
         return $this->sendResponse($result, 'Course details sells retrieved successfully');
     }
 
-    // Método para procesar un grupo específico de un curso
+    // MÃ©todo para procesar un grupo especÃ­fico de un curso
     private function processCourseGroup($course, $group, $bookingusersReserved, $monitorsGrouped, $startDate, $endDate): ?array
     {
         // Filtrar booking users solo para este grupo
@@ -1848,7 +2065,7 @@ class CourseController extends AppBaseController
             $booking = $bookingGroupedUsers->first()->booking;
             if ($booking->status == 2) continue;
 
-            // Lógica para cursos colectivos por grupo
+            // LÃ³gica para cursos colectivos por grupo
             $firstDate = $bookingGroupedUsers->first()->date;
             $firstDayBookingUsers = $bookingGroupedUsers->where('date', $firstDate);
 
@@ -1905,7 +2122,7 @@ class CourseController extends AppBaseController
             }
         }
 
-        // Obtener la configuración de moneda
+        // Obtener la configuraciÃ³n de moneda
         $currency = $course && $course->currency ? $course->currency : 'CHF';
 
         // Retornar resultado para este grupo
@@ -1977,7 +2194,7 @@ class CourseController extends AppBaseController
         // Agrupar BookingUsers por participante (course_id, participant_id)
         $participants = BookingUser::select(
             'client_id',
-            DB::raw('COUNT(*) as total_bookings'), // Contar cuántos BookingUsers tiene cada participante
+            DB::raw('COUNT(*) as total_bookings'), // Contar cuÃ¡ntos BookingUsers tiene cada participante
             DB::raw('SUM(price) as total_price') // Sumar el precio total por participante
         )
             ->where('course_id', $course->id)
@@ -2023,7 +2240,7 @@ class CourseController extends AppBaseController
             ->count();
 
         $duration = Carbon::parse($bookingUser->hour_end)->diffInMinutes(Carbon::parse($bookingUser->hour_start));
-        $interval = $this->getIntervalFromDuration($duration); // Función para mapear duración al intervalo (e.g., "1h 30m").
+        $interval = $this->getIntervalFromDuration($duration); // FunciÃ³n para mapear duraciÃ³n al intervalo (e.g., "1h 30m").
 
         // Buscar el precio en el price range
         $priceForInterval = collect($priceRange)->firstWhere('intervalo', $interval);
@@ -2063,7 +2280,7 @@ class CourseController extends AppBaseController
 
     function calculateExtrasPrice($bookingUser)
     {
-        $extras = $bookingUser->bookingUserExtras; // Relación con BookingUserExtras
+        $extras = $bookingUser->bookingUserExtras; // RelaciÃ³n con BookingUserExtras
 
         $totalExtrasPrice = 0;
         foreach ($extras as $extra) {
@@ -2075,7 +2292,7 @@ class CourseController extends AppBaseController
         return $totalExtrasPrice;
     }
 
-// Método para procesar un curso completo (usado para cursos privados)
+// MÃ©todo para procesar un curso completo (usado para cursos privados)
     private function processCourse($course, $bookingusersReserved, $monitorsGrouped, $startDate, $endDate)
     {
         // Inicializar estructura de pagos
@@ -2168,7 +2385,7 @@ class CourseController extends AppBaseController
             }
         }
 
-        // Obtener la configuración de moneda
+        // Obtener la configuraciÃ³n de moneda
         $currency = $course && $course->currency ? $course->currency : 'CHF';
 
         // Retornar resultado para este curso
@@ -2196,12 +2413,12 @@ class CourseController extends AppBaseController
         ];
     }
 
-// Método para calcular la disponibilidad de un grupo específico
+// MÃ©todo para calcular la disponibilidad de un grupo especÃ­fico
     private function getGroupAvailability($group, $monitorsGrouped, $startDate, $endDate)
     {
-        // Implementar lógica para calcular la disponibilidad específica del grupo
+        // Implementar lÃ³gica para calcular la disponibilidad especÃ­fica del grupo
         // Similar a getCourseAvailability pero enfocado en un solo grupo
-        // Puedes adaptar esta función según tus necesidades específicas
+        // Puedes adaptar esta funciÃ³n segÃºn tus necesidades especÃ­ficas
 
         $totalPlaces = $group->max_students ?? 0;
         $totalReservationsPlaces = $group->bookingUsers()
