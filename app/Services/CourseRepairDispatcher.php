@@ -18,8 +18,9 @@ class CourseRepairDispatcher
         if (!$schoolId || \in_array($schoolId, $this->dispatchedSchoolIds, true)) {
             return;
         }
-
+        return;
+/*
         RunCourseRepairCommand::dispatch($schoolId);
-        $this->dispatchedSchoolIds[] = $schoolId;
+        $this->dispatchedSchoolIds[] = $schoolId;*/
     }
 }

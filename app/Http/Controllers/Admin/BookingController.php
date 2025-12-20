@@ -268,6 +268,26 @@ class BookingController extends AppBaseController
         ]);
     }
 
+    public function preview(Request $request, $id): JsonResponse
+    {
+        $school = $this->getSchool($request);
+        if (!$school) {
+            return $this->sendError('School not found for the current user', [], 403);
+        }
+
+        $booking = Booking::where('id', $id)
+            ->where('school_id', $school->id)
+            ->first();
+
+        if (!$booking) {
+            return $this->sendError('Booking not found', [], 404);
+        }
+
+        $this->loadBookingDetail($booking);
+
+        return $this->sendResponse($booking, 'Booking retrieved successfully');
+    }
+
     private function parseCsvInts(?string $value): array
     {
         if ($value === null || trim($value) === '') {
@@ -314,6 +334,95 @@ class BookingController extends AppBaseController
         }
 
         return $relations;
+    }
+
+    private function loadBookingDetail(Booking $booking): Booking
+    {
+        return $booking->load([
+            'user:id,username,first_name,last_name',
+            'clientMain:id,first_name,last_name,email,image,language1_id,country,birth_date',
+            'clientMain.clientSports:id,client_id,degree_id,sport_id',
+            'clientMain.clientSports.degree:id,name',
+            'clientMain.clientSports.sport:id,name',
+            'vouchersLogs:id,booking_id,voucher_id,amount,status,created_at',
+            'vouchersLogs.voucher:id,code,remaining_balance',
+            'bookingUsers' => function ($query) {
+                $query->select([
+                    'id', 'booking_id', 'client_id', 'course_id', 'course_date_id',
+                    'course_subgroup_id', 'course_group_id', 'degree_id', 'monitor_id',
+                    'group_id', 'date', 'hour_start', 'hour_end', 'status', 'accepted',
+                    'price', 'currency', 'notes', 'notes_school'
+                ]);
+            },
+            'bookingUsers.course' => function ($query) {
+                $query->select([
+                    'id', 'name', 'translations', 'course_type', 'is_flexible',
+                    'sport_id', 'price', 'currency'
+                ]);
+            },
+            'bookingUsers.course.sport:id,name,icon_collective,icon_prive,icon_activity',
+            'bookingUsers.course.courseDates' => function ($query) {
+                $query->select([
+                    'id', 'course_id', 'date', 'hour_start', 'hour_end',
+                    'interval_id'
+                ]);
+            },
+            'bookingUsers.course.courseDates.courseGroups' => function ($query) {
+                $query->select(['id', 'course_id', 'course_date_id', 'degree_id']);
+            },
+            'bookingUsers.course.courseDates.courseGroups.courseSubgroups' => function ($query) {
+                $query->select([
+                    'id', 'course_id', 'course_date_id', 'degree_id',
+                    'course_group_id', 'monitor_id', 'max_participants'
+                ]);
+            },
+            'bookingUsers.course.courseExtras' => function ($query) {
+                $query->select(['id', 'course_id', 'name', 'price']);
+            },
+            'bookingUsers.bookingUserExtras' => function ($query) {
+                $query->select(['id', 'booking_user_id', 'course_extra_id', 'quantity']);
+            },
+            'bookingUsers.bookingUserExtras.courseExtra' => function ($query) {
+                $query->select(['id', 'course_id', 'name', 'price']);
+            },
+            'bookingUsers.client' => function ($query) {
+                $query->select([
+                    'id', 'first_name', 'last_name', 'image',
+                    'birth_date', 'language1_id', 'country', 'email', 'phone'
+                ]);
+            },
+            'bookingUsers.client.clientSports:id,client_id,degree_id,sport_id',
+            'bookingUsers.client.clientSports.degree:id,name',
+            'bookingUsers.client.clientSports.sport:id,name',
+            'bookingUsers.courseSubGroup' => function ($query) {
+                $query->select([
+                    'id', 'degree_id', 'course_group_id', 'course_date_id',
+                    'course_id', 'monitor_id', 'max_participants'
+                ]);
+            },
+            'bookingUsers.courseSubGroup.degree' => function ($query) {
+                $query->select(['id', 'name', 'annotation', 'color', 'degree_order']);
+            },
+            'bookingUsers.courseDate' => function ($query) {
+                $query->select([
+                    'id', 'course_id', 'date', 'hour_start', 'hour_end',
+                    'interval_id'
+                ]);
+            },
+            'bookingUsers.monitor' => function ($query) {
+                $query->select(['id', 'first_name', 'last_name', 'image']);
+            },
+            'bookingUsers.monitor.monitorSportsDegrees:id,monitor_id,degree_id,sport_id',
+            'bookingUsers.monitor.monitorSportsDegrees.monitorSportAuthorizedDegrees:id,monitor_sport_id,degree_id',
+            'bookingUsers.monitor.monitorSportsDegrees.monitorSportAuthorizedDegrees.degree:id,name,annotation,color,degree_order',
+            'bookingUsers.degree:id,name',
+            'payments' => function ($query) {
+                $query->select(['id', 'booking_id', 'amount', 'status', 'notes', 'created_at']);
+            },
+            'bookingLogs' => function ($query) {
+                $query->select(['id', 'booking_id', 'action', 'created_at']);
+            }
+        ]);
     }
 
     /**
@@ -945,23 +1054,8 @@ class BookingController extends AppBaseController
             if ($bookingUsersNotInRequest->count() > 0) {
                 $booking->update(['status' => 3]);
             }
-            $booking->loadMissing([
-                'bookingUsers', 'bookingUsers.client', 'bookingUsers.degree',
-                'bookingUsers.monitor', 'bookingUsers.courseSubGroup',
-                'bookingUsers.course', 'bookingUsers.courseDate', 'clientMain',
-                "user",
-                "clientMain",
-                "vouchersLogs.voucher",
-                "bookingUsers.course.courseDates.courseGroups.courseSubgroups",
-                "bookingUsers.course.courseExtras",
-                "bookingUsers.bookingUserExtras.courseExtra",
-                "bookingUsers.client",
-                "bookingUsers.courseDate",
-                "bookingUsers.monitor",
-                "bookingUsers.degree",
-                "payments",
-                "bookingLogs"
-            ]);
+            $booking->refresh();
+            $this->loadBookingDetail($booking);
 
             // MEJORA CRTICA: Crear log de la actualizacin para auditora
             BookingLog::create([

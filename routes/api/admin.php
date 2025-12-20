@@ -138,6 +138,10 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
         [\App\Http\Controllers\Admin\BookingController::class, 'tableList'])
         ->name('api.admin.bookings.table');
 
+    Route::get('bookings/{id}/preview',
+        [\App\Http\Controllers\Admin\BookingController::class, 'preview'])
+        ->name('api.admin.bookings.preview');
+
     Route::post('bookings/checkbooking',
         [\App\Http\Controllers\Admin\BookingController::class, 'checkClientBookingOverlap'])
         ->name('api.admin.bookings.bookingoverlap');
