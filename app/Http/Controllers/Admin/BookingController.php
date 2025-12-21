@@ -564,69 +564,40 @@ class BookingController extends AppBaseController
                     'group_id' => $cartItem['group_id']
                 ]);
 
-                // MEJORA CRTICA: Verificacin y asignacin atmica de subgrupos para cursos colectivos
+                // Asignacin de subgrupo para cursos colectivos (SIN validacin de capacidad)
                 if ($cartItem['course_type'] == 1) {
-                    // LOGGING: Registrar intento de reserva para anlisis de concurrencia
-                    Log::info('BOOKING_CONCURRENCY_ATTEMPT', [
-                        'course_date_id' => $cartItem['course_date_id'],
-                        'degree_id' => $cartItem['degree_id'],
-                        'client_id' => $cartItem['client_id'],
-                        'timestamp' => now(),
-                        'user_agent' => request()->userAgent()
-                    ]);
+                    // Si el admin ya envi los IDs, usarlos directamente
+                    if (isset($cartItem['course_subgroup_id']) && $cartItem['course_subgroup_id']) {
+                        $bookingUser->course_subgroup_id = $cartItem['course_subgroup_id'];
+                        $bookingUser->course_group_id = $cartItem['course_group_id'] ?? null;
 
-/*                    // SOLUCIN CONCURRENCIA: Usar transaccin con lock pessimista
-                    $subgroupAssigned = DB::transaction(function () use ($cartItem, $bookingUser) {
-
-                        // 1. Obtener todos los subgrupos candidatos con LOCK FOR UPDATE
-                        $candidateSubgroups = CourseSubgroup::where('course_date_id', $cartItem['course_date_id'])
-                            ->where('degree_id', $cartItem['degree_id'])
-                            ->lockForUpdate() //  LOCK PESSIMISTA - Previene race conditions
-                            ->get();
-
-                        // 2. Verificar disponibilidad real contando BookingUsers activos
-                        foreach ($candidateSubgroups as $subgroup) {
-                            $currentParticipants = BookingUser::where('course_subgroup_id', $subgroup->id)
-                                ->where('status', 1)
-                                ->count();
-
-                            // 3. Verificacin atmica: hay espacio disponible?
-                            if ($currentParticipants < $subgroup->max_participants) {
-                                //  XITO: Asignar inmediatamente mientras tenemos el lock
-                                $bookingUser->course_group_id = $subgroup->course_group_id;
-                                $bookingUser->course_subgroup_id = $subgroup->id;
-
-                                // LOGGING: Registro exitoso de asignacin
-                                Log::info('BOOKING_CONCURRENCY_SUCCESS', [
-                                    'subgroup_id' => $subgroup->id,
-                                    'participants_before' => $currentParticipants,
-                                    'max_participants' => $subgroup->max_participants,
-                                    'client_id' => $cartItem['client_id']
-                                ]);
-
-                                return true; // Subgrupo asignado exitosamente
-                            }
-                        }
-
-                        // LOGGING: No hay subgrupos disponibles
-                        Log::warning('BOOKING_CONCURRENCY_FULL', [
-                            'course_date_id' => $cartItem['course_date_id'],
-                            'degree_id' => $cartItem['degree_id'],
-                            'total_subgroups_checked' => $candidateSubgroups->count()
+                        Log::info('BOOKING_SUBGROUP_FROM_ADMIN', [
+                            'subgroup_id' => $cartItem['course_subgroup_id'],
+                            'group_id' => $cartItem['course_group_id'],
+                            'client_id' => $cartItem['client_id']
                         ]);
+                    } else {
+                        // Si no vienen, buscar el primer subgrupo disponible SIN validar capacidad
+                        $subgroup = CourseSubgroup::where('course_date_id', $cartItem['course_date_id'])
+                            ->where('degree_id', $cartItem['degree_id'])
+                            ->first();
 
-                        return false; // No hay subgrupos disponibles
-                    });*/
+                        if ($subgroup) {
+                            $bookingUser->course_subgroup_id = $subgroup->id;
+                            $bookingUser->course_group_id = $subgroup->course_group_id;
 
-                    // 4. Verificar resultado de la asignacin atmica
-/*                    if (!$subgroupAssigned) {
-                        DB::rollBack();
-                        return $this->sendError(
-                            'No hay plazas disponibles en el nivel ' . $cartItem['degree_id'] .
-                            ' para la fecha solicitada. El curso est completo.',
-                            ['course_date_id' => $cartItem['course_date_id'], 'degree_id' => $cartItem['degree_id']]
-                        );
-                    }*/
+                            Log::info('BOOKING_SUBGROUP_AUTO_ASSIGNED', [
+                                'subgroup_id' => $subgroup->id,
+                                'group_id' => $subgroup->course_group_id,
+                                'client_id' => $cartItem['client_id']
+                            ]);
+                        } else {
+                            Log::warning('BOOKING_SUBGROUP_NOT_FOUND', [
+                                'course_date_id' => $cartItem['course_date_id'],
+                                'degree_id' => $cartItem['degree_id']
+                            ]);
+                        }
+                    }
                 }
 
                 $bookingUser->save();
