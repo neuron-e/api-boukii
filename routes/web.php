@@ -196,3 +196,37 @@ Route::middleware('log.viewer.auth')->get('logs', function () {
 
     return $response;
 });
+
+// Netdata monitoring dashboard
+Route::middleware('log.viewer.auth')->get('netdata/{path?}', function ($path = '') {
+    $netdataUrl = 'http://127.0.0.1:19999/' . $path;
+    
+    // Obtener query string si existe
+    $queryString = request()->getQueryString();
+    if ($queryString) {
+        $netdataUrl .= '?' . $queryString;
+    }
+    
+    try {
+        $client = new \GuzzleHttp\Client([
+            'timeout' => 30,
+            'verify' => false,
+        ]);
+        
+        $response = $client->request(request()->method(), $netdataUrl, [
+            'headers' => [
+                'Accept' => request()->header('Accept'),
+                'X-Forwarded-For' => request()->ip(),
+            ],
+        ]);
+        
+        $content = $response->getBody()->getContents();
+        $contentType = $response->getHeaderLine('Content-Type');
+        
+        return response($content, $response->getStatusCode())
+            ->header('Content-Type', $contentType);
+            
+    } catch (\Exception $e) {
+        return response('Error connecting to Netdata: ' . $e->getMessage(), 500);
+    }
+})->where('path', '.*');
