@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Teach;
 use App\Http\Controllers\AppBaseController;
 use App\Services\Auth\LoginService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Class UserController
@@ -62,14 +63,48 @@ class AuthController extends AppBaseController
      */
     public function login(Request $request)
     {
-        $result = $this->loginService->authenticate($request, ['monitor', 3]);
+        try {
+            Log::info('TEACH_LOGIN_ENDPOINT_HIT', [
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'has_email' => $request->has('email'),
+                'has_password' => $request->has('password'),
+            ]);
 
-        if (!$result) {
-            return $this->sendError('Unauthorized.', 401);
+            $result = $this->loginService->authenticate($request, ['monitor', 3]);
+
+            if (!$result) {
+                Log::warning('TEACH_LOGIN_UNAUTHORIZED', [
+                    'ip' => $request->ip(),
+                    'email' => $request->input('email'),
+                ]);
+                return $this->sendError('Unauthorized.', 401);
+            }
+
+            Log::info('TEACH_LOGIN_SUCCESS_RESPONSE', [
+                'user_id' => $result['user']->id ?? null,
+                'has_token' => isset($result['token']),
+            ]);
+
+            return $this->sendResponse($result, 'User login successfully.');
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('TEACH_LOGIN_VALIDATION_ERROR', [
+                'ip' => $request->ip(),
+                'errors' => $e->errors(),
+                'message' => $e->getMessage(),
+            ]);
+            throw $e;
+        } catch (\Exception $e) {
+            Log::error('TEACH_LOGIN_EXCEPTION', [
+                'ip' => $request->ip(),
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return $this->sendError('Internal server error during login', 500);
         }
-
-        return $this->sendResponse($result, 'User login successfully.');
-
     }
 
     /**
