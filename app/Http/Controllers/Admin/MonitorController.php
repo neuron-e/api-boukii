@@ -116,10 +116,13 @@ class MonitorController extends AppBaseController
         $clientLanguages = array_unique($clientLanguages);
         $degreeOrder = $request->minimumDegreeId ? Degree::find($request->minimumDegreeId)->degree_order : null;
 
+        $startTime = $request->startTime ? $this->normalizeTimeFormat($request->startTime) : null;
+        $endTime = $request->endTime ? $this->normalizeTimeFormat($request->endTime) : null;
+
         $availableMonitors = Monitor::query()
             ->withSportAndDegree($request->sportId, $school->id, $degreeOrder, $isAnyAdultClient)
             ->withLanguages($clientLanguages)
-            ->availableBetween($request->date, $request->startTime, $request->endTime, $bookingUserIds, $subgroupIds)
+            ->availableBetween($request->date, $startTime, $endTime, $bookingUserIds, $subgroupIds)
             ->get()
             ->toArray();
 

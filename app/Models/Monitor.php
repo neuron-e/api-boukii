@@ -546,6 +546,7 @@ class Monitor extends Model
         return $query
             ->whereDoesntHave('bookingUsers', function ($q) use ($date, $startTime, $endTime, $excludeBookingUserIds, $excludeSubgroupIds) {
                 $q->whereDate('date', $date)
+                    ->whereNull('deleted_at')
                     ->when(!empty($excludeBookingUserIds), function ($sub) use ($excludeBookingUserIds) {
                         $sub->whereNotIn('id', $excludeBookingUserIds);
                     })
@@ -562,6 +563,7 @@ class Monitor extends Model
             ->whereDoesntHave('monitorNwds', function ($q) use ($date, $startTime, $endTime) {
                 $q->whereDate('start_date', '<=', $date)
                     ->whereDate('end_date', '>=', $date)
+                    ->whereNull('deleted_at')
                     ->where(function ($time) use ($startTime, $endTime) {
                         $time->where('full_day', true)
                             ->orWhere(function ($t) use ($startTime, $endTime) {
@@ -575,7 +577,8 @@ class Monitor extends Model
                     $subgroupQuery->whereNotIn('id', $excludeSubgroupIds);
                 });
                 $q->whereHas('courseDate', function ($cd) use ($date, $startTime, $endTime) {
-                    $cd->whereDate('date', $date)
+                    $cd->whereNull('deleted_at')
+                        ->whereDate('date', $date)
                         ->whereTime('hour_start', '<', $endTime)
                         ->whereTime('hour_end', '>', $startTime);
                 });

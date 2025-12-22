@@ -586,6 +586,34 @@ class PlannerController extends AppBaseController
             }
         }
 
+        $intervalSubgroupIds = collect();
+        if ($scope === 'interval' && $courseSubgroupId) {
+            $selectedSubgroup = CourseSubgroup::find($courseSubgroupId);
+            if ($selectedSubgroup) {
+                $intervalCourseDateIds = collect();
+                if ($courseId) {
+                    $cdQuery = CourseDate::where('course_id', $courseId)->whereNull('deleted_at');
+                    if ($startDate && $endDate) {
+                        $cdQuery->whereBetween('date', [$startDate, $endDate]);
+                    } elseif ($startDate) {
+                        $cdQuery->whereDate('date', $startDate);
+                    }
+                    $intervalCourseDateIds = $cdQuery->pluck('id');
+                }
+
+                if ($selectedSubgroup->subgroup_dates_id && $intervalCourseDateIds->isNotEmpty()) {
+                    $intervalSubgroupIds = CourseSubgroup::where('course_id', $selectedSubgroup->course_id)
+                        ->where('subgroup_dates_id', $selectedSubgroup->subgroup_dates_id)
+                        ->whereIn('course_date_id', $intervalCourseDateIds)
+                        ->pluck('id');
+                } elseif ($intervalCourseDateIds->isNotEmpty()) {
+                    $intervalQuery = CourseSubgroup::query()->whereIn('course_date_id', $intervalCourseDateIds);
+                    $this->applyPositionBasedFallback($intervalQuery, $selectedSubgroup);
+                    $intervalSubgroupIds = $intervalQuery->pluck('id');
+                }
+            }
+        }
+
         // 2) Resolver BookingUsers objetivo (si no llegan explcitos)
         $targets = collect();
 
@@ -649,7 +677,9 @@ class PlannerController extends AppBaseController
                 $q->whereIn('course_date_id', $validCourseDateIds);
             }
 
-            if ($providedSubgroupIds->isNotEmpty() && $scope !== 'all') {
+            if ($scope === 'interval' && $intervalSubgroupIds->isNotEmpty()) {
+                $q->whereIn('course_subgroup_id', $intervalSubgroupIds);
+            } elseif ($providedSubgroupIds->isNotEmpty() && $scope !== 'all' && $scope !== 'interval') {
                 $q->whereIn('course_subgroup_id', $providedSubgroupIds);
             }
             $targets = $q->get();
@@ -683,7 +713,12 @@ class PlannerController extends AppBaseController
                 return $query;
             };
 
-            if ($providedSubgroupIds->isNotEmpty() && $scope !== 'all') {
+            if ($scope === 'interval' && $intervalSubgroupIds->isNotEmpty()) {
+                $targetSubgroups = (clone $subgroupBase)
+                    ->whereIn('id', $intervalSubgroupIds)
+                    ->when($degreeIdContext, fn($q) => $q->where('degree_id', $degreeIdContext))
+                    ->get();
+            } elseif ($providedSubgroupIds->isNotEmpty() && $scope !== 'all' && $scope !== 'interval') {
                 $targetSubgroups = (clone $subgroupBase)
                     ->whereIn('id', $providedSubgroupIds)
                     ->when($degreeIdContext, fn($q) => $q->where('degree_id', $degreeIdContext))
@@ -702,19 +737,30 @@ class PlannerController extends AppBaseController
                         break;
 
                     case 'interval':
+                        $selectedSubgroup = null;
                         if ($courseSubgroupId) {
                             $one = (clone $subgroupBase)->where('id', $courseSubgroupId);
-                            $one = $applyDegreeFilter($one)->first();
-                            if ($one) $targetSubgroups->push($one);
+                            $selectedSubgroup = $applyDegreeFilter($one)->first();
+                            if ($selectedSubgroup) {
+                                $targetSubgroups->push($selectedSubgroup);
+                            }
                         }
-                        if ($courseId && $startDate && $endDate) {
+                        if ($courseId && $startDate && $endDate && $selectedSubgroup) {
                             $intervalCdIds = CourseDate::where('course_id', $courseId)
                                 ->whereNull('deleted_at')
                                 ->whereBetween('date', [$startDate, $endDate])
                                 ->pluck('id');
                             if ($intervalCdIds->isNotEmpty()) {
-                                $intervalSubgroups = $applyDegreeFilter((clone $subgroupBase)->whereIn('course_date_id', $intervalCdIds))->get();
-                                $targetSubgroups = $targetSubgroups->merge($intervalSubgroups);
+                                if ($selectedSubgroup->subgroup_dates_id) {
+                                    $intervalSubgroups = (clone $subgroupBase)
+                                        ->whereIn('course_date_id', $intervalCdIds)
+                                        ->where('subgroup_dates_id', $selectedSubgroup->subgroup_dates_id);
+                                    $targetSubgroups = $targetSubgroups->merge($applyDegreeFilter($intervalSubgroups)->get());
+                                } else {
+                                    $intervalQuery = (clone $subgroupBase)->whereIn('course_date_id', $intervalCdIds);
+                                    $this->applyPositionBasedFallback($intervalQuery, $selectedSubgroup);
+                                    $targetSubgroups = $targetSubgroups->merge($applyDegreeFilter($intervalQuery)->get());
+                                }
                             }
                         }
                         break;
@@ -1181,7 +1227,7 @@ class PlannerController extends AppBaseController
                 // Para scope='from' y 'range', incluir monitors de todos los subgrupos homónimos
                 $dateMonitorMap = [];
 
-                if (in_array($scope, ['from', 'range']) && $subgroup->subgroup_dates_id) {
+                if (in_array($scope, ['from', 'range', 'interval']) && $subgroup->subgroup_dates_id) {
                     // Obtener monitors de todos los subgrupos homónimos
                     $homonymousSubgroups = CourseSubgroup::where('course_id', $courseId)
                         ->where('subgroup_dates_id', $subgroup->subgroup_dates_id)
@@ -1209,7 +1255,7 @@ class PlannerController extends AppBaseController
 
                 // Para scope='from' y 'range', obtener fechas de TODOS los subgrupos homónimos
                 // Para scope='single', usar solo las fechas del subgroup actual
-                if (in_array($scope, ['from', 'range']) && $subgroup->subgroup_dates_id) {
+                if (in_array($scope, ['from', 'range', 'interval']) && $subgroup->subgroup_dates_id) {
                     // Buscar todos los subgrupos homónimos con el mismo subgroup_dates_id
                     $homonymousSubgroups = CourseSubgroup::where('course_id', $courseId)
                         ->where('subgroup_dates_id', $subgroup->subgroup_dates_id)
@@ -1253,6 +1299,12 @@ class PlannerController extends AppBaseController
                         $homonymousDates = $homonymousDates->filter(function ($date) use ($startDate) {
                             $dateStr = is_string($date->date) ? $date->date : $date->date->format('Y-m-d');
                             return $dateStr >= $startDate;
+                        });
+                    } elseif ($startDate && $scope === 'interval') {
+                        $end = $endDate ?? $startDate;
+                        $homonymousDates = $homonymousDates->filter(function ($date) use ($startDate, $end) {
+                            $dateStr = is_string($date->date) ? $date->date : $date->date->format('Y-m-d');
+                            return $dateStr >= $startDate && $dateStr <= $end;
                         });
                     }
                 } elseif ($scope === 'all') {

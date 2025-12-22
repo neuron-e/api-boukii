@@ -655,14 +655,32 @@ class Booking extends Model
 
         // Tomamos el primer grupo para la información de precios
         $group = $groupedCartItems[0];
+        $itemsCount = 0;
+        $baseTotal = 0.0;
+        $groupPriceTotal = 0.0;
+        $extrasList = [];
+
+        foreach ($groupedCartItems as $groupItem) {
+            $itemsCount += count($groupItem['items'] ?? []);
+            $baseTotal += (float) ($groupItem['price_base'] ?? 0);
+            $groupPriceTotal += (float) ($groupItem['price'] ?? 0);
+            if (!empty($groupItem['extras'])) {
+                $extrasList = array_merge($extrasList, $groupItem['extras']);
+            }
+        }
+
+        $calculated = $this->calculateCurrentTotal();
+        $priceTotal = (float) ($calculated['total_final'] ?? $groupPriceTotal);
+        $paidTotal = (float) ($this->paid_total ?? 0);
+        $pendingAmount = max(0, $this->getPendingAmount());
 
         // Crear el objeto basket con el formato requerido
         $basket = [
             "payment_method_id" => $bookingData['payment_method_id'] ?? 3,
             "price_base" => [
                 "name" => $group['course_name'] ?? '',
-                "quantity" => count($group['items'] ?? []),
-                "price" => $group['price_base'] ?? 0
+                "quantity" => $itemsCount,
+                "price" => $baseTotal
             ],
             "bonus" => [
                 "total" => !empty($bookingData['vouchers']) ? count($bookingData['vouchers']) : 0,
@@ -690,17 +708,17 @@ class Booking extends Model
                 "price" => $bookingData['price_cancellation_insurance'] ?? 0
             ],
             "extras" => [
-                "total" => count($group['extras'] ?? []),
-                "extras" => $group['extras'] ?? []
+                "total" => count($extrasList),
+                "extras" => $extrasList
             ],
             "tva" => [
                 "name" => "TVA",
                 "quantity" => 1,
                 "price" => $bookingData['price_tva'] ?? 0
             ],
-            "price_total" => $group['price'] ?? 0,
-            "paid_total" => $bookingData['paid_total'] ?? $group['price'] ?? 0,
-            "pending_amount" => $bookingData['pending_amount'] ?? $group['price'] ?? 0
+            "price_total" => $priceTotal,
+              "paid_total" => $paidTotal,
+              "pending_amount" => $pendingAmount
         ];
 
         // Actualizar el campo basket en la base de datos con el formato JSON
@@ -1740,3 +1758,7 @@ class Booking extends Model
     const ID_NOPAYMENT = 5;
 
 }
+
+
+
+

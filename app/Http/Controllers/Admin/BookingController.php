@@ -285,6 +285,13 @@ class BookingController extends AppBaseController
 
         $this->loadBookingDetail($booking);
 
+        $calculated = $booking->calculateCurrentTotal();
+        $balance = $booking->getCurrentBalance();
+        $computedTotal = (float) ($calculated['total_final'] ?? 0);
+        $booking->computed_total = round($computedTotal, 2);
+        $booking->computed_paid_total = round((float) ($balance['current_balance'] ?? 0), 2);
+        $booking->computed_pending_amount = round(max(0, $booking->getPendingAmount()), 2);
+
         return $this->sendResponse($booking, 'Booking retrieved successfully');
     }
 
@@ -1027,6 +1034,13 @@ class BookingController extends AppBaseController
             }
             $booking->refresh();
             $this->loadBookingDetail($booking);
+
+        $calculated = $booking->calculateCurrentTotal();
+        $balance = $booking->getCurrentBalance();
+        $computedTotal = (float) ($calculated['total_final'] ?? 0);
+        $booking->computed_total = round($computedTotal, 2);
+        $booking->computed_paid_total = round((float) ($balance['current_balance'] ?? 0), 2);
+        $booking->computed_pending_amount = round(max(0, $booking->getPendingAmount()), 2);
 
             // MEJORA CRTICA: Crear log de la actualizacin para auditora
             BookingLog::create([
@@ -1981,3 +1995,4 @@ class BookingController extends AppBaseController
         return $allSame ? $first : $defaults;
     }
 }
+
