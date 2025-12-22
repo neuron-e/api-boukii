@@ -101,6 +101,7 @@ class HomeController extends AppBaseController
             $bookingQuery = BookingUser::with([
                 'booking:id,status',
                 'course:id,name,school_id,sport_id,course_type,max_participants',
+                'course.courseDates:id,course_id,date,hour_start,hour_end',
                 'client:id,first_name,last_name,birth_date,image',
                 'client.sports:id,name',
             ])
