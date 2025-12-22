@@ -99,7 +99,7 @@ class HomeController extends AppBaseController
             // OPTIMIZED: Removed heavy eager loading (course.courseDates, client.evaluations.*)
             // Reduces memory usage by ~80% and queries by ~90%
             $bookingQuery = BookingUser::with([
-                'booking:id,status',
+                'booking:id,status,paid,paid_total,price_total',
                 'course:id,name,school_id,sport_id,course_type,max_participants',
                 'course.courseDates:id,course_id,date,hour_start,hour_end',
                 'client:id,first_name,last_name,birth_date,image',

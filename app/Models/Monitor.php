@@ -615,6 +615,11 @@ class Monitor extends Model
             return false;
         }
 
+        if ($startTime && $endTime) {
+            $startTime = self::normalizeTimeString($startTime);
+            $endTime = self::normalizeTimeString($endTime);
+        }
+
         // -----------------------------
         // 1) BookingUsers (reservas)
         // -----------------------------
@@ -673,6 +678,7 @@ class Monitor extends Model
         $fullDayNwdQuery = MonitorNwd::where('monitor_id', $monitorId)
             ->whereDate('start_date', '<=', $date)
             ->whereDate('end_date', '>=', $date)
+            ->whereNull('deleted_at')
             ->where('full_day', true);
 
         if ($excludeNwdId !== null) {
@@ -704,6 +710,7 @@ class Monitor extends Model
         $nwdQuery = MonitorNwd::where('monitor_id', $monitorId)
             ->whereDate('start_date', '<=', $date)
             ->whereDate('end_date', '>=', $date);
+        $nwdQuery->whereNull('deleted_at');
 
         if ($startTime && $endTime) {
             $nwdQuery->where(function ($q) use ($startTime, $endTime) {
@@ -786,6 +793,16 @@ class Monitor extends Model
 
         // Resultado final
         return $isBooked || $hasFullDayNwd || $isNwd || $isCourse;
+    }
+
+    private static function normalizeTimeString(string $time): string
+    {
+        $time = trim($time);
+        if (strlen($time) === 5) {
+            return $time . ':00';
+        }
+
+        return $time;
     }
 
 

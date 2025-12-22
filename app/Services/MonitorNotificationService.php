@@ -39,11 +39,7 @@ class MonitorNotificationService
 
         Log::info('Monitor notification', $eventPayload);
 
-        $shouldSendEmail = app()->environment('production');
-
-        if ($shouldSendEmail || !$hasBroadcastDriver || empty($monitor->user_id)) {
-            $this->sendEmailFallback($monitor, $type, $normalizedPayload);
-        }
+        // Email fallback disabled for now (too noisy).
     }
 
     private function normalizeSettings(array|string $settings): array

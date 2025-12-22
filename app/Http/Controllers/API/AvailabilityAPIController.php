@@ -366,8 +366,8 @@ class AvailabilityAPIController extends AppBaseController
         // Verificar en BookingUser si el monitor está ocupado
         $isBusyWithBooking = BookingUser::where('monitor_id', $monitor->id)
             ->whereDate('date', $courseDate->date)
-            ->whereTime('hour_start', '<=', $courseDate->hour_end)
-            ->whereTime('hour_end', '>=', $courseDate->hour_start)
+            ->whereTime('hour_start', '<', $courseDate->hour_end)
+            ->whereTime('hour_end', '>', $courseDate->hour_start)
             ->where('status', 1)
             ->whereHas('booking', function ($query) {
                 $query->where('status', '!=', 2); // La Booking no debe tener status 2
