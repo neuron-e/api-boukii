@@ -1,5 +1,5 @@
 <?php
 
 return [
-    'accepted' => 'accepted your invitation',
+    'accepted' => 'ha accettato il tuo invito',
 ];

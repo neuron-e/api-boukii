@@ -1,9 +1,9 @@
 <?php
 
 return [
-    'errorTitle' => 'Save Error',
-    'courseOverlap' => 'Overlaps with a Course',
-    'nwdOverlap' => 'Overlaps with other non-availability',
-    'editOnlySchool' => 'Only the School can edit this',
-    'deleteOnlySchool' => 'Only the School can delete this'
+    'errorTitle' => 'Speicherfehler',
+    'courseOverlap' => 'Überschneidet sich mit einem Kurs',
+    'nwdOverlap' => 'Überschneidet sich mit anderer Nichtverfügbarkeit',
+    'editOnlySchool' => 'Nur die Schule kann dies bearbeiten',
+    'deleteOnlySchool' => 'Nur die Schule kann dies löschen'
 ];

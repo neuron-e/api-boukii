@@ -13,6 +13,7 @@ class BookingListResource extends JsonResource
             'id' => $this->id,
             'price_total' => $this->price_total,
             'paid' => $this->paid,
+            'payment_method_status' => $this->payment_method_status,
             'status' => $this->status,
             'payment_method_id' => $this->payment_method_id,
             'has_cancellation_insurance' => $this->has_cancellation_insurance,

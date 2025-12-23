@@ -8,6 +8,7 @@ use App\Models\Client;
 use App\Models\Course;
 use App\Models\Payment;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 
@@ -49,6 +50,8 @@ class PayrexxHelpers
         $link = '';
 
         try {
+            // Payrexx invoice expiration accepts date-only (Y-m-d), so exact 48h alignment is not guaranteed.
+            $expirationDate = Carbon::now()->addHours(48)->format('Y-m-d');
             $basketPayload = [];
             if ($basketData instanceof \Illuminate\Http\Request) {
                 $basketPayload = $basketData->all();
@@ -70,6 +73,8 @@ class PayrexxHelpers
             $gr->setAmount($bookingData->price_total * 100);
             $gr->setCurrency($bookingData->currency);
             $gr->setVatRate($schoolData->bookings_comission_cash);                  // TODO TBD as of 2022-10 all Schools are at Switzerland and there's no VAT ???
+            // Keep Boukii's 48h window consistent with internal paylink expiry logic.
+            $gr->setValidity(48 * 60);
 
             // Add School's legal terms, if set
             if ($schoolData->conditions_url) {
@@ -246,6 +251,8 @@ class PayrexxHelpers
             $ir->setTitle($paymentSummary['title']);
             $ir->setPurpose('Booking: #' . $bookingData->id);
             $ir->setDescription($paymentSummary['description']);
+            // Payrexx uses date-based expiry; Boukii computes precise 48h from sent_at.
+            $ir->setExpirationDate($expirationDate);
             if ($schoolData->conditions_url) {
                 $ir->addField('terms', true, $schoolData->conditions_url);
             }

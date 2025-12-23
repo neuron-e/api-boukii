@@ -1,9 +1,9 @@
 <?php
 
 return [
-    'errorTitle' => 'Save Error',
-    'courseOverlap' => 'Overlaps with a Course',
-    'nwdOverlap' => 'Overlaps with other non-availability',
-    'editOnlySchool' => 'Only the School can edit this',
-    'deleteOnlySchool' => 'Only the School can delete this'
+    'errorTitle' => 'Errore di salvataggio',
+    'courseOverlap' => 'Si sovrappone con un Corso',
+    'nwdOverlap' => 'Si sovrappone con altra non disponibilità',
+    'editOnlySchool' => 'Solo la Scuola può modificare questo',
+    'deleteOnlySchool' => 'Solo la Scuola può eliminare questo'
 ];

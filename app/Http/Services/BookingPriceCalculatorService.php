@@ -469,13 +469,17 @@ class BookingPriceCalculatorService
     private function calculateAdditionalConcepts(Booking $booking, float $basePrice, bool $includeInsurance): array
     {
         $concepts = [];
-
-        // Seguro de cancelación
+        // Seguro de cancelacion
         if ($includeInsurance && $booking->has_cancellation_insurance && $basePrice > 0) {
-            $school = $booking->school;
-            $settings = json_decode($school->settings, true);
-            $insurancePercent = $settings['taxes']['cancellation_insurance_percent'] ?? 0.10;
-            $concepts['cancellation_insurance'] = round($basePrice * $insurancePercent, 2);
+            $storedInsurance = (float) ($booking->price_cancellation_insurance ?? 0);
+            if ($storedInsurance > 0) {
+                $concepts['cancellation_insurance'] = $storedInsurance;
+            } else {
+                $school = $booking->school;
+                $settings = json_decode($school->settings, true);
+                $insurancePercent = $settings['taxes']['cancellation_insurance_percent'] ?? 0.10;
+                $concepts['cancellation_insurance'] = round($basePrice * $insurancePercent, 2);
+            }
         }
 
         // Boukii Care
@@ -500,10 +504,12 @@ class BookingPriceCalculatorService
     private function calculateDiscounts(Booking $booking): array
     {
         $discounts = [];
-
-        // Solo reducción manual - NO vouchers
+        // Solo reduccion manual y descuento de codigo - NO vouchers
         if ($booking->has_reduction && $booking->price_reduction > 0) {
             $discounts['manual_reduction'] = $booking->price_reduction;
+        }
+        if (!empty($booking->discount_code_value)) {
+            $discounts['discount_code'] = (float) $booking->discount_code_value;
         }
 
         return $discounts;
@@ -1909,3 +1915,5 @@ class BookingPriceCalculatorService
     }
 
 }
+
+

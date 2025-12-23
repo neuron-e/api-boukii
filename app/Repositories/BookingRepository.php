@@ -3,8 +3,10 @@
 namespace App\Repositories;
 
 use App\Models\Booking;
+use App\Models\BookingLog;
 use App\Repositories\BaseRepository;
 use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Builder;
 
 class BookingRepository extends BaseRepository
 {
@@ -32,6 +34,23 @@ class BookingRepository extends BaseRepository
     public function model(): string
     {
         return Booking::class;
+    }
+
+    public function allQuery(array $searchArray = [], string $search = null, int $skip = null, int $limit = null,
+                             string $order = 'desc', string $orderColumn = 'id', array $with = [],
+                             $additionalConditions = null, $onlyTrashed = false): Builder
+    {
+        $query = parent::allQuery($searchArray, $search, $skip, $limit, $order, $orderColumn, $with, $additionalConditions, $onlyTrashed);
+
+        $query->addSelect([
+            'last_pay_link_sent_at' => BookingLog::select('created_at')
+                ->whereColumn('booking_id', 'bookings.id')
+                ->where('action', 'send_pay_link')
+                ->latest('created_at')
+                ->limit(1)
+        ]);
+
+        return $query;
     }
 
     /**

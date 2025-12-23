@@ -108,6 +108,9 @@ class PlannerController extends AppBaseController
 
         // OPTIMIZACION: Cargar solo campos necesarios y eliminar evaluations pesadas
         $subgroupsQuery = CourseSubgroup::with([
+            'course:id,name,sport_id,course_type,max_participants,date_start,date_end',
+            'course.courseDates:id,course_id,date,hour_start,hour_end',
+            'courseDate:id,course_id,date,hour_start,hour_end,active,deleted_at',
             'courseGroup:id,course_id',
             'courseGroup.course:id,name,sport_id,course_type,max_participants,date_start,date_end',
             'bookingUsers' => function ($query) {
@@ -296,6 +299,31 @@ class PlannerController extends AppBaseController
         $subgroups = $subgroupsQuery->get();
         $bookings = $bookingQuery->get();
 
+        $subgroupPositions = collect();
+        if ($subgroups->isNotEmpty()) {
+            $positionRows = CourseSubgroup::select('id', 'course_group_id')
+                ->whereIn('id', $subgroups->pluck('id'))
+                ->orderBy('course_group_id')
+                ->orderBy('id')
+                ->get();
+
+            $currentGroup = null;
+            $position = 0;
+            foreach ($positionRows as $row) {
+                if ($row->course_group_id !== $currentGroup) {
+                    $currentGroup = $row->course_group_id;
+                    $position = 1;
+                } else {
+                    $position++;
+                }
+                $subgroupPositions[$row->id] = $position;
+            }
+        }
+
+        $bookingsByMonitor = $bookings->groupBy('monitor_id');
+        $subgroupsByMonitor = $subgroups->groupBy('monitor_id');
+        $nwdByMonitor = $nwd->groupBy('monitor_id');
+
         // Attach booking user id to each booking user for planner consumers
         $bookings->each(function ($bookingUser) {
             if ($bookingUser->relationLoaded('booking') && $bookingUser->booking) {
@@ -315,8 +343,6 @@ class PlannerController extends AppBaseController
         // OPTIMIZACION: Calcular full_day NWDs para todos los monitores en una sola query
         $monitorFullDayNwds = collect();
         if ($dateStart && $dateEnd && !empty($monitorIds)) {
-            $daysWithinRange = CarbonPeriod::create($dateStart, $dateEnd)->toArray();
-
             // Obtener todos los NWDs de full_day para los monitores en el rango de fechas
             $fullDayNwds = MonitorNwd::where('school_id', $schoolId)
                 ->whereIn('monitor_id', $monitorIds)
@@ -326,25 +352,49 @@ class PlannerController extends AppBaseController
                 ->where('end_date', '>=', $dateStart)
                 ->get();
 
+            $fullDayNwdsByMonitor = $fullDayNwds->groupBy('monitor_id');
             foreach ($monitorIds as $mId) {
-                $allDaysMeetCriteria = true;
-                foreach ($daysWithinRange as $day) {
-                    $hasFullDayNwd = $fullDayNwds->where('monitor_id', $mId)
-                        ->where('start_date', '<=', $day)
-                        ->where('end_date', '>=', $day)
-                        ->isNotEmpty();
+                $monitorFullDayEntries = $fullDayNwdsByMonitor->get($mId, collect());
+                if ($monitorFullDayEntries->isEmpty()) {
+                    $monitorFullDayNwds[$mId] = false;
+                    continue;
+                }
+                $intervals = $monitorFullDayEntries
+                    ->map(function ($item) {
+                        return [
+                            'start' => Carbon::parse($item->start_date),
+                            'end' => Carbon::parse($item->end_date)
+                        ];
+                    })
+                    ->sortBy('start')
+                    ->values();
 
-                    if (!$hasFullDayNwd) {
-                        $allDaysMeetCriteria = false;
+                $rangeStart = Carbon::parse($dateStart);
+                $rangeEnd = Carbon::parse($dateEnd);
+                $currentEnd = $intervals[0]['end'];
+                if ($intervals[0]['start']->gt($rangeStart)) {
+                    $monitorFullDayNwds[$mId] = false;
+                    continue;
+                }
+
+                foreach ($intervals as $interval) {
+                    if ($interval['start']->gt($currentEnd->copy()->addDay())) {
+                        break;
+                    }
+                    if ($interval['end']->gt($currentEnd)) {
+                        $currentEnd = $interval['end'];
+                    }
+                    if ($currentEnd->gte($rangeEnd)) {
                         break;
                     }
                 }
-                $monitorFullDayNwds[$mId] = $allDaysMeetCriteria;
+
+                $monitorFullDayNwds[$mId] = $currentEnd->gte($rangeEnd);
             }
         }
 
         foreach ($monitors as $monitor) {
-            $monitorBookings = $bookings->where('monitor_id', $monitor->id)
+            $monitorBookings = $bookingsByMonitor->get($monitor->id, collect())
                 ->groupBy(function ($booking) use ($subgroupsPerGroup) {
                     // Diferencia la agrupacin basada en el course_type
                     if ($booking->course->course_type == 2 || $booking->course->course_type == 3) {
@@ -355,7 +405,7 @@ class PlannerController extends AppBaseController
 
             $monitor->hasFullDayNwd = $monitorFullDayNwds->get($monitor->id, false);
 
-            $subgroupsWithMonitor = $subgroups->where('monitor_id', $monitor->id);
+            $subgroupsWithMonitor = $subgroupsByMonitor->get($monitor->id, collect());
 
             $subgroupsArray = [];
 
@@ -365,25 +415,10 @@ class PlannerController extends AppBaseController
                 $courseId = $subgroup->course_id;
 
                 $totalSubgroups = $subgroupsPerGroup[$subgroup->course_group_id] ?? 1;
-                $subgroupPosition = CourseSubgroup::where('course_group_id', $subgroup->course_group_id)
-                    ->where('id', '<=', $subgroupId)
-                    ->count();
+                $subgroupPosition = $subgroupPositions[$subgroupId] ?? 1;
 
                 $subgroup->subgroup_number = $subgroupPosition;
                 $subgroup->total_subgroups = $totalSubgroups;
-
-                // OPTIMIZACION: Cargar solo campos necesarios en relaciones faltantes
-                $subgroup->loadMissing([
-                    'course' => function ($query) {
-                        $query->select('id', 'name', 'sport_id', 'course_type', 'max_participants', 'date_start', 'date_end');
-                    },
-                    'course.courseDates' => function ($query) {
-                        $query->select('id', 'course_id', 'date', 'hour_start', 'hour_end');
-                    },
-                    'courseGroup' => function ($query) {
-                        $query->select('id', 'course_id');
-                    }
-                ]);
 
                 // Define la misma nomenclatura que en los bookings
                 $nomenclature = $courseId . '-' . $courseDateId . '-' . $subgroupId;
@@ -395,7 +430,7 @@ class PlannerController extends AppBaseController
             $allBookings = $monitorBookings->concat($subgroupsArray);
 
 
-            $monitorNwd = $nwd->where('monitor_id', $monitor->id);
+            $monitorNwd = $nwdByMonitor->get($monitor->id, collect());
 
             $groupedData[$monitor->id] = [
                 'monitor' => $monitor,
@@ -426,25 +461,10 @@ class PlannerController extends AppBaseController
             $courseId = $subgroup->course_id;
 
             $totalSubgroups = $subgroupsPerGroup[$subgroup->course_group_id] ?? 1;
-            $subgroupPosition = CourseSubgroup::where('course_group_id', $subgroup->course_group_id)
-                ->where('id', '<=', $subgroupId)
-                ->count();
+            $subgroupPosition = $subgroupPositions[$subgroupId] ?? 1;
 
             $subgroup->subgroup_number = $subgroupPosition;
             $subgroup->total_subgroups = $totalSubgroups;
-
-            // OPTIMIZACION: Cargar solo campos necesarios en relaciones faltantes
-            $subgroup->loadMissing([
-                'course' => function ($query) {
-                    $query->select('id', 'name', 'sport_id', 'course_type', 'max_participants', 'date_start', 'date_end');
-                },
-                'course.courseDates' => function ($query) {
-                    $query->select('id', 'course_id', 'date', 'hour_start', 'hour_end');
-                },
-                'courseGroup' => function ($query) {
-                    $query->select('id', 'course_id');
-                }
-            ]);
 
             // Define la misma nomenclatura que en los bookings
             $nomenclature = $courseId . '-' . $courseDateId . '-' . $subgroupId;

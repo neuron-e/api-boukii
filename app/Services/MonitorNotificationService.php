@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Events\MonitorAssigned;
 use App\Events\MonitorRemoved;
 use App\Models\Monitor;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -36,6 +37,7 @@ class MonitorNotificationService
 
         $hasBroadcastDriver = $this->hasBroadcastDriver();
         $this->emitEvent($type, $monitorId, $eventPayload);
+        $this->sendPushNotification($type, $monitorId, $eventPayload);
 
         Log::info('Monitor notification', $eventPayload);
 
@@ -91,6 +93,60 @@ class MonitorNotificationService
             event($event);
         } catch (\Throwable $exception) {
             Log::warning('Monitor notification dispatch failed', [
+                'monitor_id' => $monitorId,
+                'type' => $type,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    private function sendPushNotification(string $type, int $monitorId, array $payload): void
+    {
+        $instanceId = config('services.pusher_beams.instance_id');
+        $secretKey = config('services.pusher_beams.secret_key');
+        if (empty($instanceId) || empty($secretKey)) {
+            Log::info('Monitor push skipped: missing Beams config', [
+                'monitor_id' => $monitorId,
+                'type' => $type,
+            ]);
+            return;
+        }
+
+        $label = $payload['payload']['booking_id']
+            ?? $payload['payload']['course_date_id']
+            ?? '';
+        $title = str_contains($type, 'removed')
+            ? 'Reserva desasignada'
+            : 'Nueva reserva asignada';
+        $body = str_contains($type, 'removed')
+            ? "Te han quitado de la reserva {$label}."
+            : "Te han asignado la reserva {$label}.";
+
+        $url = "https://{$instanceId}.pushnotifications.pusher.com/publish_api/v1/instances/{$instanceId}/publishes/interests";
+
+        try {
+            $response = Http::withToken($secretKey)
+                ->post($url, [
+                    'interests' => ["monitor.{$monitorId}"],
+                    'web' => [
+                        'notification' => [
+                            'title' => $title,
+                            'body' => $body,
+                        ],
+                        'data' => $payload,
+                    ],
+                ]);
+
+            if (!$response->successful()) {
+                Log::warning('Monitor push failed', [
+                    'monitor_id' => $monitorId,
+                    'type' => $type,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+            }
+        } catch (\Throwable $exception) {
+            Log::warning('Monitor push error', [
                 'monitor_id' => $monitorId,
                 'type' => $type,
                 'error' => $exception->getMessage(),

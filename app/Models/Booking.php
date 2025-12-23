@@ -238,6 +238,8 @@ class Booking extends Model
     use LogsActivity, SoftDeletes, HasFactory;
 
     public $table = 'bookings';
+    // Paylink expiration uses strict 48h from sent_at; Payrexx invoice expiry is date-only and may drift.
+    private const PAY_LINK_VALIDITY_HOURS = 48;
 
     public $fillable = [
         'school_id',
@@ -990,13 +992,45 @@ class Booking extends Model
         if (!$this->paid) {
             switch ($this->payment_method_id) {
                 case 3:
-                    return 'link_send';
+                    return $this->isPayLinkExpired() ? 'link_expired' : 'link_send';
                 case 5:
                     return 'confirmed_without_payment';
                 default:
                     return 'unpaid';
             }
         }
+    }
+
+    private function isPayLinkExpired(): bool
+    {
+        $sentAt = $this->getLastPayLinkSentAt();
+        if (!$sentAt) {
+            return false;
+        }
+
+        return $sentAt->copy()->addHours(self::PAY_LINK_VALIDITY_HOURS)->isPast();
+    }
+
+    private function getLastPayLinkSentAt(): ?Carbon
+    {
+        $storedTimestamp = $this->getAttribute('last_pay_link_sent_at');
+        if (!empty($storedTimestamp)) {
+            return Carbon::parse($storedTimestamp);
+        }
+
+        if ($this->relationLoaded('bookingLogs')) {
+            $log = $this->bookingLogs
+                ->where('action', 'send_pay_link')
+                ->sortByDesc('created_at')
+                ->first();
+        } else {
+            $log = $this->bookingLogs()
+                ->where('action', 'send_pay_link')
+                ->latest('created_at')
+                ->first();
+        }
+
+        return $log ? Carbon::parse($log->created_at) : null;
     }
 
     /**
