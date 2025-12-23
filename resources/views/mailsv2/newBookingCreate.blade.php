@@ -227,6 +227,21 @@
                                                     </tr>
                                                     <tr>
                                                         <td width="100" align="left"
+                                                            style="font-size:14px; line-height:19px; padding:0px 0px;display: block">
+                                                            <font face="Arial, Helvetica, sans-serif"
+                                                                  style="font-size:14px; line-height:19px; color:#000000;">
+                                                                {{ __('emails.bookingCreate.degree') }}</font>
+                                                        </td>
+                                                        <td align="left"
+                                                            style="font-size:14px; line-height:19px; padding:0px 0px;">
+                                                            <font face="Arial, Helvetica, sans-serif"
+                                                                  style="font-size:14px; line-height:19px; color:#000000;">
+                                                                {{ $course['booking_users'][0]->degree->name ?? 'NDF' }}
+                                                            </font>
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td width="100" align="left"
                                                             style="font-size:14px; line-height:19px; padding:0px 0px; display: block">
                                                             <font face="Arial, Helvetica, sans-serif"
                                                                   style="font-size:14px; line-height:19px; color:#000000;">
@@ -281,10 +296,11 @@
                                             </td>
                                             <td valign="top" width="110" class="left-on-narrow" align="center">
                                                 @php
-                                                    // Generar QR code con los IDs de booking_users para esta actividad
-                                                    $bookingUserIds = collect($course['booking_users'])->pluck('id')->implode(',');
+                                                    $clientId = $course['booking_users'][0]->client_id ?? null;
                                                 @endphp
-                                                <img src="data:image/png;base64,{{ base64_encode(\QrCode::format('png')->size(110)->generate($bookingUserIds)) }}" alt="QR Code" style="width: 110px; height: 110px;">
+                                                @if ($clientId)
+                                                    <img src="https://chart.googleapis.com/chart?chs=110x110&cht=qr&choe=UTF-8&chl={{ urlencode($clientId) }}" alt="QR Code" style="width: 110px; height: 110px;">
+                                                @endif
                                             </td>
                                         </tr>
                                     </table>
