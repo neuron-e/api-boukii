@@ -291,8 +291,7 @@ class BookingController extends AppBaseController
         $booking->computed_total = round($computedTotal, 2);
         $booking->computed_paid_total = round((float) ($balance['current_balance'] ?? 0), 2);
         $booking->computed_pending_amount = round(max(0, $booking->getPendingAmount()), 2);
-        $booking->payment_method_status = $booking->payment_method_status;
-        $booking->payment_method_status = $booking->payment_method_status;
+        $booking->append('payment_method_status');
 
         return $this->sendResponse($booking, 'Booking retrieved successfully');
     }
