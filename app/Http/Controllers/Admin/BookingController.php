@@ -365,7 +365,7 @@ class BookingController extends AppBaseController
             'bookingUsers.course' => function ($query) {
                 $query->select([
                     'id', 'name', 'translations', 'course_type', 'is_flexible',
-                    'sport_id', 'price', 'currency'
+                    'sport_id', 'price', 'currency', 'price_range'
                 ]);
             },
             'bookingUsers.course.sport:id,name,icon_collective,icon_prive,icon_activity',

@@ -294,14 +294,16 @@
                                                     </tr>
                                                 </table>
                                             </td>
-                                            <td valign="top" width="110" class="left-on-narrow" align="center">
-                                                @php
-                                                    $clientId = $course['booking_users'][0]->client_id ?? null;
-                                                @endphp
-                                                @if ($clientId)
-                                                    <img src="https://chart.googleapis.com/chart?chs=110x110&cht=qr&choe=UTF-8&chl={{ urlencode($clientId) }}" alt="QR Code" style="width: 110px; height: 110px;">
-                                                @endif
-                                            </td>
+                                        <td valign="top" width="110" class="left-on-narrow" align="center">
+                                            @php
+                                                $bookingUser = $course['booking_users'][0] ?? null;
+                                                $token = $bookingUser ? \App\Services\TeachScanTokenService::makeToken($bookingUser) : null;
+                                                $qrPng = $token ? app(\App\Services\QrCodeService::class)->png($token, 110) : null;
+                                            @endphp
+                                            @if ($token && $qrPng)
+                                                <img src="{{ $message->embedData($qrPng, 'qr-' . $bookingUser->id . '.png', 'image/png') }}" alt="QR Code" style="width: 110px; height: 110px;">
+                                            @endif
+                                        </td>
                                         </tr>
                                     </table>
 

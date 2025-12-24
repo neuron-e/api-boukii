@@ -37,5 +37,7 @@ Route::middleware(['auth:sanctum', 'ability:teach:all'])->group(function() {
     Route::get('courses/{id}', [\App\Http\Controllers\Teach\CourseController::class, 'show'])
         ->name('api.teach.courses.index');
 
+    Route::get('scan/booking', [\App\Http\Controllers\Teach\ScanController::class, 'resolve'])
+        ->name('api.teach.scan.booking');
 
 });

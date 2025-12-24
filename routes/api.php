@@ -31,6 +31,7 @@ use App\Models\User;
 use App\Support\IntervalDiscountHelper;
 use App\Traits\Utils;
 use App\Http\Controllers\API\TranslationAPIController;
+use App\Http\Controllers\Debug\BookingEmailPreviewController;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -143,6 +144,10 @@ Route::get('/admin/finance/debug-export-params', [FinanceController::class, 'deb
 Route::get('/debug-bookings', [\App\Http\Controllers\Admin\FinanceController::class, 'getCompleteFinancialAnalysis']);
 Route::get('bookings/{id}/financial-debug', [FinanceController::class, 'getBookingFinancialDebug'])
     ->name('bookings.financial-debug');
+
+if (app()->isLocal()) {
+    Route::get('/debug/booking-email/{id}', [BookingEmailPreviewController::class, 'show']);
+}
 
 Route::get('/debug-booking-users', function () {
     $from = '2025-01-01';
