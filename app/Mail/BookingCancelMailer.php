@@ -58,10 +58,11 @@ class BookingCancelMailer extends Mailable
         $templateMail = Mail::where('type', 'booking_cancel')->where('school_id', $this->schoolData->id)
             ->where('lang', $userLocale)->first();
 
-        $voucherCode = "";
-        if(isset($this->voucherData->code)) $voucherCode = $this->voucherData->code;
-        $voucherAmount = "";
-        if(isset($this->voucherData->quantity)) $voucherAmount = number_format($this->voucherData->quantity, 2);
+        $voucherCode = optional($this->voucherData)->code ?? '';
+        $voucherAmount = '';
+        if (($quantity = optional($this->voucherData)->quantity) !== null) {
+            $voucherAmount = number_format($quantity, 2);
+        }
 
         $templateData = [
             'titleTemplate' => $templateMail ? $templateMail->title : '',

@@ -515,6 +515,58 @@ class BookingPriceCalculatorService
         return $discounts;
     }
 
+    public function calculateIntervalDiscounts(Booking $booking): array
+    {
+        $booking->loadMissing([
+            'bookingUsers.course',
+            'bookingUsers.courseDate',
+            'bookingUsers.course.courseIntervals.discounts',
+        ]);
+
+        $bookingUsers = $this->getActiveBookingUsers($booking, []);
+        if ($bookingUsers->isEmpty()) {
+            return ['total' => 0.0, 'discounts' => []];
+        }
+
+        $discounts = [];
+        $total = 0.0;
+
+        foreach ($bookingUsers->groupBy('course_id') as $courseId => $courseBookingUsers) {
+            $course = $courseBookingUsers->first()->course;
+            if (!$course || (int) $course->course_type !== 1 || !$course->is_flexible) {
+                continue;
+            }
+
+            $courseBase = 0.0;
+            $courseDiscounted = 0.0;
+
+            foreach ($courseBookingUsers->groupBy('client_id') as $clientBookingUsers) {
+                $uniqueDates = $clientBookingUsers->pluck('date')->unique()->count();
+                $courseBase += (float) $course->price * $uniqueDates;
+                $courseDiscounted += IntervalDiscountHelper::calculateFlexibleCollectivePrice(
+                    $course,
+                    $clientBookingUsers
+                );
+            }
+
+            $discount = round($courseBase - $courseDiscounted, 2);
+            if ($discount > 0.01) {
+                $discounts[] = [
+                    'course_id' => $courseId,
+                    'name' => 'Interval discount - ' . $course->name,
+                    'quantity' => 1,
+                    'price' => -$discount,
+                ];
+                $total += $discount;
+            }
+        }
+
+        return [
+            'total' => round($total, 2),
+            'discounts' => $discounts,
+        ];
+    }
+
     /**
      * Calcula descuento por vouchers
      */
@@ -674,22 +726,56 @@ class BookingPriceCalculatorService
 
     private function getDurationInterval($minutes): string
     {
-        $mapping = [
-            15 => "15m", 30 => "30m", 45 => "45m", 60 => "1h",
-            75 => "1h 15m", 90 => "1h 30m", 120 => "2h", 180 => "3h", 240 => "4h"
-        ];
+        $minutes = (int) $minutes;
+        if ($minutes <= 0) {
+            return "0m";
+        }
 
-        return $mapping[$minutes] ?? "{$minutes}m";
+        if ($minutes < 60) {
+            return "{$minutes}m";
+        }
+
+        $hours = intdiv($minutes, 60);
+        $remaining = $minutes % 60;
+        if ($remaining === 0) {
+            return "{$hours}h 0min";
+        }
+
+        return "{$hours}h {$remaining}m";
     }
 
     private function getPriceFromRange($priceRange, $interval, $participants): float
     {
         foreach ($priceRange as $range) {
+            if (!isset($range['intervalo'])) {
+                continue;
+            }
+
             if ($range['intervalo'] === $interval) {
                 return $range[$participants] ?? 0;
             }
         }
+
+        $normalizedInterval = $this->normalizeIntervalLabel($interval);
+
+        foreach ($priceRange as $range) {
+            if (!isset($range['intervalo'])) {
+                continue;
+            }
+
+            if ($this->normalizeIntervalLabel($range['intervalo']) === $normalizedInterval) {
+                return $range[$participants] ?? 0;
+            }
+        }
         return 0;
+    }
+
+    private function normalizeIntervalLabel(?string $label): string
+    {
+        $label = strtolower(trim((string) $label));
+        $label = str_replace(' ', '', $label);
+        $label = str_replace('min', 'm', $label);
+        return $label;
     }
 
     /**

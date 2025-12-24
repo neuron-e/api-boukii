@@ -11,6 +11,7 @@ use App\Models\ClientsSchool;
 use App\Models\ClientsUtilizer;
 use App\Models\User;
 use App\Models\Voucher;
+use App\Models\GiftVoucher;
 use App\Repositories\ClientRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -111,14 +112,64 @@ class ClientController extends SlugAuthController
 
     /**
      * Normaliza la búsqueda por código para la escuela actual.
+     * Busca primero en vouchers, luego en gift_vouchers.
+     * Si encuentra un gift_voucher pagado y no canjeado, lo canjea automáticamente.
      */
     private function findVoucherForCurrentSchool(string $code): ?Voucher
     {
         $normalizedCode = Str::upper(trim($code));
 
-        return Voucher::where('school_id', $this->school->id)
+        // Primero buscar en la tabla vouchers
+        $voucher = Voucher::where('school_id', $this->school->id)
             ->whereRaw('UPPER(code) = ?', [$normalizedCode])
             ->first();
+
+        if ($voucher) {
+            return $voucher;
+        }
+
+        // Si no se encuentra, buscar en gift_vouchers
+        $giftVoucher = GiftVoucher::where('school_id', $this->school->id)
+            ->whereRaw('UPPER(code) = ?', [$normalizedCode])
+            ->first();
+
+        if (!$giftVoucher) {
+            return null;
+        }
+
+        // Si el gift_voucher ya tiene un voucher asociado, devolverlo
+        if ($giftVoucher->voucher_id) {
+            return Voucher::find($giftVoucher->voucher_id);
+        }
+
+        // Si el gift_voucher está pagado pero no tiene voucher asociado, crear uno
+        if ($giftVoucher->is_paid && $giftVoucher->status === 'active') {
+            $newVoucher = Voucher::create([
+                'code' => $giftVoucher->code,
+                'name' => 'Gift Voucher',
+                'quantity' => $giftVoucher->amount,
+                'remaining_balance' => $giftVoucher->balance ?? $giftVoucher->amount,
+                'payed' => true,
+                'is_gift' => true,
+                'buyer_name' => $giftVoucher->buyer_name ?? $giftVoucher->sender_name,
+                'buyer_email' => $giftVoucher->buyer_email,
+                'buyer_phone' => $giftVoucher->buyer_phone,
+                'recipient_name' => $giftVoucher->recipient_name,
+                'recipient_email' => $giftVoucher->recipient_email,
+                'recipient_phone' => $giftVoucher->recipient_phone,
+                'expires_at' => $giftVoucher->expires_at,
+                'school_id' => $giftVoucher->school_id,
+            ]);
+
+            // Asociar el voucher al gift_voucher
+            $giftVoucher->voucher_id = $newVoucher->id;
+            $giftVoucher->save();
+
+            return $newVoucher;
+        }
+
+        // Si el gift_voucher no está pagado o activo, no se puede usar
+        return null;
     }
 
     /**

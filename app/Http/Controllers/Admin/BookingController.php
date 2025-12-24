@@ -319,7 +319,8 @@ class BookingController extends AppBaseController
             'bookingUsers.course' => function ($query) {
                 $query->select([
                     'id', 'name', 'translations', 'course_type',
-                    'is_flexible', 'sport_id'
+                    'is_flexible', 'sport_id', 'price',
+                    'currency', 'price_range', 'discounts', 'settings'
                 ]);
             },
             'bookingUsers.course.sport' => function ($query) {
@@ -365,7 +366,8 @@ class BookingController extends AppBaseController
             'bookingUsers.course' => function ($query) {
                 $query->select([
                     'id', 'name', 'translations', 'course_type', 'is_flexible',
-                    'sport_id', 'price', 'currency', 'price_range'
+                    'sport_id', 'price', 'currency', 'price_range',
+                    'discounts', 'settings'
                 ]);
             },
             'bookingUsers.course.sport:id,name,icon_collective,icon_prive,icon_activity',
@@ -471,6 +473,10 @@ class BookingController extends AppBaseController
         $school = $this->getSchool($request);
         //TODO: Check OVERLAP
         $data = $request->all();
+
+        if (!empty($data['price_reduction']) && (float) $data['price_reduction'] > 0) {
+            $data['has_reduction'] = true;
+        }
 
         // VALIDACIN CRTICA: Verificar coherencia cliente-participantes
         if (isset($data['client_main_id']) && isset($data['cart'])) {
@@ -729,6 +735,10 @@ class BookingController extends AppBaseController
         $data = $request->all();
         $school = $this->getSchool($request);
         $voucherAmount = array_sum(array_column($data['vouchers'], 'bonus.reducePrice'));
+
+        if (!empty($data['price_reduction']) && (float) $data['price_reduction'] > 0) {
+            $data['has_reduction'] = true;
+        }
 
         /** @var Booking $booking */
         $booking = $this->bookingRepository->find($id, with: $request->get('with', []));
@@ -1996,4 +2006,3 @@ class BookingController extends AppBaseController
         return $allSame ? $first : $defaults;
     }
 }
-

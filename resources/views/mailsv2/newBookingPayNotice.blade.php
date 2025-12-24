@@ -108,195 +108,16 @@
             </tr>
         </table>
     </div>
-    @if(count($courses))
-        <center style="width: 100%;">
-            @foreach ($courses as $course)
-                @php
-                    $courseModel = $course['course'];
-                    $bookingUsers = collect($course['booking_users']);
-                    $uniqueSlots = $bookingUsers->map(function ($booking) {
-                        return $booking->date . '|' . $booking->hour_start . '|' . $booking->hour_end;
-                    })->unique()->values();
-                    $participants = $bookingUsers->unique('client_id')->values();
-                    $monitors = $bookingUsers->filter(fn ($booking) => $booking->monitor)->unique('monitor_id')->values();
-                @endphp
-                <table width="100%" cellpadding="0" cellspacing="0" border="0" class="center-on-narrow">
-                    <tr>
-                        <td valign="top" align="center" style="padding-top:20px; padding-bottom:0px;">
-                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="580"
-                                   style="margin: auto; width:580px" class="email-container">
-                                <tr>
-                                    <td align="center" valign="top" style="padding:15px 20px 15px 20px;" bgcolor="#f4f4f4">
-                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                                            <tr>
-                                                <td>
-                                                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                                                        <tr>
-                                                            <td align="left" valign="middle"
-                                                                style="font-size:24px; line-height:29px; padding:0px 0px 15px 0px;">
-                                                                <font face="Arial, Helvetica, sans-serif"
-                                                                      style="font-size:24px; line-height:29px; color:#d2d2d2; font-weight:bold;">
-                                                                    {{ __('emails.bookingCreate.activity') }}</font>
-                                                            </td>
-                                                            <td width="50" align="right" valign="middle"
-                                                                style="font-size:24px; line-height:29px; padding:0px 0px 15px 0px;">
-                                                                <font face="Arial, Helvetica, sans-serif"
-                                                                      style="font-size:24px; line-height:29px; color:#d9d9d9; font-weight:bold;">
-                                                                    {{$loop->index + 1}}</font>
-                                                            </td>
-                                                        </tr>
-                                                    </table>
-                                                </td>
-                                            </tr>
-                                        </table>
-
-                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                                            <tr>
-                                                <td width="100" align="left"
-                                                    style="font-size:14px; line-height:19px; padding:0px 0px;">
-                                                    <font face="Arial, Helvetica, sans-serif"
-                                                          style="font-size:14px; line-height:19px; color:#000000;">
-                                                        {{ __('emails.bookingCreate.name') }}</font>
-                                                </td>
-                                                <td align="left" style="font-size:16px; line-height:21px; padding:0px 0px;">
-                                                    <font face="Arial, Helvetica, sans-serif"
-                                                          style="font-size:16px; line-height:21px; color:#000000; font-weight:bold;">
-                                                        {{$courseModel->name}}
-                                                    </font>
-                                                </td>
-                                            </tr>
-                                            <tr>
-                            <td width="100" align="left"
-                                style="font-size:14px; line-height:19px; padding:0px 0px;">
-                                <font face="Arial, Helvetica, sans-serif"
-                                      style="font-size:14px; line-height:19px; color:#000000;">
-                                    {{ __('emails.bookingCreate.type') }}</font>
-                            </td>
-                            <td align="left" style="font-size:14px; line-height:19px; padding:0px 0px;">
-                                <font face="Arial, Helvetica, sans-serif"
-                                      style="font-size:14px; line-height:19px; color:#000000;">
-                                    @if($courseModel->course_type == 1)
-                                        {{ __('emails.bookingCreate.collective_courses') }}
-                                    @elseif($courseModel->course_type == 2)
-                                        {{ __('emails.bookingCreate.private_courses') }}
-                                    @endif
-                                    @if(optional($courseModel->sport)->name)
-                                        - {{ $courseModel->sport->name }}
-                                    @endif
-                                </font>
-                            </td>
-                        </tr>
-                                            <tr>
-                                                <td width="100" align="left"
-                                                    style="font-size:14px; line-height:19px; padding:0px 0px;">
-                                                    <font face="Arial, Helvetica, sans-serif"
-                                                          style="font-size:14px; line-height:19px; color:#000000;">
-                                                        {{ __('emails.bookingCreate.date') }}</font>
-                                                </td>
-                                                <td align="left" style="font-size:14px; line-height:19px; padding:0px 0px;">
-                                                    @foreach($uniqueSlots as $slot)
-                                                        @php [$slotDate, $slotStart, $slotEnd] = explode('|', $slot); @endphp
-                                                        <font face="Arial, Helvetica, sans-serif"
-                                                              style="font-size:14px; line-height:19px; color:#000000;">
-                                                            {{ \Carbon\Carbon::parse($slotDate)->format('F d, Y') }} - {{$slotStart}} / {{$slotEnd}}
-                                                        </font>
-                                                        <br>
-                                                    @endforeach
-                                                </td>
-                                            </tr>
-                                            @php
-                                                $meetingPointName = $booking->meeting_point ?? $courseModel->meeting_point ?? null;
-                                                $meetingPointAddress = $booking->meeting_point_address ?? $courseModel->meeting_point_address ?? null;
-                                                $meetingPointInstructions = $booking->meeting_point_instructions ?? $courseModel->meeting_point_instructions ?? null;
-                                            @endphp
-                                            @if($meetingPointName || $meetingPointAddress || $meetingPointInstructions)
-                                                <tr>
-                                                    <td width="100" align="left"
-                                                        style="font-size:14px; line-height:19px; padding:0px 0px;">
-                                                        <font face="Arial, Helvetica, sans-serif"
-                                                              style="font-size:14px; line-height:19px; color:#000000;">
-                                                            {{ __('emails.bookingCreate.meeting_point') }}</font>
-                                                    </td>
-                                                    <td align="left" style="font-size:14px; line-height:19px; padding:0px 0px;">
-                                                        <font face="Arial, Helvetica, sans-serif"
-                                                              style="font-size:14px; line-height:19px; color:#000000;">
-                                                            @if($meetingPointName)
-                                                                <strong>{{ $meetingPointName }}</strong><br>
-                                                            @endif
-                                                            @if($meetingPointAddress)
-                                                                {{ __('emails.bookingCreate.meeting_point_address') }} {{ $meetingPointAddress }}<br>
-                                                            @endif
-                                                            @if($meetingPointInstructions)
-                                                                {{ __('emails.bookingCreate.meeting_point_instructions') }} {!! nl2br(e($meetingPointInstructions)) !!}
-                                                            @endif
-                                                        </font>
-                                                    </td>
-                                                </tr>
-                                            @endif
-                                            <tr>
-                                                <td width="100" align="left"
-                                                    style="font-size:14px; line-height:19px; padding:0px 0px;">
-                                                    <font face="Arial, Helvetica, sans-serif"
-                                                          style="font-size:14px; line-height:19px; color:#000000;">
-                                                        {{ __('emails.bookingCreate.plural_participants') }}</font>
-                                                </td>
-                                                <td align="left" style="font-size:14px; line-height:19px; padding:0px 0px;">
-                                                    @foreach($participants as $participantBooking)
-                                                        @php $participant = $participantBooking->client; @endphp
-                                                        @if($participant)
-                                                            <font face="Arial, Helvetica, sans-serif"
-                                                                  style="font-size:14px; line-height:19px; color:#000000;">
-                                                                <strong>{{ $participant->full_name }}</strong>
-                                                                {{ optional($participant->language1)->code ?? 'N/A' }} -
-                                                                {{ collect(config('countries'))->firstWhere('id', $participant->country)['code'] ?? 'N/A' }}
-                                                                @if($participant->birth_date)
-                                                                    - {{ \Carbon\Carbon::parse($participant->birth_date)->age }} {{ __('emails.bookingCreate.age') }}
-                                                                @endif
-                                                            </font>
-                                                            <br>
-                                                        @endif
-                                                    @endforeach
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td width="100" align="left"
-                                                    style="font-size:14px; line-height:19px; padding:0px 0px;">
-                                                    <font face="Arial, Helvetica, sans-serif"
-                                                          style="font-size:14px; line-height:19px; color:#000000;">
-                                                        {{ __('emails.bookingCreate.monitor') }}</font>
-                                                </td>
-                                                <td align="left" style="font-size:14px; line-height:19px; padding:0px 0px;">
-                                                    @if($monitors->isNotEmpty())
-                                                        @foreach($monitors as $monitorBooking)
-                                                            @php $monitor = $monitorBooking->monitor; @endphp
-                                                            @if($monitor)
-                                                                <font face="Arial, Helvetica, sans-serif"
-                                                                      style="font-size:14px; line-height:19px; color:#000000;">
-                                                                    <strong>{{ $monitor->full_name }}</strong>
-                                                                    {{ optional($monitor->language1)->code ?? 'N/A' }} -
-                                                                    {{ collect(config('countries'))->firstWhere('id', $monitor->country)['code'] ?? 'N/A' }}
-                                                                </font>
-                                                                <br>
-                                                            @endif
-                                                        @endforeach
-                                                    @else
-                                                        <font face="Arial, Helvetica, sans-serif"
-                                                              style="font-size:14px; line-height:19px; color:#000000;">
-                                                            {{ __('emails.bookingInfo.unknown') }}
-                                                        </font>
-                                                    @endif
-                                                </td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                </table>
-            @endforeach
-        </center>
-    @endif
+    @php
+    $activities = $groupedActivities ?? $courses;
+@endphp
+@if(count($activities))
+    <center style="width: 100%;">
+        @foreach ($activities as $activity)
+            @include('mailsv2.partials.activity-card', ['activity' => $activity, 'loopIndex' => $loop->index, 'booking' => $booking])
+        @endforeach
+    </center>
+@endif
     @if(!empty($client))
         <center style="width: 100%;">
             <table width="100%" cellpadding="0" cellspacing="0" border="0" class="center-on-narrow">
@@ -361,7 +182,7 @@
                                 </table>
 
                                 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                                    @foreach($courses as $course)
+                                    @foreach($activities as $activity)
                                         <tr>
                                             <td align="left" style="font-size:14px; line-height:19px; padding:0px 0px;" >
                                                 <font face="Arial, Helvetica, sans-serif" style="font-size:14px; line-height:19px; color:#222222">
@@ -369,7 +190,7 @@
                                             </td>
                                             <td width="200" align="right" style="font-size:14px; line-height:19px; padding:0px 0px;" >
                                                 <font face="Arial, Helvetica, sans-serif" style="font-size:14px; line-height:19px; color:#222222;">
-                                                    {{$course['booking_users'][0]->price}} {{$currency}}</font>
+                                                    {{$activity['total'] ?? ($activity['price'] ?? 0)}} {{$currency}}</font>
                                             </td>
                                         </tr>
                                     @endforeach
@@ -470,3 +291,5 @@
         </p>
     </center>
 @endsection
+
+

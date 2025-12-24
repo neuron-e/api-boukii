@@ -37,7 +37,7 @@ class GiftVoucherAPIController extends AppBaseController
      *      path="/gift-vouchers",
      *      summary="getGiftVoucherList",
      *      tags={"GiftVoucher"},
-     *      description="Get all Gift Vouchers",
+     *      description="Get Gift Vouchers from gift_vouchers table only",
      *      @OA\Response(
      *          response=200,
      *          description="successful operation",
@@ -62,20 +62,56 @@ class GiftVoucherAPIController extends AppBaseController
      */
     public function index(Request $request): JsonResponse
     {
-        $giftVouchers = $this->giftVoucherRepository->all(
-            $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with']),
-            $request->get('search'),
-            $request->get('skip'),
-            $request->get('limit'),
-            $request->perPage,
-            $request->get('with', []),
-            $request->get('order', 'desc'),
-            $request->get('orderColumn', 'id'),
-            null,
-            $request->get('onlyTrashed', false)
-        );
+        // Get pagination and filter parameters
+        $perPage = $request->get('perPage', 10);
+        $page = $request->get('page', 1);
+        $search = $request->get('search');
+        $order = $request->get('order', 'desc');
+        $orderColumn = $request->get('orderColumn', 'id');
+        $schoolId = $request->get('school_id');
+        $withRelations = $request->get('with', []);
 
-        return $this->sendResponse($giftVouchers, 'Gift Vouchers retrieved successfully');
+        // Query gift_vouchers table only
+        $query = GiftVoucher::query();
+
+        // Apply school filter if provided
+        if ($schoolId) {
+            $query->where('school_id', $schoolId);
+        }
+
+        // Apply search
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('code', 'like', "%{$search}%")
+                  ->orWhere('buyer_name', 'like', "%{$search}%")
+                  ->orWhere('buyer_email', 'like', "%{$search}%")
+                  ->orWhere('recipient_name', 'like', "%{$search}%")
+                  ->orWhere('recipient_email', 'like', "%{$search}%");
+            });
+        }
+
+        // Load relationships if requested
+        if (!empty($withRelations)) {
+            $validRelations = ['school', 'purchasedBy', 'redeemedBy', 'voucher'];
+            $relations = is_array($withRelations) ? $withRelations : [$withRelations];
+            $relations = array_intersect($relations, $validRelations);
+            if (!empty($relations)) {
+                $query->with($relations);
+            }
+        }
+
+        // Apply sorting
+        $validSortColumns = ['id', 'code', 'amount', 'balance', 'status', 'created_at', 'updated_at'];
+        $sortColumn = in_array($orderColumn, $validSortColumns) ? $orderColumn : 'id';
+        $query->orderBy($sortColumn, $order === 'desc' ? 'desc' : 'asc');
+
+        // Paginate
+        $giftVouchers = $query->paginate($perPage, ['*'], 'page', $page);
+
+        return $this->sendResponse(
+            $giftVouchers,
+            'Gift Vouchers retrieved successfully'
+        );
     }
 
     /**

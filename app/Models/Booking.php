@@ -461,6 +461,7 @@ class Booking extends Model
             'bookingUsers.client.clientSports.degree',
             'bookingUsers.client.clientSports.sport',
             'bookingUsers.course.sport',
+            'bookingUsers.courseDate',
             'bookingUsers.degree',
             'bookingUsers.monitor',
             'bookingUsers.bookingUserExtras.courseExtra'
@@ -630,17 +631,16 @@ class Booking extends Model
             $uniqueStatuses = array_unique($groupedActivity['statusList']);
             $groupedActivity['status'] = count($uniqueStatuses) === 1 ? $uniqueStatuses[0] : 3;
 
-            // Calcular precios
-            $groupedActivity['price_base'] = $this->calculateActivityPrice($groupedActivity);
-
             // Calcular el precio total de los extras
             $groupedActivity['extra_price'] = 0;
             foreach ($groupedActivity['extras'] as $extra) {
                 $groupedActivity['extra_price'] += $extra['price'] * $extra['quantity'];
             }
 
-            // Calcular precio total (base + extras)
-            $groupedActivity['total'] = $groupedActivity['price'] = $groupedActivity['price_base'] + $groupedActivity['extra_price'];
+            // Calcular precio total con la logica del backend (incluye descuentos)
+            $activityTotal = $this->calculateActivityTotal($groupedActivity);
+            $groupedActivity['total'] = $groupedActivity['price'] = $activityTotal;
+            $groupedActivity['price_base'] = max(0, $activityTotal - $groupedActivity['extra_price']);
 
             return $groupedActivity;
         })->toArray());
@@ -671,10 +671,22 @@ class Booking extends Model
             }
         }
 
-        $calculated = $this->calculateCurrentTotal();
-        $priceTotal = (float) ($calculated['total_final'] ?? $groupPriceTotal);
+        $storedTotal = $bookingData['price_total'] ?? null;
+        if ($storedTotal !== null && $storedTotal !== '') {
+            $priceTotal = (float) $storedTotal;
+        } else {
+            $calculated = $this->calculateCurrentTotal();
+            $priceTotal = (float) ($calculated['total_final'] ?? $groupPriceTotal);
+        }
         $paidTotal = (float) ($this->paid_total ?? 0);
         $pendingAmount = max(0, $this->getPendingAmount());
+        $intervalDiscounts = $this->getPriceCalculator()->calculateIntervalDiscounts($this);
+        $intervalDiscountPayload = !empty($intervalDiscounts['discounts'])
+            ? [
+                'total' => $intervalDiscounts['total'],
+                'discounts' => $intervalDiscounts['discounts'],
+            ]
+            : null;
 
         // Crear el objeto basket con el formato requerido
         $basket = [
@@ -713,6 +725,7 @@ class Booking extends Model
                 "total" => count($extrasList),
                 "extras" => $extrasList
             ],
+            "interval_discounts" => $intervalDiscountPayload,
             "tva" => [
                 "name" => "TVA",
                 "quantity" => 1,
@@ -827,6 +840,47 @@ class Booking extends Model
         return $price;
     }
 
+    public function calculateActivityTotal(array $activity): float
+    {
+        $bookingUsersRaw = collect($activity['dates'] ?? [])
+            ->flatMap(function ($date) {
+                return $date['booking_users'] ?? [];
+            });
+
+        $bookingUsers = $bookingUsersRaw
+            ->filter(fn ($bookingUser) => $bookingUser instanceof \App\Models\BookingUser)
+            ->values();
+
+        $bookingUserIds = $bookingUsersRaw
+            ->filter(fn ($bookingUser) => is_array($bookingUser) && isset($bookingUser['id']))
+            ->map(fn ($bookingUser) => (int) $bookingUser['id'])
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($bookingUserIds->isNotEmpty()) {
+            $existingIds = $bookingUsers->pluck('id')->map(fn ($id) => (int) $id);
+            $missingIds = $bookingUserIds->diff($existingIds);
+
+            if ($missingIds->isNotEmpty()) {
+                $loadedUsers = \App\Models\BookingUser::query()
+                    ->with(['course', 'courseDate', 'bookingUserExtras.courseExtra'])
+                    ->whereIn('id', $missingIds->all())
+                    ->get();
+
+                $bookingUsers = $bookingUsers->concat($loadedUsers)->values();
+            }
+        }
+
+        if ($bookingUsers->isEmpty()) {
+            return (float) $this->calculateActivityPrice($activity);
+        }
+
+        $total = $this->getPriceCalculator()->calculateActivitiesPrice($bookingUsers);
+
+        return round((float) $total, 2);
+    }
+
     // Calcula el precio de una fecha
     public function calculateDatePrice($course, $date)
     {
@@ -843,10 +897,37 @@ class Booking extends Model
             } elseif ($course['is_flexible'] ?? false) {
                 $duration = $date['duration'] ?? 0;
                 $participants = count($date['utilizers'] ?? []);
-                $interval = collect($course['price_range'] ?? [])->firstWhere('intervalo', $duration);
+                $priceRange = collect($course['price_range'] ?? []);
+                $normalizedDuration = strtolower(str_replace([' ', 'min'], ['', 'm'], (string) $duration));
+                $interval = $priceRange->first(function ($range) use ($duration, $normalizedDuration) {
+                    if (!isset($range['intervalo'])) {
+                        return false;
+                    }
+
+                    if ($range['intervalo'] === $duration) {
+                        return true;
+                    }
+
+                    $normalizedInterval = strtolower(str_replace([' ', 'min'], ['', 'm'], (string) $range['intervalo']));
+                    return $normalizedInterval === $normalizedDuration;
+                });
                 $datePrice = $interval ? ($interval[$participants] ?? 0) : 0;
             } else {
-                $datePrice = $course['price'] ?? 0;
+                $bookingUsers = collect($date['booking_users'] ?? []);
+                $bookingUsersPrice = $bookingUsers
+                    ->map(function ($bookingUser) {
+                        if ($bookingUser instanceof \App\Models\BookingUser) {
+                            return $bookingUser->price;
+                        }
+                        if (is_array($bookingUser)) {
+                            return $bookingUser['price'] ?? null;
+                        }
+                        return null;
+                    })
+                    ->filter(fn ($price) => $price !== null)
+                    ->sum();
+
+                $datePrice = $bookingUsersPrice > 0 ? $bookingUsersPrice : ($course['price'] ?? 0);
             }
 
             $extrasPrice = collect($date['extras'])->sum('price');
@@ -1475,16 +1556,57 @@ class Booking extends Model
         ];
     }
 
+    public function getBookingUsersCanonicalTotal(bool $excludeCancelled = true): float
+    {
+        $bookingUsers = $this->relationLoaded('bookingUsers')
+            ? $this->bookingUsers
+            : $this->bookingUsers()->get();
+
+        if ($excludeCancelled) {
+            $bookingUsers = $bookingUsers->where('status', '!=', 2);
+        }
+
+        if ($bookingUsers->isEmpty()) {
+            return 0.0;
+        }
+
+        $total = 0.0;
+        $groups = $bookingUsers->groupBy(function ($bookingUser) {
+            $clientId = $bookingUser->client_id ?? '0';
+            $courseId = $bookingUser->course_id ?? '0';
+            return $clientId . '-' . $courseId;
+        });
+
+        foreach ($groups as $group) {
+            $first = $group->first();
+            $price = $first->price ?? $first->price_total ?? 0;
+            $total += (float) $price;
+        }
+
+        return round($total, 2);
+    }
+
     /**
      * CORREGIDO: Calcula el importe pendiente considerando vouchers
      */
     public function getPendingAmount()
     {
-        $calculation = $this->calculateCurrentTotal();
-        $expectedTotal = $calculation['total_final'];
+        $storedTotal = $this->price_total;
+        if ($storedTotal !== null && $storedTotal !== '') {
+            $expectedTotal = (float) $storedTotal;
+        } else {
+            $canonicalTotal = $this->getBookingUsersCanonicalTotal();
+            if ($canonicalTotal > 0) {
+                $expectedTotal = $canonicalTotal;
+            } else {
+                $calculation = $this->calculateCurrentTotal();
+                $expectedTotal = (float) ($calculation['total_final'] ?? 0);
+            }
+        }
         $balance = $this->getCurrentBalance();
+        $currentBalance = $balance['current_balance'] ?? 0;
 
-        return max(0, $expectedTotal - $balance['current_balance']);
+        return max(0, $expectedTotal - $currentBalance);
     }
 
     /**
@@ -1792,7 +1914,3 @@ class Booking extends Model
     const ID_NOPAYMENT = 5;
 
 }
-
-
-
-

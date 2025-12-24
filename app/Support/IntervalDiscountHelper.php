@@ -24,35 +24,183 @@ class IntervalDiscountHelper
             return 0.0;
         }
 
-        // Ensure we are working with BookingUser models.
         $bookingUsers = self::normalizeBookingUsersCollection($bookingUsers);
         $bookingUsers->loadMissing('courseDate');
 
-        [$globalRules, $intervalRules] = self::getDiscountRulesForCourse($course);
+        $datesByInterval = [];
 
-        $dateEntries = self::buildUniqueDateEntries($bookingUsers);
+        foreach ($bookingUsers as $bookingUser) {
+            if ($bookingUser->status === 2) {
+                continue;
+            }
 
-        $intervalCounters = [];
-        $total = 0.0;
+            $intervalId = null;
+            if ($bookingUser->relationLoaded('courseDate') && $bookingUser->courseDate) {
+                $intervalId = $bookingUser->courseDate->interval_id
+                    ?? $bookingUser->courseDate->course_interval_id;
+            } elseif (property_exists($bookingUser, 'interval_id') && $bookingUser->interval_id) {
+                $intervalId = $bookingUser->interval_id;
+            } elseif (property_exists($bookingUser, 'course_interval_id') && $bookingUser->course_interval_id) {
+                $intervalId = $bookingUser->course_interval_id;
+            }
 
-        foreach ($dateEntries as $entry) {
-            $intervalId = $entry['interval_id'];
-            $key = $intervalId !== null ? (int) $intervalId : 'global';
-            $intervalCounters[$key] = ($intervalCounters[$key] ?? 0) + 1;
-            $dayIndex = $intervalCounters[$key];
+            $intervalKey = $intervalId !== null ? (string) $intervalId : 'default';
+            if (!isset($datesByInterval[$intervalKey])) {
+                $datesByInterval[$intervalKey] = [];
+            }
 
-            $price = self::applyDiscount(
-                (float) $course->price,
-                $intervalId,
-                $dayIndex,
-                $globalRules,
-                $intervalRules
-            );
+            $dateValue = $bookingUser->date instanceof \Carbon\Carbon
+                ? $bookingUser->date->format('Y-m-d')
+                : (string) $bookingUser->date;
 
-            $total += $price;
+            if ($dateValue === '') {
+                continue;
+            }
+
+            if (!array_key_exists($dateValue, $datesByInterval[$intervalKey])) {
+                $basePrice = (float) ($course->price ?? 0);
+                if ($basePrice <= 0) {
+                    $basePrice = (float) ($bookingUser->price ?? 0);
+                }
+                $datesByInterval[$intervalKey][$dateValue] = $basePrice;
+            }
         }
 
-        return round($total, 2);
+        $total = 0.0;
+
+        foreach ($datesByInterval as $intervalKey => $dates) {
+            if (empty($dates)) {
+                continue;
+            }
+
+            $baseTotal = array_sum($dates);
+            $datesCount = count($dates);
+            $intervalId = $intervalKey !== 'default' ? (int) $intervalKey : null;
+            $discounts = self::getApplicableDiscounts($course, $intervalId);
+            $total += self::applyFlexibleDiscount($baseTotal, $datesCount, $discounts);
+        }
+
+        return round(max(0, $total), 2);
+    }
+
+    private static function getApplicableDiscounts(Course $course, ?int $intervalId): array
+    {
+        if ($intervalId !== null) {
+            $intervalDiscounts = self::getIntervalDiscountsFromSettings($course);
+            if (array_key_exists($intervalId, $intervalDiscounts) && !empty($intervalDiscounts[$intervalId])) {
+                return $intervalDiscounts[$intervalId];
+            }
+        }
+
+        return $course->discounts ?? [];
+    }
+
+    private static function getIntervalDiscountsFromSettings(Course $course): array
+    {
+        $settings = $course->settings;
+        if (is_string($settings)) {
+            $decoded = json_decode($settings, true);
+            $settings = is_array($decoded) ? $decoded : null;
+        }
+
+        if (!is_array($settings)) {
+            return [];
+        }
+
+        $intervals = $settings['intervals'] ?? [];
+        if (!is_array($intervals)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($intervals as $interval) {
+            if (!is_array($interval)) {
+                continue;
+            }
+            $intervalId = $interval['id'] ?? null;
+            if ($intervalId === null) {
+                continue;
+            }
+            $discounts = $interval['discounts'] ?? [];
+            if (!is_array($discounts) || empty($discounts)) {
+                continue;
+            }
+            $result[(int) $intervalId] = $discounts;
+        }
+
+        return $result;
+    }
+
+    private static function applyFlexibleDiscount(float $baseTotal, int $selectedDatesCount, $rawDiscounts): float
+    {
+        $discounts = self::parseFlexibleDiscounts($rawDiscounts);
+        if ($baseTotal <= 0 || $selectedDatesCount <= 0 || empty($discounts)) {
+            return max(0, $baseTotal);
+        }
+
+        $applicable = null;
+        foreach ($discounts as $discount) {
+            if ($selectedDatesCount >= $discount['threshold']) {
+                if (!$applicable || $discount['threshold'] > $applicable['threshold']) {
+                    $applicable = $discount;
+                }
+            }
+        }
+
+        if (!$applicable || $applicable['value'] <= 0) {
+            return max(0, $baseTotal);
+        }
+
+        if ($applicable['type'] === 'percentage') {
+            $bounded = max(0, min(100, $applicable['value']));
+            return max(0, $baseTotal * (1 - $bounded / 100));
+        }
+
+        return max(0, $baseTotal - $applicable['value']);
+    }
+
+    private static function parseFlexibleDiscounts($raw): array
+    {
+        if (!$raw) {
+            return [];
+        }
+
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            $raw = is_array($decoded) ? $decoded : [];
+        }
+
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($raw as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $threshold = (int) ($item['date'] ?? $item['dates'] ?? $item['count'] ?? $item['n'] ?? $item['days'] ?? 0);
+            $value = (float) ($item['discount'] ?? $item['percentage'] ?? $item['percent'] ?? $item['value'] ?? 0);
+            if ($threshold <= 0 || $value <= 0) {
+                continue;
+            }
+
+            $type = 'percentage';
+            $rawType = $item['type'] ?? null;
+            if (is_string($rawType)) {
+                $type = strtolower($rawType) === 'fixed' ? 'fixed' : 'percentage';
+            } elseif (is_numeric($rawType)) {
+                $type = (int) $rawType === 2 ? 'fixed' : 'percentage';
+            }
+
+            $normalized[] = [
+                'threshold' => $threshold,
+                'value' => $value,
+                'type' => $type,
+            ];
+        }
+
+        return $normalized;
     }
 
     /**

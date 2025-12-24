@@ -40,6 +40,7 @@ return [
             'private_courses' => 'Curso privado',
             'date' => 'Fecha',
             'participant' => 'Participante:',
+            'participant_na' => 'N/A',
             'degree' => 'Grado',
             'monitor' => 'Monitor:',
             'meeting_point' => 'Punto de encuentro:',

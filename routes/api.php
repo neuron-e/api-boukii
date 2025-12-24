@@ -145,9 +145,8 @@ Route::get('/debug-bookings', [\App\Http\Controllers\Admin\FinanceController::cl
 Route::get('bookings/{id}/financial-debug', [FinanceController::class, 'getBookingFinancialDebug'])
     ->name('bookings.financial-debug');
 
-if (app()->isLocal()) {
-    Route::get('/debug/booking-email/{id}', [BookingEmailPreviewController::class, 'show']);
-}
+Route::middleware('log.viewer.auth')
+    ->get('/debug/booking-email/{id}', [BookingEmailPreviewController::class, 'show']);
 
 Route::get('/debug-booking-users', function () {
     $from = '2025-01-01';

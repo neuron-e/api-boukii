@@ -70,6 +70,7 @@ class BookingCreateMailer extends Mailable
             'bookingNotes' => $this->bookingData->notes,
             'booking' => $this->bookingData,
             'courses' => $this->bookingData->parseBookedGroupedWithCourses(),
+            'groupedActivities' => $this->bookingData->getGroupedActivitiesAttribute(),
             'bookings' => $this->bookingData->bookingUsers,
             'hasCancellationInsurance' => $this->bookingData->has_cancellation_insurance,
             'actionURL' => null,

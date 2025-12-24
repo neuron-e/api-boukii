@@ -11,10 +11,6 @@ class BookingEmailPreviewController extends Controller
 {
     public function show(Request $request, $id)
     {
-        if (!app()->isLocal()) {
-            abort(404);
-        }
-
         $booking = Booking::with([
             'school',
             'clientMain.language1',
@@ -37,13 +33,52 @@ class BookingEmailPreviewController extends Controller
         $courses = $booking->parseBookedGroupedWithCourses();
 
         $lang = $request->input('lang') ?? optional($booking->clientMain->language1)->code ?? config('app.locale');
-        $templateMail = MailTemplate::where('type', 'booking_confirm')
+        $typeInput = strtolower(trim((string) $request->input('type', 'confirm')));
+        if (str_starts_with($typeInput, 'mailsv2.')) {
+            $typeInput = substr($typeInput, strlen('mailsv2.'));
+        }
+
+        $typeAliases = [
+            'booking_confirm' => 'confirm',
+            'booking_info' => 'info',
+            'booking_change' => 'info_change',
+            'booking_cancel' => 'cancel',
+            'payment_link' => 'pay',
+            'payment_reminder' => 'pay_notice',
+            'newbookingcreate' => 'confirm',
+            'newbookinginfo' => 'info',
+            'newbookinginfochange' => 'info_change',
+            'newbookingcancel' => 'cancel',
+            'newbookingpay' => 'pay',
+            'newbookingpaynotice' => 'pay_notice',
+        ];
+        if (isset($typeAliases[$typeInput])) {
+            $typeInput = $typeAliases[$typeInput];
+        }
+
+        $templates = [
+            'confirm' => ['view' => 'mailsv2.newBookingCreate', 'mail_type' => 'booking_confirm'],
+            'info' => ['view' => 'mailsv2.newBookingInfo', 'mail_type' => 'booking_confirm'],
+            'info_change' => ['view' => 'mailsv2.newBookingInfoChange', 'mail_type' => 'booking_change'],
+            'cancel' => ['view' => 'mailsv2.newBookingCancel', 'mail_type' => 'booking_cancel'],
+            'pay' => ['view' => 'mailsv2.newBookingPay', 'mail_type' => 'payment_link'],
+            'pay_notice' => ['view' => 'mailsv2.newBookingPayNotice', 'mail_type' => 'payment_reminder'],
+        ];
+
+        if (!isset($templates[$typeInput])) {
+            abort(400, 'Unsupported email type');
+        }
+
+        $templateView = $templates[$typeInput]['view'];
+        $templateMailType = $templates[$typeInput]['mail_type'];
+
+        $templateMail = MailTemplate::where('type', $templateMailType)
             ->where('school_id', $booking->school_id)
             ->where('lang', $lang)
             ->first();
 
         if (!$templateMail) {
-            $templateMail = MailTemplate::where('type', 'booking_confirm')
+            $templateMail = MailTemplate::where('type', $templateMailType)
                 ->where('school_id', $booking->school_id)
                 ->first();
         }
@@ -56,17 +91,28 @@ class BookingEmailPreviewController extends Controller
         $schoolEmail = $booking->school->contact_email ?? null;
         $schoolConditionsURL = $booking->school->conditions_url ?? null;
 
+        $actionURL = $request->input('action_url');
+        if (!$actionURL && in_array($typeInput, ['pay', 'pay_notice'], true)) {
+            $actionURL = 'https://pay.example.com';
+        }
+
+        $referenceValue = '#' . $booking->id;
+        if (in_array($typeInput, ['pay', 'pay_notice'], true) && $booking->payrexx_reference) {
+            $referenceValue = $booking->payrexx_reference;
+        }
+
         $data = [
             'titleTemplate' => $titleTemplate,
             'bodyTemplate' => $bodyTemplate,
             'userName' => $userName,
-            'reference' => '#' . $booking->id,
+            'reference' => $referenceValue,
             'booking' => $booking,
+            'groupedActivities' => $booking->getGroupedActivitiesAttribute(),
             'courses' => $courses,
             'bookings' => $booking->bookingUsers,
             'bookingNotes' => $booking->notes,
             'paid' => $booking->paid,
-            'actionURL' => null,
+            'actionURL' => $actionURL,
             'footerView' => 'mailsv2.newFooter',
             'schoolLogo' => $booking->school->logo ?? null,
             'schoolName' => $booking->school->name ?? '',
@@ -74,6 +120,9 @@ class BookingEmailPreviewController extends Controller
             'schoolPhone' => $schoolPhone,
             'schoolEmail' => $schoolEmail,
             'schoolConditionsURL' => $schoolConditionsURL,
+            'client' => $booking->clientMain,
+            'amount' => number_format(($booking->price_total ?? 0) - ($booking->paid_total ?? 0), 2),
+            'currency' => $booking->currency,
         ];
 
         $data['message'] = new class {
@@ -87,6 +136,6 @@ class BookingEmailPreviewController extends Controller
             }
         };
 
-        return view('mailsv2.newBookingCreate', $data);
+        return view($templateView, $data);
     }
 }

@@ -64,6 +64,7 @@ class BookingInfoMailer extends Mailable
             'booking' => $this->bookingData,
             'bookings' => $this->bookingData->bookingUsers,
             'courses' => $this->bookingData->parseBookedGroupedWithCourses(),
+            'groupedActivities' => $this->bookingData->getGroupedActivitiesAttribute(),
             'hasCancellationInsurance' => $this->bookingData->has_cancellation_insurance,
             'actionURL' => null,
             'footerView' => $footerView
