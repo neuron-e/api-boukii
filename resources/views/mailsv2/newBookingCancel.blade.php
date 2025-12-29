@@ -75,7 +75,7 @@
     @endphp
 
     @foreach ($activities as $activity)
-        @include('mailsv2.partials.activity-card', ['activity' => $activity, 'loopIndex' => $loop->index, 'booking' => $booking])
+        @include('mailsv2.partials.activity-card', ['activity' => $activity, 'loopIndex' => $loop->index, 'booking' => $booking, 'forceDatePrice' => true])
     @endforeach
 </center>
     <center style="width: 100%;">

@@ -23,6 +23,7 @@
     $basePrice = $activity['price_base'] ?? max(($activity['total'] ?? 0) - ($activity['extra_price'] ?? 0), 0);
     $extrasPrice = $activity['extra_price'] ?? 0;
     $totalPrice = $activity['total'] ?? ($activity['price'] ?? 0);
+    $forceDatePrice = $forceDatePrice ?? false;
     $bookingUserForQr = $primaryBookingUser;
     if (!$bookingUserForQr) {
         foreach ($dates as $date) {
@@ -90,7 +91,7 @@
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                             @foreach ($dates as $date)
                                 @php
-                                    $perDatePrice = $date['price'] ?? $booking->calculateDatePrice($course, $date);
+                                      $perDatePrice = $date['price'] ?? $booking->calculateDatePrice($course, $date, $forceDatePrice);
                                     $perDateExtras = $date['extra_price'] ?? 0;
                                     $monitorName = !empty($date['monitor']) ? $date['monitor']->full_name : null;
                                     $dateFormat = \Carbon\Carbon::parse($date['date'])->format('F d, Y');

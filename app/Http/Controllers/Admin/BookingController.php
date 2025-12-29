@@ -249,6 +249,12 @@ class BookingController extends AppBaseController
                         $subQuery->where('course_id', $courseFilter);
                     });
                 }
+                $query->withExists(['bookingUsers as has_observations' => function ($subQuery) {
+                    $subQuery->where(function ($q) {
+                        $q->whereNotNull('notes')
+                            ->orWhereNotNull('notes_school');
+                    });
+                }]);
                 if ($customOrderCallback) {
                     $customOrderCallback($query, $orderDirection);
                 }
@@ -319,8 +325,7 @@ class BookingController extends AppBaseController
             'bookingUsers.course' => function ($query) {
                 $query->select([
                     'id', 'name', 'translations', 'course_type',
-                    'is_flexible', 'sport_id', 'price',
-                    'currency', 'price_range', 'discounts', 'settings'
+                    'is_flexible', 'sport_id'
                 ]);
             },
             'bookingUsers.course.sport' => function ($query) {
@@ -1850,7 +1855,7 @@ class BookingController extends AppBaseController
             $cancelledPriceTotal = 0;
 
             // Actualiza el status de los bookingUsers a cancelado (status = 2)
-            foreach ($bookingUsers as $bookingUser) {
+            foreach ($bookingUsersToCancel as $bookingUser) {
                 $cancelledPriceTotal += $bookingUser->price;
                 $bookingUser->status = 2;
                 $bookingUser->save();
@@ -1935,7 +1940,7 @@ class BookingController extends AppBaseController
 
         if ($sendEmails) {
             // Enviar correo al comprador principal (clientMain)
-            dispatch(function () use ($school, $booking, $bookingUsers) {
+            dispatch(function () use ($school, $booking, $bookingUsersToCancel) {
                 $buyerUser = $booking->clientMain;
 
                 // N.B. try-catch porque algunos usuarios de prueba ingresan emails inexistentes
@@ -1944,7 +1949,7 @@ class BookingController extends AppBaseController
                         ->send(new BookingCancelMailer(
                             $school,
                             $booking,
-                            $bookingUsers,
+                            $bookingUsersToCancel,
                             $buyerUser,
                             null
                         ));

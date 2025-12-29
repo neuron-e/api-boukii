@@ -98,10 +98,38 @@ class HomeController extends AppBaseController
             \Log::info('Building booking query...');
             // OPTIMIZED: Removed heavy eager loading (course.courseDates, client.evaluations.*)
             // Reduces memory usage by ~80% and queries by ~90%
-            $bookingQuery = BookingUser::with([
+            $bookingQuery = BookingUser::select([
+                'id',
+                'booking_id',
+                'client_id',
+                'course_id',
+                'course_date_id',
+                'course_subgroup_id',
+                'monitor_id',
+                'group_id',
+                'date',
+                'hour_start',
+                'hour_end',
+                'status',
+                'accepted',
+                'degree_id',
+                'color',
+                'school_id',
+            ])->with([
                 'booking:id,status,paid,paid_total,price_total',
-                'course:id,name,school_id,sport_id,course_type,max_participants',
-                'course.courseDates:id,course_id,date,hour_start,hour_end',
+                'course' => function ($query) use ($dateStart, $dateEnd) {
+                    $query->select('id', 'name', 'school_id', 'sport_id', 'course_type', 'max_participants')
+                        ->withCount(['courseDates as course_dates_total'])
+                        ->with(['courseDates' => function ($dateQuery) use ($dateStart, $dateEnd) {
+                        $dateQuery->select('id', 'course_id', 'date', 'hour_start', 'hour_end')
+                            ->orderBy('date');
+                            if ($dateStart && $dateEnd) {
+                                $dateQuery->whereBetween('date', [$dateStart, $dateEnd]);
+                            } else {
+                                $dateQuery->whereDate('date', Carbon::today());
+                            }
+                        }]);
+                },
                 'client:id,first_name,last_name,birth_date,image',
                 'client.sports:id,name',
             ])
@@ -136,8 +164,19 @@ class HomeController extends AppBaseController
             \Log::info('Building subgroups query...');
             $subgroupsQuery = CourseSubgroup::with([
                 'courseGroup.course:id,name,school_id,sport_id,course_type,max_participants',
-                'course:id,name,school_id,sport_id,course_type',
-                'course.courseDates',
+                'course' => function ($query) use ($dateStart, $dateEnd) {
+                    $query->select('id', 'name', 'school_id', 'sport_id', 'course_type', 'max_participants')
+                        ->withCount(['courseDates as course_dates_total'])
+                        ->with(['courseDates' => function ($dateQuery) use ($dateStart, $dateEnd) {
+                        $dateQuery->select('id', 'course_id', 'date', 'hour_start', 'hour_end')
+                            ->orderBy('date');
+                            if ($dateStart && $dateEnd) {
+                                $dateQuery->whereBetween('date', [$dateStart, $dateEnd]);
+                            } else {
+                                $dateQuery->whereDate('date', Carbon::today());
+                            }
+                        }]);
+                },
             ])
                 ->whereHas('courseGroup.course', function ($query) use ($schoolId) {
                     if ($schoolId) {

@@ -76,6 +76,9 @@ class ScanController extends AppBaseController
                 'full_name' => $bookingUser->client->full_name ?? null,
                 'birth_date' => $bookingUser->client->birth_date ?? null,
                 'language' => $bookingUser->client->language1->code ?? null,
+                'email' => $bookingUser->client->email ?? null,
+                'phone' => $bookingUser->client->phone ?? null,
+                'telephone' => $bookingUser->client->telephone ?? null,
             ],
             'course' => $course ? [
                 'id' => $course->id,

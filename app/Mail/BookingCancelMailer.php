@@ -78,6 +78,7 @@ class BookingCancelMailer extends Mailable
             'bookingNotes' => $this->bookingData->notes,
             'booking' => $this->bookingData,
             'courses' => $this->parseBookedGroupedCourses($this->cancelledLines),
+            'groupedActivities' => $this->bookingData->buildGroupedActivitiesFromBookingUsers($this->cancelledLines),
             'bookings' => $this->bookingData->bookingUsers,
             'voucherCode' => $voucherCode,
             'voucherAmount' => $voucherAmount,

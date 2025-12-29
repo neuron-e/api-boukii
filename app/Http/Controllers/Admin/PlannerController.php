@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\AppBaseController;
 use App\Models\BookingUser;
+use App\Models\Course;
 use App\Models\CourseDate;
 use App\Models\CourseSubgroup;
 use App\Models\CourseSubgroupDate;
@@ -108,8 +109,19 @@ class PlannerController extends AppBaseController
 
         // OPTIMIZACION: Cargar solo campos necesarios y eliminar evaluations pesadas
         $subgroupsQuery = CourseSubgroup::with([
-            'course:id,name,sport_id,course_type,max_participants,date_start,date_end',
-            'course.courseDates:id,course_id,date,hour_start,hour_end',
+            'course' => function ($query) use ($dateStart, $dateEnd) {
+                $query->select('id', 'name', 'sport_id', 'course_type', 'max_participants', 'date_start', 'date_end')
+                    ->withCount(['courseDates as course_dates_total'])
+                    ->with(['courseDates' => function ($dateQuery) use ($dateStart, $dateEnd) {
+                        $dateQuery->select('id', 'course_id', 'date', 'hour_start', 'hour_end')
+                            ->orderBy('date');
+                        if ($dateStart && $dateEnd) {
+                            $dateQuery->whereBetween('date', [$dateStart, $dateEnd]);
+                        } else {
+                            $dateQuery->whereDate('date', Carbon::today());
+                        }
+                    }]);
+            },
             'courseDate:id,course_id,date,hour_start,hour_end,active,deleted_at',
             'courseGroup:id,course_id',
             'courseGroup.course:id,name,sport_id,course_type,max_participants,date_start,date_end',
@@ -122,6 +134,7 @@ class PlannerController extends AppBaseController
                     ->with([
                         'booking:id,user_id,paid',
                         'booking.user:id,first_name,last_name',
+                        'course:id,name,sport_id,course_type,max_participants,date_start,date_end',
                         'client:id,first_name,last_name,birth_date,language1_id',
                         'client.sports' => function ($query) {
                             $query->select('sports.id', 'sports.name');
@@ -156,8 +169,19 @@ class PlannerController extends AppBaseController
         $bookingQuery = BookingUser::with([
             'booking:id,user_id,paid',
             'booking.user:id,first_name,last_name',
-            'course:id,name,sport_id,course_type,max_participants,date_start,date_end',
-            'course.courseDates:id,course_id,date,hour_start,hour_end',
+            'course' => function ($query) use ($dateStart, $dateEnd) {
+                $query->select('id', 'name', 'sport_id', 'course_type', 'max_participants', 'date_start', 'date_end')
+                    ->withCount(['courseDates as course_dates_total'])
+                    ->with(['courseDates' => function ($dateQuery) use ($dateStart, $dateEnd) {
+                        $dateQuery->select('id', 'course_id', 'date', 'hour_start', 'hour_end')
+                            ->orderBy('date');
+                        if ($dateStart && $dateEnd) {
+                            $dateQuery->whereBetween('date', [$dateStart, $dateEnd]);
+                        } else {
+                            $dateQuery->whereDate('date', Carbon::today());
+                        }
+                    }]);
+            },
             'client:id,first_name,last_name,birth_date,language1_id',
             'client.sports' => function ($query) {
                 $query->select('sports.id', 'sports.name');
@@ -233,14 +257,16 @@ class PlannerController extends AppBaseController
                 ->whereHas('monitor', function ($query) use ($monitorId, $languageIds) {
                     $query->where('id', $monitorId);
                     if (!empty($languageIds)) {
-                        $query->where(function ($q) use ($languageIds) {
-                            $q->whereIn('language1_id', $languageIds)
-                                ->orWhereIn('language2_id', $languageIds)
-                                ->orWhereIn('language3_id', $languageIds)
-                                ->orWhereIn('language4_id', $languageIds)
-                                ->orWhereIn('language5_id', $languageIds)
-                                ->orWhereIn('language6_id', $languageIds);
-                        });
+                        $placeholders = implode(',', array_fill(0, count($languageIds), '?'));
+                        $query->whereRaw(
+                            '(monitors.language1_id IN (' . $placeholders . ')' .
+                            ' OR monitors.language2_id IN (' . $placeholders . ')' .
+                            ' OR monitors.language3_id IN (' . $placeholders . ')' .
+                            ' OR monitors.language4_id IN (' . $placeholders . ')' .
+                            ' OR monitors.language5_id IN (' . $placeholders . ')' .
+                            ' OR monitors.language6_id IN (' . $placeholders . '))',
+                            array_merge($languageIds, $languageIds, $languageIds, $languageIds, $languageIds, $languageIds)
+                        );
                     }
                 })
                 ->get()
@@ -259,14 +285,16 @@ class PlannerController extends AppBaseController
                 ->where('active_school', 1)
                 ->when(!empty($languageIds), function ($query) use ($languageIds) {
                     $query->whereHas('monitor', function ($q) use ($languageIds) {
-                        $q->where(function ($q2) use ($languageIds) {
-                            $q2->whereIn('language1_id', $languageIds)
-                                ->orWhereIn('language2_id', $languageIds)
-                                ->orWhereIn('language3_id', $languageIds)
-                                ->orWhereIn('language4_id', $languageIds)
-                                ->orWhereIn('language5_id', $languageIds)
-                                ->orWhereIn('language6_id', $languageIds);
-                        });
+                        $placeholders = implode(',', array_fill(0, count($languageIds), '?'));
+                        $q->whereRaw(
+                            '(monitors.language1_id IN (' . $placeholders . ')' .
+                            ' OR monitors.language2_id IN (' . $placeholders . ')' .
+                            ' OR monitors.language3_id IN (' . $placeholders . ')' .
+                            ' OR monitors.language4_id IN (' . $placeholders . ')' .
+                            ' OR monitors.language5_id IN (' . $placeholders . ')' .
+                            ' OR monitors.language6_id IN (' . $placeholders . '))',
+                            array_merge($languageIds, $languageIds, $languageIds, $languageIds, $languageIds, $languageIds)
+                        );
                     });
                 })
                 ->get();
@@ -276,11 +304,19 @@ class PlannerController extends AppBaseController
         // OPTIMIZACION: Cargar authorized degrees para todos los monitores en una sola query
         $monitorIds = $monitors->pluck('id')->toArray();
         if (!empty($monitorIds)) {
-            $authorizedDegreesByMonitorSport = MonitorSportAuthorizedDegree::with('degree')
+            $authorizedDegreesByMonitorSport = MonitorSportAuthorizedDegree::with([
+                'degree:id,name,degree_order',
+                'monitorSport' => function ($query) use ($schoolId, $monitorIds) {
+                    $query->select('id', 'monitor_id', 'sport_id', 'school_id')
+                        ->where('school_id', $schoolId)
+                        ->whereIn('monitor_id', $monitorIds);
+                }
+            ])
                 ->whereHas('monitorSport', function ($q) use ($schoolId, $monitorIds) {
                     $q->where('school_id', $schoolId)
                         ->whereIn('monitor_id', $monitorIds);
                 })
+                ->select('id', 'monitor_sport_id', 'degree_id')
                 ->get()
                 ->groupBy(function ($item) {
                     return $item->monitorSport->monitor_id . '-' . $item->monitorSport->sport_id;
@@ -298,6 +334,96 @@ class PlannerController extends AppBaseController
         $nwd = $nwdQuery->get();
         $subgroups = $subgroupsQuery->get();
         $bookings = $bookingQuery->get();
+
+        $courseIds = collect()
+            ->merge($bookings->pluck('course_id'))
+            ->merge($subgroups->pluck('course_id'))
+            ->merge($subgroups->pluck('courseGroup.course_id'))
+            ->merge($subgroups->flatMap(function ($subgroup) {
+                return $subgroup->relationLoaded('bookingUsers')
+                    ? $subgroup->bookingUsers->pluck('course_id')
+                    : collect();
+            }))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($courseIds->isNotEmpty()) {
+            $courses = Course::select('id', 'name', 'sport_id', 'course_type', 'max_participants', 'date_start', 'date_end')
+                ->withCount(['courseDates as course_dates_total'])
+                ->with(['courseDates' => function ($dateQuery) use ($dateStart, $dateEnd) {
+                    $dateQuery->select('id', 'course_id', 'date', 'hour_start', 'hour_end')
+                        ->orderBy('date');
+                    if ($dateStart && $dateEnd) {
+                        $dateQuery->whereBetween('date', [$dateStart, $dateEnd]);
+                    } else {
+                        $dateQuery->whereDate('date', Carbon::today());
+                    }
+                }])
+                ->whereIn('id', $courseIds)
+                ->get()
+                ->keyBy('id');
+
+            $attachCourse = function ($model) use ($courses): void {
+                if (!$model) {
+                    return;
+                }
+
+                if (!$model->relationLoaded('course') || !$model->course) {
+                    $course = $courses->get($model->course_id);
+                    if ($course) {
+                        $model->setRelation('course', $course);
+                    }
+                }
+            };
+
+            $bookings->each($attachCourse);
+
+            $subgroups->each(function ($subgroup) use ($attachCourse, $courses) {
+                $attachCourse($subgroup);
+                if ($subgroup->relationLoaded('courseGroup') && $subgroup->courseGroup) {
+                    if (!$subgroup->courseGroup->relationLoaded('course') || !$subgroup->courseGroup->course) {
+                        $course = $courses->get($subgroup->courseGroup->course_id);
+                        if ($course) {
+                            $subgroup->courseGroup->setRelation('course', $course);
+                        }
+                    }
+                }
+                if ($subgroup->relationLoaded('bookingUsers')) {
+                    $subgroup->bookingUsers->each($attachCourse);
+                }
+            });
+        }
+
+        $stripCourseAppends = function ($course): void {
+            if ($course) {
+                $course->setAppends([]);
+            }
+        };
+        $stripBookingAppends = function ($booking): void {
+            if ($booking) {
+                $booking->setAppends([]);
+                if (method_exists($booking, 'disableSportLazyLoad')) {
+                    $booking->disableSportLazyLoad();
+                }
+            }
+        };
+
+        $bookings->each(function ($booking) use ($stripCourseAppends, $stripBookingAppends) {
+            $stripCourseAppends($booking->course ?? null);
+            $stripBookingAppends($booking->booking ?? null);
+        });
+
+        $subgroups->each(function ($subgroup) use ($stripCourseAppends, $stripBookingAppends) {
+            $stripCourseAppends($subgroup->course ?? null);
+            $stripCourseAppends($subgroup->courseGroup?->course ?? null);
+            if ($subgroup->relationLoaded('bookingUsers')) {
+                $subgroup->bookingUsers->each(function ($bookingUser) use ($stripCourseAppends, $stripBookingAppends) {
+                    $stripCourseAppends($bookingUser->course ?? null);
+                    $stripBookingAppends($bookingUser->booking ?? null);
+                });
+            }
+        });
 
         $subgroupPositions = collect();
         if ($subgroups->isNotEmpty()) {
@@ -931,11 +1057,14 @@ class PlannerController extends AppBaseController
                 }
             }
             DB::transaction(function () use ($targets, $targetSubgroups) {
-                foreach ($targets as $bu) {
-                    $bu->update(['monitor_id' => null, 'accepted' => true]);
+                $now = now();
+                if ($targets->isNotEmpty()) {
+                    BookingUser::whereIn('id', $targets->pluck('id'))
+                        ->update(['monitor_id' => null, 'accepted' => true, 'updated_at' => $now]);
                 }
-                foreach ($targetSubgroups as $sg) {
-                    $sg->update(['monitor_id' => null]);
+                if ($targetSubgroups->isNotEmpty()) {
+                    CourseSubgroup::whereIn('id', $targetSubgroups->pluck('id'))
+                        ->update(['monitor_id' => null, 'updated_at' => $now]);
                 }
             });
             foreach ($notifications as $notification) {
@@ -1051,15 +1180,28 @@ class PlannerController extends AppBaseController
 
         // 7) Aplicar cambios
         DB::transaction(function () use ($monitorId, $scope, $targets, $targetSubgroups) {
-            foreach ($targets as $bu) {
-                $bu->update(['monitor_id' => $monitorId, 'accepted' => true]);
-
-                if (in_array($scope, ['interval', 'all', 'from', 'range']) && $bu->course_subgroup_id) {
-                    CourseSubgroup::where('id', $bu->course_subgroup_id)->update(['monitor_id' => $monitorId]);
-                }
+            $now = now();
+            if ($targets->isNotEmpty()) {
+                BookingUser::whereIn('id', $targets->pluck('id'))
+                    ->update(['monitor_id' => $monitorId, 'accepted' => true, 'updated_at' => $now]);
             }
-            foreach ($targetSubgroups as $sg) {
-                $sg->update(['monitor_id' => $monitorId]);
+
+            $subgroupIdsFromTargets = collect();
+            if (in_array($scope, ['interval', 'all', 'from', 'range'])) {
+                $subgroupIdsFromTargets = $targets->pluck('course_subgroup_id')
+                    ->filter()
+                    ->map(fn($id) => (int) $id)
+                    ->unique();
+            }
+
+            $subgroupIds = $subgroupIdsFromTargets
+                ->merge($targetSubgroups->pluck('id'))
+                ->filter()
+                ->unique();
+
+            if ($subgroupIds->isNotEmpty()) {
+                CourseSubgroup::whereIn('id', $subgroupIds)
+                    ->update(['monitor_id' => $monitorId, 'updated_at' => $now]);
             }
         });
 

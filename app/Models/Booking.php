@@ -436,9 +436,18 @@ class Booking extends Model
     // Expose minimal computed attributes needed by Admin tables.
     // Keep this list short to avoid unnecessary N+1 queries.
     protected $appends = ['sport'];
+    protected bool $allowSportLazyLoad = true;
+
+    public function disableSportLazyLoad(): void
+    {
+        $this->allowSportLazyLoad = false;
+    }
 
     public function getHasObservationsAttribute()
     {
+        if (array_key_exists('has_observations', $this->attributes)) {
+            return (bool) $this->attributes['has_observations'];
+        }
         return $this->bookingUsers()
             ->where(function ($query) {
                 $query->whereNotNull('notes')
@@ -456,18 +465,35 @@ class Booking extends Model
     // Agrupa los booking_users por group_id con detalles completos - OPTIMIZADO
     public function getGroupedActivitiesAttribute()
     {
+        return $this->buildGroupedActivitiesFromBookingUsers($this->bookingUsers);
+    }
+
+    public function buildGroupedActivitiesFromBookingUsers($bookingUsers): array
+    {
+        if (!$bookingUsers) {
+            return [];
+        }
+
+        $bookingUsers = $bookingUsers instanceof \Illuminate\Support\Collection
+            ? $bookingUsers
+            : collect($bookingUsers);
+
+        if ($bookingUsers->isEmpty()) {
+            return [];
+        }
+
         // Cargar todas las relaciones necesarias de una vez para evitar N+1
-        $this->loadMissing([
-            'bookingUsers.client.clientSports.degree',
-            'bookingUsers.client.clientSports.sport',
-            'bookingUsers.course.sport',
-            'bookingUsers.courseDate',
-            'bookingUsers.degree',
-            'bookingUsers.monitor',
-            'bookingUsers.bookingUserExtras.courseExtra'
+        $bookingUsers->loadMissing([
+            'client.clientSports.degree',
+            'client.clientSports.sport',
+            'course.sport',
+            'courseDate',
+            'degree',
+            'monitor',
+            'bookingUserExtras.courseExtra'
         ]);
 
-        return array_values($this->bookingUsers->groupBy('group_id')->map(function ($users) {
+        return array_values($bookingUsers->groupBy('group_id')->map(function ($users) {
             $groupedActivity = [
                 'group_id' => $users->first()->group_id,
                 'sport' => optional($users->first()->course)->sport,
@@ -882,7 +908,7 @@ class Booking extends Model
     }
 
     // Calcula el precio de una fecha
-    public function calculateDatePrice($course, $date)
+    public function calculateDatePrice($course, $date, bool $includeCancelled = false)
     {
         $datePrice = 0;
 
@@ -891,7 +917,12 @@ class Booking extends Model
             return $datePrice;
         }
 
-        if (collect($date['booking_users'])->contains('status', 1)) {
+        $bookingUsers = collect($date['booking_users']);
+        if ($bookingUsers->isEmpty()) {
+            return $datePrice;
+        }
+
+        if ($includeCancelled || $bookingUsers->contains('status', 1)) {
             if (($course['course_type'] ?? 0) === 1) {
                 $datePrice = $course['price'] ?? 0;
             } elseif ($course['is_flexible'] ?? false) {
@@ -899,6 +930,9 @@ class Booking extends Model
                 $participants = count($date['utilizers'] ?? []);
                 $priceRange = collect($course['price_range'] ?? []);
                 $normalizedDuration = strtolower(str_replace([' ', 'min'], ['', 'm'], (string) $duration));
+                if (preg_match('/^[0-9]+h$/', $normalizedDuration)) {
+                    $normalizedDuration .= '0m';
+                }
                 $interval = $priceRange->first(function ($range) use ($duration, $normalizedDuration) {
                     if (!isset($range['intervalo'])) {
                         return false;
@@ -909,6 +943,9 @@ class Booking extends Model
                     }
 
                     $normalizedInterval = strtolower(str_replace([' ', 'min'], ['', 'm'], (string) $range['intervalo']));
+                    if (preg_match('/^[0-9]+h$/', $normalizedInterval)) {
+                        $normalizedInterval .= '0m';
+                    }
                     return $normalizedInterval === $normalizedDuration;
                 });
                 $datePrice = $interval ? ($interval[$participants] ?? 0) : 0;
@@ -959,6 +996,9 @@ class Booking extends Model
             if ($this->relationLoaded('bookingUsers')) {
                 $bookingUsers = $this->bookingUsers;
             } else {
+                if (!$this->allowSportLazyLoad) {
+                    return null;
+                }
                 $bookingUsers = $this->bookingUsers()->with('course.sport')->get();
             }
 
@@ -1396,7 +1436,15 @@ class Booking extends Model
     {
         $bookingData = self::with('clientMain')->where('id', '=', intval($bookingID))->first();
         if(isset($bookingData->id)) {
-            $cancelledLines = $bookingData->parseBookedGroupedCourses();
+            $bookingData->loadMissing([
+                'bookingUsers.course',
+                'bookingUsers.courseDate',
+                'bookingUsers.client',
+                'bookingUsers.monitor',
+                'bookingUsers.degree',
+                'bookingUsers.bookingUserExtras.courseExtra',
+            ]);
+            $cancelledLines = $bookingData->bookingUsers;
             BookingUser::where('booking_id', $bookingData->id)->update(['status' => 2]);
 
             //TODO: que pasa si hacen una reserva con cancellation insurance y no la pagan.
@@ -1417,7 +1465,9 @@ class Booking extends Model
                 // N.B. try-catch because some test users enter unexistant emails, throwing Swift_TransportException
                 try
                 {
-                    \Mail::to($bookingData->email)
+                    $recipient = $buyerUser->email ?? $bookingData->email;
+                    if ($recipient) {
+                        \Mail::to($recipient)
                         ->send(new BookingCancelMailer(
                             $mySchool,
                             $bookingData,
@@ -1425,6 +1475,7 @@ class Booking extends Model
                             $buyerUser,
                             $voucherData
                         ));
+                    }
                 }
                 catch (\Exception $ex)
                 {
