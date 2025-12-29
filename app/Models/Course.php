@@ -626,6 +626,9 @@ class Course extends Model
 
         if ($course) {
             $courseType = $course->course_type ?? null;
+            if (!$course->sport) {
+                return null;
+            }
 
             // Verificar si hay un course_type definido
             if ($courseType !== null) {

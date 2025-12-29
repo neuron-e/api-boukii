@@ -141,6 +141,9 @@ Route::get('/finance/season-dashboard', [FinanceController::class, 'getSeasonFin
 Route::get('/finance/export-dashboard', [FinanceController::class, 'exportSeasonDashboard']);
 Route::get('/admin/finance/debug-export-params', [FinanceController::class, 'debugExportParams']);
 
+// PERFORMANCE: Dashboard metrics optimizado - reduce ~20 llamadas API a 1
+Route::middleware('auth:sanctum')->get('/admin/dashboard/metrics', [\App\Http\Controllers\Admin\DashboardMetricsController::class, 'index']);
+
 Route::get('/debug-bookings', [\App\Http\Controllers\Admin\FinanceController::class, 'getCompleteFinancialAnalysis']);
 Route::get('bookings/{id}/financial-debug', [FinanceController::class, 'getBookingFinancialDebug'])
     ->name('bookings.financial-debug');

@@ -177,8 +177,12 @@ class BookingController extends AppBaseController
 
     public function tableList(Request $request): JsonResponse
     {
+        $perfStart = microtime(true);
+        DB::enableQueryLog();
+
         $school = $this->getSchool($request);
         if (!$school) {
+            DB::disableQueryLog();
             return $this->sendError('School not found for the current user', [], 403);
         }
 
@@ -263,7 +267,10 @@ class BookingController extends AppBaseController
 
         $payload = BookingListResource::collection($bookings)->resolve();
 
-        return response()->json([
+        $queries = DB::getQueryLog();
+        DB::disableQueryLog();
+
+        $response = response()->json([
             'success' => true,
             'data' => $payload,
             'total' => $bookings->total(),
@@ -272,12 +279,35 @@ class BookingController extends AppBaseController
             'last_page' => $bookings->lastPage(),
             'message' => 'Bookings retrieved successfully'
         ]);
+
+        Log::channel('performance')->info('Endpoint performance', [
+            'path' => $request->path(),
+            'method' => $request->method(),
+            'user_id' => auth()->id(),
+            'school_id' => $school->id,
+            'duration_ms' => round((microtime(true) - $perfStart) * 1000, 2),
+            'query_count' => count($queries),
+            'query_time_ms' => round(array_sum(array_column($queries, 'time')), 2),
+            'payload_bytes' => strlen($response->getContent() ?? ''),
+            'per_page' => $perPage,
+            'page' => (int) $request->input('page', 1),
+            'order' => $orderDirection,
+            'order_column' => $orderColumnRequest,
+            'status' => $statusFilter,
+            'course_types' => $courseTypes,
+        ]);
+
+        return $response;
     }
 
     public function preview(Request $request, $id): JsonResponse
     {
+        $perfStart = microtime(true);
+        DB::enableQueryLog();
+
         $school = $this->getSchool($request);
         if (!$school) {
+            DB::disableQueryLog();
             return $this->sendError('School not found for the current user', [], 403);
         }
 
@@ -286,10 +316,12 @@ class BookingController extends AppBaseController
             ->first();
 
         if (!$booking) {
+            DB::disableQueryLog();
             return $this->sendError('Booking not found', [], 404);
         }
 
-        $this->loadBookingDetail($booking);
+        $includeEdit = $request->boolean('include_edit', false);
+        $this->loadBookingDetail($booking, $includeEdit);
 
         $calculated = $booking->calculateCurrentTotal();
         $balance = $booking->getCurrentBalance();
@@ -299,7 +331,23 @@ class BookingController extends AppBaseController
         $booking->computed_pending_amount = round(max(0, $booking->getPendingAmount()), 2);
         $booking->append('payment_method_status');
 
-        return $this->sendResponse($booking, 'Booking retrieved successfully');
+        $queries = DB::getQueryLog();
+        DB::disableQueryLog();
+
+        $response = $this->sendResponse($booking, 'Booking retrieved successfully');
+        Log::channel('performance')->info('Endpoint performance', [
+            'path' => $request->path(),
+            'method' => $request->method(),
+            'user_id' => auth()->id(),
+            'school_id' => $school->id,
+            'booking_id' => (int) $id,
+            'duration_ms' => round((microtime(true) - $perfStart) * 1000, 2),
+            'query_count' => count($queries),
+            'query_time_ms' => round(array_sum(array_column($queries, 'time')), 2),
+            'payload_bytes' => strlen($response->getContent() ?? ''),
+        ]);
+
+        return $response;
     }
 
     private function parseCsvInts(?string $value): array
@@ -350,13 +398,55 @@ class BookingController extends AppBaseController
         return $relations;
     }
 
-    private function loadBookingDetail(Booking $booking): Booking
+    private function loadBookingDetail(Booking $booking, bool $includeEdit = false): Booking
     {
-        return $booking->load([
+        $courseDatesRelation = function ($query) use ($includeEdit) {
+            $query->select([
+                'id', 'course_id', 'course_interval_id', 'date',
+                'hour_start', 'hour_end', 'interval_id'
+            ]);
+
+            if ($includeEdit) {
+                $query->with([
+                    'courseGroups' => function ($groupQuery) {
+                        $groupQuery->select(['id', 'course_id', 'course_date_id', 'degree_id']);
+                    },
+                    'courseGroups.courseSubgroups' => function ($subgroupQuery) {
+                        $subgroupQuery->select([
+                            'id', 'course_id', 'course_date_id', 'degree_id',
+                            'course_group_id', 'monitor_id', 'max_participants'
+                        ]);
+                    }
+                ]);
+            }
+        };
+
+        $courseRelation = function ($query) use ($courseDatesRelation, $includeEdit) {
+            $query->select([
+                'id', 'name', 'course_type', 'is_flexible',
+                'sport_id', 'school_id', 'price', 'currency',
+                'discounts', 'settings'
+            ])->with([
+                'sport:id,name,icon_collective,icon_prive,icon_activity',
+                'courseExtras' => function ($extraQuery) {
+                    $extraQuery->select(['id', 'course_id', 'name', 'price']);
+                }
+            ]);
+
+            if ($includeEdit) {
+                $query->with([
+                    'courseDates' => $courseDatesRelation
+                ]);
+            }
+        };
+
+        $booking->load([
             'user:id,username,first_name,last_name',
             'clientMain:id,first_name,last_name,email,image,language1_id,country,birth_date',
-            'clientMain.clientSports:id,client_id,degree_id,sport_id',
-            'clientMain.clientSports.degree:id,name',
+            'clientMain.clientSports' => function ($query) {
+                $query->select(['id', 'client_id', 'degree_id', 'sport_id', 'school_id']);
+            },
+            'clientMain.clientSports.degree:id,name,league,color,annotation',
             'clientMain.clientSports.sport:id,name',
             'vouchersLogs:id,booking_id,voucher_id,amount,status,created_at',
             'vouchersLogs.voucher:id,code,remaining_balance',
@@ -368,32 +458,7 @@ class BookingController extends AppBaseController
                     'price', 'currency', 'notes', 'notes_school'
                 ]);
             },
-            'bookingUsers.course' => function ($query) {
-                $query->select([
-                    'id', 'name', 'translations', 'course_type', 'is_flexible',
-                    'sport_id', 'price', 'currency', 'price_range',
-                    'discounts', 'settings'
-                ]);
-            },
-            'bookingUsers.course.sport:id,name,icon_collective,icon_prive,icon_activity',
-            'bookingUsers.course.courseDates' => function ($query) {
-                $query->select([
-                    'id', 'course_id', 'date', 'hour_start', 'hour_end',
-                    'interval_id'
-                ]);
-            },
-            'bookingUsers.course.courseDates.courseGroups' => function ($query) {
-                $query->select(['id', 'course_id', 'course_date_id', 'degree_id']);
-            },
-            'bookingUsers.course.courseDates.courseGroups.courseSubgroups' => function ($query) {
-                $query->select([
-                    'id', 'course_id', 'course_date_id', 'degree_id',
-                    'course_group_id', 'monitor_id', 'max_participants'
-                ]);
-            },
-            'bookingUsers.course.courseExtras' => function ($query) {
-                $query->select(['id', 'course_id', 'name', 'price']);
-            },
+            'bookingUsers.course' => $courseRelation,
             'bookingUsers.bookingUserExtras' => function ($query) {
                 $query->select(['id', 'booking_user_id', 'course_extra_id', 'quantity']);
             },
@@ -406,8 +471,10 @@ class BookingController extends AppBaseController
                     'birth_date', 'language1_id', 'country', 'email', 'phone'
                 ]);
             },
-            'bookingUsers.client.clientSports:id,client_id,degree_id,sport_id',
-            'bookingUsers.client.clientSports.degree:id,name',
+            'bookingUsers.client.clientSports' => function ($query) {
+                $query->select(['id', 'client_id', 'degree_id', 'sport_id', 'school_id']);
+            },
+            'bookingUsers.client.clientSports.degree:id,name,league,color,annotation',
             'bookingUsers.client.clientSports.sport:id,name',
             'bookingUsers.courseSubGroup' => function ($query) {
                 $query->select([
@@ -420,17 +487,14 @@ class BookingController extends AppBaseController
             },
             'bookingUsers.courseDate' => function ($query) {
                 $query->select([
-                    'id', 'course_id', 'date', 'hour_start', 'hour_end',
-                    'interval_id'
+                    'id', 'course_id', 'course_interval_id', 'date',
+                    'hour_start', 'hour_end', 'interval_id'
                 ]);
             },
             'bookingUsers.monitor' => function ($query) {
                 $query->select(['id', 'first_name', 'last_name', 'image']);
             },
-            'bookingUsers.monitor.monitorSportsDegrees:id,monitor_id,degree_id,sport_id',
-            'bookingUsers.monitor.monitorSportsDegrees.monitorSportAuthorizedDegrees:id,monitor_sport_id,degree_id',
-            'bookingUsers.monitor.monitorSportsDegrees.monitorSportAuthorizedDegrees.degree:id,name,annotation,color,degree_order',
-            'bookingUsers.degree:id,name',
+            'bookingUsers.degree:id,name,league,color,annotation',
             'payments' => function ($query) {
                 $query->select(['id', 'booking_id', 'amount', 'status', 'notes', 'created_at']);
             },
@@ -438,6 +502,57 @@ class BookingController extends AppBaseController
                 $query->select(['id', 'booking_id', 'action', 'created_at']);
             }
         ]);
+
+        if (!$includeEdit) {
+            $courses = $booking->bookingUsers
+                ? $booking->bookingUsers->pluck('course')->filter()->unique('id')
+                : collect();
+
+            $courses->each(function ($course) {
+                $course->settings = $this->minimizeCourseSettings($course->settings);
+            });
+        }
+
+        return $booking;
+    }
+
+    private function minimizeCourseSettings($settings): ?array
+    {
+        if (empty($settings)) {
+            return null;
+        }
+
+        if (is_string($settings)) {
+            $decoded = json_decode($settings, true);
+            if (!is_array($decoded)) {
+                return null;
+            }
+            $settings = $decoded;
+        }
+
+        if (!is_array($settings)) {
+            return null;
+        }
+
+        if (!array_key_exists('intervals', $settings) || !is_array($settings['intervals'])) {
+            return null;
+        }
+
+        $intervals = [];
+        foreach ($settings['intervals'] as $interval) {
+            if (!is_array($interval)) {
+                continue;
+            }
+            $intervals[] = [
+                'id' => $interval['id'] ?? null,
+                'name' => $interval['name'] ?? null,
+                'discounts' => $interval['discounts'] ?? null,
+            ];
+        }
+
+        return [
+            'intervals' => $intervals,
+        ];
     }
 
     /**

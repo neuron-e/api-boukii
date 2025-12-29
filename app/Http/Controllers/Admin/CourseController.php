@@ -40,6 +40,9 @@ class CourseController extends AppBaseController
 {
     use Utils;
     private $courseRepository;
+    private array $flexCollectiveCache = [];
+    private array $privateGroupCountCache = [];
+    private array $voucherBookingCache = [];
 
     public function __construct(CourseRepository $courseRepo)
     {
@@ -2038,6 +2041,7 @@ class CourseController extends AppBaseController
             if (!$course) {
                 return $this->sendError('Course not found', [], 404);
             }
+            $course->loadMissing(['sport:id,icon_collective,icon_prive,icon_activity']);
 
             // Obtener reservas para el curso especÃ­fico
             $bookingusersReserved = BookingUser::whereBetween('date', [$startDate, $endDate])
@@ -2047,7 +2051,19 @@ class CourseController extends AppBaseController
                 ->where('status', 1) // Solo reservas confirmadas
                 ->where('school_id', $schoolId)
                 ->where('course_id', $id)
-                ->with('booking')
+                ->select([
+                    'id', 'booking_id', 'client_id', 'course_id',
+                    'course_group_id', 'course_subgroup_id', 'monitor_id',
+                    'group_id', 'date', 'hour_start', 'hour_end',
+                    'status', 'accepted', 'price', 'currency', 'school_id'
+                ])
+                ->with([
+                    'booking:id,status,paid,payment_method_id,source',
+                    'booking.vouchersLogs:id,booking_id',
+                    'course:id,course_type,is_flexible,price,price_range,currency',
+                    'bookingUserExtras:id,booking_user_id,course_extra_id,quantity',
+                    'bookingUserExtras.courseExtra:id,price'
+                ])
                 ->get();
 
             // Estructura de respuesta
@@ -2170,7 +2186,16 @@ class CourseController extends AppBaseController
             if (!$booking->paid) {
                 $payments['no_paid'] += $bookingTotal;
             } else {
-                if ($booking->vouchersLogs()->exists()) {
+                $hasVouchers = null;
+                if ($booking->relationLoaded('vouchersLogs')) {
+                    $hasVouchers = $booking->vouchersLogs->isNotEmpty();
+                } else {
+                    $hasVouchers = $this->voucherBookingCache[$booking->id]
+                        ?? $booking->vouchersLogs()->exists();
+                }
+                $this->voucherBookingCache[$booking->id] = $hasVouchers;
+
+                if ($hasVouchers) {
                     $payments['vouchers'] += $bookingTotal;
                 } else {
                     switch ($paymentType) {
@@ -2279,21 +2304,8 @@ class CourseController extends AppBaseController
     function calculateFixedCollectivePrice($bookingUser)
     {
         $course = $bookingUser->course;
-
-        // Agrupar BookingUsers por participante (course_id, participant_id)
-        $participants = BookingUser::select(
-            'client_id',
-            DB::raw('COUNT(*) as total_bookings'), // Contar cuÃ¡ntos BookingUsers tiene cada participante
-            DB::raw('SUM(price) as total_price') // Sumar el precio total por participante
-        )
-            ->where('course_id', $course->id)
-            ->where('client_id', $bookingUser->client_id)
-            ->groupBy('client_id')
-            ->get();
-
-
-        // Tomar el precio del curso para cada participante
-        return count($participants) ? $course->price : 0;
+        // Already have a bookingUser for this participant, so use course price.
+        return $course ? $course->price : 0;
     }
 
     function calculateFlexibleCollectivePrice($bookingUser)
@@ -2303,12 +2315,19 @@ class CourseController extends AppBaseController
             return 0;
         }
 
+        $cacheKey = $course->id . '|' . $bookingUser->client_id;
+        if (array_key_exists($cacheKey, $this->flexCollectiveCache)) {
+            return $this->flexCollectiveCache[$cacheKey];
+        }
+
         $clientBookingUsers = BookingUser::where('course_id', $course->id)
             ->where('client_id', $bookingUser->client_id)
             ->where('status', '!=', 2)
             ->get();
 
-        return IntervalDiscountHelper::calculateFlexibleCollectivePrice($course, $clientBookingUsers);
+        $price = IntervalDiscountHelper::calculateFlexibleCollectivePrice($course, $clientBookingUsers);
+        $this->flexCollectiveCache[$cacheKey] = $price;
+        return $price;
     }
 
     function calculatePrivatePrice($bookingUser, $priceRange)
@@ -2317,16 +2336,31 @@ class CourseController extends AppBaseController
         $groupId = $bookingUser->group_id;
 
         // Agrupar BookingUsers por fecha, hora y monitor
-        $groupBookings = BookingUser::where('course_id', $course->id)
-            ->where('date', $bookingUser->date)
-            ->where('hour_start', $bookingUser->hour_start)
-            ->where('hour_end', $bookingUser->hour_end)
-            ->where('monitor_id', $bookingUser->monitor_id)
-            ->where('group_id', $groupId)
-            ->where('booking_id', $bookingUser->booking_id)
-            ->where('school_id', $bookingUser->school_id)
-            ->where('status', 1)
-            ->count();
+        $groupKey = implode('|', [
+            $course?->id,
+            $bookingUser->date,
+            $bookingUser->hour_start,
+            $bookingUser->hour_end,
+            $bookingUser->monitor_id,
+            $groupId,
+            $bookingUser->booking_id,
+            $bookingUser->school_id
+        ]);
+
+        if (!array_key_exists($groupKey, $this->privateGroupCountCache)) {
+            $this->privateGroupCountCache[$groupKey] = BookingUser::where('course_id', $course->id)
+                ->where('date', $bookingUser->date)
+                ->where('hour_start', $bookingUser->hour_start)
+                ->where('hour_end', $bookingUser->hour_end)
+                ->where('monitor_id', $bookingUser->monitor_id)
+                ->where('group_id', $groupId)
+                ->where('booking_id', $bookingUser->booking_id)
+                ->where('school_id', $bookingUser->school_id)
+                ->where('status', 1)
+                ->count();
+        }
+
+        $groupBookings = $this->privateGroupCountCache[$groupKey];
 
         $duration = Carbon::parse($bookingUser->hour_end)->diffInMinutes(Carbon::parse($bookingUser->hour_start));
         $interval = $this->getIntervalFromDuration($duration); // FunciÃ³n para mapear duraciÃ³n al intervalo (e.g., "1h 30m").
@@ -2342,7 +2376,9 @@ class CourseController extends AppBaseController
 
         // Calcular extras
         $extraPrices = $bookingUser->bookingUserExtras->sum(function ($extra) {
-            return $extra->price;
+            $unitPrice = $extra->courseExtra->price ?? 0;
+            $quantity = $extra->quantity ?? 1;
+            return $unitPrice * $quantity;
         });
 
         // Calcular precio total
@@ -2373,9 +2409,9 @@ class CourseController extends AppBaseController
 
         $totalExtrasPrice = 0;
         foreach ($extras as $extra) {
-            //  Log::debug('extra price:'. $extra->courseExtra->price);
             $extraPrice = $extra->courseExtra->price ?? 0;
-            $totalExtrasPrice += $extraPrice;
+            $quantity = $extra->quantity ?? 1;
+            $totalExtrasPrice += $extraPrice * $quantity;
         }
 
         return $totalExtrasPrice;
@@ -2433,7 +2469,16 @@ class CourseController extends AppBaseController
             if (!$booking->paid) {
                 $payments['no_paid'] += $bookingTotal;
             } else {
-                if ($booking->vouchersLogs()->exists()) {
+                $hasVouchers = null;
+                if ($booking->relationLoaded('vouchersLogs')) {
+                    $hasVouchers = $booking->vouchersLogs->isNotEmpty();
+                } else {
+                    $hasVouchers = $this->voucherBookingCache[$booking->id]
+                        ?? $booking->vouchersLogs()->exists();
+                }
+                $this->voucherBookingCache[$booking->id] = $hasVouchers;
+
+                if ($hasVouchers) {
                     $payments['vouchers'] += $bookingTotal;
                 } else {
                     switch ($paymentType) {
@@ -2459,7 +2504,11 @@ class CourseController extends AppBaseController
         }
 
         // Procesar fuente de reservas (web/admin)
-        $bookingUsersGrouped = $course->bookingUsersActive->groupBy('client_id');
+        $bookingUsersGrouped = $course->bookingUsersActive()
+            ->whereBetween('date', [$startDate, $endDate])
+            ->with('booking:id,source')
+            ->get()
+            ->groupBy('client_id');
         foreach ($bookingUsersGrouped as $clientBookingUsers) {
             $booking = $clientBookingUsers->first()->booking;
             $source = $booking->source;
@@ -2524,3 +2573,5 @@ class CourseController extends AppBaseController
     }
 
 }
+
+
