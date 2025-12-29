@@ -10,8 +10,8 @@ class LogViewerBasicAuth
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $username = env('LOG_VIEWER_USER');
-        $password = env('LOG_VIEWER_PASSWORD');
+        $username = config('logviewer.auth.user');
+        $password = config('logviewer.auth.password');
 
         if (!$username || !$password) {
             return response('Log viewer credentials not configured', 403);

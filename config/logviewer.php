@@ -13,4 +13,8 @@ return [
     'pattern'       => env('LOGVIEWER_PATTERN', '*.log'),
     'storage_path'  => env('LOGVIEWER_STORAGE_PATH', storage_path('logs')),
     'timezone' => 'Europe/Madrid',
+    'auth' => [
+        'user' => env('LOG_VIEWER_USER'),
+        'password' => env('LOG_VIEWER_PASSWORD'),
+    ],
 ];
