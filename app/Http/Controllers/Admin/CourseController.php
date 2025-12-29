@@ -1373,6 +1373,19 @@ class CourseController extends AppBaseController
                             ]);
                             $updatedCourseGroups[] = $group->id;
 
+                            // FIX DEBUG: Log whether course_subgroups is present and its count
+                            $hasSubgroups = isset($groupData['course_subgroups']);
+                            $subgroupsCount = $hasSubgroups ? count($groupData['course_subgroups']) : 0;
+                            Log::info('[GROUP_PAYLOAD_CHECK]', [
+                                'course_id' => $course->id,
+                                'course_date_id' => $date->id,
+                                'course_group_id' => $group->id,
+                                'degree_id' => $group->degree_id,
+                                'has_course_subgroups_key' => $hasSubgroups,
+                                'course_subgroups_count' => $subgroupsCount,
+                                'is_array' => $hasSubgroups && is_array($groupData['course_subgroups']),
+                            ]);
+
                             if (isset($groupData['course_subgroups'])) {
                                 Log::info('[SUBGROUP_UPDATE_START]', [
                                     'course_id' => $course->id,
@@ -1406,6 +1419,7 @@ class CourseController extends AppBaseController
                                     // Verifica si existe 'id' antes de usarlo
                                     $subgroupId = $subgroupData['id'] ?? null;
                                     $subgroupDatesId = $subgroupData['subgroup_dates_id'] ?? null;
+
                                     if ($course->course_type === 1 && empty($subgroupDatesId)) {
                                         DB::rollback();
                                         return $this->sendError('Missing subgroup_dates_id in subgroup payload.', [
@@ -1414,13 +1428,17 @@ class CourseController extends AppBaseController
                                             'course_group_id' => $group->id,
                                         ]);
                                     }
-                                    if (!empty($subgroupDatesId)) {
+
+                                    // FIX CRITICAL: Primero intentar encontrar por subgroup_dates_id si NO es temporal
+                                    // Esto tiene prioridad sobre el ID enviado por el frontend
+                                    if (!empty($subgroupDatesId) && !str_starts_with($subgroupDatesId, 'SGTMP-')) {
                                         $existingByDatesId = CourseSubgroup::where('course_group_id', $group->id)
                                             ->where('course_date_id', $date->id)
                                             ->where('subgroup_dates_id', $subgroupDatesId)
                                             ->whereNull('deleted_at')
                                             ->first();
-                                        if ($existingByDatesId && $subgroupId !== $existingByDatesId->id) {
+                                        if ($existingByDatesId) {
+                                            // Siempre usar el ID de DB, ignorar el ID del frontend
                                             $subgroupId = $existingByDatesId->id;
                                             $subgroupData['id'] = $existingByDatesId->id;
                                             Log::info('[SUBGROUP_RECOVERY] Found existing subgroup by subgroup_dates_id', [
@@ -1428,8 +1446,51 @@ class CourseController extends AppBaseController
                                                 'course_date_id' => $date->id,
                                                 'course_group_id' => $group->id,
                                                 'subgroup_dates_id' => $subgroupDatesId,
+                                                'frontend_sent_id' => $subgroupData['id'] ?? null,
                                                 'recovered_id' => $subgroupId,
                                             ]);
+                                        }
+                                    } elseif (!empty($subgroupDatesId) && str_starts_with($subgroupDatesId, 'SGTMP-')) {
+                                        // FIX: Si es ID temporal, buscar subgrupo existente sin subgroup_dates_id asignado
+                                        $existingWithoutDatesId = CourseSubgroup::where('course_group_id', $group->id)
+                                            ->where('course_date_id', $date->id)
+                                            ->where('degree_id', $subgroupData['degree_id'])
+                                            ->whereNull('subgroup_dates_id')
+                                            ->whereNull('deleted_at')
+                                            ->first();
+
+                                        if ($existingWithoutDatesId) {
+                                            // Usar el subgrupo existente y asignarle el nuevo subgroup_dates_id
+                                            $subgroupId = $existingWithoutDatesId->id;
+                                            $subgroupData['id'] = $existingWithoutDatesId->id;
+                                            Log::info('[SUBGROUP_RECOVERY] Found existing subgroup without subgroup_dates_id for temp ID', [
+                                                'course_id' => $course->id,
+                                                'course_date_id' => $date->id,
+                                                'course_group_id' => $group->id,
+                                                'temp_subgroup_dates_id' => $subgroupDatesId,
+                                                'frontend_sent_id' => $subgroupId ?? null,
+                                                'recovered_id' => $subgroupId,
+                                                'booking_users_count' => $existingWithoutDatesId->bookingUsers()->count(),
+                                            ]);
+                                        }
+                                    }
+
+                                    // FIX: Verificar que el ID proporcionado realmente existe en DB (solo si no fue encontrado por subgroup_dates_id)
+                                    if ($subgroupId && !isset($existingByDatesId) && !isset($existingWithoutDatesId)) {
+                                        $existsInDb = CourseSubgroup::where('id', $subgroupId)
+                                            ->where('course_group_id', $group->id)
+                                            ->where('course_date_id', $date->id)
+                                            ->exists();
+
+                                        if (!$existsInDb) {
+                                            Log::warning('[INVALID_SUBGROUP_ID] Frontend sent non-existent ID, treating as new', [
+                                                'course_id' => $course->id,
+                                                'course_date_id' => $date->id,
+                                                'course_group_id' => $group->id,
+                                                'invalid_id' => $subgroupId,
+                                            ]);
+                                            $subgroupId = null; // Tratar como nuevo subgrupo
+                                            unset($subgroupData['id']);
                                         }
                                     }
                                     if ($subgroupId) {
@@ -1440,7 +1501,9 @@ class CourseController extends AppBaseController
                                     }
 
                                     // NUEVO: Handle subgroup_dates_id assignment
-                                    if (!isset($subgroupData['subgroup_dates_id']) || empty($subgroupData['subgroup_dates_id'])) {
+                                    // FIX: También regenerar si es un ID temporal (SGTMP-)
+                                    $isTemporaryId = isset($subgroupData['subgroup_dates_id']) && str_starts_with($subgroupData['subgroup_dates_id'], 'SGTMP-');
+                                    if (!isset($subgroupData['subgroup_dates_id']) || empty($subgroupData['subgroup_dates_id']) || $isTemporaryId) {
                                         if ($subgroupId) {
                                             // For existing subgroups, keep the existing ID if present
                                             $existingSubgroup = CourseSubgroup::find($subgroupId);
@@ -1503,13 +1566,32 @@ class CourseController extends AppBaseController
                             ]);
 
                             // MEJORADO: Verificar que no queden booking_users antes de eliminar subgrupos
-                            // CRITICAL FIX: Solo buscar subgrupos de esta course_date_id específica
-                            $subgroupsToDelete = $group->courseSubgroups()
-                                ->where('course_date_id', $date->id)
-                                ->whereNotIn('id', $updatedSubgroups)
-                                ->pluck('id');
+                            // CRITICAL FIX: Solo buscar subgrupos de esta course_date_id Y degree_id específicos
+                            // FIX: Solo eliminar subgrupos del MISMO NIVEL (degree_id) para no afectar otros niveles
+                            // FIX 2: Solo eliminar si hay subgrupos actualizados (si updatedSubgroups está vacío, significa que no se modificó este grupo)
+                            $shouldDeleteMissing = !empty($updatedSubgroups);
 
-                            if ($subgroupsToDelete->isNotEmpty()) {
+                            $subgroupsToDelete = collect();
+                            if ($shouldDeleteMissing) {
+                                $subgroupsToDelete = $group->courseSubgroups()
+                                    ->where('course_date_id', $date->id)
+                                    ->where('degree_id', $group->degree_id)
+                                    ->whereNotIn('id', $updatedSubgroups)
+                                    ->pluck('id');
+                            }
+
+                            // DEBUG: Log para entender qué se intenta eliminar
+                            Log::info('[SUBGROUP_DELETE_CHECK]', [
+                                'course_id' => $course->id,
+                                'course_date_id' => $date->id,
+                                'course_group_id' => $group->id,
+                                'degree_id' => $group->degree_id,
+                                'updated_subgroups' => $updatedSubgroups,
+                                'should_delete_missing' => $shouldDeleteMissing,
+                                'subgroups_to_delete' => $subgroupsToDelete->toArray(),
+                            ]);
+
+                            if ($shouldDeleteMissing && $subgroupsToDelete->isNotEmpty()) {
                                 $subgroupsToDeleteIds = $subgroupsToDelete->toArray();
 
                                 // CRITICAL FIX: Verificar booking_users solo de esta fecha
@@ -1518,12 +1600,19 @@ class CourseController extends AppBaseController
                                     ->whereNull('deleted_at')
                                     ->count();
 
+                                Log::info('[SUBGROUP_DELETE_BOOKING_CHECK]', [
+                                    'subgroups_to_delete_ids' => $subgroupsToDeleteIds,
+                                    'booking_users_count' => $bookingUsersCount,
+                                ]);
+
                                 if ($bookingUsersCount > 0) {
                                     DB::rollback();
                                     return $this->sendError('Cannot delete subgroups with existing booking users. Transfer students first.', [
                                         'course_id' => $course->id,
                                         'course_date_id' => $date->id,
                                         'course_group_id' => $group->id,
+                                        'degree_id' => $group->degree_id,
+                                        'updated_subgroups' => $updatedSubgroups,
                                         'blocked_subgroup_ids' => $subgroupsToDeleteIds,
                                     ]);
                                 }
