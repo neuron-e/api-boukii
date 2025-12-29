@@ -18,7 +18,7 @@ return new class extends Migration
             $table->index(['monitor_id', 'course_date_id'], 'idx_cs_monitor_course_date');
         });
 
-        Schema::table('monitor_nwds', function (Blueprint $table) {
+        Schema::table('monitor_nwd', function (Blueprint $table) {
             $table->index(['monitor_id', 'start_date', 'end_date'], 'idx_nwd_monitor_dates');
             $table->index(['school_id', 'monitor_id', 'full_day', 'user_nwd_subtype_id'], 'idx_nwd_school_monitor_full_day');
         });
@@ -44,7 +44,7 @@ return new class extends Migration
             $table->dropIndex('idx_cs_monitor_course_date');
         });
 
-        Schema::table('monitor_nwds', function (Blueprint $table) {
+        Schema::table('monitor_nwd', function (Blueprint $table) {
             $table->dropIndex('idx_nwd_monitor_dates');
             $table->dropIndex('idx_nwd_school_monitor_full_day');
         });
