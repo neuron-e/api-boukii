@@ -6,6 +6,9 @@ use App\Http\Controllers\AppBaseController;
 use App\Http\Requests\API\CreateCourseSubgroupAPIRequest;
 use App\Http\Requests\API\UpdateCourseSubgroupAPIRequest;
 use App\Http\Resources\API\CourseSubgroupResource;
+use App\Models\BookingUser;
+use App\Models\CourseGroup;
+use App\Models\CourseSubgroupDate;
 use App\Models\CourseSubgroup;
 use AppModelsCourseIntervalMonitor;
 use AppModelsCourse;
@@ -13,6 +16,7 @@ use App\Repositories\CourseSubgroupRepository;
 use App\Services\CourseRepairDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Class CourseSubgroupController
@@ -431,10 +435,197 @@ class CourseSubgroupAPIController extends AppBaseController
             return $this->sendError('Course Subgroup not found');
         }
 
+        $bookingUsersQuery = BookingUser::where('course_subgroup_id', $courseSubgroup->id)
+            ->whereHas('booking', function ($query) {
+                $query->where('status', '!=', 2);
+            });
+
+        $activeBookings = (clone $bookingUsersQuery)->where('status', 1)->count();
+        if ($activeBookings > 0) {
+            return $this->sendError('No se puede eliminar este subgrupo porque tiene reservas activas asociadas', 409);
+        }
+
+        $existingBookings = $bookingUsersQuery->count();
+        if ($existingBookings > 0) {
+            return $this->sendError('No se puede eliminar este subgrupo porque tiene reservas asociadas', 409);
+        }
+
         $schoolId = optional($courseSubgroup->course)->school_id;
         $courseSubgroup->delete();
         $this->repairDispatcher->dispatchForSchool($schoolId);
 
         return $this->sendSuccess('Course Subgroup deleted successfully');
+    }
+
+    public function destroyMultiple(Request $request): JsonResponse
+    {
+        $ids = $request->input('ids', []);
+        if (!is_array($ids) || empty($ids)) {
+            return $this->sendError('Missing course subgroup ids', ['ids' => ['Ids array is required']], 422);
+        }
+
+        $subgroups = CourseSubgroup::with('course')
+            ->whereIn('id', $ids)
+            ->get();
+
+        if ($subgroups->isEmpty()) {
+            return $this->sendError('Course Subgroups not found', ['ids' => $ids], 404);
+        }
+
+        $blocked = [];
+        foreach ($subgroups as $subgroup) {
+            $bookingUsersQuery = BookingUser::where('course_subgroup_id', $subgroup->id)
+                ->whereHas('booking', function ($query) {
+                    $query->where('status', '!=', 2);
+                });
+
+            $activeBookings = (clone $bookingUsersQuery)->where('status', 1)->count();
+            if ($activeBookings > 0) {
+                $blocked[] = [
+                    'id' => $subgroup->id,
+                    'reason' => 'active_bookings'
+                ];
+                continue;
+            }
+
+            $existingBookings = $bookingUsersQuery->count();
+            if ($existingBookings > 0) {
+                $blocked[] = [
+                    'id' => $subgroup->id,
+                    'reason' => 'bookings'
+                ];
+            }
+        }
+
+        if (!empty($blocked)) {
+            return $this->sendError('No se pueden eliminar algunos subgrupos porque tienen reservas asociadas', $blocked, 409);
+        }
+
+        $schoolIds = [];
+        foreach ($subgroups as $subgroup) {
+            $schoolId = optional($subgroup->course)->school_id;
+            if ($schoolId) {
+                $schoolIds[$schoolId] = true;
+            }
+            $subgroup->delete();
+        }
+
+/*        foreach (array_keys($schoolIds) as $schoolId) {
+            $this->repairDispatcher->dispatchForSchool($schoolId);
+        }*/
+
+        return $this->sendResponse(['ids' => $subgroups->pluck('id')->values()], 'Course Subgroups deleted successfully');
+    }
+
+    public function createMultiple(Request $request): JsonResponse
+    {
+        $items = $request->input('items', []);
+        if (!is_array($items) || empty($items)) {
+            return $this->sendError('Missing course subgroup items', ['items' => ['Items array is required']], 422);
+        }
+
+        $requestedDatesId = $request->input('subgroup_dates_id');
+        $subgroupDatesId = $requestedDatesId ?: $this->generateNewSubgroupDatesId();
+        $created = [];
+        $schoolIds = [];
+        $junctionRows = [];
+        $now = now();
+
+        DB::beginTransaction();
+        try {
+            foreach ($items as $input) {
+                if (!is_array($input)) {
+                    continue;
+                }
+
+                $courseGroup = null;
+                if (!empty($input['course_group_id'])) {
+                    $courseGroup = CourseGroup::where('id', $input['course_group_id'])->first();
+                }
+                if (!$courseGroup && !empty($input['course_date_id']) && !empty($input['degree_id'])) {
+                    $courseGroup = CourseGroup::where('course_date_id', $input['course_date_id'])
+                        ->where('degree_id', $input['degree_id'])
+                        ->first();
+                    if ($courseGroup) {
+                        $input['course_group_id'] = $courseGroup->id;
+                    }
+                }
+                if (!$courseGroup) {
+                    DB::rollBack();
+                    return $this->sendError(
+                        'Course group not found for subgroup',
+                        ['course_date_id' => $input['course_date_id'] ?? null, 'degree_id' => $input['degree_id'] ?? null],
+                        409
+                    );
+                }
+                if (!empty($courseGroup->course_id)) {
+                    $input['course_id'] = $courseGroup->course_id;
+                }
+
+                $input['subgroup_dates_id'] = $subgroupDatesId;
+
+                if (isset($input['monitor_id']) && isset($input['course_date_id'])) {
+                    $courseDate = \App\Models\CourseDate::find($input['course_date_id']);
+
+                    if ($courseDate) {
+                        $date = $courseDate->date;
+                        $startTime = $courseDate->hour_start;
+                        $endTime = $courseDate->hour_end;
+
+                        if (\App\Models\Monitor::isMonitorBusy($input['monitor_id'], $date, $startTime, $endTime)) {
+                            DB::rollBack();
+                            return $this->sendError(
+                                'El monitor no est\u00e1 disponible en este horario (tiene reservas, NWDs u otros cursos asignados)',
+                                409
+                            );
+                        }
+                    }
+                }
+
+                $courseSubgroup = CourseSubgroup::create($input);
+                $created[] = $courseSubgroup->id;
+                $junctionRows[] = [
+                    'course_subgroup_id' => $courseSubgroup->id,
+                    'course_date_id' => $courseSubgroup->course_date_id,
+                    'order' => 0,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+
+                $schoolId = optional($courseSubgroup->course)->school_id;
+                if ($schoolId) {
+                    $schoolIds[$schoolId] = true;
+                }
+            }
+
+            if (!empty($junctionRows)) {
+                CourseSubgroupDate::insert($junctionRows);
+            }
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return $this->sendError('Course Subgroups could not be created', ['error' => $e->getMessage()], 500);
+        }
+
+  /*      foreach (array_keys($schoolIds) as $schoolId) {
+            $this->repairDispatcher->dispatchForSchool($schoolId);
+        }*/
+
+        return $this->sendResponse($created, 'Course Subgroups created successfully');
+    }
+
+    private function generateNewSubgroupDatesId(): string
+    {
+        $maxNum = DB::table('course_subgroups')
+            ->whereNotNull('subgroup_dates_id')
+            ->get()
+            ->map(function ($row) {
+                $matches = [];
+                preg_match('/SG-(\d+)/', $row->subgroup_dates_id, $matches);
+                return isset($matches[1]) ? (int) $matches[1] : 0;
+            })
+            ->max() ?? 0;
+
+        return 'SG-' . str_pad($maxNum + 1, 6, '0', STR_PAD_LEFT);
     }
 }

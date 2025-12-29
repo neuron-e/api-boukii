@@ -95,8 +95,18 @@ Route::middleware(['guest'])->group(function () {
     Route::resource('course-extras', App\Http\Controllers\API\CourseExtraAPIController::class)
         ->except(['create', 'edit']);
 
+    Route::post('course-groups/multiple-delete', [App\Http\Controllers\API\CourseGroupAPIController::class, 'destroyMultiple'])
+        ->name('api.course-groups.multiple-delete');
+    Route::post('course-groups/multiple-create', [App\Http\Controllers\API\CourseGroupAPIController::class, 'createMultiple'])
+        ->name('api.course-groups.multiple-create');
     Route::resource('course-groups', App\Http\Controllers\API\CourseGroupAPIController::class)
         ->except(['create', 'edit']);
+
+    Route::post('course-subgroups/multiple-delete', [App\Http\Controllers\API\CourseSubgroupAPIController::class, 'destroyMultiple'])
+        ->name('api.course-subgroups.multiple-delete');
+
+    Route::post('course-subgroups/multiple-create', [App\Http\Controllers\API\CourseSubgroupAPIController::class, 'createMultiple'])
+        ->name('api.course-subgroups.multiple-create');
 
     Route::resource('course-subgroups', App\Http\Controllers\API\CourseSubgroupAPIController::class)
         ->except(['create', 'edit']);
