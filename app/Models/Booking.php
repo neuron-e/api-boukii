@@ -794,9 +794,9 @@ class Booking extends Model
 
         if ($this->has_cancellation_insurance) {
             $school = School::find($this->school_id);
-            $this->cancellation_insurance_price =
+            $this->price_cancellation_insurance =
                 $total * json_decode($school->settings, true)['taxes']['cancellation_insurance_percent'];
-            $total += $this->cancellation_insurance_price;
+            $total += $this->price_cancellation_insurance;
         }
 
         $voucherLogs = $this->vouchersLogs()->with('voucher')->get();
