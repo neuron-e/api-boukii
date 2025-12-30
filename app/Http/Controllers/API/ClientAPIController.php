@@ -372,14 +372,32 @@ class ClientAPIController extends AppBaseController
         $initialGroup = $initialSubgroup->courseGroup;
         $targetGroup = $targetSubgroup->courseGroup;
 
+        $scope = $request->get('scope');
+        if (!$scope) {
+            $scope = $request->moveAllDays ? 'all' : 'single';
+        }
+        $scopeDate = $request->get('scope_date');
+        $startDate = null;
+        if ($scope === 'future') {
+            if (!$scopeDate) {
+                return $this->sendError('Missing scope_date for future transfer');
+            }
+            $startDate = Carbon::parse($scopeDate)->startOfDay();
+        }
+
         // MEJORADO: Usar subgroup_dates_id en lugar de posición implícita
         // Esto es más confiable y explícito
         $targetSubgroupDatesId = $targetSubgroup->subgroup_dates_id;
 
         DB::beginTransaction();
         $subgroupsChanged = [];
-        if ($request->moveAllDays) {
+        if ($scope === 'all' || $scope === 'future') {
             $courseDates = $initialGroup->course->courseDates->whereNull('deleted_at');
+            if ($scope === 'future') {
+                $courseDates = $courseDates->filter(function ($courseDate) use ($startDate) {
+                    return Carbon::parse($courseDate->date)->startOfDay()->gte($startDate);
+                });
+            }
             $targetSubgroupDateEntries = CourseSubgroupDate::with('courseSubgroup.courseGroup')
                 ->whereHas('courseSubgroup', function ($subgroupQuery) use ($targetSubgroupDatesId, $targetGroup) {
                     $subgroupQuery->where('subgroup_dates_id', $targetSubgroupDatesId)
@@ -437,7 +455,13 @@ class ClientAPIController extends AppBaseController
                 );
             }
         } else {
-            $this->moveUsers($initialSubgroup, $targetSubgroup, $request->clientIds);
+            $initialCourseDate = $initialGroup?->courseDate;
+            if (!$initialCourseDate) {
+                DB::rollBack();
+                return $this->sendError('CourseDate not found for subgroup transfer');
+            }
+            $this->moveUsers($initialCourseDate, $targetSubgroup, $request->clientIds);
+            $subgroupsChanged[] = $targetSubgroup;
         }
         DB::commit();
         $this->repairDispatcher->dispatchForSchool($school->id ?? null);
