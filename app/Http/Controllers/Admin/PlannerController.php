@@ -764,9 +764,8 @@ class PlannerController extends AppBaseController
         $targets = collect();
 
         if (!empty($bookingUserIds)) {
-            $targets = BookingUser::with(['courseDate', 'courseSubgroup'])
+            $targets = BookingUser::with(['courseDate', 'courseSubgroup', 'course'])
                 ->whereIn('id', $bookingUserIds)
-                ->whereHas('courseDate', fn($q) => $q->whereNull('deleted_at'))
                 ->get();
         } else {
             $q = BookingUser::with(['courseDate', 'courseSubgroup'])
@@ -832,7 +831,10 @@ class PlannerController extends AppBaseController
         }
 
         $targets->loadMissing(['course', 'courseSubgroup']);
-        $isPrivateCourseTransfer = $targets->isNotEmpty() && $targets->every(fn($bu) => optional($bu->course)->course_type === 2);
+        $isPrivateCourseTransfer = $targets->isNotEmpty() && $targets->every(function ($bu) {
+            $type = optional($bu->course)->course_type;
+            return in_array($type, [2, 3], true);
+        });
 
         $targetSubgroups = collect();
 
@@ -841,7 +843,7 @@ class PlannerController extends AppBaseController
             $degreeIdContext = $degreeIdInput
                 ?? ($courseSubgroupId ? (CourseSubgroup::find($courseSubgroupId)->degree_id ?? null) : null)
                 ?? optional($targets->first())->degree_id
-                ?? optional($targets->first()->courseSubgroup)->degree_id;
+                ?? optional(optional($targets->first())->courseSubgroup)->degree_id;
 
             if (!$degreeIdContext) {
                 // si no logramos determinar degree, mejor no tocar masivamente

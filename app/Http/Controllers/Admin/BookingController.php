@@ -425,7 +425,7 @@ class BookingController extends AppBaseController
             $query->select([
                 'id', 'name', 'course_type', 'is_flexible',
                 'sport_id', 'school_id', 'price', 'currency',
-                'discounts', 'settings'
+                'discounts', 'settings', 'price_range'
             ])->with([
                 'sport:id,name,icon_collective,icon_prive,icon_activity',
                 'courseExtras' => function ($extraQuery) {
@@ -513,7 +513,45 @@ class BookingController extends AppBaseController
             });
         }
 
+        $this->hydrateFlexiblePrivatePrices($booking);
+
         return $booking;
+    }
+
+    private function hydrateFlexiblePrivatePrices(Booking $booking): void
+    {
+        if (!$booking->relationLoaded('bookingUsers')) {
+            return;
+        }
+
+        $booking->bookingUsers->each(function ($bookingUser) {
+            $rawPrice = $bookingUser->price;
+            $price = is_numeric($rawPrice) ? (float) $rawPrice : 0.0;
+            if ($price > 0) {
+                return;
+            }
+
+            $course = $bookingUser->course;
+            if (!$course || (int) $course->course_type !== 2 || !$course->is_flexible) {
+                return;
+            }
+
+            $priceRange = $course->price_range ?? [];
+            if (is_string($priceRange)) {
+                $decoded = json_decode($priceRange, true);
+                $priceRange = is_array($decoded) ? $decoded : [];
+            }
+
+            if (empty($priceRange)) {
+                return;
+            }
+
+            $computedPrice = $this->calculatePrivatePrice($bookingUser, $priceRange);
+            if ($computedPrice > 0) {
+                $bookingUser->price = $computedPrice;
+                $bookingUser->setAttribute('computed_price', $computedPrice);
+            }
+        });
     }
 
     private function minimizeCourseSettings($settings): ?array
