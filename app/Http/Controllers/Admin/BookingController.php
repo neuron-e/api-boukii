@@ -932,6 +932,20 @@ class BookingController extends AppBaseController
             }
 
 
+            $booking->loadMissing([
+                'bookingUsers.course',
+                'bookingUsers.bookingUserExtras.courseExtra',
+                'vouchersLogs.voucher',
+                'payments'
+            ]);
+
+            app(BookingPriceSnapshotService::class)->createSnapshotFromBasket(
+                $booking,
+                auth()->id(),
+                'basket_import',
+                'Snapshot created on booking creation'
+            );
+
             DB::commit();
 
             app(BookingConfirmationService::class)->sendConfirmation($booking, (bool) $booking->paid);

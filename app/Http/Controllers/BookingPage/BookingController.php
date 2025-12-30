@@ -11,6 +11,7 @@ use App\Models\Booking;
 use App\Models\BookingLog;
 use App\Models\BookingUser;
 use App\Models\BookingUserExtra;
+use App\Http\Services\BookingPriceSnapshotService;
 use App\Models\Client;
 use App\Models\Course;
 use App\Models\CourseExtra;
@@ -549,6 +550,20 @@ class BookingController extends SlugAuthController
             $this->notifyMonitorAssignments($bookingUsers);
 
             // Confirmar la transacciÃ³n
+            $booking->loadMissing([
+                'bookingUsers.course',
+                'bookingUsers.bookingUserExtras.courseExtra',
+                'vouchersLogs.voucher',
+                'payments'
+            ]);
+
+            app(BookingPriceSnapshotService::class)->createSnapshotFromBasket(
+                $booking,
+                null,
+                'basket_import',
+                'Snapshot created on booking creation'
+            );
+
             DB::commit();
 
 
