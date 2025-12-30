@@ -108,13 +108,37 @@ class BookingUserAPIController extends AppBaseController
     {
         $input = $request->all();
 
-        // Seguridad: solo la app Teach (token con ability teach:all) puede modificar 'attended'
+        if (!array_key_exists('attended', $input) && array_key_exists('attendance', $input)) {
+            $input['attended'] = $input['attendance'];
+        }
+
+        // Seguridad: solo Teach/admin o monitores pueden modificar 'attended'
         if (array_key_exists('attended', $input)) {
-            $user = $request->user();
-            $canTeach = $user && method_exists($user, 'tokenCan') && $user->tokenCan('teach:all');
-            if (!$canTeach) {
+            $user = $request->user() ?? auth('sanctum')->user();
+            $canTeach = $user && method_exists($user, 'tokenCan') && (
+                $user->tokenCan('teach:all') ||
+                $user->tokenCan('admin:all') ||
+                $user->tokenCan('monitor:all')
+            );
+            $isMonitor = $user && (
+                $user->type === 'monitor' ||
+                $user->type === 3 ||
+                (string)$user->type === '3' ||
+                ($user->relationLoaded('monitors') ? $user->monitors->isNotEmpty() : $user->monitors()->exists())
+            );
+            $isAdmin = $user && (
+                $user->type === 'admin' ||
+                $user->type === 1 ||
+                (string)$user->type === '1'
+            );
+            if (!$canTeach && !$isMonitor && !$isAdmin) {
                 unset($input['attended']);
+            } else {
+                $input['attended'] = (bool)$input['attended'];
             }
+        }
+        if (array_key_exists('attended', $input)) {
+            $input['attendance'] = $input['attended'];
         }
 
         $bookingUser = $this->bookingUserRepository->create($input);
@@ -214,13 +238,37 @@ class BookingUserAPIController extends AppBaseController
     {
         $input = $request->all();
 
-        // Seguridad: solo la app Teach (token con ability teach:all) puede modificar 'attended'
+        if (!array_key_exists('attended', $input) && array_key_exists('attendance', $input)) {
+            $input['attended'] = $input['attendance'];
+        }
+
+        // Seguridad: solo Teach/admin o monitores pueden modificar 'attended'
         if (array_key_exists('attended', $input)) {
-            $user = $request->user();
-            $canTeach = $user && method_exists($user, 'tokenCan') && $user->tokenCan('teach:all');
-            if (!$canTeach) {
+            $user = $request->user() ?? auth('sanctum')->user();
+            $canTeach = $user && method_exists($user, 'tokenCan') && (
+                $user->tokenCan('teach:all') ||
+                $user->tokenCan('admin:all') ||
+                $user->tokenCan('monitor:all')
+            );
+            $isMonitor = $user && (
+                $user->type === 'monitor' ||
+                $user->type === 3 ||
+                (string)$user->type === '3' ||
+                ($user->relationLoaded('monitors') ? $user->monitors->isNotEmpty() : $user->monitors()->exists())
+            );
+            $isAdmin = $user && (
+                $user->type === 'admin' ||
+                $user->type === 1 ||
+                (string)$user->type === '1'
+            );
+            if (!$canTeach && !$isMonitor && !$isAdmin) {
                 unset($input['attended']);
+            } else {
+                $input['attended'] = (bool)$input['attended'];
             }
+        }
+        if (array_key_exists('attended', $input)) {
+            $input['attendance'] = $input['attended'];
         }
 
         /** @var BookingUser $bookingUser */
