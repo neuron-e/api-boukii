@@ -26,6 +26,7 @@ class Kernel extends ConsoleKernel
         RepairOrphanedCourseData::class,
         RestoreZeroTotalBookings::class,
         CleanupDuplicateBookingUsers::class,
+        \App\Console\Commands\BackfillBookingPriceSnapshots::class,
     ];
 
     /**

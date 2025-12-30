@@ -159,6 +159,16 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
         [\App\Http\Controllers\Admin\BookingController::class, 'refundBooking'])
         ->name('api.admin.bookings.refund');
 
+    Route::get('bookings/{id}/pricing',
+        [\App\Http\Controllers\Admin\BookingPricingController::class, 'show'])
+        ->name('api.admin.bookings.pricing.show');
+    Route::post('bookings/{id}/pricing/reprice',
+        [\App\Http\Controllers\Admin\BookingPricingController::class, 'reprice'])
+        ->name('api.admin.bookings.pricing.reprice');
+    Route::post('bookings/{id}/pricing/adjust',
+        [\App\Http\Controllers\Admin\BookingPricingController::class, 'adjust'])
+        ->name('api.admin.bookings.pricing.adjust');
+
     Route::post('bookings/cancel',
         [\App\Http\Controllers\Admin\BookingController::class, 'cancelBookings'])
         ->name('api.admin.bookings.cancel');

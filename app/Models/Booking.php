@@ -364,6 +364,16 @@ class Booking extends Model
         return $this->hasMany(\App\Models\BookingLog::class, 'booking_id');
     }
 
+    public function priceSnapshots(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\BookingPriceSnapshot::class, 'booking_id');
+    }
+
+    public function latestPriceSnapshot(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(\App\Models\BookingPriceSnapshot::class, 'booking_id')->latestOfMany();
+    }
+
     public function bookingUsers(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\App\Models\BookingUser::class, 'booking_id');
@@ -782,21 +792,14 @@ class Booking extends Model
     // Recalcula el total de la reserva
     public function reloadPrice()
     {
-        $total = 0;
-
-        $groupedActivities = $this->getGroupedActivitiesAttribute();
-
-        foreach ($groupedActivities as $activity) {
-            if($activity['status'] !== 2) {
-                $total += $activity['total'];
-            }
-        }
+        $calculated = $this->calculateCurrentTotal();
+        $total = (float) ($calculated['total_final'] ?? 0);
 
         if ($this->has_cancellation_insurance) {
-            $school = School::find($this->school_id);
-            $this->price_cancellation_insurance =
-                $total * json_decode($school->settings, true)['taxes']['cancellation_insurance_percent'];
-            $total += $this->price_cancellation_insurance;
+            $insurance = $calculated['additional_concepts']['cancellation_insurance'] ?? null;
+            if ($insurance !== null) {
+                $this->price_cancellation_insurance = $insurance;
+            }
         }
 
         $voucherLogs = $this->vouchersLogs()->with('voucher')->get();
@@ -828,10 +831,18 @@ class Booking extends Model
             $voucher->save();
         }
 
-        if ($this->paid_total >= $this->price_total) {
-            $this->paid = true;
-        } else {
-            $this->paid = false;
+        $this->price_total = round($total, 2);
+        $pendingAmount = max(0, $this->getPendingAmount());
+        $this->paid = $pendingAmount <= 0.01;
+
+        if (is_string($this->basket)) {
+            $basket = json_decode($this->basket, true);
+            if (is_array($basket)) {
+                $basket['price_total'] = $this->price_total;
+                $basket['paid_total'] = $this->paid_total ?? 0;
+                $basket['pending_amount'] = $pendingAmount;
+                $this->basket = json_encode($basket);
+            }
         }
 
         $this->save();
@@ -1601,7 +1612,8 @@ class Booking extends Model
             'total_vouchers_used' => $totalVouchersUsed,
             'total_vouchers_refunded' => $totalVouchersRefunded,
             'total_no_refund' => $totalNoRefund,
-            'current_balance' => $totalPaid + $totalVouchersUsed - $totalRefunded - $totalVouchersRefunded - $totalNoRefund,
+            // No-refund is informational; it should not reduce the balance kept by the school.
+            'current_balance' => $totalPaid + $totalVouchersUsed - $totalRefunded - $totalVouchersRefunded,
             'received' => $totalPaid + $totalVouchersUsed,
             'processed' => $totalRefunded + $totalVouchersRefunded + $totalNoRefund
         ];

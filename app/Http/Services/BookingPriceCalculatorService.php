@@ -30,7 +30,7 @@ class BookingPriceCalculatorService
         $additionalConcepts = $this->calculateAdditionalConcepts($booking, $activitiesPrice, $includeInsurance);
 
         // Calcular descuentos (SIN vouchers - los vouchers son balance, no descuentos)
-        $discounts = $this->calculateDiscounts($booking);
+        $discounts = $this->calculateDiscounts($booking, $activitiesPrice);
 
         $totalBeforeVouchers = $activitiesPrice + array_sum($additionalConcepts) - array_sum($discounts);
 
@@ -124,7 +124,8 @@ class BookingPriceCalculatorService
         // Realidad financiera neta
         $totalReceived = $totalPaid + $totalVouchersUsed;
         $totalProcessed = $totalRefunded + $totalVouchersRefunded + $totalNoRefund;
-        $netBalance = $totalReceived - $totalProcessed;
+        // No-refund should not reduce the net balance kept by the school.
+        $netBalance = $totalReceived - ($totalRefunded + $totalVouchersRefunded);
 
         return [
             'total_paid' => $totalPaid,
@@ -501,18 +502,58 @@ class BookingPriceCalculatorService
     /**
      * CORREGIDO: Calcular descuentos SIN incluir vouchers
      */
-    private function calculateDiscounts(Booking $booking): array
+    private function calculateDiscounts(Booking $booking, float $activitiesPrice = 0): array
     {
         $discounts = [];
         // Solo reduccion manual y descuento de codigo - NO vouchers
         if ($booking->has_reduction && $booking->price_reduction > 0) {
-            $discounts['manual_reduction'] = $booking->price_reduction;
+            $shouldApplyReduction = true;
+            $storedTotal = (float) ($booking->price_total ?? 0);
+            if ($activitiesPrice > 0 && $storedTotal > 0 && abs($activitiesPrice - $storedTotal) <= 0.01) {
+                // Activities already reflect the reduction, avoid double discount.
+                $shouldApplyReduction = false;
+            }
+
+            $basket = $this->decodeBasket($booking->basket);
+            if (is_array($basket)) {
+                $basketTotal = $this->parseFloatValue($basket['price_total'] ?? null);
+                $basketBase = $this->parseFloatValue($basket['price_base']['price'] ?? null);
+                if ($basketBase > 0 && abs($activitiesPrice - $basketBase) <= 0.01) {
+                    $shouldApplyReduction = true;
+                } elseif ($basketTotal > 0 && abs($activitiesPrice - $basketTotal) <= 0.01) {
+                    $shouldApplyReduction = false;
+                }
+            }
+
+            if ($shouldApplyReduction) {
+                $discounts['manual_reduction'] = $booking->price_reduction;
+            }
         }
         if (!empty($booking->discount_code_value)) {
             $discounts['discount_code'] = (float) $booking->discount_code_value;
         }
 
         return $discounts;
+    }
+
+    private function decodeBasket(?string $basket): ?array
+    {
+        if (!$basket) {
+            return null;
+        }
+        $decoded = json_decode($basket, true);
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    private function parseFloatValue($value): float
+    {
+        if ($value === null || $value === '') {
+            return 0.0;
+        }
+        if (is_numeric($value)) {
+            return (float) $value;
+        }
+        return (float) str_replace(',', '.', (string) $value);
     }
 
     public function calculateIntervalDiscounts(Booking $booking): array

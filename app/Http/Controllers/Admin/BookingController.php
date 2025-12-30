@@ -6,6 +6,7 @@ use App\Http\Controllers\AppBaseController;
 use App\Http\Controllers\PayrexxHelpers;
 use App\Http\Resources\API\BookingResource;
 use App\Http\Resources\API\BookingListResource;
+use App\Http\Services\BookingPriceSnapshotService;
 use App\Mail\BookingCancelMailer;
 use App\Mail\BookingCreateMailer;
 use App\Mail\BookingInfoMailer;
@@ -37,6 +38,7 @@ use Illuminate\Support\Arr;
 use Payrexx\Payrexx;
 use Response;
 use Validator;
+use Carbon\Carbon;
 
 /**
  * Class UserController
@@ -527,9 +529,6 @@ class BookingController extends AppBaseController
         $booking->bookingUsers->each(function ($bookingUser) {
             $rawPrice = $bookingUser->price;
             $price = is_numeric($rawPrice) ? (float) $rawPrice : 0.0;
-            if ($price > 0) {
-                return;
-            }
 
             $course = $bookingUser->course;
             if (!$course || (int) $course->course_type !== 2 || !$course->is_flexible) {
@@ -546,12 +545,81 @@ class BookingController extends AppBaseController
                 return;
             }
 
-            $computedPrice = $this->calculatePrivatePrice($bookingUser, $priceRange);
-            if ($computedPrice > 0) {
-                $bookingUser->price = $computedPrice;
-                $bookingUser->setAttribute('computed_price', $computedPrice);
+            $match = $this->resolvePrivatePriceRangeMatch($bookingUser, $priceRange);
+            if (!$match['has_match']) {
+                $bookingUser->setAttribute('price_fallback', true);
+            }
+
+            if ($price <= 0 && $match['price'] > 0) {
+                $bookingUser->price = $match['price'];
+                $bookingUser->setAttribute('computed_price', $match['price']);
+                $bookingUser->setAttribute('price_fallback', true);
             }
         });
+    }
+
+    private function resolvePrivatePriceRangeMatch(BookingUser $bookingUser, array $priceRange): array
+    {
+        $course = $bookingUser->course;
+        if (!$course) {
+            return ['has_match' => false, 'price' => 0];
+        }
+
+        $groupCount = BookingUser::where('course_id', $course->id)
+            ->where('date', $bookingUser->date)
+            ->where('hour_start', $bookingUser->hour_start)
+            ->where('hour_end', $bookingUser->hour_end)
+            ->where('monitor_id', $bookingUser->monitor_id)
+            ->where('group_id', $bookingUser->group_id)
+            ->where('booking_id', $bookingUser->booking_id)
+            ->where('school_id', $bookingUser->school_id)
+            ->where('status', 1)
+            ->count();
+
+        $duration = Carbon::parse($bookingUser->hour_end)->diffInMinutes(Carbon::parse($bookingUser->hour_start));
+        $interval = $this->getPrivateIntervalFromDuration($duration);
+        if ($interval === null) {
+            return ['has_match' => false, 'price' => 0];
+        }
+
+        $normalizedInterval = $this->normalizeIntervalLabel($interval);
+        foreach ($priceRange as $range) {
+            if (!isset($range['intervalo'])) {
+                continue;
+            }
+            $currentInterval = (string) $range['intervalo'];
+            if ($this->normalizeIntervalLabel($currentInterval) !== $normalizedInterval) {
+                continue;
+            }
+            $rawPrice = $range[$groupCount] ?? null;
+            $price = is_numeric($rawPrice) ? (float) $rawPrice : 0;
+            return ['has_match' => true, 'price' => $price];
+        }
+
+        return ['has_match' => false, 'price' => 0];
+    }
+
+    private function getPrivateIntervalFromDuration(int $duration): ?string
+    {
+        return [
+            15 => "15m",
+            30 => "30m",
+            45 => "45m",
+            60 => "1h",
+            75 => "1h 15m",
+            90 => "1h 30m",
+            120 => "2h",
+            180 => "3h",
+            240 => "4h",
+        ][$duration] ?? null;
+    }
+
+    private function normalizeIntervalLabel(?string $label): string
+    {
+        $label = strtolower(trim((string) $label));
+        $label = str_replace(' ', '', $label);
+        $label = str_replace('min', 'm', $label);
+        return $label;
     }
 
     private function minimizeCourseSettings($settings): ?array
@@ -2025,6 +2093,7 @@ class BookingController extends AppBaseController
             }
 
             // Verificar si quedan bookingUsers activos (status distinto de 2)
+            $booking->load('bookingUsers');
             $activeBookingUsers = $booking->bookingUsers()->where('status', '!=', 2)->exists();
 
             $previousStatus = $booking->status;
@@ -2036,12 +2105,29 @@ class BookingController extends AppBaseController
                 $booking->status = 3; // Parcialmente cancelado
             }
 
-            // MEJORA CRTICA: Recalcular precio solo si no est pagado
-            if(!$booking->paid) {
-                $booking->reloadPrice();
-            }
+            // Recalcular precio siempre para reflejar cancelaciones parciales/total
+            $booking->reloadPrice();
 
+            $booking->load(['payments', 'vouchersLogs.voucher']);
+            $balance = $booking->getCurrentBalance();
+            $booking->paid_total = round((float) ($balance['received'] ?? 0), 2);
+            $booking->paid = ($balance['current_balance'] ?? 0) >= ($booking->price_total - 0.01);
             $booking->save();
+
+            $cancelSource = $booking->status === 2 ? 'cancel_full' : 'cancel_partial';
+            $cancelNote = sprintf(
+                'Cancelacion %s: %s booking_users. Motivo: %s',
+                $booking->status === 2 ? 'total' : 'parcial',
+                $bookingUsersToCancel->count(),
+                $request->input('cancelReason', 'No especificado')
+            );
+
+            app(BookingPriceSnapshotService::class)->createSnapshotFromCalculator(
+                $booking,
+                auth()->id(),
+                $cancelSource,
+                $cancelNote
+            );
 
             // MEJORA CRTICA: Crear log detallado de la cancelacin
             BookingLog::create([
