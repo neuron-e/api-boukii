@@ -42,27 +42,35 @@ class AnalyticsProfessionalController extends AppBaseController
         $data = Cache::remember($cacheKey, 1800, function () use ($request, $schoolId) {
             
             // OPTIMIZACIÓN: Una sola query con JOINs para datos ejecutivos
-            $executiveKpis = DB::table('bookings as b')
-                ->leftJoin('booking_users as bu', 'b.id', '=', 'bu.booking_id')
-                ->leftJoin('clients as c', 'b.client_main_id', '=', 'c.id')
-                ->leftJoin('payments as p', 'b.id', '=', 'p.booking_id')
+            $bookingsQuery = DB::table('bookings as b')
+                ->where('b.school_id', $schoolId)
+                ->when($request->input('start_date'), fn($q) => $q->where('b.created_at', '>=', $request->input('start_date')))
+                ->when($request->input('end_date'), fn($q) => $q->where('b.created_at', '<=', $request->input('end_date')));
+
+            $totalBookings = (clone $bookingsQuery)->distinct('b.id')->count('b.id');
+            $totalClients = (clone $bookingsQuery)->distinct('b.client_main_id')->count('b.client_main_id');
+            $revenueExpected = (clone $bookingsQuery)->where('b.status', 1)->sum('b.price_total');
+            $revenuePending = (clone $bookingsQuery)->where('b.status', 1)->where('b.paid', 0)->sum('b.price_total');
+            $averageBookingValue = (clone $bookingsQuery)->where('b.status', 1)->avg('b.price_total');
+
+            $totalParticipants = DB::table('booking_users as bu')
+                ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
                 ->where('b.school_id', $schoolId)
                 ->when($request->input('start_date'), fn($q) => $q->where('b.created_at', '>=', $request->input('start_date')))
                 ->when($request->input('end_date'), fn($q) => $q->where('b.created_at', '<=', $request->input('end_date')))
-                ->selectRaw('
-                    COUNT(DISTINCT b.id) as totalBookings,
-                    COUNT(DISTINCT c.id) as totalClients,
-                    COUNT(bu.id) as totalParticipants,
-                    SUM(CASE WHEN b.status = 1 THEN b.price_total ELSE 0 END) as revenueExpected,
-                    SUM(CASE WHEN p.status = "paid" THEN p.amount ELSE 0 END) as revenueReceived,
-                    SUM(CASE WHEN b.paid = 0 AND b.status = 1 THEN b.price_total ELSE 0 END) as revenuePending,
-                    AVG(CASE WHEN b.status = 1 THEN b.price_total ELSE NULL END) as averageBookingValue
-                ')
-                ->first();
+                ->count('bu.id');
+
+            $revenueReceived = DB::table('payments as p')
+                ->join('bookings as b', 'p.booking_id', '=', 'b.id')
+                ->where('b.school_id', $schoolId)
+                ->where('p.status', 'paid')
+                ->when($request->input('start_date'), fn($q) => $q->where('p.created_at', '>=', $request->input('start_date')))
+                ->when($request->input('end_date'), fn($q) => $q->where('p.created_at', '<=', $request->input('end_date')))
+                ->sum('p.amount');
 
             // Calcular eficiencia de cobro
-            $collectionEfficiency = $executiveKpis->revenueExpected > 0 
-                ? ($executiveKpis->revenueReceived / $executiveKpis->revenueExpected) * 100 
+            $collectionEfficiency = $revenueExpected > 0
+                ? ($revenueReceived / $revenueExpected) * 100
                 : 0;
 
             // OPTIMIZACIÓN: Query específica para fuentes de reserva
@@ -94,22 +102,22 @@ class AnalyticsProfessionalController extends AppBaseController
 
             return [
                 'executiveKpis' => [
-                    'totalBookings' => (int) $executiveKpis->totalBookings,
-                    'totalClients' => (int) $executiveKpis->totalClients,
-                    'totalParticipants' => (int) $executiveKpis->totalParticipants,
-                    'revenueExpected' => (float) $executiveKpis->revenueExpected,
-                    'revenueReceived' => (float) $executiveKpis->revenueReceived,
-                    'revenuePending' => (float) $executiveKpis->revenuePending,
+                    'totalBookings' => (int) $totalBookings,
+                    'totalClients' => (int) $totalClients,
+                    'totalParticipants' => (int) $totalParticipants,
+                    'revenueExpected' => (float) $revenueExpected,
+                    'revenueReceived' => (float) $revenueReceived,
+                    'revenuePending' => (float) $revenuePending,
                     'collectionEfficiency' => round($collectionEfficiency, 2),
                     'consistencyRate' => 95.5, // Placeholder para cálculo más complejo
-                    'averageBookingValue' => round((float) $executiveKpis->averageBookingValue, 2)
+                    'averageBookingValue' => round((float) $averageBookingValue, 2)
                 ],
                 'bookingSources' => $bookingSources->map(fn($item) => [
                     'source' => $item->source ?: 'unknown',
                     'count' => (int) $item->count,
                     'revenue' => (float) $item->revenue,
-                    'percentage' => $executiveKpis->totalBookings > 0 
-                        ? round(($item->count / $executiveKpis->totalBookings) * 100, 1) 
+                    'percentage' => $totalBookings > 0
+                        ? round(($item->count / $totalBookings) * 100, 1)
                         : 0
                 ]),
                 'paymentMethods' => [

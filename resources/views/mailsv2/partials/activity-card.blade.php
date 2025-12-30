@@ -24,6 +24,15 @@
     $extrasPrice = $activity['extra_price'] ?? 0;
     $totalPrice = $activity['total'] ?? ($activity['price'] ?? 0);
     $forceDatePrice = $forceDatePrice ?? false;
+    $degree = $activity['sportLevel'] ?? null;
+    if (is_array($degree)) {
+        $degreeLabel = $degree['name'] ?? $degree['annotation'] ?? $degree['level'] ?? $degree['league'] ?? null;
+    } elseif (is_object($degree)) {
+        $degreeLabel = $degree->name ?? $degree->annotation ?? $degree->level ?? $degree->league ?? null;
+    } else {
+        $degreeLabel = null;
+    }
+    $showDegree = $course && (int) $course->course_type === 1 && $degreeLabel;
     $bookingUserForQr = $primaryBookingUser;
     if (!$bookingUserForQr) {
         foreach ($dates as $date) {
@@ -82,6 +91,19 @@
                     </font>
                 </td>
             </tr>
+            @if($showDegree)
+                <tr>
+                    <td width="100" align="left" style="font-size:14px; line-height:19px; padding:0px 0px;">
+                        <font face="Arial, Helvetica, sans-serif" style="font-size:14px; line-height:19px; color:#000000;">
+                            {{ __('emails.bookingCreate.degree') }}</font>
+                    </td>
+                    <td align="left" style="font-size:14px; line-height:19px; padding:0px 0px;">
+                        <font face="Arial, Helvetica, sans-serif" style="font-size:14px; line-height:19px; color:#000000;">
+                            <strong>{{ $degreeLabel }}</strong>
+                        </font>
+                    </td>
+                </tr>
+            @endif
             <tr>
                     <td width="100" align="left" style="font-size:14px; line-height:19px; padding:0px 0px;">
                         <font face="Arial, Helvetica, sans-serif" style="font-size:14px; line-height:19px; color:#000000;">

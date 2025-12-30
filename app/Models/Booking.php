@@ -3,8 +3,11 @@
 namespace App\Models;
 
 use App\Http\Services\BookingPriceCalculatorService;
+use App\Http\Controllers\PayrexxHelpers;
 use App\Mail\BookingCancelMailer;
 use App\Mail\BookingInfoMailer;
+use App\Mail\BookingNoticePayMailer;
+use App\Models\BookingLog;
 use App\Models\School;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
@@ -1297,7 +1300,11 @@ class Booking extends Model
 
             foreach ($lines as $line) {
                 // Calcular la fecha y hora de inicio de este booking user
-                $bookingDateTime = Carbon::createFromFormat('Y-m-d H:i:s', $line->date . ' ' . $line->hour);
+                $time = $line->hour_start ?? $line->hour ?? '00:00';
+                $bookingDateTime = Carbon::parse($line->date . ' ' . $time);
+                if ($bookingDateTime->lessThanOrEqualTo($currentDateTime)) {
+                    continue;
+                }
 
                 // Calcular la diferencia en horas entre la fecha actual y la fecha del booking
                 $timeDiff = $currentDateTime->diffInHours($bookingDateTime);
@@ -1309,15 +1316,21 @@ class Booking extends Model
                 }
             }
 
+            $alreadySent = BookingLog::query()
+                ->where('booking_id', $booking->id)
+                ->where('action', 'mail_booking_info_sent')
+                ->where('description', 'booking_user_id: ' . $closestBookingUser?->id)
+                ->exists();
+
             // Verificar si el booking user más cercano cumple con la condición de las 24 horas
-            if ($closestBookingUser !== null && $closestTimeDiff < 24) {
+            if ($closestBookingUser !== null && $closestTimeDiff < 24 && !$alreadySent) {
                 $bookingType = $closestBookingUser->course->type == 2 ? 'Privado' : 'Colectivo';
                 \Illuminate\Support\Facades\Log::debug('bookingInfo24h: '
                     . $bookingType . ' ID ' . $booking->id
                     . ' - Enviamos info de la reserva: '
                     . $closestBookingUser->id . " : Fecha de inicio "
                     . $closestBookingUser->date . ' '
-                    . $closestBookingUser->hour . ' - Dif in hours: '
+                    . ($closestBookingUser->hour_start ?? $closestBookingUser->hour) . ' - Dif in hours: '
                     . $closestTimeDiff);
 
 
@@ -1332,6 +1345,13 @@ class Booking extends Model
                                 $closestBookingUser->booking,
                                 $closestBookingUser->booking->clientMain->email
                             ));
+
+                        BookingLog::create([
+                            'booking_id' => $closestBookingUser->booking->id,
+                            'action' => 'mail_booking_info_sent',
+                            'description' => 'booking_user_id: ' . $closestBookingUser->id,
+                            'user_id' => null,
+                        ]);
                     } catch (\Exception $ex) {
                         \Illuminate\Support\Facades\Log::debug('Cron bookingInfo24h: ', $ex->getTrace());
                     }
@@ -1364,7 +1384,11 @@ class Booking extends Model
 
             foreach ($lines as $line) {
                 // Calcular la fecha y hora de inicio de este booking user
-                $bookingDateTime = Carbon::createFromFormat('Y-m-d H:i:s', $line->date . ' ' . $line->hour);
+                $time = $line->hour_start ?? $line->hour ?? '00:00';
+                $bookingDateTime = Carbon::parse($line->date . ' ' . $time);
+                if ($bookingDateTime->lessThanOrEqualTo($currentDateTime)) {
+                    continue;
+                }
 
                 // Calcular la diferencia en horas entre la fecha actual y la fecha del booking
                 $timeDiff = $currentDateTime->diffInHours($bookingDateTime);
@@ -1387,14 +1411,40 @@ class Booking extends Model
 
                 // Envía el email aquí
                 $mySchool = School::find($closestBookingUser->booking->school_id);
-                dispatch(function () use ($mySchool, $closestBookingUser) {
+                if (!$mySchool) {
+                    continue;
+                }
+                $buyerUser = $closestBookingUser->booking->clientMain;
+                if (!$buyerUser || empty($buyerUser->email)) {
+                    continue;
+                }
+                $basketData = [];
+                if (is_string($closestBookingUser->booking->basket)) {
+                    $decoded = json_decode($closestBookingUser->booking->basket, true);
+                    if (is_array($decoded)) {
+                        $basketData = $decoded;
+                    }
+                }
+                dispatch(function () use ($mySchool, $closestBookingUser, $buyerUser, $basketData) {
                     // N.B. try-catch because some test users enter unexistant emails, throwing Swift_TransportException
                     try {
+                        $link = PayrexxHelpers::createPayLink(
+                            $mySchool,
+                            $closestBookingUser->booking,
+                            $basketData,
+                            $buyerUser
+                        );
+
+                        if (strlen($link) < 1) {
+                            throw new \Exception('Cant create Payrexx Direct Link for School ID=' . $mySchool->id);
+                        }
+
                         \Mail::to($closestBookingUser->booking->clientMain->email)
-                            ->send(new BookingInfoMailer(
+                            ->send(new BookingNoticePayMailer(
                                 $mySchool,
                                 $closestBookingUser->booking,
-                                $closestBookingUser->booking->clientMain->email
+                                $buyerUser,
+                                $link
                             ));
 
                         BookingPaymentNoticeLog::create([

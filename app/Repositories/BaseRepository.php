@@ -125,7 +125,26 @@ abstract class BaseRepository
                             ->whereColumn('cl.id', 'bookings.client_main_id')
                             ->where(function ($q) use ($search) {
                                 $q->where('cl.first_name', 'like', "%" . $search . "%")
-                                  ->orWhere('cl.last_name', 'like', "%" . $search . "%");
+                                  ->orWhere('cl.last_name', 'like', "%" . $search . "%")
+                                  ->orWhere('cl.email', 'like', "%" . $search . "%")
+                                  ->orWhere('cl.phone', 'like', "%" . $search . "%")
+                                  ->orWhere('cl.telephone', 'like', "%" . $search . "%");
+                            });
+                    });
+                }
+
+                if (strpos(get_class($this->model), 'Booking') !== false) {
+                    $query->orWhereExists(function ($subQuery) use ($search) {
+                        $subQuery->select(DB::raw(1))
+                            ->from('booking_users as bu')
+                            ->join('clients as cl', 'bu.client_id', '=', 'cl.id')
+                            ->whereColumn('bu.booking_id', 'bookings.id')
+                            ->where(function ($q) use ($search) {
+                                $q->where('cl.first_name', 'like', "%" . $search . "%")
+                                  ->orWhere('cl.last_name', 'like', "%" . $search . "%")
+                                  ->orWhere('cl.email', 'like', "%" . $search . "%")
+                                  ->orWhere('cl.phone', 'like', "%" . $search . "%")
+                                  ->orWhere('cl.telephone', 'like', "%" . $search . "%");
                             });
                     });
                 }

@@ -90,6 +90,37 @@ class FinanceController extends AppBaseController
         // 1. DETERMINAR PERÃODO DE ANÃLISIS
         $dateRange = $this->getSeasonDateRange($request);
 
+        $includeTestDetection = $request->boolean('include_test_detection', true);
+        $includePayrexxAnalysis = $request->boolean('include_payrexx_analysis', false);
+        if ($optimizationLevel === 'balanced' && !$includeTestDetection && !$includePayrexxAnalysis) {
+            $optimizationLevel = 'fast';
+            Log::info('Season dashboard: balanced downgraded to fast (no test/payrexx analysis).', [
+                'school_id' => $request->school_id,
+                'start_date' => $dateRange['start_date'],
+                'end_date' => $dateRange['end_date'],
+            ]);
+        }
+
+        if ($optimizationLevel === 'fast') {
+            $dashboard = $this->buildFastDashboard($request, $dateRange);
+            $executionTime = round((microtime(true) - $startTime) * 1000, 2);
+            $dashboard['performance_metrics'] = [
+                'execution_time_ms' => $executionTime,
+                'total_bookings_analyzed' => $dashboard['season_info']['total_bookings'],
+                'production_bookings_count' => $dashboard['season_info']['booking_classification']['production_count'],
+                'test_bookings_excluded' => $dashboard['season_info']['booking_classification']['test_count'],
+                'cancelled_bookings_count' => $dashboard['season_info']['booking_classification']['cancelled_count'],
+                'bookings_per_second' => $executionTime > 0
+                    ? round($dashboard['season_info']['total_bookings'] / ($executionTime / 1000), 2)
+                    : 0,
+                'optimization_level' => $optimizationLevel,
+                'memory_peak_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2),
+                'analysis_timestamp' => now()->toDateTimeString()
+            ];
+
+            return $dashboard;
+        }
+
         // 2. OBTENER RESERVAS DE LA TEMPORADA CON OPTIMIZACIÃ“N
         $bookings = $this->getSeasonBookingsOptimized($request, $dateRange, $optimizationLevel);
 
@@ -119,6 +150,187 @@ class FinanceController extends AppBaseController
         ]);
 
         return $dashboard;
+    }
+
+    private function buildFastDashboard(Request $request, array $dateRange): array
+    {
+        $schoolId = $request->school_id;
+
+        $bookingIdsQuery = DB::table('booking_users as bu')
+            ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
+            ->where('b.school_id', $schoolId)
+            ->whereBetween('bu.date', [$dateRange['start_date'], $dateRange['end_date']])
+            ->select('b.id')
+            ->distinct();
+
+        $bookingsBase = DB::table('bookings as b')
+            ->whereIn('b.id', $bookingIdsQuery);
+
+        $totalBookings = (clone $bookingsBase)->count('b.id');
+        $totalClients = (clone $bookingsBase)->distinct('b.client_main_id')->count('b.client_main_id');
+        $revenueExpected = (clone $bookingsBase)->where('b.status', 1)->sum('b.price_total');
+        $revenuePending = (clone $bookingsBase)->where('b.status', 1)->where('b.paid', 0)->sum('b.price_total');
+        $averageBookingValue = $totalBookings > 0 ? $revenueExpected / $totalBookings : 0;
+
+        $totalParticipants = DB::table('booking_users as bu')
+            ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
+            ->where('b.school_id', $schoolId)
+            ->whereBetween('bu.date', [$dateRange['start_date'], $dateRange['end_date']])
+            ->count('bu.id');
+
+        $revenueReceived = DB::table('payments as p')
+            ->join('bookings as b', 'p.booking_id', '=', 'b.id')
+            ->whereIn('b.id', $bookingIdsQuery)
+            ->where('p.status', 'paid')
+            ->sum('p.amount');
+
+        $collectionEfficiency = $revenueExpected > 0
+            ? round(($revenueReceived / $revenueExpected) * 100, 2)
+            : 0;
+
+        $sourceRows = (clone $bookingsBase)
+            ->selectRaw('b.source, COUNT(*) as count, SUM(b.price_total) as revenue, COUNT(DISTINCT b.client_main_id) as unique_clients')
+            ->groupBy('b.source')
+            ->orderByDesc('count')
+            ->get();
+
+        $sources = $sourceRows->map(function ($row) use ($totalBookings) {
+            $avgValue = $row->count > 0 ? (float) $row->revenue / $row->count : 0;
+            return [
+                'source' => $row->source ?: 'unknown',
+                'bookings' => (int) $row->count,
+                'percentage' => $totalBookings > 0 ? round(($row->count / $totalBookings) * 100, 2) : 0,
+                'unique_clients' => (int) $row->unique_clients,
+                'revenue' => (float) $row->revenue,
+                'avg_booking_value' => round($avgValue, 2),
+                'consistency_rate' => 0
+            ];
+        })->values();
+
+        $paymentMethodRows = DB::table('payments as p')
+            ->join('bookings as b', 'p.booking_id', '=', 'b.id')
+            ->whereIn('b.id', $bookingIdsQuery)
+            ->where('p.status', 'paid')
+            ->selectRaw("
+                CASE
+                    WHEN p.payrexx_reference IS NOT NULL AND b.payment_method_id = " . Booking::ID_BOUKIIPAY . " THEN 'boukii_direct'
+                    WHEN p.payrexx_reference IS NOT NULL THEN 'online_link'
+                    WHEN LOWER(p.notes) LIKE '%cash%' OR LOWER(p.notes) LIKE '%efectivo%' THEN 'cash'
+                    WHEN LOWER(p.notes) LIKE '%card%' OR LOWER(p.notes) LIKE '%tarjeta%' THEN 'card_offline'
+                    WHEN LOWER(p.notes) LIKE '%transfer%' THEN 'transfer'
+                    WHEN LOWER(p.notes) LIKE '%offline%' THEN 'boukii_offline'
+                    WHEN LOWER(p.notes) LIKE '%manual%' THEN 'online_manual'
+                    ELSE 'other'
+                END as method,
+                COUNT(*) as count,
+                SUM(p.amount) as revenue,
+                AVG(p.amount) as avg_amount
+            ")
+            ->groupBy('method')
+            ->get();
+
+        $totalPayments = (int) $paymentMethodRows->sum('count');
+        $totalPaymentRevenue = (float) $paymentMethodRows->sum('revenue');
+
+        $paymentMethods = $paymentMethodRows->map(function ($row) use ($totalPayments, $totalPaymentRevenue) {
+            return [
+                'method' => $row->method,
+                'display_name' => $this->getPaymentMethodDisplayName($row->method),
+                'count' => (int) $row->count,
+                'percentage' => $totalPayments > 0 ? round(($row->count / $totalPayments) * 100, 2) : 0,
+                'revenue' => round((float) $row->revenue, 2),
+                'revenue_percentage' => $totalPaymentRevenue > 0 ? round(($row->revenue / $totalPaymentRevenue) * 100, 2) : 0,
+                'avg_payment_amount' => $row->count > 0 ? round($row->revenue / $row->count, 2) : 0
+            ];
+        })->sortByDesc('revenue')->values();
+
+        $paymentSummary = [
+            'total_payments' => $totalPayments,
+            'total_revenue' => round($totalPaymentRevenue, 2),
+            'methods' => $paymentMethods,
+            'online_vs_offline' => $this->calculateOnlineOfflineRatio($paymentMethods)
+        ];
+
+        return [
+            'season_info' => [
+                'season_name' => $dateRange['season_name'],
+                'date_range' => [
+                    'start' => $dateRange['start_date'],
+                    'end' => $dateRange['end_date'],
+                    'total_days' => $dateRange['total_days']
+                ],
+                'school_id' => $schoolId,
+                'optimization_level' => 'fast',
+                'total_bookings' => $totalBookings,
+                'booking_classification' => [
+                    'total_bookings' => $totalBookings,
+                    'production_count' => $totalBookings,
+                    'test_count' => 0,
+                    'cancelled_count' => 0,
+                    'production_revenue' => (float) $revenueExpected,
+                    'test_revenue' => 0,
+                    'cancelled_revenue' => 0
+                ]
+            ],
+            'executive_kpis' => [
+                'total_production_bookings' => $totalBookings,
+                'total_clients' => $totalClients,
+                'total_participants' => $totalParticipants,
+                'revenue_expected' => (float) $revenueExpected,
+                'revenue_received' => (float) $revenueReceived,
+                'revenue_pending' => (float) $revenuePending,
+                'collection_efficiency' => $collectionEfficiency,
+                'consistency_rate' => 0,
+                'average_booking_value' => round($averageBookingValue, 2)
+            ],
+            'booking_sources' => [
+                'total_bookings' => $totalBookings,
+                'source_breakdown' => $sources
+            ],
+            'payment_methods' => $paymentSummary,
+            'booking_status_analysis' => [],
+            'financial_summary' => [
+                'revenue_breakdown' => [
+                    'total_expected' => (float) $revenueExpected,
+                    'total_received' => (float) $revenueReceived,
+                    'total_pending' => (float) $revenuePending,
+                    'total_refunded' => 0
+                ],
+                'consistency_metrics' => [
+                    'consistent_bookings' => 0,
+                    'inconsistent_bookings' => 0,
+                    'consistency_rate' => 0,
+                    'major_discrepancies' => 0
+                ],
+                'voucher_usage' => [
+                    'total_vouchers_used' => 0,
+                    'total_voucher_amount' => 0,
+                    'unique_vouchers' => 0
+                ]
+            ],
+            'courses' => [],
+            'critical_issues' => [],
+            'executive_alerts' => [],
+            'priority_recommendations' => [],
+            'trend_analysis' => [
+                'monthly_breakdown' => [],
+                'booking_velocity' => [
+                    'recent_production_bookings' => 0,
+                    'bookings_per_week' => 0,
+                    'trend_direction' => 'neutral',
+                    'quality_trend' => 'neutral'
+                ]
+            ],
+            'export_summary' => [
+                'total_bookings' => $totalBookings,
+                'payment_methods' => [],
+                'voucher_usage' => [
+                    'total_vouchers_used' => 0,
+                    'total_voucher_amount' => 0,
+                    'unique_vouchers' => 0
+                ]
+            ]
+        ];
     }
 
     /**

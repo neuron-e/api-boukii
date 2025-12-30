@@ -48,6 +48,16 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->runInBackground();
 
+        $schedule->command('Bookings2:bookingInfo')
+            ->hourly()
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        $schedule->command('Bookings2:bookingPaymentNotice')
+            ->hourly()
+            ->withoutOverlapping()
+            ->runInBackground();
+
         // Limpiar cache viejo cada hora
         $schedule->call(function () {
             Cache::flush(); // En producción, implementar limpieza más selectiva
