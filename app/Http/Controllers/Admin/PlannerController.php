@@ -760,6 +760,35 @@ class PlannerController extends AppBaseController
             }
         }
 
+        $resolvedSubgroupIds = collect();
+        if (in_array($scope, ['single', 'from', 'range'], true) && $courseSubgroupId) {
+            if ($scope === 'single') {
+                $resolvedSubgroupIds = collect([(int)$courseSubgroupId]);
+            } else {
+                $selectedSubgroup = CourseSubgroup::find($courseSubgroupId);
+                if ($selectedSubgroup && $selectedSubgroup->subgroup_dates_id) {
+                    $dateQuery = CourseDate::where('course_id', $selectedSubgroup->course_id)
+                        ->whereNull('deleted_at');
+                    if ($scope === 'from' && $startDate) {
+                        $dateQuery->whereDate('date', '>=', $startDate);
+                    } elseif ($scope === 'range' && $startDate && $endDate) {
+                        $dateQuery->whereBetween('date', [$startDate, $endDate]);
+                    }
+                    $dateIds = $dateQuery->pluck('id');
+                    if ($dateIds->isNotEmpty()) {
+                        $resolvedSubgroupIds = CourseSubgroup::where('course_id', $selectedSubgroup->course_id)
+                            ->where('subgroup_dates_id', $selectedSubgroup->subgroup_dates_id)
+                            ->whereIn('course_date_id', $dateIds)
+                            ->pluck('id');
+                    }
+                }
+            }
+        }
+
+        $explicitSubgroupIds = $resolvedSubgroupIds->isNotEmpty()
+            ? $resolvedSubgroupIds
+            : $providedSubgroupIds;
+
         // 2) Resolver BookingUsers objetivo (si no llegan explcitos)
         $targets = collect();
 
@@ -773,7 +802,9 @@ class PlannerController extends AppBaseController
 
             switch ($scope) {
                 case 'single':
-                    if ($courseDateId) {
+                    if ($explicitSubgroupIds->isNotEmpty()) {
+                        $q->whereIn('course_subgroup_id', $explicitSubgroupIds);
+                    } elseif ($courseDateId) {
                         $q->where('course_date_id', $courseDateId);
                     } elseif ($bookingId) {
                         $q->where('booking_id', $bookingId);
@@ -824,8 +855,8 @@ class PlannerController extends AppBaseController
 
             if ($scope === 'interval' && $intervalSubgroupIds->isNotEmpty()) {
                 $q->whereIn('course_subgroup_id', $intervalSubgroupIds);
-            } elseif ($providedSubgroupIds->isNotEmpty() && $scope !== 'all' && $scope !== 'interval') {
-                $q->whereIn('course_subgroup_id', $providedSubgroupIds);
+            } elseif ($explicitSubgroupIds->isNotEmpty() && $scope !== 'all' && $scope !== 'interval') {
+                $q->whereIn('course_subgroup_id', $explicitSubgroupIds);
             }
             $targets = $q->get();
         }
@@ -866,9 +897,9 @@ class PlannerController extends AppBaseController
                     ->whereIn('id', $intervalSubgroupIds)
                     ->when($degreeIdContext, fn($q) => $q->where('degree_id', $degreeIdContext))
                     ->get();
-            } elseif ($providedSubgroupIds->isNotEmpty() && $scope !== 'all' && $scope !== 'interval') {
+            } elseif ($explicitSubgroupIds->isNotEmpty() && $scope !== 'all' && $scope !== 'interval') {
                 $targetSubgroups = (clone $subgroupBase)
-                    ->whereIn('id', $providedSubgroupIds)
+                    ->whereIn('id', $explicitSubgroupIds)
                     ->when($degreeIdContext, fn($q) => $q->where('degree_id', $degreeIdContext))
                     ->get();
             } else {
@@ -1277,11 +1308,14 @@ class PlannerController extends AppBaseController
             } else {
                 return $this->sendError('Selected subgroup not found.');
             }
+        } elseif ($scope !== 'all' && $subgroupId) {
+            // Para scopes no "all", priorizar subgroup_id y evitar colisiones por subgroup_ids
+            $query->where('id', $subgroupId);
         } elseif (!empty($subgroupIds)) {
-            // Para otros scopes, filtrar por los subgroupIds especficos
+            // Fallback legacy si no hay subgroup_id disponible
             $query->whereIn('id', $subgroupIds);
         } elseif ($subgroupId) {
-            // Para scope='single', filtrar por el subgroup especfico
+            // Para scope='all' sin subgroupIds
             $query->where('id', $subgroupId);
         }
 

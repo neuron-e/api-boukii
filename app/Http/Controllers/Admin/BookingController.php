@@ -98,11 +98,14 @@ class BookingController extends AppBaseController
         $with = Arr::wrap($request->input('with', ['bookingUsers.course.sport', 'clientMain']));
 
         $courseTypes = array_values(array_filter((array)$request->input('course_types', []), fn($value) => $value !== ''));
+        if (empty($courseTypes) && $request->filled('course_type')) {
+            $courseTypes = [(int) $request->input('course_type')];
+        }
         $statusFilter = $this->parseCsvInts($request->input('status'));
 
         $searchArray = array_filter(
             array_merge(
-                $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with', 'status', 'course_types']),
+                $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with', 'status', 'course_types', 'course_type', 'isMultiple']),
                 ['school_id' => $school->id]
             ),
             fn($value) => $value !== null && $value !== ''
@@ -151,7 +154,17 @@ class BookingController extends AppBaseController
                     $query->whereIn('status', $statusFilter);
                 }
                 if (!empty($courseTypes)) {
-                    $query->whereIn('course_type', $courseTypes);
+                    $query->whereHas('bookingUsers.course', function ($subQuery) use ($courseTypes) {
+                        $subQuery->whereIn('course_type', $courseTypes);
+                    });
+                }
+                if ($request->has('isMultiple')) {
+                    $isMultiple = filter_var($request->get('isMultiple'), FILTER_VALIDATE_BOOLEAN);
+                    $query->whereHas('bookingUsers', function ($subQuery) use ($isMultiple) {
+                        $subQuery->select('booking_id')
+                            ->groupBy('booking_id')
+                            ->havingRaw($isMultiple ? 'COUNT(DISTINCT client_id) > 1' : 'COUNT(DISTINCT client_id) = 1');
+                    });
                 }
                 if ($courseFilter) {
                     $query->whereHas('bookingUsers', function ($subQuery) use ($courseFilter) {
