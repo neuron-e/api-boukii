@@ -139,7 +139,12 @@ class HomeController extends AppBaseController
                 ->whereHas('booking', function ($subQuery) {
                     $subQuery->where('status',  1);
                 })
-                ->byMonitor($monitor->id)
+                ->where(function ($query) use ($monitor) {
+                    $query->where('monitor_id', $monitor->id)
+                        ->orWhereHas('courseSubGroup', function ($subQuery) use ($monitor) {
+                            $subQuery->where('monitor_id', $monitor->id);
+                        });
+                })
                 ->orderBy('hour_start');
             \Log::info('Booking query built successfully');
         } catch (\Exception $e) {
