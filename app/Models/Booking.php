@@ -1301,7 +1301,10 @@ class Booking extends Model
             foreach ($lines as $line) {
                 // Calcular la fecha y hora de inicio de este booking user
                 $time = $line->hour_start ?? $line->hour ?? '00:00';
-                $bookingDateTime = Carbon::parse($line->date . ' ' . $time);
+                $rawDate = (string) ($line->date ?? '');
+                $hasTime = (bool) preg_match('/\\d{2}:\\d{2}(:\\d{2})?/', $rawDate);
+                $dateTimeInput = $hasTime ? $rawDate : trim($rawDate . ' ' . $time);
+                $bookingDateTime = Carbon::parse($dateTimeInput);
                 if ($bookingDateTime->lessThanOrEqualTo($currentDateTime)) {
                     continue;
                 }
@@ -1385,7 +1388,10 @@ class Booking extends Model
             foreach ($lines as $line) {
                 // Calcular la fecha y hora de inicio de este booking user
                 $time = $line->hour_start ?? $line->hour ?? '00:00';
-                $bookingDateTime = Carbon::parse($line->date . ' ' . $time);
+                $rawDate = (string) ($line->date ?? '');
+                $hasTime = (bool) preg_match('/\\d{2}:\\d{2}(:\\d{2})?/', $rawDate);
+                $dateTimeInput = $hasTime ? $rawDate : trim($rawDate . ' ' . $time);
+                $bookingDateTime = Carbon::parse($dateTimeInput);
                 if ($bookingDateTime->lessThanOrEqualTo($currentDateTime)) {
                     continue;
                 }

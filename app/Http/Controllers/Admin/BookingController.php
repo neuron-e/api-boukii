@@ -324,6 +324,7 @@ class BookingController extends AppBaseController
 
         $includeEdit = $request->boolean('include_edit', false);
         $this->loadBookingDetail($booking, $includeEdit);
+        $booking->loadMissing(['payments']);
 
         $calculated = $booking->calculateCurrentTotal();
         $balance = $booking->getCurrentBalance();
