@@ -247,7 +247,7 @@ class PlannerController extends AppBaseController
             // Obtn solo el monitor especfico
             // OPTIMIZACION: Cargar solo campos necesarios del monitor
             $monitors = MonitorsSchool::with([
-                'monitor:id,first_name,last_name',
+                'monitor:id,first_name,last_name,birth_date',
                 'monitor.sports' => function ($query) use ($schoolId) {
                     $query->select('sports.id', 'sports.name', 'sports.icon_selected')
                         ->where('monitor_sports_degrees.school_id', $schoolId);
@@ -275,7 +275,7 @@ class PlannerController extends AppBaseController
             // Si no se proporcion monitor_id, obtn todos los monitores como antes
             // OPTIMIZACION: Cargar solo campos necesarios del monitor
             $monitorSchools = MonitorsSchool::with([
-                'monitor:id,first_name,last_name',
+                'monitor:id,first_name,last_name,birth_date',
                 'monitor.sports' => function ($query) use ($schoolId) {
                     $query->select('sports.id', 'sports.name', 'sports.icon_selected')
                         ->where('monitor_sports_degrees.school_id', $schoolId);
