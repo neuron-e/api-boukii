@@ -41,7 +41,7 @@ class PaymentTerminalController extends Controller
             $instance = $school->getPayrexxInstance();
 
             if (empty($instance)) {
-                Log::warning('Payrexx instance not configured for VPOS', [
+                Log::channel('payments')->warning('Payrexx instance not configured for VPOS', [
                     'school_id' => $school->id,
                     'user_id' => Auth::id()
                 ]);
@@ -55,7 +55,7 @@ class PaymentTerminalController extends Controller
             $apiBaseDomain = config('services.payrexx.base_domain', 'pay.boukii.com');
             $vposUrl = "https://{$instance}.{$apiBaseDomain}/de/vpos";
 
-            Log::info('VPOS URL generated', [
+            Log::channel('payments')->info('VPOS URL generated', [
                 'school_id' => $school->id,
                 'user_id' => Auth::id(),
                 'vpos_url' => $vposUrl
@@ -67,7 +67,7 @@ class PaymentTerminalController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error generating VPOS URL', [
+            Log::channel('payments')->error('Error generating VPOS URL', [
                 'school_id' => optional(Auth::user()->schools()->first())->id,
                 'user_id' => Auth::id(),
                 'error' => $e->getMessage(),
@@ -113,7 +113,7 @@ class PaymentTerminalController extends Controller
             }
 
             if (empty($school->getPayrexxInstance()) || empty($school->getPayrexxKey())) {
-                Log::warning('Payrexx configuration incomplete for payment terminal', [
+                Log::channel('payments')->warning('Payrexx configuration incomplete for payment terminal', [
                     'school_id' => $school->id,
                     'user_id' => Auth::id()
                 ]);
@@ -162,7 +162,7 @@ class PaymentTerminalController extends Controller
             $createdGateway = $payrexx->create($gateway);
 
             if (!$createdGateway || !$createdGateway->getLink()) {
-                Log::error('Failed to create payment terminal gateway', [
+                Log::channel('payments')->error('Failed to create payment terminal gateway', [
                     'school_id' => $school->id,
                     'amount' => $amount
                 ]);
@@ -175,7 +175,7 @@ class PaymentTerminalController extends Controller
 
             $paymentLink = $createdGateway->getLink();
 
-            Log::info('Payment terminal link created', [
+            Log::channel('payments')->info('Payment terminal link created', [
                 'school_id' => $school->id,
                 'user_id' => Auth::id(),
                 'amount' => $amount,
@@ -200,7 +200,7 @@ class PaymentTerminalController extends Controller
                 dispatch(function () use ($mailer, $clientEmail, $school, $amount, $paymentLink) {
                     try {
                         Mail::send($mailer);
-                        Log::info('Payment terminal link emailed', [
+                        Log::channel('payments')->info('Payment terminal link emailed', [
                             'school_id' => $school->id,
                             'user_id' => Auth::id(),
                             'amount' => $amount,
@@ -208,7 +208,7 @@ class PaymentTerminalController extends Controller
                             'client_email' => $clientEmail
                         ]);
                     } catch (\Exception $mailEx) {
-                        Log::error('Failed to email payment terminal link', [
+                        Log::channel('payments')->error('Failed to email payment terminal link', [
                             'school_id' => $school->id,
                             'user_id' => Auth::id(),
                             'client_email' => $clientEmail,
@@ -226,7 +226,7 @@ class PaymentTerminalController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error creating payment terminal link', [
+            Log::channel('payments')->error('Error creating payment terminal link', [
                 'school_id' => optional(Auth::user()->schools()->first())->id,
                 'user_id' => Auth::id(),
                 'error' => $e->getMessage(),
@@ -240,3 +240,4 @@ class PaymentTerminalController extends Controller
         }
     }
 }
+

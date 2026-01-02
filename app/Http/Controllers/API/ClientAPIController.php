@@ -365,7 +365,7 @@ class ClientAPIController extends AppBaseController
 
         // Validar que el subgrupo objetivo tiene subgroup_dates_id asignado
         if (!$targetSubgroup->subgroup_dates_id) {
-            Log::error('Target subgroup missing subgroup_dates_id', ['subgroup_id' => $targetSubgroup->id]);
+            Log::channel('availability')->error('Target subgroup missing subgroup_dates_id', ['subgroup_id' => $targetSubgroup->id]);
             return $this->sendError('Target subgroup is not properly configured (missing subgroup_dates_id)');
         }
 
@@ -432,7 +432,7 @@ class ClientAPIController extends AppBaseController
 
             if (empty($subgroupsChanged)) {
                 DB::rollBack();
-                Log::error(
+                Log::channel('availability')->error(
                     'Target subgroup with subgroup_dates_id not found in any course date',
                     [
                         'course_id' => $initialGroup->course->id,
@@ -444,7 +444,7 @@ class ClientAPIController extends AppBaseController
             }
 
             if (!empty($missingDates)) {
-                Log::warning(
+                Log::channel('availability')->warning(
                     'Target subgroup missing for some course dates',
                     [
                         'course_id' => $initialGroup->course->id,
@@ -488,3 +488,4 @@ class ClientAPIController extends AppBaseController
         }
     }
 }
+

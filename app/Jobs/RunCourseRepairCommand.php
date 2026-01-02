@@ -30,7 +30,7 @@ class RunCourseRepairCommand implements ShouldQueue
     public function handle(): void
     {
         if (!$this->schoolId) {
-            Log::warning('RunCourseRepairCommand skipped because school_id is missing.');
+            Log::channel('cron')->warning('RunCourseRepairCommand skipped because school_id is missing.');
             return;
         }
 
@@ -39,7 +39,7 @@ class RunCourseRepairCommand implements ShouldQueue
                 '--school_id' => $this->schoolId,
             ]);
         } catch (\Throwable $exception) {
-            Log::error('RunCourseRepairCommand failed', [
+            Log::channel('cron')->error('RunCourseRepairCommand failed', [
                 'school_id' => $this->schoolId,
                 'message' => $exception->getMessage(),
             ]);
@@ -47,3 +47,4 @@ class RunCourseRepairCommand implements ShouldQueue
         }
     }
 }
+

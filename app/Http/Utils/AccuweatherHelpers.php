@@ -21,7 +21,7 @@ class AccuweatherHelpers
 
         // Validate API key is configured
         if (empty($this->apiKey) || $this->apiKey === 'xxx') {
-            Log::warning('AccuWeather API key not properly configured');
+            Log::channel('accuweather')->warning('AccuWeather API key not properly configured');
             throw new \Exception('AccuWeather API key not configured. Please set ACCUWEATHER_API_KEY in .env file');
         }
     }
@@ -222,3 +222,4 @@ class AccuweatherHelpers
         return $jsonData[0];
     }
 }
+

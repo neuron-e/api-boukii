@@ -39,7 +39,7 @@ class MonitorNotificationService
         $this->emitEvent($type, $monitorId, $eventPayload);
         $this->sendPushNotification($type, $monitorId, $eventPayload);
 
-        Log::info('Monitor notification', $eventPayload);
+        Log::channel('notifications')->info('Monitor notification', $eventPayload);
 
         // Email fallback disabled for now (too noisy).
     }
@@ -78,7 +78,7 @@ class MonitorNotificationService
     {
         $defaultDriver = config('broadcasting.default');
         if ($defaultDriver === 'pusher' && !class_exists(\Pusher\Pusher::class)) {
-            Log::warning('Monitor notification skipped: pusher library missing', [
+            Log::channel('notifications')->warning('Monitor notification skipped: pusher library missing', [
                 'monitor_id' => $monitorId,
                 'type' => $type,
             ]);
@@ -92,7 +92,7 @@ class MonitorNotificationService
         try {
             event($event);
         } catch (\Throwable $exception) {
-            Log::warning('Monitor notification dispatch failed', [
+            Log::channel('notifications')->warning('Monitor notification dispatch failed', [
                 'monitor_id' => $monitorId,
                 'type' => $type,
                 'error' => $exception->getMessage(),
@@ -105,7 +105,7 @@ class MonitorNotificationService
         $instanceId = config('services.pusher_beams.instance_id');
         $secretKey = config('services.pusher_beams.secret_key');
         if (empty($instanceId) || empty($secretKey)) {
-            Log::info('Monitor push skipped: missing Beams config', [
+            Log::channel('notifications')->info('Monitor push skipped: missing Beams config', [
                 'monitor_id' => $monitorId,
                 'type' => $type,
             ]);
@@ -138,7 +138,7 @@ class MonitorNotificationService
                 ]);
 
             if (!$response->successful()) {
-                Log::warning('Monitor push failed', [
+                Log::channel('notifications')->warning('Monitor push failed', [
                     'monitor_id' => $monitorId,
                     'type' => $type,
                     'status' => $response->status(),
@@ -146,7 +146,7 @@ class MonitorNotificationService
                 ]);
             }
         } catch (\Throwable $exception) {
-            Log::warning('Monitor push error', [
+            Log::channel('notifications')->warning('Monitor push error', [
                 'monitor_id' => $monitorId,
                 'type' => $type,
                 'error' => $exception->getMessage(),
@@ -157,7 +157,7 @@ class MonitorNotificationService
     private function sendEmailFallback(Monitor $monitor, string $type, array $payload): void
     {
         if (empty($monitor->email)) {
-            Log::info('Monitor notification email skipped: missing email', [
+            Log::channel('notifications')->info('Monitor notification email skipped: missing email', [
                 'monitor_id' => $monitor->id,
                 'type' => $type,
             ]);
@@ -186,7 +186,7 @@ class MonitorNotificationService
                 $message->to($monitor->email)->subject($subject);
             });
         } catch (\Throwable $exception) {
-            Log::warning('Monitor notification email failed', [
+            Log::channel('notifications')->warning('Monitor notification email failed', [
                 'monitor_id' => $monitor->id,
                 'type' => $type,
                 'error' => $exception->getMessage(),
@@ -218,3 +218,4 @@ class MonitorNotificationService
         return $normalized;
     }
 }
+

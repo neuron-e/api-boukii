@@ -111,7 +111,7 @@ class AvailabilityAPIController extends AppBaseController
 
             return $this->sendResponse($courses, 'Courses retrieved successfully');
         } catch (\Exception $e) {
-            Log::error($e->getMessage(), $e->getTrace());
+            Log::channel('availability')->error($e->getMessage(), $e->getTrace());
             return $this->sendError('Error retrieving courses', 500);
         }
     }
@@ -389,3 +389,4 @@ class AvailabilityAPIController extends AppBaseController
 
 
 }
+

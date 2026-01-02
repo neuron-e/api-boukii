@@ -21,7 +21,7 @@ class BookingConfirmationService
         $client = $booking->clientMain;
 
         if (!$school || !$client || empty($client->email)) {
-            Log::warning('BOOKING_CONFIRMATION_SKIPPED_MISSING_DATA', [
+            Log::channel('emails')->warning('BOOKING_CONFIRMATION_SKIPPED_MISSING_DATA', [
                 'booking_id' => $booking->id,
                 'school_loaded' => (bool) $school,
                 'client_loaded' => (bool) $client,
@@ -47,16 +47,17 @@ class BookingConfirmationService
                 'user_id' => optional(auth())->id(),
             ]);
 
-            Log::info('BOOKING_CONFIRMATION_MAIL_SENT', [
+            Log::channel('emails')->info('BOOKING_CONFIRMATION_MAIL_SENT', [
                 'booking_id' => $booking->id,
                 'email' => $client->email,
                 'paid' => $isPaid,
             ]);
         } catch (\Exception $e) {
-            Log::error('BOOKING_CONFIRMATION_MAIL_FAILED', [
+            Log::channel('emails')->error('BOOKING_CONFIRMATION_MAIL_FAILED', [
                 'booking_id' => $booking->id,
                 'error' => $e->getMessage(),
             ]);
         }
     }
 }
+

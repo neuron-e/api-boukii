@@ -28,7 +28,7 @@ class PayrexxAnalysisService
      */
     public function analyzeBookingsWithPayrexx(Collection $bookings, ?string $startDate = null, ?string $endDate = null): array
     {
-        Log::info('Iniciando análisis de Payrexx', [
+        Log::channel('payrexx')->info('Iniciando análisis de Payrexx', [
             'total_bookings' => $bookings->count(),
             'start_date' => $startDate,
             'end_date' => $endDate
@@ -42,7 +42,7 @@ class PayrexxAnalysisService
 
         $this->finalizeAnalysis($analysis);
 
-        Log::info('Análisis de Payrexx completado', [
+        Log::channel('payrexx')->info('Análisis de Payrexx completado', [
             'total_bookings' => $analysis['total_bookings'],
             'total_system_amount' => $analysis['total_system_amount'],
             'total_payrexx_amount' => $analysis['total_payrexx_amount'],
@@ -194,7 +194,7 @@ class PayrexxAnalysisService
             return 'unknown';
 
         } catch (\Exception $e) {
-            Log::warning('Error obteniendo método de pago de transacción Payrexx', [
+            Log::channel('payrexx')->warning('Error obteniendo método de pago de transacción Payrexx', [
                 'error' => $e->getMessage()
             ]);
             return 'unknown';
@@ -219,3 +219,4 @@ class PayrexxAnalysisService
         return in_array(strtolower($payrexxStatus), array_map('strtolower', $validPayrexxStatuses));
     }
 }
+

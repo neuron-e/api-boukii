@@ -281,7 +281,7 @@ class NewsletterController extends AppBaseController
             return $this->sendResponse($newsletter, 'Newsletter sent successfully');
 
         } catch (\Exception $e) {
-            Log::error('Newsletter sending failed: ' . $e->getMessage());
+            Log::channel('emails')->error('Newsletter sending failed: ' . $e->getMessage());
             
             $newsletter->update(['status' => 'failed']);
 
@@ -622,7 +622,7 @@ class NewsletterController extends AppBaseController
 
                 $sentCount++;
             } catch (\Exception $e) {
-                Log::error("Failed to send newsletter to {$recipient->email}: " . $e->getMessage());
+                Log::channel('emails')->error("Failed to send newsletter to {$recipient->email}: " . $e->getMessage());
             }
         }
 
@@ -630,3 +630,4 @@ class NewsletterController extends AppBaseController
     }
 
 }
+

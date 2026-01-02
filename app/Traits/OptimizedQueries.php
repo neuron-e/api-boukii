@@ -32,7 +32,7 @@ trait OptimizedQueries
 
             // Log performance para queries lentas
             if ($executionTime > 0.1) {
-                \Log::warning('SLOW_QUERY_DETECTED', [
+                Log::channel('cache')->warning('SLOW_QUERY_DETECTED', [
                     'cache_key' => $cacheKey,
                     'execution_time' => $executionTime,
                     'model' => get_class($this)
@@ -168,13 +168,13 @@ trait OptimizedQueries
                     $keys = $cacheStore->getRedis()->keys("*{$pattern}*");
                     if (!empty($keys)) {
                         $cacheStore->getRedis()->del($keys);
-                        \Log::info('CACHE_INVALIDATED_REDIS', [
+                        Log::channel('cache')->info('CACHE_INVALIDATED_REDIS', [
                             'pattern' => $pattern,
                             'keys_count' => count($keys)
                         ]);
                     }
                 } catch (\Exception $e) {
-                    \Log::warning('REDIS_CACHE_INVALIDATION_FAILED', [
+                    Log::channel('cache')->warning('REDIS_CACHE_INVALIDATION_FAILED', [
                         'pattern' => $pattern,
                         'error' => $e->getMessage()
                     ]);
@@ -193,12 +193,12 @@ trait OptimizedQueries
                         Cache::forget($pattern . '_*');
                     }
 
-                    \Log::info('CACHE_INVALIDATED_FALLBACK', [
+                    Log::channel('cache')->info('CACHE_INVALIDATED_FALLBACK', [
                         'pattern' => $pattern,
                         'driver' => config('cache.default')
                     ]);
                 } catch (\Exception $e) {
-                    \Log::warning('CACHE_INVALIDATION_FAILED', [
+                    Log::channel('cache')->warning('CACHE_INVALIDATION_FAILED', [
                         'pattern' => $pattern,
                         'error' => $e->getMessage()
                     ]);
@@ -228,7 +228,7 @@ trait OptimizedQueries
 
         // Log estadísticas para queries complejas
         if ($executionTime > 0.05 || $memoryUsed > 1024 * 1024) { // 50ms o 1MB
-            \Log::info('QUERY_PERFORMANCE_STATS', [
+            Log::channel('cache')->info('QUERY_PERFORMANCE_STATS', [
                 'model' => get_class($this),
                 'operation' => $operation,
                 'execution_time' => round($executionTime, 4),

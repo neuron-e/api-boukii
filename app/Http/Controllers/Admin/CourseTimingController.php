@@ -110,7 +110,7 @@ class CourseTimingController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error fetching timing records: ' . $e->getMessage());
+            Log::channel('courses')->error('Error fetching timing records: ' . $e->getMessage());
             return response()->json([
                 'error' => 'Error fetching timing records',
                 'message' => $e->getMessage()
@@ -195,7 +195,7 @@ class CourseTimingController extends Controller
             ], 422);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error saving timing records: ' . $e->getMessage());
+            Log::channel('courses')->error('Error saving timing records: ' . $e->getMessage());
             return response()->json([
                 'error' => 'Error saving timing records',
                 'message' => $e->getMessage()

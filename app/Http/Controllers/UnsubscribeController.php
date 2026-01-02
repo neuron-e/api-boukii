@@ -64,7 +64,7 @@ class UnsubscribeController extends Controller
                         $updated = 1;
 
                         // Log the unsubscribe action
-                        Log::info("Newsletter unsubscribe: {$email} from school {$schoolName} (ID: {$schoolId})");
+                        Log::channel('emails')->info("Newsletter unsubscribe: {$email} from school {$schoolName} (ID: {$schoolId})");
                     }
                 }
             } else {
@@ -85,7 +85,7 @@ class UnsubscribeController extends Controller
                     $client->save();
                 }
 
-                Log::info("Newsletter unsubscribe: {$email} from all schools ({$updated} subscriptions)");
+                Log::channel('emails')->info("Newsletter unsubscribe: {$email} from all schools ({$updated} subscriptions)");
             }
 
             $status = 'success';
@@ -110,7 +110,7 @@ class UnsubscribeController extends Controller
                 }
             }
         } catch (\Throwable $e) {
-            Log::error('Unsubscribe error for ' . $email . ': ' . $e->getMessage());
+            Log::channel('emails')->error('Unsubscribe error for ' . $email . ': ' . $e->getMessage());
             $status = 'error';
             $title = trans('unsubscribe.problem');
             $message = trans('unsubscribe.try_later');
@@ -140,3 +140,4 @@ class UnsubscribeController extends Controller
         return config('app.locale', 'en');
     }
 }
+

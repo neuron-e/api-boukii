@@ -64,7 +64,7 @@ class AuthController extends AppBaseController
     public function login(Request $request)
     {
         try {
-            Log::info('TEACH_LOGIN_ENDPOINT_HIT', [
+            Log::channel('teach')->info('TEACH_LOGIN_ENDPOINT_HIT', [
                 'ip' => $request->ip(),
                 'user_agent' => $request->userAgent(),
                 'has_email' => $request->has('email'),
@@ -74,14 +74,14 @@ class AuthController extends AppBaseController
             $result = $this->loginService->authenticate($request, ['monitor', 3]);
 
             if (!$result) {
-                Log::warning('TEACH_LOGIN_UNAUTHORIZED', [
+                Log::channel('teach')->warning('TEACH_LOGIN_UNAUTHORIZED', [
                     'ip' => $request->ip(),
                     'email' => $request->input('email'),
                 ]);
                 return $this->sendError('Unauthorized.', 401);
             }
 
-            Log::info('TEACH_LOGIN_SUCCESS_RESPONSE', [
+            Log::channel('teach')->info('TEACH_LOGIN_SUCCESS_RESPONSE', [
                 'user_id' => $result['user']->id ?? null,
                 'has_token' => isset($result['token']),
             ]);
@@ -89,14 +89,14 @@ class AuthController extends AppBaseController
             return $this->sendResponse($result, 'User login successfully.');
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-            Log::error('TEACH_LOGIN_VALIDATION_ERROR', [
+            Log::channel('teach')->error('TEACH_LOGIN_VALIDATION_ERROR', [
                 'ip' => $request->ip(),
                 'errors' => $e->errors(),
                 'message' => $e->getMessage(),
             ]);
             throw $e;
         } catch (\Exception $e) {
-            Log::error('TEACH_LOGIN_EXCEPTION', [
+            Log::channel('teach')->error('TEACH_LOGIN_EXCEPTION', [
                 'ip' => $request->ip(),
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
@@ -132,3 +132,4 @@ class AuthController extends AppBaseController
     }
 
 }
+

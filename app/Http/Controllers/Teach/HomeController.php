@@ -74,28 +74,28 @@ class HomeController extends AppBaseController
     public function getAgenda(Request $request): JsonResponse
     {
         try {
-            \Log::info('getAgenda called with params:', $request->all());
+            Log::channel('teach')->info('getAgenda called with params:', $request->all());
 
             $dateStart = $request->input('date_start');
             $dateEnd = $request->input('date_end');
             $schoolId = $request->input('school_id');
 
-            \Log::info('Getting monitor...');
+            Log::channel('teach')->info('Getting monitor...');
             $monitor = $this->getMonitor($request);
 
             if (!$monitor) {
-                \Log::error('Monitor not found');
+                Log::channel('teach')->error('Monitor not found');
                 return $this->sendError('Monitor not found for this user', [], 404);
             }
 
-            \Log::info('Monitor found:', ['id' => $monitor->id, 'active_school' => $monitor->active_school]);
+            Log::channel('teach')->info('Monitor found:', ['id' => $monitor->id, 'active_school' => $monitor->active_school]);
         } catch (\Exception $e) {
-            \Log::error('Error in getAgenda start: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+            Log::channel('teach')->error('Error in getAgenda start: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
             return $this->sendError('Error in getAgenda: ' . $e->getMessage(), [], 500);
         }
 
         try {
-            \Log::info('Building booking query...');
+            Log::channel('teach')->info('Building booking query...');
             // OPTIMIZED: Removed heavy eager loading (course.courseDates, client.evaluations.*)
             // Reduces memory usage by ~80% and queries by ~90%
             $bookingQuery = BookingUser::select([
@@ -146,27 +146,27 @@ class HomeController extends AppBaseController
                         });
                 })
                 ->orderBy('hour_start');
-            \Log::info('Booking query built successfully');
+            Log::channel('teach')->info('Booking query built successfully');
         } catch (\Exception $e) {
-            \Log::error('Error building booking query: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+            Log::channel('teach')->error('Error building booking query: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
             return $this->sendError('Error building booking query: ' . $e->getMessage(), [], 500);
         }
 
         //return $this->sendResponse($bookingQuery->get(), 'Agenda retrieved successfully');
 
         try {
-            \Log::info('Building NWD query...');
+            Log::channel('teach')->info('Building NWD query...');
             // Consulta para los MonitorNwd
             $nwdQuery = MonitorNwd::where('monitor_id', $monitor->id)
                 ->orderBy('start_time');
-            \Log::info('NWD query built successfully');
+            Log::channel('teach')->info('NWD query built successfully');
         } catch (\Exception $e) {
-            \Log::error('Error building NWD query: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+            Log::channel('teach')->error('Error building NWD query: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
             return $this->sendError('Error building NWD query: ' . $e->getMessage(), [], 500);
         }
 
         try {
-            \Log::info('Building subgroups query...');
+            Log::channel('teach')->info('Building subgroups query...');
             $subgroupsQuery = CourseSubgroup::with([
                 'courseGroup.course:id,name,school_id,sport_id,course_type,max_participants',
                 'course' => function ($query) use ($dateStart, $dateEnd) {
@@ -203,9 +203,9 @@ class HomeController extends AppBaseController
                               $subQuery->where('status', '!=', 1);
                           });
                 });
-            \Log::info('Subgroups query built successfully');
+            Log::channel('teach')->info('Subgroups query built successfully');
         } catch (\Exception $e) {
-            \Log::error('Error building subgroups query: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+            Log::channel('teach')->error('Error building subgroups query: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
             return $this->sendError('Error building subgroups query: ' . $e->getMessage(), [], 500);
         }
 
@@ -237,32 +237,32 @@ class HomeController extends AppBaseController
 
         // Obtén los resultados para las reservas y los MonitorNwd
         try {
-            \Log::info('Executing booking query...');
+            Log::channel('teach')->info('Executing booking query...');
             $bookings = $bookingQuery->get();
-            \Log::info('Bookings fetched successfully: ' . $bookings->count() . ' records');
+            Log::channel('teach')->info('Bookings fetched successfully: ' . $bookings->count() . ' records');
         } catch (\Exception $e) {
-            \Log::error('Error fetching bookings: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
-            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            Log::channel('teach')->error('Error fetching bookings: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+            Log::channel('teach')->error('Stack trace: ' . $e->getTraceAsString());
             $bookings = collect();
         }
 
         try {
-            \Log::info('Executing NWD query...');
+            Log::channel('teach')->info('Executing NWD query...');
             $nwd = $nwdQuery->get();
-            \Log::info('NWD fetched successfully: ' . $nwd->count() . ' records');
+            Log::channel('teach')->info('NWD fetched successfully: ' . $nwd->count() . ' records');
         } catch (\Exception $e) {
-            \Log::error('Error fetching nwd: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
-            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            Log::channel('teach')->error('Error fetching nwd: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+            Log::channel('teach')->error('Stack trace: ' . $e->getTraceAsString());
             $nwd = collect();
         }
 
         try {
-            \Log::info('Executing subgroups query...');
+            Log::channel('teach')->info('Executing subgroups query...');
             $subgroups = $subgroupsQuery->get();
-            \Log::info('Subgroups fetched successfully: ' . $subgroups->count() . ' records');
+            Log::channel('teach')->info('Subgroups fetched successfully: ' . $subgroups->count() . ' records');
         } catch (\Exception $e) {
-            \Log::error('Error fetching subgroups: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
-            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            Log::channel('teach')->error('Error fetching subgroups: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+            Log::channel('teach')->error('Stack trace: ' . $e->getTraceAsString());
             $subgroups = collect();
         }
 
@@ -310,3 +310,4 @@ class HomeController extends AppBaseController
     }
 
 }
+

@@ -204,7 +204,7 @@ class RecoverLostBookings extends Command
             }
         } catch (\Exception $e) {
             $this->error("  Error: " . $e->getMessage());
-            Log::error("RecoverLostBookings error for booking #{$booking->id}: " . $e->getMessage());
+            Log::channel('cron')->error("RecoverLostBookings error for booking #{$booking->id}: " . $e->getMessage());
             $this->failed++;
         }
     }

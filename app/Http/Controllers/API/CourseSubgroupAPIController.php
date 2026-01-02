@@ -124,7 +124,7 @@ class CourseSubgroupAPIController extends AppBaseController
 
                 // Verificar si el monitor está ocupado
                 if (\App\Models\Monitor::isMonitorBusy($input['monitor_id'], $date, $startTime, $endTime)) {
-                    \Illuminate\Support\Facades\Log::warning('Intento de crear subgrupo con monitor ocupado', [
+                    \Illuminate\Support\Facades\Log::channel('availability')->warning('Intento de crear subgrupo con monitor ocupado', [
                         'monitor_id' => $input['monitor_id'],
                         'course_date_id' => $input['course_date_id'],
                         'date' => $date,
@@ -309,7 +309,7 @@ class CourseSubgroupAPIController extends AppBaseController
 
                 // Verificar si el monitor está ocupado
                 if (\App\Models\Monitor::isMonitorBusy($input['monitor_id'], $date, $startTime, $endTime)) {
-                    \Illuminate\Support\Facades\Log::warning('Intento de asignar monitor ocupado a subgrupo', [
+                    \Illuminate\Support\Facades\Log::channel('availability')->warning('Intento de asignar monitor ocupado a subgrupo', [
                         'subgroup_id' => $id,
                         'monitor_id' => $input['monitor_id'],
                         'date' => $date,
@@ -629,3 +629,4 @@ class CourseSubgroupAPIController extends AppBaseController
         return 'SG-' . str_pad($maxNum + 1, 6, '0', STR_PAD_LEFT);
     }
 }
+

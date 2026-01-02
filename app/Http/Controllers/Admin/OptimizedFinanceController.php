@@ -36,7 +36,7 @@ class OptimizedFinanceController extends AppBaseController
         // ⚡ GENERAR CACHE KEY ÚNICO
         $cacheKey = $this->generateCacheKey($request);
 
-        Log::info('=== DASHBOARD OPTIMIZADO INICIADO ===', [
+        Log::channel('finance')->info('=== DASHBOARD OPTIMIZADO INICIADO ===', [
             'school_id' => $request->school_id,
             'optimization_level' => $optimizationLevel,
             'cache_key' => $cacheKey
@@ -55,7 +55,7 @@ class OptimizedFinanceController extends AppBaseController
             $executionTime = round((microtime(true) - $startTime) * 1000, 2);
             $dashboard['performance_metrics']['execution_time_ms'] = $executionTime;
 
-            Log::info('=== DASHBOARD COMPLETADO ===', [
+            Log::channel('finance')->info('=== DASHBOARD COMPLETADO ===', [
                 'execution_time_ms' => $executionTime,
                 'optimization_level' => $optimizationLevel,
                 'from_cache' => $optimizationLevel === 'fast' && Cache::has($cacheKey)
@@ -64,7 +64,7 @@ class OptimizedFinanceController extends AppBaseController
             return $this->sendResponse($dashboard, 'Dashboard optimizado generado');
 
         } catch (\Exception $e) {
-            Log::error('Error en dashboard optimizado: ' . $e->getMessage());
+            Log::channel('finance')->error('Error en dashboard optimizado: ' . $e->getMessage());
             return $this->sendError('Error: ' . $e->getMessage(), 500);
         }
     }
@@ -423,3 +423,4 @@ class OptimizedFinanceController extends AppBaseController
  * 5. 🚀 QUEUE JOBS PARA ANÁLISIS PESADOS:
  * dispatch(new GenerateDetailedAnalytics($schoolId, $dateRange));
  */
+

@@ -15,6 +15,8 @@ class BookingInfoMailer extends Mailable
     private $schoolData;
     private $bookingData;
     private $userData;
+    private $groupedActivities;
+    private $bookingUsers;
 
 
     /**
@@ -25,11 +27,13 @@ class BookingInfoMailer extends Mailable
      * @param \App\Models\User $userData Who
      * @return void
      */
-    public function __construct($schoolData, $bookingData, $userData)
+    public function __construct($schoolData, $bookingData, $userData, $groupedActivities = null, $bookingUsers = null)
     {
         $this->schoolData = $schoolData;
         $this->bookingData = $bookingData;
         $this->userData = $userData;
+        $this->groupedActivities = $groupedActivities;
+        $this->bookingUsers = $bookingUsers;
     }
 
     /**
@@ -49,6 +53,12 @@ class BookingInfoMailer extends Mailable
         $templateMail = Mail::where('type', 'booking_confirm')->where('school_id', $this->schoolData->id)
             ->where('lang', $userLocale)->first();
 
+        $bookingUsers = $this->bookingUsers ?? $this->bookingData->bookingUsers;
+        $groupedActivities = $this->groupedActivities;
+        if (!$groupedActivities && $bookingUsers) {
+            $groupedActivities = $this->bookingData->buildGroupedActivitiesFromBookingUsers($bookingUsers);
+        }
+
         $templateData = [
             'titleTemplate' => $templateMail ? $templateMail->title : '',
             'bodyTemplate' => $templateMail ? $templateMail->body: '',
@@ -62,9 +72,9 @@ class BookingInfoMailer extends Mailable
             'reference' => '#' . $this->bookingData->id,
             'bookingNotes' => $this->bookingData->notes,
             'booking' => $this->bookingData,
-            'bookings' => $this->bookingData->bookingUsers,
+            'bookings' => $bookingUsers,
             'courses' => $this->bookingData->parseBookedGroupedWithCourses(),
-            'groupedActivities' => $this->bookingData->getGroupedActivitiesAttribute(),
+            'groupedActivities' => $groupedActivities,
             'hasCancellationInsurance' => $this->bookingData->has_cancellation_insurance,
             'actionURL' => null,
             'footerView' => $footerView

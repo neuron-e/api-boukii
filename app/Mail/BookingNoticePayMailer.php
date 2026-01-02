@@ -16,6 +16,8 @@ class BookingNoticePayMailer extends Mailable
     private $bookingData;
     private $userData;
     private $payLink;
+    private $groupedActivities;
+    private $bookingUsers;
 
     /**
      * Create a new message instance.
@@ -26,12 +28,14 @@ class BookingNoticePayMailer extends Mailable
      * @param string $payLink How
      * @return void
      */
-    public function __construct($schoolData, $bookingData, $userData, $payLink)
+    public function __construct($schoolData, $bookingData, $userData, $payLink, $groupedActivities = null, $bookingUsers = null)
     {
         $this->schoolData = $schoolData;
         $this->bookingData = $bookingData;
         $this->userData = $userData;
         $this->payLink = $payLink;
+        $this->groupedActivities = $groupedActivities;
+        $this->bookingUsers = $bookingUsers;
     }
 
     /**
@@ -53,6 +57,12 @@ class BookingNoticePayMailer extends Mailable
         $templateMail = Mail::where('type', 'payment_reminder')->where('school_id', $this->schoolData->id)
             ->where('lang', $userLocale)->first();
 
+        $bookingUsers = $this->bookingUsers ?? $this->bookingData->bookingUsers;
+        $groupedActivities = $this->groupedActivities;
+        if (!$groupedActivities && $bookingUsers) {
+            $groupedActivities = $this->bookingData->buildGroupedActivitiesFromBookingUsers($bookingUsers);
+        }
+
         $templateData = [
             'titleTemplate' => $templateMail ? $templateMail->title : '',
             'bodyTemplate' => $templateMail ? $templateMail->body: '',
@@ -67,13 +77,14 @@ class BookingNoticePayMailer extends Mailable
             'bookingNotes' => $this->bookingData->notes,
             'booking' => $this->bookingData,
             'courses' => $this->bookingData->parseBookedGroupedWithCourses(),
-            'bookings' => $this->bookingData->bookingUsers,
+            'bookings' => $bookingUsers,
             'client' => $this->bookingData->clientMain,
             'hasCancellationInsurance' => $this->bookingData->has_cancellation_insurance,
             'amount' => number_format($this->bookingData->price_total - $this->bookingData->paid_total, 2),
             'currency' => $this->bookingData->currency,
             'actionURL' => $this->payLink,
-            'footerView' => $footerView
+            'footerView' => $footerView,
+            'groupedActivities' => $groupedActivities
         ];
 
         $subject = __('emails.bookingNoticePay.subject');

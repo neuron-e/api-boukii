@@ -121,7 +121,7 @@ class PublicGiftVoucherController extends AppBaseController
 
             $paymentUrl = $this->service->createPayrexxGateway($voucher, $redirects);
 
-            Log::info('Public gift voucher created awaiting payment', [
+            Log::channel('vouchers')->info('Public gift voucher created awaiting payment', [
                 'voucher_id' => $voucher->id,
                 'code' => $voucher->code,
                 'payment_url' => $paymentUrl,
@@ -136,7 +136,7 @@ class PublicGiftVoucherController extends AppBaseController
             ], 'Gift voucher created successfully. Please complete payment.');
 
         } catch (\Exception $e) {
-            Log::error('Error creating public gift voucher', [
+            Log::channel('vouchers')->error('Error creating public gift voucher', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
@@ -163,7 +163,7 @@ class PublicGiftVoucherController extends AppBaseController
             return $this->sendError('Gift voucher not found', [], 404);
         }
 
-        Log::info('Gift voucher code verified', [
+        Log::channel('vouchers')->info('Gift voucher code verified', [
             'code' => $code,
             'valid' => $result['valid']
         ]);
@@ -232,7 +232,7 @@ class PublicGiftVoucherController extends AppBaseController
     public function payrexxWebhook(Request $request): JsonResponse
     {
         // Log del webhook recibido
-        Log::info('Payrexx webhook received for gift voucher', [
+        Log::channel('vouchers')->info('Payrexx webhook received for gift voucher', [
             'payload' => $request->all()
         ]);
 
@@ -257,7 +257,7 @@ class PublicGiftVoucherController extends AppBaseController
 
             // Extraer voucher_id del referenceId (formato: GV-{id})
             if (!preg_match('/^GV-(\d+)$/', $referenceId, $matches)) {
-                Log::warning('Invalid referenceId format in webhook', ['referenceId' => $referenceId]);
+                Log::channel('vouchers')->warning('Invalid referenceId format in webhook', ['referenceId' => $referenceId]);
                 return $this->sendError('Invalid referenceId format', [], 400);
             }
 
@@ -279,7 +279,7 @@ class PublicGiftVoucherController extends AppBaseController
 
             // Si el pago falló o fue cancelado, registrar pero no hacer nada
             if ($status === 'declined' || $status === 'cancelled') {
-                Log::info('Gift voucher payment failed or cancelled', [
+                Log::channel('vouchers')->info('Gift voucher payment failed or cancelled', [
                     'voucher_id' => $voucherId,
                     'status' => $status,
                     'transaction_id' => $transactionId
@@ -292,7 +292,7 @@ class PublicGiftVoucherController extends AppBaseController
             return $this->sendResponse([], 'Webhook processed');
 
         } catch (\Exception $e) {
-            Log::error('Error processing Payrexx webhook for gift voucher', [
+            Log::channel('vouchers')->error('Error processing Payrexx webhook for gift voucher', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
                 'payload' => $request->all()
@@ -326,3 +326,4 @@ class PublicGiftVoucherController extends AppBaseController
         return $this->sendResponse($templates, 'Templates retrieved successfully');
     }
 }
+

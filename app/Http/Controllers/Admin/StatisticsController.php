@@ -62,7 +62,7 @@ class StatisticsController extends AppBaseController
 
         $startTime = microtime(true);
 
-        Log::debug('=== INICIANDO ANÁLISIS FINANCIERO COMPLETO ===', [
+        Log::channel('finance')->debug('=== INICIANDO ANÁLISIS FINANCIERO COMPLETO ===', [
             'school_id' => $request->school_id,
             'date_range' => [$request->start_date, $request->end_date],
             'specific_bookings' => $request->booking_ids ? count($request->booking_ids) : null
@@ -76,7 +76,7 @@ class StatisticsController extends AppBaseController
             $excludedCourses = array_map('intval', self::EXCLUDED_COURSES);
             $filteredBookings = $this->filterBookingsWithExcludedCourses($bookings, $excludedCourses);
 
-            Log::info('Reservas filtradas para análisis', [
+            Log::channel('finance')->info('Reservas filtradas para análisis', [
                 'total_bookings_before_filter' => $bookings->count(),
                 'total_bookings_after_filter' => $filteredBookings->count(),
                 'excluded_courses' => $excludedCourses
@@ -92,7 +92,7 @@ class StatisticsController extends AppBaseController
 
             foreach ($filteredBookings as $booking) {
                 if ($processedCount >= $maxResults) {
-                    Log::info("Límite de resultados alcanzado: {$maxResults}");
+                    Log::channel('finance')->info("Límite de resultados alcanzado: {$maxResults}");
                     break;
                 }
 
@@ -114,7 +114,7 @@ class StatisticsController extends AppBaseController
 
                 // LOG PROGRESS CADA 100 RESERVAS
                 if ($processedCount % 100 === 0) {
-                    Log::debug("Progreso del análisis: {$processedCount}/{$filteredBookings->count()}");
+                    Log::channel('finance')->debug("Progreso del análisis: {$processedCount}/{$filteredBookings->count()}");
                 }
             }
 
@@ -153,7 +153,7 @@ class StatisticsController extends AppBaseController
                 'recommendations' => $this->generateGlobalRecommendations($globalStats)*/
             ];
 
-            Log::info('=== ANÁLISIS FINANCIERO COMPLETO FINALIZADO ===', [
+            Log::channel('finance')->info('=== ANÁLISIS FINANCIERO COMPLETO FINALIZADO ===', [
                 'processed_bookings' => $processedCount,
                 'execution_time_ms' => $executionTime,
                 'inconsistent_bookings' => $globalStats['issues']['total_with_financial_issues'],
@@ -163,7 +163,7 @@ class StatisticsController extends AppBaseController
             return $this->sendResponse($response, 'Análisis completo de realidad financiera completado exitosamente');
 
         } catch (\Exception $e) {
-            Log::error('Error en análisis financiero completo: ' . $e->getMessage(), [
+            Log::channel('finance')->error('Error en análisis financiero completo: ' . $e->getMessage(), [
                 'school_id' => $request->school_id,
                 'trace' => $e->getTraceAsString()
             ]);
@@ -212,7 +212,7 @@ class StatisticsController extends AppBaseController
             return $this->sendResponse($analysis, 'Análisis financiero individual completado');
 
         } catch (\Exception $e) {
-            Log::error("Error en análisis individual booking {$bookingId}: " . $e->getMessage());
+            Log::channel('finance')->error("Error en análisis individual booking {$bookingId}: " . $e->getMessage());
             return $this->sendError('Error en análisis de reserva: ' . $e->getMessage(), 500);
         }
     }
@@ -402,7 +402,7 @@ class StatisticsController extends AppBaseController
         $globalStats['totals']['net_financial_position'] += $analysis['financial_reality']['net_balance'] ?? 0;
 
         if (!isset($analysis['calculated_data'])) {
-            Log::error('⚠️ Falta calculated_data en análisis', [
+            Log::channel('finance')->error('⚠️ Falta calculated_data en análisis', [
                 'booking_id' => $analysis['booking_info']['id'] ?? 'UNKNOWN',
                 'analysis_keys' => array_keys($analysis)
             ]);
@@ -675,7 +675,7 @@ class StatisticsController extends AppBaseController
             ];
 
         } catch (\Exception $e) {
-            Log::error('Error analyzing booking financial reality: ' . $e->getMessage(), [
+            Log::channel('finance')->error('Error analyzing booking financial reality: ' . $e->getMessage(), [
                 'booking_id' => $booking->id
             ]);
 
@@ -1247,7 +1247,7 @@ class StatisticsController extends AppBaseController
             ];
 
         } catch (\Exception $e) {
-            Log::error('Error analyzing booking financial reality: ' . $e->getMessage(), [
+            Log::channel('finance')->error('Error analyzing booking financial reality: ' . $e->getMessage(), [
                 'booking_id' => $booking->id,
                 'trace' => $e->getTraceAsString()
             ]);
@@ -1739,7 +1739,7 @@ class StatisticsController extends AppBaseController
                     'message' => $e->getMessage()
                 ];
 
-                Log::error('Error recalculating booking price: ' . $e->getMessage(), [
+                Log::channel('finance')->error('Error recalculating booking price: ' . $e->getMessage(), [
                     'booking_id' => $bookingId,
                     'trace' => $e->getTraceAsString()
                 ]);
@@ -2061,7 +2061,7 @@ class StatisticsController extends AppBaseController
     {
         $bookingId = $booking->id;
 
-        Log::info("=== DEBUGGING ENHANCED BOOKING {$bookingId} ===");
+        Log::channel('finance')->info("=== DEBUGGING ENHANCED BOOKING {$bookingId} ===");
 
         $debug = [
             'booking_id' => $bookingId,
@@ -2770,7 +2770,7 @@ class StatisticsController extends AppBaseController
 
         // ✅ FILTRAR RESERVAS QUE SOLO TIENEN CURSOS EXCLUIDOS
         // ✅ DEBUGGING DETALLADO DEL FILTRADO
-        Log::info('=== INICIO ANÁLISIS DE FILTRADO DE CURSOS EXCLUIDOS ===', [
+        Log::channel('finance')->info('=== INICIO ANÁLISIS DE FILTRADO DE CURSOS EXCLUIDOS ===', [
             'excluded_courses' => self::EXCLUDED_COURSES,
             'total_bookings_before_filter' => $allBookings->count()
         ]);
@@ -2853,7 +2853,7 @@ class StatisticsController extends AppBaseController
         });
 
         // ✅ LOGGING DETALLADO DEL RESULTADO
-        Log::info('Filtrado de reservas por cursos excluidos - CORREGIDO', [
+        Log::channel('finance')->info('Filtrado de reservas por cursos excluidos - CORREGIDO', [
             'total_bookings_before_filter' => $allBookings->count(),
             'total_bookings_after_filter' => $bookings->count(),
             'excluded_courses' => self::EXCLUDED_COURSES,
@@ -2863,32 +2863,32 @@ class StatisticsController extends AppBaseController
 
         // Log de casos que deberían ser excluidos
         if (!empty($debugInfo['should_be_excluded'])) {
-            Log::debug('=== RESERVAS QUE SERÁN EXCLUIDAS ===');
+            Log::channel('finance')->debug('=== RESERVAS QUE SERÁN EXCLUIDAS ===');
             foreach ($debugInfo['should_be_excluded'] as $case) {
-                Log::debug("Booking {$case['booking_id']} EXCLUIDA", $case);
+                Log::channel('finance')->debug("Booking {$case['booking_id']} EXCLUIDA", $case);
             }
         }
 
         // Log de casos problemáticos (que solo tienen cursos excluidos)
         if (!empty($debugInfo['problematic_cases'])) {
-            Log::warning('=== CASOS PROBLEMÁTICOS (solo cursos excluidos) ===');
+            Log::channel('finance')->warning('=== CASOS PROBLEMÁTICOS (solo cursos excluidos) ===');
             foreach ($debugInfo['problematic_cases'] as $case) {
-                Log::warning("Booking {$case['booking_id']} - SOLO CURSOS EXCLUIDOS", $case);
+                Log::channel('finance')->warning("Booking {$case['booking_id']} - SOLO CURSOS EXCLUIDOS", $case);
             }
         }
 
         // ✅ VERIFICACIÓN ADICIONAL: Revisar qué reservas llegan al análisis
-        Log::debug('=== VERIFICACIÓN POST-FILTRADO ===');
+        Log::channel('finance')->debug('=== VERIFICACIÓN POST-FILTRADO ===');
         $finalBookingIds = $bookings->pluck('id')->toArray();
         $excludedBookingIds = collect($debugInfo['should_be_excluded'])->pluck('booking_id')->toArray();
 
-        Log::debug('IDs finales después del filtro: ' . implode(', ', $finalBookingIds));
-        Log::debug('IDs que deberían estar excluidos: ' . implode(', ', $excludedBookingIds));
+        Log::channel('finance')->debug('IDs finales después del filtro: ' . implode(', ', $finalBookingIds));
+        Log::channel('finance')->debug('IDs que deberían estar excluidos: ' . implode(', ', $excludedBookingIds));
 
         // Verificar si alguna reserva excluida está en el resultado final
         $leakedIds = array_intersect($finalBookingIds, $excludedBookingIds);
         if (!empty($leakedIds)) {
-            Log::error('⚠️ PROBLEMA: Estas reservas deberían estar excluidas pero están en el resultado: ' . implode(', ', $leakedIds));
+            Log::channel('finance')->error('⚠️ PROBLEMA: Estas reservas deberían estar excluidas pero están en el resultado: ' . implode(', ', $leakedIds));
         }
 
 /*        // Contar bookings que tienen cursos excluidos (entre las que NO se excluyeron completamente)
@@ -2977,7 +2977,7 @@ class StatisticsController extends AppBaseController
         // Preparar datos para comparación con Payrexx si se solicita
         $payrexxAnalysis = null;
         if ($request->boolean('include_payrexx_comparison', false)) {
-            Log::info('Iniciando análisis de Payrexx para ' . $bookings->count() . ' reservas (excluyendo reservas con solo cursos ' . implode(',', self::EXCLUDED_COURSES) . ')');
+            Log::channel('finance')->info('Iniciando análisis de Payrexx para ' . $bookings->count() . ' reservas (excluyendo reservas con solo cursos ' . implode(',', self::EXCLUDED_COURSES) . ')');
 
             $payrexxAnalysis = \App\Http\Controllers\PayrexxHelpers::analyzeBookingsWithPayrexx(
                 $bookings,
@@ -2985,7 +2985,7 @@ class StatisticsController extends AppBaseController
                 $request->end_date
             );
 
-            Log::info('Análisis de Payrexx completado', [
+            Log::channel('finance')->info('Análisis de Payrexx completado', [
                 'total_transactions' => count($payrexxAnalysis['payrexx_transactions']),
                 'total_payrexx_amount' => $payrexxAnalysis['total_payrexx_amount'],
                 'total_system_amount' => $payrexxAnalysis['total_system_amount']
@@ -3181,13 +3181,13 @@ class StatisticsController extends AppBaseController
             });
 
         if ($activeNonExcludedCourses->isEmpty()) {
-            Log::debug("Booking {$bookingId} no categorizada - solo cursos excluidos");
+            Log::channel('finance')->debug("Booking {$bookingId} no categorizada - solo cursos excluidos");
             return;
         }
 
         // ✅ SOLO CATEGORIZAR SI HAY DISCREPANCIA REAL
         if (!($analysis['has_discrepancy'] ?? false)) {
-            Log::debug("Booking {$bookingId} no categorizada - sin discrepancia real", [
+            Log::channel('finance')->debug("Booking {$bookingId} no categorizada - sin discrepancia real", [
                 'balance_analysis' => $analysis['balance_analysis'] ?? [],
                 'stored_vs_calculated' => $analysis['stored_total_analysis'] ?? []
             ]);
@@ -3313,14 +3313,14 @@ class StatisticsController extends AppBaseController
 
         // ✅ LOG PARA DEBUGGING
         if ($wasAdded) {
-            Log::info("Booking {$bookingId} categorizada correctamente", [
+            Log::channel('finance')->info("Booking {$bookingId} categorizada correctamente", [
                 'has_discrepancy' => $analysis['has_discrepancy'],
                 'discrepancy_amount' => $discrepancyAmount,
                 'balance_type' => $balanceType,
                 'booking_status' => $booking->status
             ]);
         } else {
-            Log::info("Booking {$bookingId} con discrepancia real NO categorizada en secciones principales", [
+            Log::channel('finance')->info("Booking {$bookingId} con discrepancia real NO categorizada en secciones principales", [
                 'discrepancy_amount' => $discrepancyAmount,
                 'balance_type' => $balanceType,
                 'reason' => 'Posiblemente discrepancia muy pequeña o caso edge'
@@ -3569,7 +3569,7 @@ class StatisticsController extends AppBaseController
         $analysis['calculated_breakdown'] = $breakdown;
         $analysis['insurance_from_courses'] = $totalInsuranceFromCourses;
 
-        Log::debug("calculateRealPrices CORREGIDO Booking {$booking->id}", [
+        Log::channel('finance')->debug("calculateRealPrices CORREGIDO Booking {$booking->id}", [
             'total_calculated' => $total,
             'insurance_from_courses' => $totalInsuranceFromCourses,
             'insurance_from_booking' => $booking->price_cancellation_insurance ?? 0,
@@ -3658,14 +3658,14 @@ class StatisticsController extends AppBaseController
         $totalUsed = 0;
         $totalRefunded = 0;
 
-        Log::info("=== ANÁLISIS INTELIGENTE DE VOUCHERS - Booking {$booking->id} ===");
+        Log::channel('finance')->info("=== ANÁLISIS INTELIGENTE DE VOUCHERS - Booking {$booking->id} ===");
 
         foreach ($voucherLogs as $voucherLog) {
             $voucher = $voucherLog->voucher;
             $logAmount = $voucherLog->amount;
 
             if (!$voucher) {
-                Log::warning("VoucherLog {$voucherLog->id} sin voucher asociado");
+                Log::channel('finance')->warning("VoucherLog {$voucherLog->id} sin voucher asociado");
                 continue;
             }
 
@@ -3693,7 +3693,7 @@ class StatisticsController extends AppBaseController
                 'date' => $voucherLog->created_at->format('Y-m-d H:i:s')
             ];
 
-            Log::info("VoucherLog {$voucherLog->id} interpretado", [
+            Log::channel('finance')->info("VoucherLog {$voucherLog->id} interpretado", [
                 'original_amount' => $logAmount,
                 'interpreted_as' => $intelligentAnalysis['type'],
                 'interpreted_amount' => $intelligentAnalysis['amount'],
@@ -3705,7 +3705,7 @@ class StatisticsController extends AppBaseController
         $analysis['vouchers']['total_used'] = round($totalUsed, 2);
         $analysis['vouchers']['total_refunded'] = round($totalRefunded, 2);
 
-        Log::info("Resultado análisis vouchers Booking {$booking->id}", [
+        Log::channel('finance')->info("Resultado análisis vouchers Booking {$booking->id}", [
             'total_used' => $totalUsed,
             'total_refunded' => $totalRefunded,
             'net_voucher_contribution' => $totalUsed - $totalRefunded
@@ -3730,7 +3730,7 @@ class StatisticsController extends AppBaseController
         $positiveLogsSum = $allLogsForVoucher->where('amount', '>', 0)->sum('amount');
         $negativeLogsSum = $allLogsForVoucher->where('amount', '<', 0)->sum('amount'); // Ya es negativo
 
-        Log::debug("Analizando VoucherLog {$voucherLog->id}", [
+        Log::channel('finance')->debug("Analizando VoucherLog {$voucherLog->id}", [
             'log_amount' => $logAmount,
             'voucher_quantity' => $voucherQuantity,
             'voucher_remaining_balance' => $voucherRemainingBalance,
@@ -3839,7 +3839,7 @@ class StatisticsController extends AppBaseController
     {
         $noRefundDate = $noRefundPayment->created_at;
 
-        Log::info("Analizando si no_refund {$noRefundPayment->id} es pre-pago", [
+        Log::channel('finance')->info("Analizando si no_refund {$noRefundPayment->id} es pre-pago", [
             'no_refund_date' => $noRefundDate->format('Y-m-d H:i:s'),
             'no_refund_timestamp' => $noRefundDate->timestamp,
             'paid_payments_count' => $paidPayments->count(),
@@ -3858,7 +3858,7 @@ class StatisticsController extends AppBaseController
         if ($paidPayments->count() > 0) {
             $firstPaymentDate = $paidPayments->min('created_at');
 
-            Log::info("Comparación de fechas", [
+            Log::channel('finance')->info("Comparación de fechas", [
                 'no_refund_timestamp' => $noRefundDate->timestamp,
                 'first_payment_timestamp' => $firstPaymentDate->timestamp,
                 'no_refund_is_before' => $noRefundDate->timestamp < $firstPaymentDate->timestamp,
@@ -3866,14 +3866,14 @@ class StatisticsController extends AppBaseController
             ]);
 
             if ($noRefundDate->timestamp < $firstPaymentDate->timestamp) {
-                Log::info("✅ No_refund {$noRefundPayment->id} es PRE-PAGO por timestamp", [
+                Log::channel('finance')->info("✅ No_refund {$noRefundPayment->id} es PRE-PAGO por timestamp", [
                     'no_refund_date' => $noRefundDate->format('Y-m-d H:i:s'),
                     'first_payment_date' => $firstPaymentDate->format('Y-m-d H:i:s'),
                     'difference_minutes' => round(($firstPaymentDate->timestamp - $noRefundDate->timestamp) / 60, 2)
                 ]);
                 return true;
             } else {
-                Log::info("❌ No_refund {$noRefundPayment->id} es POST-PAGO por timestamp", [
+                Log::channel('finance')->info("❌ No_refund {$noRefundPayment->id} es POST-PAGO por timestamp", [
                     'no_refund_date' => $noRefundDate->format('Y-m-d H:i:s'),
                     'first_payment_date' => $firstPaymentDate->format('Y-m-d H:i:s'),
                     'difference_minutes' => round(($noRefundDate->timestamp - $firstPaymentDate->timestamp) / 60, 2)
@@ -3884,7 +3884,7 @@ class StatisticsController extends AppBaseController
 
         // MÉTODO 2: Si no hay pagos aún, verificar timeline de cancelaciones
         if ($paidPayments->isEmpty()) {
-            Log::info("No hay pagos exitosos, verificando timeline para no_refund {$noRefundPayment->id}");
+            Log::channel('finance')->info("No hay pagos exitosos, verificando timeline para no_refund {$noRefundPayment->id}");
 
             // Si no hay pagos, verificar si hay cancelaciones previas al no_refund
             $hasPriorCancellation = false;
@@ -3893,7 +3893,7 @@ class StatisticsController extends AppBaseController
                     if (str_contains(strtolower($event['action']), 'cancel') &&
                         $event['date']->timestamp <= $noRefundDate->timestamp) {
                         $hasPriorCancellation = true;
-                        Log::info("Encontrada cancelación previa", [
+                        Log::channel('finance')->info("Encontrada cancelación previa", [
                             'cancel_date' => $event['date']->format('Y-m-d H:i:s'),
                             'cancel_action' => $event['action']
                         ]);
@@ -3903,7 +3903,7 @@ class StatisticsController extends AppBaseController
             }
 
             if ($hasPriorCancellation) {
-                Log::info("✅ No_refund {$noRefundPayment->id} es PRE-PAGO por cancelación previa sin pagos");
+                Log::channel('finance')->info("✅ No_refund {$noRefundPayment->id} es PRE-PAGO por cancelación previa sin pagos");
                 return true;
             }
         }
@@ -3914,7 +3914,7 @@ class StatisticsController extends AppBaseController
 
         foreach ($prePaymentKeywords as $keyword) {
             if (str_contains($notes, $keyword)) {
-                Log::info("✅ No_refund {$noRefundPayment->id} es PRE-PAGO por keywords en notas", [
+                Log::channel('finance')->info("✅ No_refund {$noRefundPayment->id} es PRE-PAGO por keywords en notas", [
                     'notes' => $notes,
                     'matched_keyword' => $keyword
                 ]);
@@ -3923,7 +3923,7 @@ class StatisticsController extends AppBaseController
         }
 
         // MÉTODO 4: Fallback - si no se puede determinar claramente, asumir POST-PAGO para ser conservadores
-        Log::info("❌ No_refund {$noRefundPayment->id} clasificado como POST-PAGO (fallback)", [
+        Log::channel('finance')->info("❌ No_refund {$noRefundPayment->id} clasificado como POST-PAGO (fallback)", [
             'reason' => 'No se pudo determinar claramente, asumiendo post-pago por seguridad'
         ]);
 
@@ -4002,7 +4002,7 @@ class StatisticsController extends AppBaseController
         $noRefundPayments = $booking->payments->whereIn('status', ['no_refund']);
         $paidPayments = $booking->payments->whereIn('status', ['paid']);
 
-        Log::info("=== INICIO ANÁLISIS REFUNDS DETALLADO - Booking {$booking->id} ===", [
+        Log::channel('finance')->info("=== INICIO ANÁLISIS REFUNDS DETALLADO - Booking {$booking->id} ===", [
             'refund_payments_count' => $refundPayments->count(),
             'no_refund_payments_count' => $noRefundPayments->count(),
             'paid_payments_count' => $paidPayments->count(),
@@ -4049,7 +4049,7 @@ class StatisticsController extends AppBaseController
 
         // ✅ PROCESAR NO_REFUNDS CON LÓGICA PRE/POST PAGO INTELIGENTE
         foreach ($noRefundPayments as $payment) {
-            Log::info("Procesando no_refund payment {$payment->id} para Booking {$booking->id}");
+            Log::channel('finance')->info("Procesando no_refund payment {$payment->id} para Booking {$booking->id}");
 
             // 🔍 DETERMINAR SI ES PRE-PAGO O POST-PAGO
             $isPrePayment = $this->isNoRefundPrePayment($payment, $paidPayments, $timeline);
@@ -4058,7 +4058,7 @@ class StatisticsController extends AppBaseController
                 // ✅ NO_REFUND PRE-PAGO: No afecta balance (es normal)
                 $analysis['refunds']['breakdown']['no_refund_pre_payment'] += $payment->amount;
 
-                Log::info("✅ No_refund {$payment->id} clasificado como PRE-PAGO", [
+                Log::channel('finance')->info("✅ No_refund {$payment->id} clasificado como PRE-PAGO", [
                     'amount' => $payment->amount,
                     'reason' => 'No afecta balance - cancelación antes del pago'
                 ]);
@@ -4066,7 +4066,7 @@ class StatisticsController extends AppBaseController
                 // ❌ NO_REFUND POST-PAGO: Afecta balance (problemático)
                 $analysis['refunds']['breakdown']['no_refund'] += $payment->amount;
 
-                Log::info("❌ No_refund {$payment->id} clasificado como POST-PAGO", [
+                Log::channel('finance')->info("❌ No_refund {$payment->id} clasificado como POST-PAGO", [
                     'amount' => $payment->amount,
                     'reason' => 'Afecta balance - dinero retenido después del pago'
                 ]);
@@ -4100,7 +4100,7 @@ class StatisticsController extends AppBaseController
         }
 
         // ✅ LOGGING FINAL DEL RESULTADO
-        Log::info("=== FIN ANÁLISIS REFUNDS DETALLADO - Booking {$booking->id} ===", [
+        Log::channel('finance')->info("=== FIN ANÁLISIS REFUNDS DETALLADO - Booking {$booking->id} ===", [
             'total_refunded' => $analysis['refunds']['total_refunded'],
             'refund_full' => $analysis['refunds']['breakdown']['refund_full'],
             'refund_partial' => $analysis['refunds']['breakdown']['refund_partial'],
@@ -4134,7 +4134,7 @@ class StatisticsController extends AppBaseController
             ];
 
             // Log para debugging
-            Log::info("Comparación Payrexx para booking {$booking->id}", [
+            Log::channel('finance')->info("Comparación Payrexx para booking {$booking->id}", [
                 'system_amount' => $bookingComparison['total_system_amount'],
                 'payrexx_amount' => $bookingComparison['total_payrexx_amount'],
                 'difference' => $bookingComparison['difference'],
@@ -4173,7 +4173,7 @@ class StatisticsController extends AppBaseController
                 'verified_payments' => []
             ];
 
-            Log::warning("No se encontró comparación Payrexx para booking {$booking->id}");
+            Log::channel('finance')->warning("No se encontró comparación Payrexx para booking {$booking->id}");
         }
     }
 
@@ -4197,7 +4197,7 @@ class StatisticsController extends AppBaseController
         $totalNoRefundPostPayment = $analysis['refunds']['breakdown']['no_refund'] ?? 0;
         $totalNoRefundPrePayment = $analysis['refunds']['breakdown']['no_refund_pre_payment'] ?? 0;
 
-        Log::info("=== CÁLCULO REFUNDS PENDIENTES - Booking {$bookingId} ===", [
+        Log::channel('finance')->info("=== CÁLCULO REFUNDS PENDIENTES - Booking {$bookingId} ===", [
             'booking_status' => $bookingStatus,
             'total_paid' => $totalPaid,
             'total_vouchers_used' => $totalVouchersUsed,
@@ -4240,7 +4240,7 @@ class StatisticsController extends AppBaseController
             default:
                 $refundsPending = 0;
                 $pendingReason = "Estado de reserva desconocido: {$bookingStatus}";
-                Log::warning("Estado de reserva desconocido para Booking {$bookingId}", [
+                Log::channel('finance')->warning("Estado de reserva desconocido para Booking {$bookingId}", [
                     'status' => $bookingStatus
                 ]);
         }
@@ -4259,7 +4259,7 @@ class StatisticsController extends AppBaseController
             'excluded_pre_payment_no_refund' => round($totalNoRefundPrePayment, 2)
         ];
 
-        Log::info("=== RESULTADO REFUNDS PENDIENTES - Booking {$bookingId} ===", [
+        Log::channel('finance')->info("=== RESULTADO REFUNDS PENDIENTES - Booking {$bookingId} ===", [
             'pending_amount' => $analysis['refunds']['breakdown']['refund_pending'],
             'reason' => $pendingReason,
             'booking_status' => $bookingStatus
@@ -4283,7 +4283,7 @@ class StatisticsController extends AppBaseController
         $totalRefundsProcessed = $totalRefunded + $totalVouchersRefunded + $totalNoRefundPostPayment;
 
         if ($totalRefundsProcessed > 0.50) {
-            Log::warning("Reserva activa {$booking->id} tiene refunds procesados", [
+            Log::channel('finance')->warning("Reserva activa {$booking->id} tiene refunds procesados", [
                 'total_refunds_processed' => $totalRefundsProcessed,
                 'might_be_error' => 'Verificar si la reserva debería estar cancelada'
             ]);
@@ -4302,7 +4302,7 @@ class StatisticsController extends AppBaseController
     {
         $totalReceived = $totalPaid + $totalVouchersUsed;
 
-        Log::info("Analizando reserva cancelada {$booking->id}", [
+        Log::channel('finance')->info("Analizando reserva cancelada {$booking->id}", [
             'total_received' => $totalReceived,
             'total_paid' => $totalPaid,
             'total_vouchers_used' => $totalVouchersUsed
@@ -4310,7 +4310,7 @@ class StatisticsController extends AppBaseController
 
         // ✅ CASO ESPECIAL: Cancelada sin pago previo
         if ($totalReceived <= 0.01) {
-            Log::info("Booking {$booking->id} cancelada sin pago previo - OK", [
+            Log::channel('finance')->info("Booking {$booking->id} cancelada sin pago previo - OK", [
                 'total_received' => $totalReceived,
                 'conclusion' => 'No hay nada que refundar'
             ]);
@@ -4325,7 +4325,7 @@ class StatisticsController extends AppBaseController
         $totalProcessedPostPayment = $totalRefunded + $totalVouchersRefunded + $totalNoRefundPostPayment;
         $unreimbursedAmount = $totalReceived - $totalProcessedPostPayment;
 
-        Log::info("Booking {$booking->id} cancelada con pago previo", [
+        Log::channel('finance')->info("Booking {$booking->id} cancelada con pago previo", [
             'total_received' => $totalReceived,
             'total_processed_post_payment' => $totalProcessedPostPayment,
             'unreimbursed_amount' => $unreimbursedAmount,
@@ -4415,7 +4415,7 @@ class StatisticsController extends AppBaseController
             $expectedForActive += ($expectedForActive * 0.10);
         }
 
-        Log::info("Análisis cancelación parcial CORREGIDO {$booking->id}", [
+        Log::channel('finance')->info("Análisis cancelación parcial CORREGIDO {$booking->id}", [
             'active_clients_by_course' => $activeBookingUsers->groupBy('course_id')->map(function($courseUsers) {
                 return $courseUsers->groupBy('client_id')->count();
             })->toArray(),
@@ -4508,7 +4508,7 @@ class StatisticsController extends AppBaseController
             ];
 
         } catch (\Exception $e) {
-            Log::error('Error verifying Payrexx transaction: ' . $e->getMessage(), [
+            Log::channel('finance')->error('Error verifying Payrexx transaction: ' . $e->getMessage(), [
                 'payment_id' => $payment->id,
                 'booking_id' => $booking->id,
                 'reference' => $payment->payrexx_reference
@@ -4564,7 +4564,7 @@ class StatisticsController extends AppBaseController
             return $verification;
 
         } catch (\Exception $e) {
-            Log::error('Error in individual transaction verification: ' . $e->getMessage());
+            Log::channel('finance')->error('Error in individual transaction verification: ' . $e->getMessage());
             return [
                 'payment_id' => $payment->id,
                 'error' => $e->getMessage()
@@ -4602,7 +4602,7 @@ class StatisticsController extends AppBaseController
             return 'unknown';
 
         } catch (\Exception $e) {
-            Log::warning('Error getting payment method from Payrexx transaction: ' . $e->getMessage());
+            Log::channel('finance')->warning('Error getting payment method from Payrexx transaction: ' . $e->getMessage());
             return 'unknown';
         }
     }
@@ -4707,7 +4707,7 @@ class StatisticsController extends AppBaseController
         $refunded = $analysis['refunds']['total_refunded'];
         $noRefundPostPayment = $analysis['refunds']['breakdown']['no_refund'] ?? 0;
 
-        Log::debug("detectDiscrepancies Booking {$booking->id}", [
+        Log::channel('finance')->debug("detectDiscrepancies Booking {$booking->id}", [
             'status' => $booking->status,
             'stored_total' => $storedTotal,
             'calculated_total' => $calculatedTotal,
@@ -4807,7 +4807,7 @@ class StatisticsController extends AppBaseController
             }
         }
 
-        Log::debug("detectDiscrepancies resultado Booking {$booking->id}", [
+        Log::channel('finance')->debug("detectDiscrepancies resultado Booking {$booking->id}", [
             'balance_type' => $balanceType,
             'actual_balance' => $actualBalance,
             'expected_balance' => $expectedBalance,
@@ -4865,7 +4865,7 @@ class StatisticsController extends AppBaseController
             'pending_calculation_method' => 'same_as_detectDiscrepancies'
         ];
 
-        Log::debug("calculatePendingAmount CORREGIDO Booking {$booking->id}", [
+        Log::channel('finance')->debug("calculatePendingAmount CORREGIDO Booking {$booking->id}", [
             'booking_status' => $booking->status,
             'pending_amount' => $pendingAmount,
             'calculated_total' => $calculatedTotal
@@ -5282,7 +5282,7 @@ class StatisticsController extends AppBaseController
                 if (round($totalReal, 2) < round($fullBookingTotal, 2)
                     && !(round($realPayments, 2) === round($fullBookingTotal, 2) && round($refunds, 2) === round($realPayments, 2))) {
 
-                    Log::debug('Error en el calculo de pagos', [
+                    Log::channel('finance')->debug('Error en el calculo de pagos', [
                         '❌ Discrepancia en reserva' => $bookingId,
                         'Pagado real' => $realPayments,
                         'VOucher real' => $totalVoucherAmount,
@@ -5606,7 +5606,7 @@ class StatisticsController extends AppBaseController
                 $totalPrice = $bookingUser->course->price;
             }
         } else {
-            Log::debug("Invalid course type: $courseType");
+            Log::channel('finance')->debug("Invalid course type: $courseType");
             return [
                 'basePrice' => 0,
                 'totalPrice' => 0,
@@ -5700,7 +5700,7 @@ class StatisticsController extends AppBaseController
         $pricePerParticipant = $priceForInterval[$groupBookings] ?? null;
 
         if (!$pricePerParticipant) {
-            Log::debug("Precio no definido curso $course->id para $groupBookings participantes en intervalo $interval");
+            Log::channel('finance')->debug("Precio no definido curso $course->id para $groupBookings participantes en intervalo $interval");
             return 0;
         }
 
@@ -5737,7 +5737,7 @@ class StatisticsController extends AppBaseController
 
         $totalExtrasPrice = 0;
         foreach ($extras as $extra) {
-            //  Log::debug('extra price:'. $extra->courseExtra->price);
+            //  Log::channel('finance')->debug('extra price:'. $extra->courseExtra->price);
             $extraPrice = $extra->courseExtra->price ?? 0;
             $totalExtrasPrice += $extraPrice;
         }
@@ -5798,7 +5798,7 @@ class StatisticsController extends AppBaseController
 
         foreach ($bookingUsers as $bookingUser) {
             if (!$bookingUser->course) {
-                \Log::warning("BookingUser sin curso", ['booking_user_id' => $bookingUser->id]);
+                \Log::channel('finance')->warning("BookingUser sin curso", ['booking_user_id' => $bookingUser->id]);
                 continue; // Salta este registro para evitar el error
             }
 
@@ -6205,7 +6205,7 @@ class StatisticsController extends AppBaseController
 
         foreach ($bookingUsersTotalPrice as $bookingUser) {
             if (!$bookingUser->course) {
-                \Log::warning("BookingUser sin curso", ['booking_user_id' => $bookingUser->id]);
+                \Log::channel('finance')->warning("BookingUser sin curso", ['booking_user_id' => $bookingUser->id]);
                 continue; // Salta este registro para evitar el error
             }
 
@@ -6470,7 +6470,7 @@ class StatisticsController extends AppBaseController
         // Procesar reservas con monitor
         foreach ($bookingUsersWithMonitor as $bookingUser) {
             if (!$bookingUser->course) {
-                \Log::warning("BookingUser sin curso", ['booking_user_id' => $bookingUser->id]);
+                \Log::channel('finance')->warning("BookingUser sin curso", ['booking_user_id' => $bookingUser->id]);
                 continue; // Salta este registro para evitar el error
             }
 
@@ -6717,9 +6717,9 @@ class StatisticsController extends AppBaseController
             return $start->diffInMinutes($end);
         } catch (\Exception $e) {
             // Si ocurre un error en el formato, registra el error y devuelve 0
-            Log::error('Error calculating duration in minutes: ' . $e->getMessage());
-            Log::error('Startime: ' .$startTime);
-            Log::error('Endtime: ' .$endTime);
+            Log::channel('finance')->error('Error calculating duration in minutes: ' . $e->getMessage());
+            Log::channel('finance')->error('Startime: ' .$startTime);
+            Log::channel('finance')->error('Endtime: ' .$endTime);
             return 0;
         }
     }
@@ -7125,3 +7125,4 @@ class StatisticsController extends AppBaseController
         return $hours + ($minutes / 60) + ($seconds / 3600);
     }
 }
+

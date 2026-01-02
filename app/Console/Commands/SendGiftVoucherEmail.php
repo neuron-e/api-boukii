@@ -104,7 +104,7 @@ class SendGiftVoucherEmail extends Command
 
             $this->info('✓ Gift voucher marked as delivered.');
 
-            Log::info('Gift voucher email sent manually via command', [
+            Log::channel('vouchers')->info('Gift voucher email sent manually via command', [
                 'voucher_id' => $voucher->id,
                 'code' => $voucher->code,
                 'recipient_email' => $voucher->recipient_email,
@@ -118,7 +118,7 @@ class SendGiftVoucherEmail extends Command
 
         } catch (\Exception $e) {
             $this->error('Error sending gift voucher email: ' . $e->getMessage());
-            Log::error('Error sending gift voucher email via command', [
+            Log::channel('vouchers')->error('Error sending gift voucher email via command', [
                 'voucher_id' => $voucher->id,
                 'code' => $code,
                 'error' => $e->getMessage(),

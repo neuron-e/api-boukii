@@ -60,7 +60,7 @@ class MonitorNwdAPIController extends AppBaseController
     public function index(Request $request): JsonResponse
     {
         // Log de petición al índice
-        Log::info('Lista de MonitorNwds solicitada', [
+        Log::channel('nwd')->info('Lista de MonitorNwds solicitada', [
             'filters' => $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with']),
             'search' => $request->get('search'),
             'order' => $request->get('order', 'desc'),
@@ -155,7 +155,7 @@ class MonitorNwdAPIController extends AppBaseController
                     $monitorNwd = $this->monitorNwdRepository->create($nwdData);
                     $createdNwds[] = $monitorNwd;
 
-                    Log::info('MonitorNwd creado para fecha específica', [
+                    Log::channel('nwd')->info('MonitorNwd creado para fecha específica', [
                         'nwd_id' => $monitorNwd->id,
                         'monitor_id' => $input['monitor_id'],
                         'date' => $dateStr,
@@ -164,7 +164,7 @@ class MonitorNwdAPIController extends AppBaseController
                     // Guardar fecha omitida
                     $skippedDates[] = $dateStr;
 
-                    Log::warning('Fecha omitida por solapamiento', [
+                    Log::channel('nwd')->warning('Fecha omitida por solapamiento', [
                         'monitor_id' => $input['monitor_id'],
                         'date' => $dateStr,
                         'start_time' => $input['start_time'],
@@ -210,7 +210,7 @@ class MonitorNwdAPIController extends AppBaseController
 
         } catch (\Exception $e) {
             // Loguear el error
-            Log::error('Error al guardar MonitorNwd', [
+            Log::channel('nwd')->error('Error al guardar MonitorNwd', [
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
@@ -324,7 +324,7 @@ class MonitorNwdAPIController extends AppBaseController
         // Verificar si el monitor está ocupado antes de actualizar
         if (Monitor::isMonitorBusy($monitorNwd->monitor_id, $input['start_date'], $input['start_time'], $input['end_time'], $id)) {
             // Log cuando el monitor está ocupado
-            Log::warning('Monitor ocupado al intentar actualizar NWD', [
+            Log::channel('nwd')->warning('Monitor ocupado al intentar actualizar NWD', [
                 'nwd_id' => $id,
                 'monitor_id' => $monitorNwd->monitor_id,
                 'start_date' => $input['start_date'],
@@ -339,7 +339,7 @@ class MonitorNwdAPIController extends AppBaseController
         $monitorNwd = $this->monitorNwdRepository->update($input, $id);
 
         // Log exitoso
-        Log::info('MonitorNwd actualizado exitosamente', [
+        Log::channel('nwd')->info('MonitorNwd actualizado exitosamente', [
             'nwd_id' => $id,
             'monitor_id' => $monitorNwd->monitor_id,
             'start_date' => $input['start_date'],
@@ -400,4 +400,5 @@ class MonitorNwdAPIController extends AppBaseController
         return $this->sendSuccess('Monitor Nwd deleted successfully');
     }
 }
+
 

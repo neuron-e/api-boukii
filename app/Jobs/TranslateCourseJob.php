@@ -29,7 +29,7 @@ class TranslateCourseJob implements ShouldQueue
         $deeplApiUrl = config('services.deepl.url');
 
         if (!$deeplApiKey || !$deeplApiUrl) {
-            Log::warning('TranslateCourseJob skipped: missing credentials', [
+            Log::channel('integrations')->warning('TranslateCourseJob skipped: missing credentials', [
                 'course_id' => $this->courseId,
             ]);
             return;
@@ -62,7 +62,7 @@ class TranslateCourseJob implements ShouldQueue
             $langKey = strtolower($lang);
             $resp = $responses[$index] ?? null;
             if (!$resp || !$resp->successful()) {
-                Log::warning('TranslateCourseJob failed', [
+                Log::channel('integrations')->warning('TranslateCourseJob failed', [
                     'course_id' => $this->courseId,
                     'lang' => $lang,
                     'status' => $resp?->status(),
@@ -85,10 +85,11 @@ class TranslateCourseJob implements ShouldQueue
                 $course->update(['translations' => json_encode($merged)]);
             }
         } catch (\Throwable $e) {
-            Log::error('TranslateCourseJob update failed', [
+            Log::channel('integrations')->error('TranslateCourseJob update failed', [
                 'course_id' => $this->courseId,
                 'message' => $e->getMessage(),
             ]);
         }
     }
 }
+

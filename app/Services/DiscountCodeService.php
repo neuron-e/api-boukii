@@ -386,7 +386,7 @@ class DiscountCodeService
             return true;
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Error recording discount code usage: ' . $e->getMessage());
+            Log::channel('finance')->error('Error recording discount code usage: ' . $e->getMessage());
             return false;
         }
     }
@@ -430,7 +430,7 @@ class DiscountCodeService
             return true;
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Error reverting discount code usage: ' . $e->getMessage());
+            Log::channel('finance')->error('Error reverting discount code usage: ' . $e->getMessage());
             return false;
         }
     }
@@ -562,6 +562,7 @@ class DiscountCodeService
         ]);
     }
 }
+
 
 
 

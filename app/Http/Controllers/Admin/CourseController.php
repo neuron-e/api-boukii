@@ -233,7 +233,7 @@ class CourseController extends AppBaseController
         $course->total_available_places = $availability['total_available_places'];
         $course->total_places = $availability['total_places'];
 
-        Log::info('[DEBUG] CourseController show - courseGroups:', ['course_id' => $course->id, 'courseGroups' => ($course->courseGroups ?? collect())->map(fn($g) => ['id' => $g->id, 'degree_id' => $g->degree_id, 'age_min' => $g->age_min, 'age_max' => $g->age_max])->toArray()]);
+        Log::channel('courses')->info('[DEBUG] CourseController show - courseGroups:', ['course_id' => $course->id, 'courseGroups' => ($course->courseGroups ?? collect())->map(fn($g) => ['id' => $g->id, 'degree_id' => $g->degree_id, 'age_min' => $g->age_min, 'age_max' => $g->age_max])->toArray()]);
         return $this->sendResponse($course, 'Course retrieved successfully');
     }
 
@@ -823,7 +823,7 @@ class CourseController extends AppBaseController
             return $this->sendResponse($course, 'Curso creado con Ã©xito');
         } catch (\Exception $e) {
             DB::rollback();
-            \Illuminate\Support\Facades\Log::debug('An error occurred while creating the course: : ' .
+            \Illuminate\Support\Facades\Log::channel('courses')->debug('An error occurred while creating the course: : ' .
                 $e->getLine());
             return $this->sendError('An error occurred while creating the course: ' . $e->getMessage());
         }
@@ -1342,7 +1342,7 @@ class CourseController extends AppBaseController
                             $groupId = isset($groupData['id']) ? $groupData['id'] : null;
                             $degreeId = $groupData['degree_id'] ?? null;
 
-                            Log::info('[DEBUG] Backend updateOrCreate groupData:', [
+                            Log::channel('courses')->info('[DEBUG] Backend updateOrCreate groupData:', [
                                 'group_id' => $groupId,
                                 'degree_id' => $degreeId,
                                 'age_min' => $groupData['age_min'] ?? 'NOT SET',
@@ -1359,7 +1359,7 @@ class CourseController extends AppBaseController
                                 if ($existingGroup) {
                                     $groupId = $existingGroup->id;
                                     $groupData['id'] = $existingGroup->id;
-                                    Log::info('[GROUP_RECOVERY] Found existing group by degree_id', [
+                                    Log::channel('courses')->info('[GROUP_RECOVERY] Found existing group by degree_id', [
                                         'course_date_id' => $date->id,
                                         'degree_id' => $degreeId,
                                         'recovered_id' => $groupId,
@@ -1368,7 +1368,7 @@ class CourseController extends AppBaseController
                             }
 
                             $group = $date->courseGroups()->updateOrCreate(['id' => $groupId], $groupData);
-                            Log::info('[DEBUG] Backend AFTER updateOrCreate - group from DB:', [
+                            Log::channel('courses')->info('[DEBUG] Backend AFTER updateOrCreate - group from DB:', [
                                 'group_id' => $group->id,
                                 'degree_id' => $group->degree_id,
                                 'age_min' => $group->age_min ?? 'NULL',
@@ -1379,7 +1379,7 @@ class CourseController extends AppBaseController
                             // FIX DEBUG: Log whether course_subgroups is present and its count
                             $hasSubgroups = isset($groupData['course_subgroups']);
                             $subgroupsCount = $hasSubgroups ? count($groupData['course_subgroups']) : 0;
-                            Log::info('[GROUP_PAYLOAD_CHECK]', [
+                            Log::channel('courses')->info('[GROUP_PAYLOAD_CHECK]', [
                                 'course_id' => $course->id,
                                 'course_date_id' => $date->id,
                                 'course_group_id' => $group->id,
@@ -1390,7 +1390,7 @@ class CourseController extends AppBaseController
                             ]);
 
                             if (isset($groupData['course_subgroups'])) {
-                                Log::info('[SUBGROUP_UPDATE_START]', [
+                                Log::channel('courses')->info('[SUBGROUP_UPDATE_START]', [
                                     'course_id' => $course->id,
                                     'course_date_id' => $date->id,
                                     'course_group_id' => $group->id,
@@ -1444,7 +1444,7 @@ class CourseController extends AppBaseController
                                             // Siempre usar el ID de DB, ignorar el ID del frontend
                                             $subgroupId = $existingByDatesId->id;
                                             $subgroupData['id'] = $existingByDatesId->id;
-                                            Log::info('[SUBGROUP_RECOVERY] Found existing subgroup by subgroup_dates_id', [
+                                            Log::channel('courses')->info('[SUBGROUP_RECOVERY] Found existing subgroup by subgroup_dates_id', [
                                                 'course_id' => $course->id,
                                                 'course_date_id' => $date->id,
                                                 'course_group_id' => $group->id,
@@ -1466,7 +1466,7 @@ class CourseController extends AppBaseController
                                             // Usar el subgrupo existente y asignarle el nuevo subgroup_dates_id
                                             $subgroupId = $existingWithoutDatesId->id;
                                             $subgroupData['id'] = $existingWithoutDatesId->id;
-                                            Log::info('[SUBGROUP_RECOVERY] Found existing subgroup without subgroup_dates_id for temp ID', [
+                                            Log::channel('courses')->info('[SUBGROUP_RECOVERY] Found existing subgroup without subgroup_dates_id for temp ID', [
                                                 'course_id' => $course->id,
                                                 'course_date_id' => $date->id,
                                                 'course_group_id' => $group->id,
@@ -1486,7 +1486,7 @@ class CourseController extends AppBaseController
                                             ->exists();
 
                                         if (!$existsInDb) {
-                                            Log::warning('[INVALID_SUBGROUP_ID] Frontend sent non-existent ID, treating as new', [
+                                            Log::channel('courses')->warning('[INVALID_SUBGROUP_ID] Frontend sent non-existent ID, treating as new', [
                                                 'course_id' => $course->id,
                                                 'course_date_id' => $date->id,
                                                 'course_group_id' => $group->id,
@@ -1584,7 +1584,7 @@ class CourseController extends AppBaseController
                             }
 
                             // DEBUG: Log para entender qué se intenta eliminar
-                            Log::info('[SUBGROUP_DELETE_CHECK]', [
+                            Log::channel('courses')->info('[SUBGROUP_DELETE_CHECK]', [
                                 'course_id' => $course->id,
                                 'course_date_id' => $date->id,
                                 'course_group_id' => $group->id,
@@ -1603,7 +1603,7 @@ class CourseController extends AppBaseController
                                     ->whereNull('deleted_at')
                                     ->count();
 
-                                Log::info('[SUBGROUP_DELETE_BOOKING_CHECK]', [
+                                Log::channel('courses')->info('[SUBGROUP_DELETE_BOOKING_CHECK]', [
                                     'subgroups_to_delete_ids' => $subgroupsToDeleteIds,
                                     'booking_users_count' => $bookingUsersCount,
                                 ]);
@@ -1628,7 +1628,7 @@ class CourseController extends AppBaseController
                                         ->delete();
                                 }
                             }
-                            Log::info('[SUBGROUP_UPDATE_END]', [
+                            Log::channel('courses')->info('[SUBGROUP_UPDATE_END]', [
                                 'course_id' => $course->id,
                                 'course_date_id' => $date->id,
                                 'course_group_id' => $group->id,
@@ -1776,7 +1776,7 @@ class CourseController extends AppBaseController
                 $bookingFixerStats = app(OrphanedBookingUserFixer::class)
                     ->migrate(false, $school->id, $course->id);
                 if ($bookingFixerStats['migrated'] > 0) {
-                    Log::info('Re-aligned orphaned booking_users after course update', [
+                    Log::channel('courses')->info('Re-aligned orphaned booking_users after course update', [
                         'course_id' => $course->id,
                         'school_id' => $school->id,
                         'migrated' => $bookingFixerStats['migrated'],
@@ -1803,7 +1803,7 @@ class CourseController extends AppBaseController
                             Mail::to($clientEmail)->send(new BookingInfoUpdateMailer($school,
                                 $booking, $booking->clientMain));
                         } catch (\Exception $ex) {
-                            \Illuminate\Support\Facades\Log::debug('Admin/COurseController BookingInfoUpdateMailer: ' .
+                            \Illuminate\Support\Facades\Log::channel('courses')->debug('Admin/COurseController BookingInfoUpdateMailer: ' .
                                 $ex->getMessage());
                         }
                     })->afterResponse();
@@ -1813,9 +1813,9 @@ class CourseController extends AppBaseController
             return $this->sendResponse($course, 'Course updated successfully');
         }  catch (\Exception $e) {
             DB::rollback();
-            \Illuminate\Support\Facades\Log::debug('Admin/COurseController Update: ' .
+            \Illuminate\Support\Facades\Log::channel('courses')->debug('Admin/COurseController Update: ' .
                 $e->getMessage());
-            \Illuminate\Support\Facades\Log::debug('TRace: ',
+            \Illuminate\Support\Facades\Log::channel('courses')->debug('TRace: ',
                 $e->getTrace());
             return $this->sendError('An error occurred while updating the course: ' . $e->getMessage());
         }
@@ -1855,7 +1855,7 @@ class CourseController extends AppBaseController
         $blocked = array_values(array_unique(array_merge($activeIds, $existingIds)));
 
         if (!empty($blocked)) {
-            Log::info('Skipping subgroup deletion due to attached booking_users', [
+            Log::channel('courses')->info('Skipping subgroup deletion due to attached booking_users', [
                 'context' => $context,
                 'blocked_subgroup_ids' => $blocked,
                 'active_subgroup_ids' => $activeIds,
@@ -1902,7 +1902,7 @@ class CourseController extends AppBaseController
 
         // Desencolar traducciÃ³n asÃ­ncrona; si la cola es sync, evitamos bloquear
         if (config('queue.default') === 'sync') {
-            Log::warning('translateBulk skipped: queue driver is sync, translations not refreshed automatically');
+            Log::channel('courses')->warning('translateBulk skipped: queue driver is sync, translations not refreshed automatically');
         } else {
             TranslateCourseJob::dispatch(
                 $course->id,
@@ -1919,7 +1919,7 @@ class CourseController extends AppBaseController
         $deeplApiUrl = config('services.deepl.url');
 
         if (!$text || !$deeplApiKey || !$deeplApiUrl) {
-            Log::warning('translateText skipped: missing credentials or empty text', [
+            Log::channel('courses')->warning('translateText skipped: missing credentials or empty text', [
                 'lang' => $targetLang,
                 'has_key' => !empty($deeplApiKey),
                 'has_url' => !empty($deeplApiUrl),
@@ -1943,13 +1943,13 @@ class CourseController extends AppBaseController
                 $json = $response->json();
                 return $json['translations'][0]['text'] ?? $text;
             }
-            Log::warning('translateText failed', [
+            Log::channel('courses')->warning('translateText failed', [
                 'lang' => $targetLang,
                 'status' => $response->status(),
                 'body' => $response->json(),
             ]);
         } catch (\Exception $e) {
-            Log::error('translateText exception', ['lang' => $targetLang, 'message' => $e->getMessage()]);
+            Log::channel('courses')->error('translateText exception', ['lang' => $targetLang, 'message' => $e->getMessage()]);
         }
 
         return $text;
@@ -1961,7 +1961,7 @@ class CourseController extends AppBaseController
         $deeplApiUrl = config('services.deepl.url');
 
         if (!$deeplApiKey || !$deeplApiUrl) {
-            Log::warning('translateBulk skipped: missing credentials', [
+            Log::channel('courses')->warning('translateBulk skipped: missing credentials', [
                 'has_key' => !empty($deeplApiKey),
                 'has_url' => !empty($deeplApiUrl),
             ]);
@@ -1993,7 +1993,7 @@ class CourseController extends AppBaseController
         foreach ($languages as $index => $lang) {
             $resp = $responses[$index] ?? null;
             if (!$resp || !$resp->successful()) {
-                Log::warning('translateBulk failed', [
+                Log::channel('courses')->warning('translateBulk failed', [
                     'lang' => $lang,
                     'status' => $resp?->status(),
                     'body' => $resp?->json(),
@@ -2017,7 +2017,7 @@ class CourseController extends AppBaseController
         if (!config('app.debug_course_update', false)) {
             return;
         }
-        Log::debug($message, $context);
+        Log::channel('courses')->debug($message, $context);
     }
 
     public function getSellStats($id, Request $request): JsonResponse
@@ -2123,10 +2123,10 @@ class CourseController extends AppBaseController
                 }
             }
         } catch (ModelNotFoundException $e) {
-            Log::error($e->getMessage(), $e->getTrace());
+            Log::channel('courses')->error($e->getMessage(), $e->getTrace());
             return $this->sendError('Error retrieving course data', 500);
         } catch (\Exception $e) {
-            Log::error($e->getMessage(), $e->getTrace());
+            Log::channel('courses')->error($e->getMessage(), $e->getTrace());
             return $this->sendError('Error retrieving course data', 500);
         }
 
@@ -2288,7 +2288,7 @@ class CourseController extends AppBaseController
                 $totalPrice = $bookingUser->course->price; // Asumimos que el curso tiene un campo `fixed_price`
             }
         } else {
-            Log::debug("Invalid course type: $courseType");
+            Log::channel('courses')->debug("Invalid course type: $courseType");
             return $totalPrice;
         }
 
@@ -2370,7 +2370,7 @@ class CourseController extends AppBaseController
         $pricePerParticipant = $priceForInterval[$groupBookings] ?? null;
 
         if (!$pricePerParticipant) {
-            Log::debug("Precio no definido curso $course->id para $groupBookings participantes en intervalo $interval");
+            Log::channel('courses')->debug("Precio no definido curso $course->id para $groupBookings participantes en intervalo $interval");
             return 0;
         }
 
@@ -2573,5 +2573,6 @@ class CourseController extends AppBaseController
     }
 
 }
+
 
 

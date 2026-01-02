@@ -60,7 +60,7 @@ class TimingController extends Controller
                     ->first();
                     
                 if (!$courseDate) {
-                    Log::warning("Course date {$event['course_date_id']} does not belong to course {$courseId}");
+                    Log::channel('bookings')->warning("Course date {$event['course_date_id']} does not belong to course {$courseId}");
                     continue;
                 }
 
@@ -70,7 +70,7 @@ class TimingController extends Controller
                     ->first();
                     
                 if (!$bookingUser) {
-                    Log::warning("Booking user {$event['booking_user_id']} does not belong to course date {$event['course_date_id']}");
+                    Log::channel('bookings')->warning("Booking user {$event['booking_user_id']} does not belong to course date {$event['course_date_id']}");
                     continue;
                 }
 

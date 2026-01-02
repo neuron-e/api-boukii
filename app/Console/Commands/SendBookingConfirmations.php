@@ -93,7 +93,7 @@ class SendBookingConfirmations extends Command
                             $booking->id,
                             $e->getMessage()
                         ));
-                        Log::error('BOOKING_CONFIRMATION_COMMAND_FAILED', [
+                        Log::channel('emails')->error('BOOKING_CONFIRMATION_COMMAND_FAILED', [
                             'booking_id' => $booking->id,
                             'error' => $e->getMessage(),
                         ]);

@@ -31,8 +31,8 @@ class PayrexxController
     public function processNotification(Request $request)
     {
         // 0. Log Payrexx response
-        Log::channel('payrexx')->debug('processNotification');
-        Log::channel('payrexx')->debug(print_r($request->all(), 1));
+        Log::channel('webhooks')->debug('processNotification');
+        Log::channel('webhooks')->debug(print_r($request->all(), 1));
 
         // Can be Booking, Voucher or GiftVoucher
         try {
@@ -50,7 +50,7 @@ class PayrexxController
 
                 $referenceID = trim($referenceID);
 
-                Log::channel('payrexx')->debug('ReferenceID: ' . $referenceID );
+                Log::channel('webhooks')->debug('ReferenceID: ' . $referenceID );
 
                 $booking = (strlen($referenceID) > 2)
                     ? Booking::withTrashed()->with(['school', 'bookingUsers'])
@@ -151,7 +151,7 @@ class PayrexxController
 
                                 $booking->save();
                             } else {
-                                Log::channel('payrexx')->warning('Payrexx webhook transaction could not be verified for booking', [
+                                Log::channel('webhooks')->warning('Payrexx webhook transaction could not be verified for booking', [
                                     'booking_id' => $booking->id,
                                     'reference' => $referenceID,
                                     'transaction_id' => $transactionID,
@@ -201,7 +201,7 @@ class PayrexxController
 
                                 $voucher->save();
                             } else {
-                                Log::channel('payrexx')->warning('Payrexx webhook transaction could not be verified for voucher', [
+                                Log::channel('webhooks')->warning('Payrexx webhook transaction could not be verified for voucher', [
                                     'voucher_id' => $voucher->id,
                                     'reference' => $referenceID,
                                     'transaction_id' => $transactionID,
@@ -261,19 +261,19 @@ class PayrexxController
                                                 'delivered_at' => now()
                                             ]);
 
-                                            Log::info('Gift Voucher email sent successfully', [
+                                            Log::channel('webhooks')->info('Gift Voucher email sent successfully', [
                                                 'voucher_id' => $giftVoucher->id,
                                                 'code' => $giftVoucher->code,
                                                 'recipient' => $giftVoucher->recipient_email
                                             ]);
                                         } catch (\Exception $e) {
-                                            Log::error('Failed to send gift voucher email', [
+                                            Log::channel('webhooks')->error('Failed to send gift voucher email', [
                                                 'voucher_id' => $giftVoucher->id,
                                                 'error' => $e->getMessage()
                                             ]);
                                         }
 
-                                        Log::info('Gift Voucher activated via Payrexx webhook', [
+                                        Log::channel('webhooks')->info('Gift Voucher activated via Payrexx webhook', [
                                             'voucher_id' => $giftVoucher->id,
                                             'code' => $giftVoucher->code,
                                             'amount' => $giftVoucher->amount
@@ -281,7 +281,7 @@ class PayrexxController
 
                                         return response()->json(['status' => 'success', 'type' => 'gift_voucher']);
                                     } else {
-                                        Log::channel('payrexx')->warning('Payrexx webhook transaction could not be verified for gift voucher', [
+                                        Log::channel('webhooks')->warning('Payrexx webhook transaction could not be verified for gift voucher', [
                                             'gift_voucher_id' => $giftVoucher->id,
                                             'reference' => $referenceID,
                                             'transaction_id' => $transactionID,
@@ -299,10 +299,12 @@ class PayrexxController
 
             }
         } catch (\Exception $e) {
-            Log::channel('payrexx')->error('processNotification');
-            Log::channel('payrexx')->error($e->getMessage());
+            Log::channel('webhooks')->error('processNotification');
+            Log::channel('webhooks')->error($e->getMessage());
         }
 
         return response()->make('OK');
     }
 }
+
+

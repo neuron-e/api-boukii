@@ -80,7 +80,7 @@ class CourseAvailabilityService
 
         if ($intervalSubgroup && $intervalSubgroup->max_participants !== null) {
             // Usar max_participants específico del subgrupo en este intervalo
-            Log::debug("Using interval subgroup max_participants", [
+            Log::channel('availability')->debug("Using interval subgroup max_participants", [
                 'subgroup_id' => $subgroup->id,
                 'date' => $date,
                 'interval_id' => $interval->id,
@@ -91,7 +91,7 @@ class CourseAvailabilityService
 
         // 5. Si hay config de grupo pero no de subgrupo, usar del grupo
         if ($intervalGroup->max_participants !== null) {
-            Log::debug("Using interval group max_participants", [
+            Log::channel('availability')->debug("Using interval group max_participants", [
                 'subgroup_id' => $subgroup->id,
                 'date' => $date,
                 'interval_id' => $interval->id,
@@ -132,7 +132,7 @@ class CourseAvailabilityService
 
             $available = max(0, $maxParticipants - $currentBookings);
 
-            Log::debug("Calculated available slots", [
+            Log::channel('availability')->debug("Calculated available slots", [
                 'subgroup_id' => $subgroup->id,
                 'date' => $date,
                 'max_participants' => $maxParticipants,
@@ -248,7 +248,7 @@ class CourseAvailabilityService
             }
         }
 
-        Log::info("Cache invalidated for subgroup", [
+        Log::channel('availability')->info("Cache invalidated for subgroup", [
             'subgroup_id' => $subgroup->id,
             'date' => $date ?? 'all'
         ]);

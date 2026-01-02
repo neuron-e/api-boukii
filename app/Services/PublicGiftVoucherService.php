@@ -52,7 +52,7 @@ class PublicGiftVoucherService
 
         $giftVoucher = GiftVoucher::create($voucherData);
 
-        Log::info('Gift voucher pendiente creado', [
+        Log::channel('vouchers')->info('Gift voucher pendiente creado', [
             'gift_voucher_id' => $giftVoucher->id,
             'code' => $giftVoucher->code,
             'amount' => $giftVoucher->amount,
@@ -78,13 +78,13 @@ class PublicGiftVoucherService
         $school = School::find($voucher->school_id);
 
         if (!$school) {
-            Log::error('School not found for gift voucher', ['voucher_id' => $voucher->id]);
+            Log::channel('vouchers')->error('School not found for gift voucher', ['voucher_id' => $voucher->id]);
             throw new \Exception('School not found');
         }
 
         // Verificar configuración de Payrexx
         if (empty($school->getPayrexxInstance()) || empty($school->getPayrexxKey())) {
-            Log::error('Payrexx configuration incomplete', [
+            Log::channel('vouchers')->error('Payrexx configuration incomplete', [
                 'school_id' => $school->id,
                 'voucher_id' => $voucher->id
             ]);
@@ -104,7 +104,7 @@ class PublicGiftVoucherService
                     'payment_reference' => "payrexx_gateway_{$createdGateway->getId()}"
                 ]);
 
-                Log::info('Payrexx gateway created for gift voucher', [
+                Log::channel('vouchers')->info('Payrexx gateway created for gift voucher', [
                     'voucher_id' => $voucher->id,
                     'gateway_id' => $createdGateway->getId(),
                     'payment_url' => $paymentUrl
@@ -117,7 +117,7 @@ class PublicGiftVoucherService
 
         } catch (PayrexxException $e) {
             $reason = method_exists($e, 'getReason') ? $e->getReason() : null;
-            Log::error('Payrexx exception creating gateway', [
+            Log::channel('vouchers')->error('Payrexx exception creating gateway', [
                 'voucher_id' => $voucher->id,
                 'error' => $e->getMessage(),
                 'reason' => $reason,
@@ -137,13 +137,13 @@ class PublicGiftVoucherService
         $voucher = GiftVoucher::find($voucherId);
 
         if (!$voucher) {
-            Log::error('Gift voucher not found for payment confirmation', ['voucher_id' => $voucherId]);
+            Log::channel('vouchers')->error('Gift voucher not found for payment confirmation', ['voucher_id' => $voucherId]);
             return false;
         }
 
         // Verificar que esté en estado pending
         if ($voucher->status !== 'pending') {
-            Log::warning('Gift voucher is not in pending status', [
+            Log::channel('vouchers')->warning('Gift voucher is not in pending status', [
                 'voucher_id' => $voucherId,
                 'current_status' => $voucher->status
             ]);
@@ -170,7 +170,7 @@ class PublicGiftVoucherService
 
             DB::commit();
 
-            Log::info('Gift voucher payment confirmed and activated', [
+            Log::channel('vouchers')->info('Gift voucher payment confirmed and activated', [
                 'voucher_id' => $voucherId,
                 'code' => $voucher->code,
                 'transaction_id' => $transactionId
@@ -180,7 +180,7 @@ class PublicGiftVoucherService
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error confirming gift voucher payment', [
+            Log::channel('vouchers')->error('Error confirming gift voucher payment', [
                 'voucher_id' => $voucherId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
@@ -217,14 +217,14 @@ class PublicGiftVoucherService
             // Marcar como entregado
             $voucher->update(['is_delivered' => true]);
 
-            Log::info('Gift voucher emails sent successfully', [
+            Log::channel('vouchers')->info('Gift voucher emails sent successfully', [
                 'voucher_id' => $voucher->id,
                 'recipient_email' => $voucher->recipient_email,
                 'buyer_email' => $voucher->buyer_email
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error sending gift voucher emails', [
+            Log::channel('vouchers')->error('Error sending gift voucher emails', [
                 'voucher_id' => $voucher->id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
@@ -338,7 +338,7 @@ class PublicGiftVoucherService
 
         $gateway->setPurpose("Gift Voucher: {$voucher->code}");
 
-        Log::info('Gateway request prepared', [
+        Log::channel('vouchers')->info('Gateway request prepared', [
             'voucher_id' => $voucher->id,
             'amount_cents' => $voucher->amount * 100,
             'currency' => $voucher->currency,
@@ -376,7 +376,7 @@ class PublicGiftVoucherService
 
         // Solo se puede cancelar si está en pending
         if ($voucher->status !== 'pending') {
-            Log::warning('Cannot cancel gift voucher - not in pending status', [
+            Log::channel('vouchers')->warning('Cannot cancel gift voucher - not in pending status', [
                 'voucher_id' => $voucherId,
                 'current_status' => $voucher->status
             ]);
@@ -386,8 +386,9 @@ class PublicGiftVoucherService
         $voucher->status = 'cancelled';
         $voucher->save();
 
-        Log::info('Gift voucher cancelled', ['voucher_id' => $voucherId]);
+        Log::channel('vouchers')->info('Gift voucher cancelled', ['voucher_id' => $voucherId]);
 
         return true;
     }
 }
+

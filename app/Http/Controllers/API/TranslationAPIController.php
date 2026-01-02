@@ -88,7 +88,7 @@ class TranslationAPIController extends AppBaseController
             $langKey = strtolower($lang);
             $resp = $responses[$index] ?? null;
             if (!$resp || !$resp->successful()) {
-                Log::warning('translateCourse sync failed', [
+                Log::channel('integrations')->warning('translateCourse sync failed', [
                     'course_id' => $courseId,
                     'lang' => $lang,
                     'status' => $resp?->status(),
@@ -205,16 +205,17 @@ class TranslationAPIController extends AppBaseController
             }
             $responseJson = $response->json();
             if (is_null($responseJson)) {
-                Log::error('Error translate: No response body', ['status' => $response->status()]);
+                Log::channel('integrations')->error('Error translate: No response body', ['status' => $response->status()]);
             } else {
-                Log::error('Error translate', ['response' => $responseJson]);
+                Log::channel('integrations')->error('Error translate', ['response' => $responseJson]);
             }
             return $this->sendError('Error retrieving Translation', 500);
         } catch (\Exception $e) {
-            Log::error($e->getMessage(), $e->getTrace());
+            Log::channel('integrations')->error($e->getMessage(), $e->getTrace());
             return $this->sendError('Error retrieving Translation', 500);
         }
     }
 
 
 }
+

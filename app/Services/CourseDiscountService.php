@@ -497,6 +497,7 @@ class CourseDiscountService
             $logData['discount_code'] = $discount->code;
         }
 
-        Log::channel('daily')->info('Discount applied', $logData);
+        Log::channel('finance')->info('Discount applied', $logData);
     }
 }
+

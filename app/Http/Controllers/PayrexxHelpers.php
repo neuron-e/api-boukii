@@ -682,14 +682,14 @@ class PayrexxHelpers
     public static function getTransactionsByDateRange($schoolData, $startDate, $endDate)
     {
         try {
-            Log::debug('=== INICIANDO getTransactionsByDateRange CON LÍMITES CORREGIDOS ===', [
+            Log::channel('payrexx')->debug('=== INICIANDO getTransactionsByDateRange CON LÍMITES CORREGIDOS ===', [
                 'school_id' => $schoolData->id,
                 'start_date' => $startDate,
                 'end_date' => $endDate
             ]);
 
             if (!$schoolData->getPayrexxInstance() || !$schoolData->getPayrexxKey()) {
-                Log::warning("School {$schoolData->id} no tiene credenciales de Payrexx configuradas");
+                Log::channel('payrexx')->warning("School {$schoolData->id} no tiene credenciales de Payrexx configuradas");
                 return [];
             }
 
@@ -706,7 +706,7 @@ class PayrexxHelpers
             $maxPages = 50; // Obtener hasta 2000 transacciones
             $totalFetched = 0;
 
-            Log::debug('Iniciando paginación con límites correctos', [
+            Log::channel('payrexx')->debug('Iniciando paginación con límites correctos', [
                 'limit_per_page' => $limit,
                 'max_pages' => $maxPages
             ]);
@@ -714,7 +714,7 @@ class PayrexxHelpers
             for ($page = 0; $page < $maxPages; $page++) {
                 $offset = $page * $limit;
 
-                Log::debug("Obteniendo página " . ($page + 1), [
+                Log::channel('payrexx')->debug("Obteniendo página " . ($page + 1), [
                     'offset' => $offset,
                     'limit' => $limit
                 ]);
@@ -727,13 +727,13 @@ class PayrexxHelpers
                 $pageCount = count($pageTransactions);
                 $totalFetched += $pageCount;
 
-                Log::debug("Página " . ($page + 1) . " obtenida", [
+                Log::channel('payrexx')->debug("Página " . ($page + 1) . " obtenida", [
                     'transactions_in_page' => $pageCount,
                     'total_fetched_so_far' => $totalFetched
                 ]);
 
                 if ($pageCount === 0) {
-                    Log::debug('No hay más transacciones, terminando paginación');
+                    Log::channel('payrexx')->debug('No hay más transacciones, terminando paginación');
                     break;
                 }
 
@@ -741,7 +741,7 @@ class PayrexxHelpers
                 foreach ($pageTransactions as $tx) {
                     $ref = $tx->getReferenceId();
                     if (str_contains($ref, '3075') || str_contains($ref, '3056')) {
-                        Log::debug('🎯 BOOKING IMPORTANTE ENCONTRADO EN PÁGINA ' . ($page + 1), [
+                        Log::channel('payrexx')->debug('🎯 BOOKING IMPORTANTE ENCONTRADO EN PÁGINA ' . ($page + 1), [
                             'reference' => $ref,
                             'amount' => $tx->getAmount() / 100,
                             'status' => $tx->getStatus(),
@@ -754,12 +754,12 @@ class PayrexxHelpers
 
                 // Si esta página tiene menos transacciones que el límite, es la última
                 if ($pageCount < $limit) {
-                    Log::debug('Última página alcanzada (página incompleta)');
+                    Log::channel('payrexx')->debug('Última página alcanzada (página incompleta)');
                     break;
                 }
             }
 
-            Log::info('Paginación completada', [
+            Log::channel('payrexx')->info('Paginación completada', [
                 'total_pages_fetched' => $page + 1,
                 'total_transactions' => count($allTransactions)
             ]);
@@ -768,7 +768,7 @@ class PayrexxHelpers
             $formattedTransactions = [];
 // MANEJO SEGURO DE FECHAS NULL
             if (!$startDate || !$endDate) {
-                Log::warning('Fechas null detectadas, usando rango amplio');
+                Log::channel('payrexx')->warning('Fechas null detectadas, usando rango amplio');
                 $startDateTime = \Carbon\Carbon::now()->subYears(2)->startOfDay();
                 $endDateTime = \Carbon\Carbon::now()->addDays(30)->endOfDay();
             } else {
@@ -811,7 +811,7 @@ class PayrexxHelpers
 
                 // SKIP SI YA PROCESAMOS ESTE REFERENCE
                 if (in_array($reference, $processedReferences)) {
-                    Log::debug("Reference {$reference} ya procesado, saltando duplicado");
+                    Log::channel('payrexx')->debug("Reference {$reference} ya procesado, saltando duplicado");
                     continue;
                 }
 
@@ -869,7 +869,7 @@ class PayrexxHelpers
                 if ($startDate && $endDate) {
                     if ($txDate->lt($startDateTime) || $txDate->gt($endDateTime)) {
                         if (str_contains($reference, '3075') || str_contains($reference, '3056')) {
-                            Log::debug("Transacción {$reference} FILTRADA POR FECHA", [
+                            Log::channel('payrexx')->debug("Transacción {$reference} FILTRADA POR FECHA", [
                                 'tx_date' => $txDate->format('Y-m-d H:i:s'),
                                 'start_range' => $startDateTime->format('Y-m-d H:i:s'),
                                 'end_range' => $endDateTime->format('Y-m-d H:i:s')
@@ -946,7 +946,7 @@ class PayrexxHelpers
 
                 // Solo agregar si encontramos transacciones válidas
                 if ($transactionCount > 0) {
-                    Log::debug("PROCESANDO REFERENCE {$reference}", [
+                    Log::channel('payrexx')->debug("PROCESANDO REFERENCE {$reference}", [
                         'transactions_found' => $transactionCount,
                         'total_amount' => $totalAmount,
                         'transaction_ids' => $allTransactionIds
@@ -972,7 +972,7 @@ class PayrexxHelpers
                 }
             }
 
-            Log::info('=== ESTADÍSTICAS FINALES CORREGIDAS ===', [
+            Log::channel('payrexx')->info('=== ESTADÍSTICAS FINALES CORREGIDAS ===', [
                 'total_pages_fetched' => $page + 1,
                 'total_raw_transactions' => count($allTransactions),
                 'debug_stats' => $debugStats,
@@ -985,7 +985,7 @@ class PayrexxHelpers
             return $formattedTransactions;
 
         } catch (\Exception $e) {
-            Log::error('Error en getTransactionsByDateRange corregido: ' . $e->getMessage(), [
+            Log::channel('payrexx')->error('Error en getTransactionsByDateRange corregido: ' . $e->getMessage(), [
                 'school_id' => $schoolData->id,
                 'start_date' => $startDate,
                 'end_date' => $endDate,
@@ -1057,7 +1057,7 @@ class PayrexxHelpers
             return $verification;
 
         } catch (\Exception $e) {
-            Log::error('PayrexxHelpers::verifyTransactionDetails error: ' . $e->getMessage(), [
+            Log::channel('payrexx')->error('PayrexxHelpers::verifyTransactionDetails error: ' . $e->getMessage(), [
                 'payment_id' => $payment->id,
                 'booking_id' => $booking->id
             ]);
@@ -1097,7 +1097,7 @@ class PayrexxHelpers
             ->whereNotNull('payrexx_reference')
             ->whereIn('status', ['paid']);
 
-        Log::info("Comparando booking {$booking->id} con Payrexx", [
+        Log::channel('payrexx')->info("Comparando booking {$booking->id} con Payrexx", [
             'payments_count' => $bookingPayments->count(),
             'payments_references' => $bookingPayments->pluck('payrexx_reference')->toArray(),
             'payrexx_transactions_available' => $payrexxTransactions ? count($payrexxTransactions) : 0,
@@ -1109,7 +1109,7 @@ class PayrexxHelpers
         $referenceGroups = $bookingPayments->groupBy('payrexx_reference');
 
         foreach ($referenceGroups as $reference => $paymentsWithSameRef) {
-            Log::info("Procesando referencia {$reference}", [
+            Log::channel('payrexx')->info("Procesando referencia {$reference}", [
                 'payments_count' => $paymentsWithSameRef->count(),
                 'payment_ids' => $paymentsWithSameRef->pluck('id')->toArray()
             ]);
@@ -1132,7 +1132,7 @@ class PayrexxHelpers
                     $comparison['total_payrexx_amount'] += $payrexxTx['amount'];
                     $processedReferences[] = $reference;
 
-                    Log::info("✅ Transacción Payrexx añadida ÚNICA VEZ", [
+                    Log::channel('payrexx')->info("✅ Transacción Payrexx añadida ÚNICA VEZ", [
                         'reference' => $reference,
                         'payrexx_amount' => $payrexxTx['amount'],
                         'system_amount_for_ref' => $systemAmountForRef
@@ -1153,7 +1153,7 @@ class PayrexxHelpers
                             $comparison['total_payrexx_amount'] += $tx['amount'];
                             $processedReferences[] = $ref;
 
-                            Log::info("✅ Transacción encontrada por referencia normalizada", [
+                            Log::channel('payrexx')->info("✅ Transacción encontrada por referencia normalizada", [
                                 'payment_ref' => $reference,
                                 'payrexx_ref' => $ref,
                                 'amount' => $tx['amount']
@@ -1188,7 +1188,7 @@ class PayrexxHelpers
                             $comparison['total_payrexx_amount'] += $verification['payrexx_amount'];
                         }
 
-                        Log::info("✅ Transacción encontrada por verificación individual", [
+                        Log::channel('payrexx')->info("✅ Transacción encontrada por verificación individual", [
                             'payment_id' => $payment->id,
                             'payrexx_amount' => $verification['payrexx_amount']
                         ]);
@@ -1201,7 +1201,7 @@ class PayrexxHelpers
                             'reason' => 'No encontrada por referencia ni por verificación individual'
                         ];
 
-                        Log::warning("❌ Transacción no encontrada", [
+                        Log::channel('payrexx')->warning("❌ Transacción no encontrada", [
                             'payment_id' => $payment->id,
                             'reference' => $reference,
                             'verification_issues' => $verification['issues'] ?? []
@@ -1230,7 +1230,7 @@ class PayrexxHelpers
             'unique_references_processed' => count($processedReferences)
         ];
 
-        Log::info("Comparación CORREGIDA completada para booking {$booking->id}", [
+        Log::channel('payrexx')->info("Comparación CORREGIDA completada para booking {$booking->id}", [
             'system_amount' => $comparison['total_system_amount'],
             'payrexx_amount' => $comparison['total_payrexx_amount'],
             'has_discrepancy' => $comparison['has_discrepancy'],
@@ -1298,14 +1298,14 @@ class PayrexxHelpers
                 $analysis['payrexx_transactions'] = array_merge($analysis['payrexx_transactions'], $schoolTransactions);
                 $schoolsProcessed[] = $schoolId;
 
-                Log::info("Transacciones obtenidas para escuela", [
+                Log::channel('payrexx')->info("Transacciones obtenidas para escuela", [
                     'school_id' => $schoolId,
                     'transactions_count' => count($schoolTransactions)
                 ]);
             }
         }
 
-        Log::info("Total transacciones Payrexx encontradas", [
+        Log::channel('payrexx')->info("Total transacciones Payrexx encontradas", [
             'total_count' => count($analysis['payrexx_transactions']),
             'schools_processed' => $schoolsProcessed
         ]);
@@ -1372,7 +1372,7 @@ class PayrexxHelpers
             $analysis['amounts_by_status'][$key] = round($amount, 2);
         }
 
-        Log::info("Análisis de Payrexx completado (incluyendo canceladas)", [
+        Log::channel('payrexx')->info("Análisis de Payrexx completado (incluyendo canceladas)", [
             'total_bookings' => $analysis['total_bookings'],
             'bookings_by_status' => $analysis['bookings_by_status'],
             'total_system_amount' => $analysis['total_system_amount'],
@@ -1432,7 +1432,7 @@ class PayrexxHelpers
             return 'unknown';
 
         } catch (\Exception $e) {
-            Log::warning('Error getting payment method from Payrexx transaction: ' . $e->getMessage());
+            Log::channel('payrexx')->warning('Error getting payment method from Payrexx transaction: ' . $e->getMessage());
             return 'unknown';
         }
     }
@@ -1449,7 +1449,7 @@ class PayrexxHelpers
     public static function quickCheck3056($schoolData)
     {
         try {
-            Log::info('🔍 VERIFICACIÓN RÁPIDA BOOKING 3056 - LÍMITES CORREGIDOS');
+            Log::channel('payrexx')->info('🔍 VERIFICACIÓN RÁPIDA BOOKING 3056 - LÍMITES CORREGIDOS');
 
             $payrexx = new Payrexx(
                 $schoolData->getPayrexxInstance(),
@@ -1471,7 +1471,7 @@ class PayrexxHelpers
             ];
 
             // 1. BUSCAR EN TRANSACTIONS CON PAGINACIÓN CORRECTA
-            Log::info('Buscando en endpoint Transaction con paginación...');
+            Log::channel('payrexx')->info('Buscando en endpoint Transaction con paginación...');
             $foundInTransactions = false;
             $totalTransactions = 0;
             $maxPages = 10; // Buscar en las primeras 10 páginas (1000 transacciones)
@@ -1487,7 +1487,7 @@ class PayrexxHelpers
                 $pageCount = count($transactions);
                 $totalTransactions += $pageCount;
 
-                Log::info("Página " . ($page + 1) . " de Transaction: $pageCount transacciones");
+                Log::channel('payrexx')->info("Página " . ($page + 1) . " de Transaction: $pageCount transacciones");
 
                 if ($pageCount === 0) {
                     break; // No hay más transacciones
@@ -1505,7 +1505,7 @@ class PayrexxHelpers
                             'amount' => $tx->getAmount() / 100,
                             'status' => $tx->getStatus()
                         ];
-                        Log::info('✅ 3056 encontrada en Transaction endpoint, página ' . ($page + 1));
+                        Log::channel('payrexx')->info('✅ 3056 encontrada en Transaction endpoint, página ' . ($page + 1));
                         $foundInTransactions = true;
                         break 2; // Salir de ambos loops
                     }
@@ -1522,7 +1522,7 @@ class PayrexxHelpers
 
             // 2. BUSCAR EN INVOICES (si no se encontró en Transaction)
             if (!$foundInTransactions) {
-                Log::info('Buscando en endpoint Invoice...');
+                Log::channel('payrexx')->info('Buscando en endpoint Invoice...');
                 try {
                     $totalInvoices = 0;
                     $foundInInvoices = false;
@@ -1538,7 +1538,7 @@ class PayrexxHelpers
                         $pageCount = count($invoices);
                         $totalInvoices += $pageCount;
 
-                        Log::info("Página " . ($page + 1) . " de Invoice: $pageCount invoices");
+                        Log::channel('payrexx')->info("Página " . ($page + 1) . " de Invoice: $pageCount invoices");
 
                         if ($pageCount === 0) {
                             break;
@@ -1555,7 +1555,7 @@ class PayrexxHelpers
                                     'amount' => method_exists($inv, 'getAmount') ? $inv->getAmount() / 100 : 'N/A',
                                     'status' => method_exists($inv, 'getStatus') ? $inv->getStatus() : 'N/A'
                                 ];
-                                Log::info('✅ 3056 encontrada en Invoice endpoint, página ' . ($page + 1));
+                                Log::channel('payrexx')->info('✅ 3056 encontrada en Invoice endpoint, página ' . ($page + 1));
                                 $foundInInvoices = true;
                                 break 2;
                             }
@@ -1570,14 +1570,14 @@ class PayrexxHelpers
                     $results['pagination_info']['invoice_pages_searched'] = $page + 1;
 
                 } catch (\Exception $e) {
-                    Log::info('❌ Error accediendo a Invoice endpoint: ' . $e->getMessage());
+                    Log::channel('payrexx')->info('❌ Error accediendo a Invoice endpoint: ' . $e->getMessage());
                     $results['invoice_error'] = $e->getMessage();
                 }
             }
 
             // 3. BUSCAR EN GATEWAYS (si no se encontró en anteriores)
             if (!$foundInTransactions && !($results['booking_3056']['found_in_invoices'] ?? false)) {
-                Log::info('Buscando en endpoint Gateway...');
+                Log::channel('payrexx')->info('Buscando en endpoint Gateway...');
                 try {
                     $totalGateways = 0;
 
@@ -1592,7 +1592,7 @@ class PayrexxHelpers
                         $pageCount = count($gateways);
                         $totalGateways += $pageCount;
 
-                        Log::info("Página " . ($page + 1) . " de Gateway: $pageCount gateways");
+                        Log::channel('payrexx')->info("Página " . ($page + 1) . " de Gateway: $pageCount gateways");
 
                         if ($pageCount === 0) {
                             break;
@@ -1609,7 +1609,7 @@ class PayrexxHelpers
                                     'amount' => method_exists($gw, 'getAmount') ? $gw->getAmount() / 100 : 'N/A',
                                     'status' => method_exists($gw, 'getStatus') ? $gw->getStatus() : 'N/A'
                                 ];
-                                Log::info('✅ 3056 encontrada en Gateway endpoint, página ' . ($page + 1));
+                                Log::channel('payrexx')->info('✅ 3056 encontrada en Gateway endpoint, página ' . ($page + 1));
                                 break 2;
                             }
                         }
@@ -1623,13 +1623,13 @@ class PayrexxHelpers
                     $results['pagination_info']['gateway_pages_searched'] = $page + 1;
 
                 } catch (\Exception $e) {
-                    Log::info('❌ Error accediendo a Gateway endpoint: ' . $e->getMessage());
+                    Log::channel('payrexx')->info('❌ Error accediendo a Gateway endpoint: ' . $e->getMessage());
                     $results['gateway_error'] = $e->getMessage();
                 }
             }
 
             // 4. BUSCAR POR ID ESPECÍFICO
-            Log::info('Buscando por ID específico 68a7cad5...');
+            Log::channel('payrexx')->info('Buscando por ID específico 68a7cad5...');
             try {
                 $transactionRequest = new \Payrexx\Models\Request\Transaction();
                 $transactionRequest->setId('68a7cad5');
@@ -1643,17 +1643,17 @@ class PayrexxHelpers
                         'amount' => $specificTransaction->getAmount() / 100,
                         'status' => $specificTransaction->getStatus()
                     ];
-                    Log::info('✅ 3056 encontrada por ID específico');
+                    Log::channel('payrexx')->info('✅ 3056 encontrada por ID específico');
                 } else {
                     $results['search_by_id'] = ['found' => false];
-                    Log::info('❌ 3056 NO encontrada por ID específico');
+                    Log::channel('payrexx')->info('❌ 3056 NO encontrada por ID específico');
                 }
             } catch (\Exception $e) {
                 $results['search_by_id'] = [
                     'found' => false,
                     'error' => $e->getMessage()
                 ];
-                Log::info('❌ Error buscando por ID: ' . $e->getMessage());
+                Log::channel('payrexx')->info('❌ Error buscando por ID: ' . $e->getMessage());
             }
 
             // RESUMEN FINAL
@@ -1662,7 +1662,7 @@ class PayrexxHelpers
                 $results['booking_3056']['found_in_gateways'] ||
                 ($results['search_by_id']['found'] ?? false);
 
-            Log::info('📊 RESUMEN BÚSQUEDA 3056', [
+            Log::channel('payrexx')->info('📊 RESUMEN BÚSQUEDA 3056', [
                 'found_anywhere' => $foundAnywhere,
                 'found_in' => $results['booking_3056']['details']['endpoint'] ?? 'NOWHERE',
                 'total_counts' => $results['total_counts'],
@@ -1672,7 +1672,7 @@ class PayrexxHelpers
             return $results;
 
         } catch (\Exception $e) {
-            Log::error('Error en verificación rápida 3056: ' . $e->getMessage());
+            Log::channel('payrexx')->error('Error en verificación rápida 3056: ' . $e->getMessage());
             return ['error' => $e->getMessage()];
         }
     }
@@ -1785,7 +1785,7 @@ class PayrexxHelpers
             $verification['overall_status'] = self::determineOverallStatus($verification['verification_summary']);
 
         } catch (\Exception $e) {
-            Log::error('Error en verificación de Payrexx: ' . $e->getMessage(), [
+            Log::channel('payrexx')->error('Error en verificación de Payrexx: ' . $e->getMessage(), [
                 'booking_id' => $booking->id
             ]);
             $verification['overall_status'] = 'error';
@@ -1948,7 +1948,7 @@ class PayrexxHelpers
                 $testDetection['confidence_level'] = 'medium';
             }
 
-            Log::info("Detección de test completada", [
+            Log::channel('payrexx')->info("Detección de test completada", [
                 'payment_id' => $payment->id,
                 'is_test' => $testDetection['is_test_transaction'],
                 'confidence' => $testDetection['confidence_level'],
@@ -1956,7 +1956,7 @@ class PayrexxHelpers
             ]);
 
         } catch (\Exception $e) {
-            Log::warning("Error en detección de test: " . $e->getMessage());
+            Log::channel('payrexx')->warning("Error en detección de test: " . $e->getMessage());
             $testDetection['test_indicators'][] = 'detection_error';
             $testDetection['reasoning'][] = 'Error en análisis: ' . $e->getMessage();
         }
@@ -2029,7 +2029,7 @@ class PayrexxHelpers
             }
 
         } catch (\Exception $e) {
-            Log::warning('Error extrayendo info de tarjeta: ' . $e->getMessage());
+            Log::channel('payrexx')->warning('Error extrayendo info de tarjeta: ' . $e->getMessage());
         }
 
         return $cardInfo;
@@ -2088,7 +2088,7 @@ class PayrexxHelpers
                 }
             }
         } catch (\Exception $e) {
-            Log::warning("Error verificando pago en Payrexx: " . $e->getMessage());
+            Log::channel('payrexx')->warning("Error verificando pago en Payrexx: " . $e->getMessage());
         }
 
         return $verification;
@@ -2180,7 +2180,7 @@ class PayrexxHelpers
         $analysis['total_difference'] = round($analysis['total_system_amount'] - $analysis['total_payrexx_amount'], 2);
         $analysis['production_difference'] = round($analysis['production_system_amount'] - $analysis['production_payrexx_amount'], 2);
 
-        Log::info("Análisis de Payrexx con clasificación completado", [
+        Log::channel('payrexx')->info("Análisis de Payrexx con clasificación completado", [
             'total_bookings' => $analysis['total_bookings'],
             'production_bookings' => $analysis['production_bookings'],
             'test_bookings' => $analysis['test_bookings'],
@@ -2276,9 +2276,10 @@ class PayrexxHelpers
             }
 
         } catch (\Exception $e) {
-            Log::warning("Error analizando test status: " . $e->getMessage());
+            Log::channel('payrexx')->warning("Error analizando test status: " . $e->getMessage());
         }
 
         return $analysis;
     }
 }
+

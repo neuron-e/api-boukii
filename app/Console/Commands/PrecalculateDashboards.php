@@ -97,7 +97,7 @@ class PrecalculateDashboards extends Command
             }
 
         } catch (\Exception $e) {
-            Log::error("Error pre-calculando dashboard para escuela {$school->id}: " . $e->getMessage());
+            Log::channel('cron')->error("Error pre-calculando dashboard para escuela {$school->id}: " . $e->getMessage());
             $this->error("  ❌ Error en {$school->name}: {$e->getMessage()}");
         }
     }

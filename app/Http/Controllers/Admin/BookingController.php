@@ -825,7 +825,7 @@ class BookingController extends AppBaseController
                         $bookingUser->course_subgroup_id = $cartItem['course_subgroup_id'];
                         $bookingUser->course_group_id = $cartItem['course_group_id'] ?? null;
 
-                        Log::info('BOOKING_SUBGROUP_FROM_ADMIN', [
+                        Log::channel('bookings')->info('BOOKING_SUBGROUP_FROM_ADMIN', [
                             'subgroup_id' => $cartItem['course_subgroup_id'],
                             'group_id' => $cartItem['course_group_id'],
                             'client_id' => $cartItem['client_id']
@@ -840,13 +840,13 @@ class BookingController extends AppBaseController
                             $bookingUser->course_subgroup_id = $subgroup->id;
                             $bookingUser->course_group_id = $subgroup->course_group_id;
 
-                            Log::info('BOOKING_SUBGROUP_AUTO_ASSIGNED', [
+                            Log::channel('bookings')->info('BOOKING_SUBGROUP_AUTO_ASSIGNED', [
                                 'subgroup_id' => $subgroup->id,
                                 'group_id' => $subgroup->course_group_id,
                                 'client_id' => $cartItem['client_id']
                             ]);
                         } else {
-                            Log::warning('BOOKING_SUBGROUP_NOT_FOUND', [
+                            Log::channel('bookings')->warning('BOOKING_SUBGROUP_NOT_FOUND', [
                                 'course_date_id' => $cartItem['course_date_id'],
                                 'degree_id' => $cartItem['degree_id']
                             ]);
@@ -968,9 +968,9 @@ class BookingController extends AppBaseController
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error: '. $e->getFile());
-            Log::error('Error: '. $e->getLine());
-            Log::error('Error: '. $e->getMessage());
+            Log::channel('bookings')->error('Error: '. $e->getFile());
+            Log::channel('bookings')->error('Error: '. $e->getLine());
+            Log::channel('bookings')->error('Error: '. $e->getMessage());
 
             app(CriticalErrorNotifier::class)->notify(
                 'Admin booking creation failed',
@@ -1014,7 +1014,7 @@ class BookingController extends AppBaseController
                 try {
                     Mail::to($booking->clientMain->email)->send(new BookingInfoUpdateMailer($booking->school, $booking, $booking->clientMain));
                 } catch (\Exception $ex) {
-                    \Illuminate\Support\Facades\Log::debug('Admin/BookingController updatePayment: ',
+                    \Illuminate\Support\Facades\Log::channel('bookings')->debug('Admin/BookingController updatePayment: ',
                         $ex->getTrace());
                 }
             })->afterResponse();
@@ -1077,7 +1077,7 @@ class BookingController extends AppBaseController
         $total = $request->total;
 
         // MEJORA CRTICA: Logging del intento de actualizacin para auditora
-        Log::info('BOOKING_UPDATE_ATTEMPT', [
+        Log::channel('bookings')->info('BOOKING_UPDATE_ATTEMPT', [
             'booking_id' => $bookingId,
             'group_id' => $groupId,
             'user_id' => auth()->id(),
@@ -1092,7 +1092,7 @@ class BookingController extends AppBaseController
             ->first();
 
         if (!$booking) {
-            Log::warning('BOOKING_UPDATE_NOT_FOUND', [
+            Log::channel('bookings')->warning('BOOKING_UPDATE_NOT_FOUND', [
                 'booking_id' => $bookingId,
                 'school_id' => $school['id']
             ]);
@@ -1128,7 +1128,7 @@ class BookingController extends AppBaseController
                             );
 
                             if ($bookingUser->course && $bookingUser->course->course_type == 1 && $isChangingCriticalData) {
-                                Log::info('BOOKING_UPDATE_CAPACITY_CHECK', [
+                                Log::channel('bookings')->info('BOOKING_UPDATE_CAPACITY_CHECK', [
                                     'booking_user_id' => $bookingUser->id,
                                     'old_date' => $bookingUser->date,
                                     'new_date' => $date['date'],
@@ -1321,7 +1321,7 @@ class BookingController extends AppBaseController
             ]);
 
             // LOGGING: xito de la actualizacin
-            Log::info('BOOKING_UPDATE_SUCCESS', [
+            Log::channel('bookings')->info('BOOKING_UPDATE_SUCCESS', [
                 'booking_id' => $bookingId,
                 'group_id' => $groupId,
                 'user_id' => auth()->id(),
@@ -1337,7 +1337,7 @@ class BookingController extends AppBaseController
             DB::rollBack();
 
             // LOGGING: Error detallado
-            Log::error('BOOKING_UPDATE_FAILED', [
+            Log::channel('bookings')->error('BOOKING_UPDATE_FAILED', [
                 'booking_id' => $bookingId,
                 'group_id' => $groupId,
                 'user_id' => auth()->id(),
@@ -1661,7 +1661,7 @@ class BookingController extends AppBaseController
             ->first();
 
         if (!$booking) {
-            Log::warning('PAY_BOOKING_NOT_FOUND', [
+            Log::channel('bookings')->warning('PAY_BOOKING_NOT_FOUND', [
                 'booking_id' => $id,
                 'school_id' => $school['id'],
                 'user_id' => auth()->id()
@@ -1671,7 +1671,7 @@ class BookingController extends AppBaseController
 
         // MEJORA CRTICA: Verificar que la reserva no est ya pagada
         if ($booking->paid) {
-            Log::warning('PAY_BOOKING_ALREADY_PAID', [
+            Log::channel('bookings')->warning('PAY_BOOKING_ALREADY_PAID', [
                 'booking_id' => $id,
                 'user_id' => auth()->id()
             ]);
@@ -1680,7 +1680,7 @@ class BookingController extends AppBaseController
 
         // MEJORA CRTICA: Verificar que la reserva no est cancelada
         if ($booking->status == 2) {
-            Log::warning('PAY_BOOKING_CANCELLED', [
+            Log::channel('bookings')->warning('PAY_BOOKING_CANCELLED', [
                 'booking_id' => $id,
                 'user_id' => auth()->id()
             ]);
@@ -1690,7 +1690,7 @@ class BookingController extends AppBaseController
         $paymentMethod = $request->get('payment_method_id') ?? $booking->payment_method_id;
 
         // MEJORA CRTICA: Logging del intento de pago
-        Log::info('PAY_BOOKING_ATTEMPT', [
+        Log::channel('bookings')->info('PAY_BOOKING_ATTEMPT', [
             'booking_id' => $id,
             'payment_method' => $paymentMethod,
             'user_id' => auth()->id(),
@@ -1727,7 +1727,7 @@ class BookingController extends AppBaseController
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('PAY_BOOKING_UPDATE_FAILED', [
+            Log::channel('bookings')->error('PAY_BOOKING_UPDATE_FAILED', [
                 'booking_id' => $id,
                 'error' => $e->getMessage()
             ]);
@@ -1736,7 +1736,7 @@ class BookingController extends AppBaseController
 
 
         if ($paymentMethod == 1) {
-            Log::warning('PAY_BOOKING_UNSUPPORTED_METHOD', [
+            Log::channel('bookings')->warning('PAY_BOOKING_UNSUPPORTED_METHOD', [
                 'booking_id' => $id,
                 'payment_method' => $paymentMethod,
                 'user_id' => auth()->id()
@@ -1756,7 +1756,7 @@ class BookingController extends AppBaseController
 
                 if ($payrexxLink) {
                     // LOGGING: xito creando link de pago
-                    Log::info('PAY_BOOKING_GATEWAY_SUCCESS', [
+                    Log::channel('bookings')->info('PAY_BOOKING_GATEWAY_SUCCESS', [
                         'booking_id' => $id,
                         'payment_method' => $paymentMethod,
                         'user_id' => auth()->id(),
@@ -1777,7 +1777,7 @@ class BookingController extends AppBaseController
                     return $this->sendResponse($payrexxLink, 'Link retrieved successfully');
                 }
 
-                Log::error('PAY_BOOKING_GATEWAY_FAILED', [
+                Log::channel('bookings')->error('PAY_BOOKING_GATEWAY_FAILED', [
                     'booking_id' => $id,
                     'payment_method' => $paymentMethod,
                     'user_id' => auth()->id(),
@@ -1787,7 +1787,7 @@ class BookingController extends AppBaseController
                 return $this->sendError('Link could not be created');
 
             } catch (\Exception $e) {
-                Log::error('PAY_BOOKING_GATEWAY_EXCEPTION', [
+                Log::channel('bookings')->error('PAY_BOOKING_GATEWAY_EXCEPTION', [
                     'booking_id' => $id,
                     'error' => $e->getMessage(),
                     'trace' => $e->getTraceAsString()
@@ -1867,7 +1867,7 @@ class BookingController extends AppBaseController
                     ->send(new BookingCreateMailer($booking->school, $booking, $booking->clientMain, $request['paid']));
             }
         } catch (\Exception $ex) {
-            \Illuminate\Support\Facades\Log::debug('BookingControllerMail->createBooking BookingCreateMailer: ' .
+            \Illuminate\Support\Facades\Log::channel('bookings')->debug('BookingControllerMail->createBooking BookingCreateMailer: ' .
                 $ex->getMessage());
             return $this->sendError('Error sending mail: '. $ex->getMessage(), 400);
         }
@@ -2018,7 +2018,7 @@ class BookingController extends AppBaseController
         ]);
 
         // MEJORA CRTICA: Logging del intento de cancelacin
-        Log::info('BOOKING_CANCEL_ATTEMPT', [
+        Log::channel('bookings')->info('BOOKING_CANCEL_ATTEMPT', [
             'booking_users_ids' => $request->bookingUsers,
             'user_id' => auth()->id(),
             'school_id' => $school['id'],
@@ -2037,7 +2037,7 @@ class BookingController extends AppBaseController
 
         // Verifica si existen BookingUsers
         if ($bookingUsers->isEmpty()) {
-            Log::warning('BOOKING_CANCEL_NOT_FOUND', [
+            Log::channel('bookings')->warning('BOOKING_CANCEL_NOT_FOUND', [
                 'requested_ids' => $request->bookingUsers,
                 'school_id' => $school['id']
             ]);
@@ -2047,7 +2047,7 @@ class BookingController extends AppBaseController
         // MEJORA CRTICA: Verificar que todos los BookingUsers pertenecen a la misma reserva
         $uniqueBookingIds = $bookingUsers->pluck('booking_id')->unique();
         if ($uniqueBookingIds->count() > 1) {
-            Log::error('BOOKING_CANCEL_MULTIPLE_BOOKINGS', [
+            Log::channel('bookings')->error('BOOKING_CANCEL_MULTIPLE_BOOKINGS', [
                 'booking_ids' => $uniqueBookingIds->toArray(),
                 'booking_users_ids' => $request->bookingUsers
             ]);
@@ -2060,7 +2060,7 @@ class BookingController extends AppBaseController
 
         // Si TODOS los BookingUsers ya estaban cancelados, no tiene sentido continuar
         if ($bookingUsersToCancel->isEmpty()) {
-            Log::info('BOOKING_CANCEL_ALL_ALREADY_CANCELLED', [
+            Log::channel('bookings')->info('BOOKING_CANCEL_ALL_ALREADY_CANCELLED', [
                 'booking_users_ids'    => $bookingUsers->pluck('id')->toArray(),
                 'already_cancelled_ids'=> $alreadyCancelled->pluck('id')->toArray(),
             ]);
@@ -2070,7 +2070,7 @@ class BookingController extends AppBaseController
 
         // Si hay algunos ya cancelados, lo registramos pero seguimos adelante con el resto
         if ($alreadyCancelled->isNotEmpty()) {
-            Log::info('BOOKING_CANCEL_SOME_ALREADY_CANCELLED_IGNORED', [
+            Log::channel('bookings')->info('BOOKING_CANCEL_SOME_ALREADY_CANCELLED_IGNORED', [
                 'already_cancelled_ids' => $alreadyCancelled->pluck('id')->toArray(),
                 'to_cancel_ids'         => $bookingUsersToCancel->pluck('id')->toArray(),
             ]);
@@ -2111,7 +2111,7 @@ class BookingController extends AppBaseController
 
                 // MEJORA CRTICA: Liberar la plaza en cursos colectivos
                 if ($bookingUser->course_subgroup_id) {
-                    Log::info('BOOKING_CANCEL_CAPACITY_FREED', [
+                    Log::channel('bookings')->info('BOOKING_CANCEL_CAPACITY_FREED', [
                         'booking_user_id' => $bookingUser->id,
                         'course_subgroup_id' => $bookingUser->course_subgroup_id,
                         'client_id' => $bookingUser->client_id,
@@ -2175,7 +2175,7 @@ class BookingController extends AppBaseController
             DB::commit();
 
             // LOGGING: xito de la cancelacin
-            Log::info('BOOKING_CANCEL_SUCCESS', [
+            Log::channel('bookings')->info('BOOKING_CANCEL_SUCCESS', [
                 'booking_id' => $booking->id,
                 'cancelled_booking_users' => $bookingUsers->pluck('id')->toArray(),
                 'cancelled_count' => $bookingUsers->count(),
@@ -2189,7 +2189,7 @@ class BookingController extends AppBaseController
             DB::rollBack();
 
             // LOGGING: Error detallado
-            Log::error('BOOKING_CANCEL_FAILED', [
+            Log::channel('bookings')->error('BOOKING_CANCEL_FAILED', [
                 'booking_users_ids' => $request->bookingUsers,
                 'booking_id' => $booking->id ?? null,
                 'user_id' => auth()->id(),
@@ -2221,7 +2221,7 @@ class BookingController extends AppBaseController
                             null
                         ));
                 } catch (\Exception $ex) {
-                    \Illuminate\Support\Facades\Log::debug('BookingController->cancelBookingFull BookingCancelMailer: ' . $ex->getMessage());
+                    \Illuminate\Support\Facades\Log::channel('bookings')->debug('BookingController->cancelBookingFull BookingCancelMailer: ' . $ex->getMessage());
                 }
             })->afterResponse();
         }
@@ -2278,3 +2278,4 @@ class BookingController extends AppBaseController
         return $allSame ? $first : $defaults;
     }
 }
+

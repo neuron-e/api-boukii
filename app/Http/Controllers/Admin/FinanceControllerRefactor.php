@@ -75,7 +75,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($summary, 'Analytics summary retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error getting analytics summary', [
+            Log::channel('finance')->error('Error getting analytics summary', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -107,7 +107,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($courseAnalytics, 'Course analytics retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error getting course analytics', [
+            Log::channel('finance')->error('Error getting course analytics', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -133,7 +133,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($revenueData, 'Revenue analytics retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error getting revenue analytics', [
+            Log::channel('finance')->error('Error getting revenue analytics', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -155,14 +155,14 @@ class FinanceControllerRefactor extends AppBaseController
         try {
             $this->ensureSchoolInRequest($request);
 
-            Log::info('Getting payment details', [
+            Log::channel('finance')->info('Getting payment details', [
                 'filters' => $request->all()
             ]);
 
             // Obtener reservas filtradas
             $bookings = $this->getFilteredBookings($request);
 
-            Log::info('Bookings for payment analysis', [
+            Log::channel('finance')->info('Bookings for payment analysis', [
                 'count' => $bookings->count(),
                 'first_booking_id' => $bookings->first()?->id
             ]);
@@ -192,7 +192,7 @@ class FinanceControllerRefactor extends AppBaseController
                 ]
             ];
 
-            Log::info('Payment analysis completed', [
+            Log::channel('finance')->info('Payment analysis completed', [
                 'methods_found' => array_keys($paymentAnalysis),
                 'total_methods' => count($paymentAnalysis)
             ]);
@@ -200,7 +200,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($result, 'Payment details retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error getting payment details', [
+            Log::channel('finance')->error('Error getting payment details', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
                 'request' => $request->all()
@@ -262,7 +262,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($dashboard, 'Financial dashboard retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error getting financial dashboard', [
+            Log::channel('finance')->error('Error getting financial dashboard', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -295,7 +295,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($comparison, 'Performance comparison retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error getting performance comparison', [
+            Log::channel('finance')->error('Error getting performance comparison', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -325,7 +325,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($exportResult, 'CSV export generated successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error exporting to CSV', [
+            Log::channel('finance')->error('Error exporting to CSV', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -353,7 +353,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($exportResult, 'Excel export generated successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error exporting to Excel', [
+            Log::channel('finance')->error('Error exporting to Excel', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -381,7 +381,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($exportResult, 'PDF export generated successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error exporting to PDF', [
+            Log::channel('finance')->error('Error exporting to PDF', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -399,7 +399,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->exportService->downloadFile($filename);
 
         } catch (\Exception $e) {
-            Log::error('Error downloading export file', [
+            Log::channel('finance')->error('Error downloading export file', [
                 'filename' => $filename,
                 'error' => $e->getMessage()
             ]);
@@ -472,7 +472,7 @@ class FinanceControllerRefactor extends AppBaseController
             $previousDashboard = $this->seasonFinanceService->generateSeasonDashboard($previousRequest);
             return $previousDashboard['executive_kpis'];
         } catch (\Exception $e) {
-            Log::warning('Error calculating previous period data', ['error' => $e->getMessage()]);
+            Log::channel('finance')->warning('Error calculating previous period data', ['error' => $e->getMessage()]);
             return [
                 'total_bookings' => 0,
                 'revenue_received' => 0,
@@ -691,7 +691,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($revenueData, 'Revenue by period retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error getting revenue by period', [
+            Log::channel('finance')->error('Error getting revenue by period', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -735,7 +735,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($monitorAnalytics, 'Monitor efficiency analytics retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error getting monitor efficiency analytics', [
+            Log::channel('finance')->error('Error getting monitor efficiency analytics', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -771,7 +771,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($conversionAnalysis, 'Conversion analysis retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error getting conversion analysis', [
+            Log::channel('finance')->error('Error getting conversion analysis', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -807,7 +807,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($trendsData, 'Trends and predictions retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error getting trends and predictions', [
+            Log::channel('finance')->error('Error getting trends and predictions', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -844,7 +844,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($realtimeMetrics, 'Realtime metrics retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error getting realtime metrics', [
+            Log::channel('finance')->error('Error getting realtime metrics', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -876,7 +876,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($sportsAnalytics, 'Sports performance analytics retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error getting sports performance analytics', [
+            Log::channel('finance')->error('Error getting sports performance analytics', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -906,7 +906,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($seasonalComparison, 'Seasonal comparison retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error getting seasonal comparison', [
+            Log::channel('finance')->error('Error getting seasonal comparison', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -939,7 +939,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($customerInsights, 'Customer insights retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error getting customer insights', [
+            Log::channel('finance')->error('Error getting customer insights', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -971,7 +971,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($capacityAnalysis, 'Capacity analysis retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error getting capacity analysis', [
+            Log::channel('finance')->error('Error getting capacity analysis', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -1002,7 +1002,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($monitorAnalytics, 'Monitor daily analytics retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error getting monitor daily analytics', [
+            Log::channel('finance')->error('Error getting monitor daily analytics', [
                 'error' => $e->getMessage(),
                 'monitor_id' => $monitorId
             ]);
@@ -1034,7 +1034,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($monitorPerformance, 'Monitor performance retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error getting monitor performance', [
+            Log::channel('finance')->error('Error getting monitor performance', [
                 'error' => $e->getMessage(),
                 'monitor_id' => $monitorId
             ]);
@@ -1215,7 +1215,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($debugInfo, 'Debug test detection completed successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error in debug test detection', [
+            Log::channel('finance')->error('Error in debug test detection', [
                 'school_id' => $schoolId,
                 'error' => $e->getMessage()
             ]);
@@ -1235,7 +1235,7 @@ class FinanceControllerRefactor extends AppBaseController
             return $this->sendResponse($debugInfo, 'Booking financial debug completed successfully');
 
         } catch (\Exception $e) {
-            Log::error('Error in booking financial debug', [
+            Log::channel('finance')->error('Error in booking financial debug', [
                 'booking_id' => $bookingId,
                 'error' => $e->getMessage()
             ]);
@@ -1243,3 +1243,4 @@ class FinanceControllerRefactor extends AppBaseController
         }
     }
 }
+

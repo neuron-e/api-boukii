@@ -77,7 +77,7 @@ class MaintainCourseDataIntegrity extends Command
         }
 
         // Log the maintenance run
-        Log::channel('daily')->info('Course data integrity maintenance completed', [
+        Log::channel('cron')->info('Course data integrity maintenance completed', [
             'school_id' => $schoolId,
             'migrated_booking_users' => $migrationStats['migrated'],
             'orphaned_subgroups_remaining' => $orphanedStats['total'],
@@ -168,7 +168,7 @@ class MaintainCourseDataIntegrity extends Command
             });
         } catch (\Exception $e) {
             $this->error('Failed to send notification email: ' . $e->getMessage());
-            Log::error('Failed to send orphaned subgroups notification email', [
+            Log::channel('cron')->error('Failed to send orphaned subgroups notification email', [
                 'error' => $e->getMessage(),
                 'email' => $email,
             ]);

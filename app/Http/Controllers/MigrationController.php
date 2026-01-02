@@ -519,7 +519,7 @@ class MigrationController extends AppBaseController
             ->get()
             ->groupBy('group_id');
 
-        Log::info('Iniciando migración de cursos colectivos');
+        Log::channel('migration')->info('Iniciando migración de cursos colectivos');
 
         foreach ($oldCoursesCollectives as $collective) {
             try {
@@ -629,8 +629,8 @@ class MigrationController extends AppBaseController
             }
         }
 
-        Log::info('Migración de cursos colectivos completada');
-        Log::info('Iniciando migración de cursos privados');
+        Log::channel('migration')->info('Migración de cursos colectivos completada');
+        Log::channel('migration')->info('Iniciando migración de cursos privados');
         $oldCoursesPrive = Course2::where('created_at', '>', $fechaInicio)
             ->where('deleted_at', null)
             ->whereNull('group_id')
@@ -716,7 +716,7 @@ class MigrationController extends AppBaseController
                 Log::channel('migration')->error("Error: " . $e->getMessage());
             }
         }
-        Log::info('Migración de cursos privados completada');
+        Log::channel('migration')->info('Migración de cursos privados completada');
         return $this->sendResponse('Cursos importados con exito', 200);
     }
 
@@ -940,3 +940,4 @@ class MigrationController extends AppBaseController
     }
 
 }
+

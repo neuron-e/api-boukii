@@ -234,7 +234,7 @@ class GiftVoucherAPIController extends AppBaseController
                     'payrexx_link' => $paymentLink,
                 ]);
 
-                Log::info('Gift Voucher created with Payrexx gateway', [
+                Log::channel('vouchers')->info('Gift Voucher created with Payrexx gateway', [
                     'voucher_id' => $giftVoucher->id,
                     'code' => $giftVoucher->code,
                     'payment_url' => $paymentLink
@@ -248,7 +248,7 @@ class GiftVoucherAPIController extends AppBaseController
                 ], 'Gift voucher created successfully. Please complete payment.');
                 
             } catch (\Exception $e) {
-                Log::error('Failed to create Payrexx gateway for gift voucher', [
+                Log::channel('vouchers')->error('Failed to create Payrexx gateway for gift voucher', [
                     'voucher_id' => $giftVoucher->id,
                     'error' => $e->getMessage(),
                     'trace' => $e->getTraceAsString()
@@ -264,7 +264,7 @@ class GiftVoucherAPIController extends AppBaseController
                 );
             }
         } catch (\Throwable $exception) {
-            Log::error('Error during public gift voucher purchase', [
+            Log::channel('vouchers')->error('Error during public gift voucher purchase', [
                 'error' => $exception->getMessage(),
                 'trace' => $exception->getTraceAsString()
             ]);
@@ -895,7 +895,7 @@ class GiftVoucherAPIController extends AppBaseController
                 $giftVoucher->markAsDelivered();
             }
 
-            Log::info('Gift voucher email sent successfully', [
+            Log::channel('vouchers')->info('Gift voucher email sent successfully', [
                 'gift_voucher_id' => $giftVoucher->id,
                 'recipient_email' => $giftVoucher->recipient_email,
                 'buyer_email' => $giftVoucher->buyer_email,
@@ -911,7 +911,7 @@ class GiftVoucherAPIController extends AppBaseController
             ], $force ? 'Gift voucher email resent successfully' : 'Gift voucher email sent successfully');
 
         } catch (\Throwable $exception) {
-            Log::error('Error sending gift voucher email', [
+            Log::channel('vouchers')->error('Error sending gift voucher email', [
                 'gift_voucher_id' => $giftVoucher->id,
                 'recipient_email' => $giftVoucher->recipient_email,
                 'error' => $exception->getMessage(),
@@ -946,10 +946,11 @@ class GiftVoucherAPIController extends AppBaseController
 
             $giftVoucher->markAsDelivered();
         } catch (\Throwable $exception) {
-            Log::error('Error sending gift voucher email', [
+            Log::channel('vouchers')->error('Error sending gift voucher email', [
                 'gift_voucher_id' => $giftVoucher->id,
                 'error' => $exception->getMessage()
             ]);
         }
     }
 }
+

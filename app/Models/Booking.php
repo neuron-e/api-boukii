@@ -1058,7 +1058,7 @@ class Booking extends Model
                 }
             }
         } catch (\Exception $e) {
-            \Log::error('Error in getSportAttribute: ' . $e->getMessage());
+            \Log::channel('bookings')->error('Error in getSportAttribute: ' . $e->getMessage());
         }
 
         // Si hay varios cursos con diferentes course_type o deportes diferentes
@@ -1284,85 +1284,120 @@ class Booking extends Model
         /*
             We send reservation information 24 hours before the course starts
         */
-        \Illuminate\Support\Facades\Log::debug('Inicio cron bookingInfo24h');
+        \Illuminate\Support\Facades\Log::channel('cron')->debug('Inicio cron bookingInfo24h');
 
-        $bookings = self::with('clientMain')->where('paid', 1)
+        $bookings = self::with('clientMain')
+            ->where('paid', 1)
+            ->where('status', 1)
             ->get();
 
         foreach($bookings as $booking)
         {
-            $closestBookingUser = null;
-            $closestTimeDiff = null;
             $currentDateTime = Carbon::now();
 
             // the booking can have different courses/classes
-            $lines = BookingUser::with('course')->where('booking_id', $booking->id)->get();
+            $lines = BookingUser::with('course')
+                ->where('booking_id', $booking->id)
+                ->where('status', 1)
+                ->whereHas('course', function ($query) {
+                    $query->where('status', '!=', 'cancelled');
+                })
+                ->get();
 
-            foreach ($lines as $line) {
-                // Calcular la fecha y hora de inicio de este booking user
-                $time = $line->hour_start ?? $line->hour ?? '00:00';
-                $rawDate = (string) ($line->date ?? '');
-                $hasTime = (bool) preg_match('/\\d{2}:\\d{2}(:\\d{2})?/', $rawDate);
-                $dateTimeInput = $hasTime ? $rawDate : trim($rawDate . ' ' . $time);
-                $bookingDateTime = Carbon::parse($dateTimeInput);
-                if ($bookingDateTime->lessThanOrEqualTo($currentDateTime)) {
+            if ($lines->isEmpty()) {
+                continue;
+            }
+
+            $activities = $booking->buildGroupedActivitiesFromBookingUsers($lines);
+
+            foreach ($activities as $activity) {
+                $closestBookingUser = null;
+                $closestTimeDiff = null;
+                $closestDateTime = null;
+
+                foreach (($activity['dates'] ?? []) as $date) {
+                    $rawDate = (string) ($date['date'] ?? '');
+                    if ($rawDate === '') {
+                        continue;
+                    }
+
+                    $time = $date['startHour'] ?? '00:00';
+                    $hasTime = (bool) preg_match('/\\d{2}:\\d{2}(:\\d{2})?/', $rawDate);
+                    $dateTimeInput = $hasTime ? $rawDate : trim($rawDate . ' ' . $time);
+                    $bookingDateTime = Carbon::parse($dateTimeInput);
+                    if ($bookingDateTime->lessThanOrEqualTo($currentDateTime)) {
+                        continue;
+                    }
+
+                    $timeDiff = $currentDateTime->diffInHours($bookingDateTime);
+                    if ($closestBookingUser === null || $timeDiff < $closestTimeDiff) {
+                        $closestBookingUser = $date['booking_users'][0] ?? null;
+                        $closestTimeDiff = $timeDiff;
+                        $closestDateTime = $bookingDateTime;
+                    }
+                }
+
+                if (!$closestBookingUser || $closestTimeDiff === null) {
                     continue;
                 }
 
-                // Calcular la diferencia en horas entre la fecha actual y la fecha del booking
-                $timeDiff = $currentDateTime->diffInHours($bookingDateTime);
+                $alreadySent = BookingLog::query()
+                    ->where('booking_id', $booking->id)
+                    ->where('action', 'mail_booking_info_sent')
+                    ->where('description', 'booking_user_id: ' . $closestBookingUser->id)
+                    ->exists();
 
-                // Comprobar si este booking user es el más cercano hasta ahora
-                if ($closestBookingUser === null || $timeDiff < $closestTimeDiff) {
-                    $closestBookingUser = $line;
-                    $closestTimeDiff = $timeDiff;
-                }
-            }
+                // Verificar si el booking user mas cercano cumple con la condicion de las 24 horas
+                if ($closestTimeDiff < 24 && !$alreadySent) {
+                    $bookingType = $closestBookingUser->course->type == 2 ? 'Privado' : 'Colectivo';
+                    \Illuminate\Support\Facades\Log::channel('cron')->debug('bookingInfo24h: '
+                        . $bookingType . ' ID ' . $booking->id
+                        . ' - Enviamos info de la reserva: '
+                        . $closestBookingUser->id . " : Fecha de inicio "
+                        . $closestDateTime?->toDateTimeString()
+                        . ' - Dif in hours: '
+                        . $closestTimeDiff);
 
-            $alreadySent = BookingLog::query()
-                ->where('booking_id', $booking->id)
-                ->where('action', 'mail_booking_info_sent')
-                ->where('description', 'booking_user_id: ' . $closestBookingUser?->id)
-                ->exists();
-
-            // Verificar si el booking user más cercano cumple con la condición de las 24 horas
-            if ($closestBookingUser !== null && $closestTimeDiff < 24 && !$alreadySent) {
-                $bookingType = $closestBookingUser->course->type == 2 ? 'Privado' : 'Colectivo';
-                \Illuminate\Support\Facades\Log::debug('bookingInfo24h: '
-                    . $bookingType . ' ID ' . $booking->id
-                    . ' - Enviamos info de la reserva: '
-                    . $closestBookingUser->id . " : Fecha de inicio "
-                    . $closestBookingUser->date . ' '
-                    . ($closestBookingUser->hour_start ?? $closestBookingUser->hour) . ' - Dif in hours: '
-                    . $closestTimeDiff);
-
-
-                // Envía el email aquí
-                $mySchool = School::find($closestBookingUser->booking->school_id);
-                dispatch(function () use ($mySchool, $closestBookingUser) {
-                    // N.B. try-catch because some test users enter unexistant emails, throwing Swift_TransportException
-                    try {
-                        \Mail::to($closestBookingUser->booking->clientMain->email)
-                            ->send(new BookingInfoMailer(
-                                $mySchool,
-                                $closestBookingUser->booking,
-                                $closestBookingUser->booking->clientMain->email
-                            ));
-
-                        BookingLog::create([
-                            'booking_id' => $closestBookingUser->booking->id,
-                            'action' => 'mail_booking_info_sent',
-                            'description' => 'booking_user_id: ' . $closestBookingUser->id,
-                            'user_id' => null,
-                        ]);
-                    } catch (\Exception $ex) {
-                        \Illuminate\Support\Facades\Log::debug('Cron bookingInfo24h: ', $ex->getTrace());
+                    $mySchool = School::find($closestBookingUser->booking->school_id);
+                    if (!$mySchool || !$closestBookingUser->booking?->clientMain) {
+                        continue;
                     }
-                })->afterResponse();
+
+                    $activityBookingUsers = collect($activity['dates'] ?? [])
+                        ->flatMap(function ($date) {
+                            return $date['booking_users'] ?? [];
+                        })
+                        ->filter(fn ($bookingUser) => $bookingUser instanceof \App\Models\BookingUser)
+                        ->values();
+
+                    // Enviamos el email aqui
+                    dispatch(function () use ($mySchool, $closestBookingUser, $activity, $activityBookingUsers) {
+                        // N.B. try-catch because some test users enter unexistant emails, throwing Swift_TransportException
+                        try {
+                            \Mail::to($closestBookingUser->booking->clientMain->email)
+                                ->send(new BookingInfoMailer(
+                                    $mySchool,
+                                    $closestBookingUser->booking,
+                                    $closestBookingUser->booking->clientMain,
+                                    [$activity],
+                                    $activityBookingUsers
+                                ));
+
+                            BookingLog::create([
+                                'booking_id' => $closestBookingUser->booking->id,
+                                'action' => 'mail_booking_info_sent',
+                                'description' => 'booking_user_id: ' . $closestBookingUser->id,
+                                'user_id' => null,
+                            ]);
+                        } catch (\Exception $ex) {
+                            \Illuminate\Support\Facades\Log::channel('cron')->debug('Cron bookingInfo24h: ', $ex->getTrace());
+                        }
+                    })->afterResponse();
+                }
             }
         }
 
-        \Illuminate\Support\Facades\Log::debug('Fin cron bookingInfo24h');
+        \Illuminate\Support\Facades\Log::channel('cron')->debug('Fin cron bookingInfo24h');
     }
 
     public static function sendPaymentNotice()
@@ -1370,10 +1405,12 @@ class Booking extends Model
         /*
             We send reservation information 24 hours before the course starts
         */
-        \Illuminate\Support\Facades\Log::debug('Inicio cron sendPaymentNotice');
+        \Illuminate\Support\Facades\Log::channel('cron')->debug('Inicio cron sendPaymentNotice');
 
-        $bookings = self::with('clientMain')->where('payment_method_id', 3)
+        $bookings = self::with('clientMain')
+            ->where('payment_method_id', 3)
             ->where('paid', 0)
+            ->where('status', 1)
             ->get();
 
         foreach($bookings as $booking)
@@ -1383,9 +1420,22 @@ class Booking extends Model
             $currentDateTime = Carbon::now();
 
             // the booking can have different courses/classes
-            $lines = BookingUser::with('course')->where('booking_id', $booking->id)->get();
+            $lines = BookingUser::with('course')
+                ->where('booking_id', $booking->id)
+                ->where('status', 1)
+                ->whereHas('course', function ($query) {
+                    $query->where('status', '!=', 'cancelled');
+                })
+                ->get();
+
+            if ($lines->isEmpty()) {
+                continue;
+            }
 
             foreach ($lines as $line) {
+                if (!$line->course) {
+                    continue;
+                }
                 // Calcular la fecha y hora de inicio de este booking user
                 $time = $line->hour_start ?? $line->hour ?? '00:00';
                 $rawDate = (string) ($line->date ?? '');
@@ -1410,7 +1460,7 @@ class Booking extends Model
             if ($closestBookingUser !== null && $closestTimeDiff > 48 && $closestTimeDiff < 72
                 && BookingPaymentNoticeLog::checkToNotify($closestBookingUser)) {
 
-                \Illuminate\Support\Facades\Log::debug('sendPaymentNotice: ID '.
+                \Illuminate\Support\Facades\Log::channel('cron')->debug('sendPaymentNotice: ID '.
                     $booking->id.' - Enviamos aviso para '. $closestBookingUser->id." : Fecha de inicio ".$currentDateTime);
 
 
@@ -1431,7 +1481,9 @@ class Booking extends Model
                         $basketData = $decoded;
                     }
                 }
-                dispatch(function () use ($mySchool, $closestBookingUser, $buyerUser, $basketData) {
+                $groupedActivities = $booking->buildGroupedActivitiesFromBookingUsers($lines);
+
+                dispatch(function () use ($mySchool, $closestBookingUser, $buyerUser, $basketData, $groupedActivities, $lines) {
                     // N.B. try-catch because some test users enter unexistant emails, throwing Swift_TransportException
                     try {
                         $link = PayrexxHelpers::createPayLink(
@@ -1450,7 +1502,9 @@ class Booking extends Model
                                 $mySchool,
                                 $closestBookingUser->booking,
                                 $buyerUser,
-                                $link
+                                $link,
+                                $groupedActivities,
+                                $lines
                             ));
 
                         BookingPaymentNoticeLog::create([
@@ -1459,13 +1513,13 @@ class Booking extends Model
                             'date' => date('Y-m-d H:i:s')
                         ]);
                     } catch (\Exception $ex) {
-                        \Illuminate\Support\Facades\Log::debug('Cron bookingInfo15min: ', $ex->getTrace());
+                        \Illuminate\Support\Facades\Log::channel('cron')->debug('Cron bookingInfo15min: ', $ex->getTrace());
                     }
                 })->afterResponse();
             }
         }
 
-        \Illuminate\Support\Facades\Log::debug('Fin cron sendPaymentNotice');
+        \Illuminate\Support\Facades\Log::channel('cron')->debug('Fin cron sendPaymentNotice');
     }
 
     public static function cancelUnpaids15m()
@@ -1473,7 +1527,7 @@ class Booking extends Model
         /*
             We send reservation information 24 hours before the course starts
         */
-        \Illuminate\Support\Facades\Log::debug('Inicio cron cancelUnpaids15m');
+        \Illuminate\Support\Facades\Log::channel('cron')->debug('Inicio cron cancelUnpaids15m');
 
         $bookings = self::with('clientMain')->where('status', 3)
             ->get();
@@ -1491,12 +1545,12 @@ class Booking extends Model
                 $tipo = 'completa';
                 self::cancelBookingFull($booking->id);
 
-                \Illuminate\Support\Facades\Log::debug('cancelUnpaids15m: ID '.$booking->id.' - Eliminamos reserva '.$tipo.'. '." Fecha de creación ".$fecha_creacion.' - Diferencia de tiempo: '.$fecha_actual->diffInMinutes($fecha_creacion));
+                \Illuminate\Support\Facades\Log::channel('cron')->debug('cancelUnpaids15m: ID '.$booking->id.' - Eliminamos reserva '.$tipo.'. '." Fecha de creación ".$fecha_creacion.' - Diferencia de tiempo: '.$fecha_actual->diffInMinutes($fecha_creacion));
             }
 
         }
 
-        \Illuminate\Support\Facades\Log::debug('Fin cron cancelUnpaids15m');
+        \Illuminate\Support\Facades\Log::channel('cron')->debug('Fin cron cancelUnpaids15m');
     }
 
     public static function cancelBookingFull($bookingID)
@@ -1546,7 +1600,7 @@ class Booking extends Model
                 }
                 catch (\Exception $ex)
                 {
-                    \Illuminate\Support\Facades\Log::debug('BookingController->cancelBookingFull BookingCancelMailer: ' . $ex->getMessage());
+                    \Illuminate\Support\Facades\Log::channel('emails')->debug('BookingController->cancelBookingFull BookingCancelMailer: ' . $ex->getMessage());
                 }
             })->afterResponse();
         }
@@ -2033,3 +2087,7 @@ class Booking extends Model
     const ID_NOPAYMENT = 5;
 
 }
+
+
+
+

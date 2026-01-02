@@ -23,13 +23,13 @@ class CriticalErrorNotifier
                 $message->to($this->recipient)
                     ->subject('[Boukii] Critical booking error: ' . $subject);
             });
-            Log::alert('CRITICAL_BOOKING_ERROR_NOTIFIED', [
+            Log::channel('notifications')->alert('CRITICAL_BOOKING_ERROR_NOTIFIED', [
                 'recipient' => $this->recipient,
                 'subject' => $subject,
                 'context' => $context,
             ]);
         } catch (\Exception $mailException) {
-            Log::error('CRITICAL_BOOKING_ERROR_EMAIL_FAILED', [
+            Log::channel('notifications')->error('CRITICAL_BOOKING_ERROR_EMAIL_FAILED', [
                 'recipient' => $this->recipient,
                 'subject' => $subject,
                 'error' => $mailException->getMessage(),
@@ -54,3 +54,4 @@ class CriticalErrorNotifier
         return implode(PHP_EOL . PHP_EOL, $lines);
     }
 }
+

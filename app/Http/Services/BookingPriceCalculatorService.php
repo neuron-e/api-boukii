@@ -249,7 +249,7 @@ class BookingPriceCalculatorService
         // ✅ NUEVA LÓGICA: Analizar el contexto completo
         $voucherUsedAmount = $voucherQuantity - $voucherRemainingBalance;
 
-        Log::debug("Analizando voucher log", [
+        Log::channel('finance')->debug("Analizando voucher log", [
             'booking_id' => $booking->id,
             'log_amount' => $logAmount,
             'voucher_quantity' => $voucherQuantity,
@@ -760,7 +760,7 @@ class BookingPriceCalculatorService
 
             return $start->diffInMinutes($end);
         } catch (\Exception $e) {
-            Log::warning("Error al calcular duración: " . $e->getMessage());
+            Log::channel('finance')->warning("Error al calcular duración: " . $e->getMessage());
             return 0; // Valor por defecto si hay error
         }
     }
@@ -827,7 +827,7 @@ class BookingPriceCalculatorService
     {
         $excludeCourses = $options['exclude_courses'] ?? [260, 243];
 
-        Log::info("=== INICIANDO ANÁLISIS COMPLETO REALIDAD FINANCIERA ===", [
+        Log::channel('finance')->info("=== INICIANDO ANÁLISIS COMPLETO REALIDAD FINANCIERA ===", [
             'booking_id' => $booking->id,
             'booking_status' => $booking->status,
             'exclude_courses' => $excludeCourses
@@ -887,7 +887,7 @@ class BookingPriceCalculatorService
                 'reliability_flags' => $this->getReliabilityFlags($booking, $financialReality)
             ];
 
-            Log::info("=== ANÁLISIS COMPLETO FINALIZADO ===", [
+            Log::channel('finance')->info("=== ANÁLISIS COMPLETO FINALIZADO ===", [
                 'booking_id' => $booking->id,
                 'is_consistent' => $discrepancyAnalysis['is_financially_consistent'],
                 'main_discrepancy' => $discrepancyAnalysis['main_discrepancy_amount'],
@@ -897,7 +897,7 @@ class BookingPriceCalculatorService
             return $result;
 
         } catch (\Exception $e) {
-            Log::error("Error en análisis financiero completo: " . $e->getMessage(), [
+            Log::channel('finance')->error("Error en análisis financiero completo: " . $e->getMessage(), [
                 'booking_id' => $booking->id,
                 'trace' => $e->getTraceAsString()
             ]);
@@ -2042,5 +2042,6 @@ class BookingPriceCalculatorService
     }
 
 }
+
 
 

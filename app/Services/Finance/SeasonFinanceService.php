@@ -56,7 +56,7 @@ class SeasonFinanceService
         $startTime = microtime(true);
         $optimizationLevel = $request->get('optimization_level', 'balanced');
 
-        Log::debug('=== INICIANDO DASHBOARD EJECUTIVO ===', [
+        Log::channel('finance')->debug('=== INICIANDO DASHBOARD EJECUTIVO ===', [
             'school_id' => $request->school_id,
             'optimization_level' => $optimizationLevel,
             'include_test_detection' => $request->boolean('include_test_detection', true),
@@ -103,7 +103,7 @@ class SeasonFinanceService
 
             return $dashboard;
         }  catch (\Exception $e) {
-            Log::error('Error en dashboard ejecutivo con clasificación: ' . $e->getMessage(), [
+            Log::channel('finance')->error('Error en dashboard ejecutivo con clasificación: ' . $e->getMessage(), [
                 'school_id' => $request->school_id,
                 'file' => $e->getFile(),
                 'line' => $e->getLine()
@@ -270,3 +270,4 @@ class SeasonFinanceService
         ];
     }
 }
+

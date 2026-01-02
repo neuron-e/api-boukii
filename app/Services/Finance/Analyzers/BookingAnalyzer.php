@@ -58,7 +58,7 @@ class BookingAnalyzer
             'cancelled_percentage' => $this->calculatePercentage($classification['cancelled']->count(), $classification['total_count'])
         ];
 
-        Log::info('Clasificación de reservas completada', $classification['summary']);
+        Log::channel('finance')->info('Clasificación de reservas completada', $classification['summary']);
 
         return $classification;
     }
@@ -306,3 +306,4 @@ class BookingAnalyzer
         }
     }
 }
+

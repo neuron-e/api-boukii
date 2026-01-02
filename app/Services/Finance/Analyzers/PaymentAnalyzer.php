@@ -47,7 +47,7 @@ class PaymentAnalyzer
             $data['percentage'] = $totalBookings > 0 ? round(($data['count'] / $totalBookings) * 100, 2) : 0;
         }
 
-        Log::info('Payment methods analysis completed', [
+        Log::channel('finance')->info('Payment methods analysis completed', [
             'total_bookings' => $totalBookings,
             'payment_methods' => array_keys($paymentAnalysis),
             'total_amount' => $totalAmount
@@ -231,3 +231,4 @@ class PaymentAnalyzer
         ];
     }
 }
+

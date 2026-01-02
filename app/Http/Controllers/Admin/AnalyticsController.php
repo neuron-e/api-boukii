@@ -55,7 +55,7 @@ class AnalyticsController extends AppBaseController
             return $this->sendResponse($revenueData, 'Análisis de ingresos por período obtenido exitosamente');
 
         } catch (\Exception $e) {
-            Log::error('Error calculando ingresos por período', [
+            Log::channel('analytics')->error('Error calculando ingresos por período', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -84,7 +84,7 @@ class AnalyticsController extends AppBaseController
             return $this->sendResponse($courseAnalytics, 'Análisis detallado de cursos obtenido exitosamente');
 
         } catch (\Exception $e) {
-            Log::error('Error en análisis detallado de cursos', [
+            Log::channel('analytics')->error('Error en análisis detallado de cursos', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -112,7 +112,7 @@ class AnalyticsController extends AppBaseController
             return $this->sendResponse($monitorAnalytics, 'Análisis de eficiencia de monitores obtenido exitosamente');
 
         } catch (\Exception $e) {
-            Log::error('Error en análisis de monitores', [
+            Log::channel('analytics')->error('Error en análisis de monitores', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -140,7 +140,7 @@ class AnalyticsController extends AppBaseController
             return $this->sendResponse($conversionData, 'Análisis de conversión obtenido exitosamente');
 
         } catch (\Exception $e) {
-            Log::error('Error en análisis de conversión', [
+            Log::channel('analytics')->error('Error en análisis de conversión', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -167,7 +167,7 @@ class AnalyticsController extends AppBaseController
             return $this->sendResponse($trendsData, 'Análisis de tendencias obtenido exitosamente');
 
         } catch (\Exception $e) {
-            Log::error('Error en análisis de tendencias', [
+            Log::channel('analytics')->error('Error en análisis de tendencias', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -192,7 +192,7 @@ class AnalyticsController extends AppBaseController
             return $this->sendResponse($realtimeData, 'Métricas en tiempo real obtenidas exitosamente');
 
         } catch (\Exception $e) {
-            Log::error('Error obteniendo métricas tiempo real', [
+            Log::channel('analytics')->error('Error obteniendo métricas tiempo real', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -739,7 +739,7 @@ class AnalyticsController extends AppBaseController
             ], 'Analytics summary retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Analytics Summary Error: ' , $e->getTrace());
+            Log::channel('analytics')->error('Analytics Summary Error: ' , $e->getTrace());
             return $this->sendError('Error retrieving analytics summary', 500);
         }
     }
@@ -833,7 +833,7 @@ class AnalyticsController extends AppBaseController
             return $this->sendResponse($formattedData, 'Course analytics retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Course Analytics Error: ', $e->getTrace());
+            Log::channel('analytics')->error('Course Analytics Error: ', $e->getTrace());
             return $this->sendError('Error retrieving course analytics', 500);
         }
     }
@@ -953,7 +953,7 @@ ORDER BY sub.period ASC";
             return $this->sendResponse($formattedData, 'Revenue analytics retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Revenue Analytics Error: ', ['message' => $e->getMessage(), 'trace' => $e->getTrace()]);
+            Log::channel('analytics')->error('Revenue Analytics Error: ', ['message' => $e->getMessage(), 'trace' => $e->getTrace()]);
             return $this->sendError('Error retrieving revenue analytics', 500);
         }
     }
@@ -1072,7 +1072,7 @@ ORDER BY sub.period ASC";
             ], 'Pending payments retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Pending Payments Error: ' , $e->getTrace());
+            Log::channel('analytics')->error('Pending Payments Error: ' , $e->getTrace());
             return $this->sendError('Error retrieving pending payments', 500);
         }
     }
@@ -1437,7 +1437,7 @@ ORDER BY sub.period ASC";
             ], 'Financial dashboard data retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Financial Dashboard Error: ' , $e->getTrace());
+            Log::channel('analytics')->error('Financial Dashboard Error: ' , $e->getTrace());
             return $this->sendError('Error retrieving financial dashboard data', 500);
         }
     }
@@ -1567,7 +1567,7 @@ ORDER BY sub.period ASC";
             ], 'Performance comparison retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Performance Comparison Error: ' , $e->getTrace());
+            Log::channel('analytics')->error('Performance Comparison Error: ' , $e->getTrace());
             return $this->sendError('Error retrieving performance comparison', 500);
         }
     }
@@ -1606,7 +1606,7 @@ ORDER BY sub.period ASC";
                 ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
 
         } catch (\Exception $e) {
-            Log::error('CSV Export Error: ' , $e->getTrace());
+            Log::channel('analytics')->error('CSV Export Error: ' , $e->getTrace());
             return $this->sendError('Error exporting to CSV', 500);
         }
     }
@@ -1704,7 +1704,7 @@ ORDER BY sub.period ASC";
             ], 'Real-time dashboard data retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Real-time Dashboard Error: ' , $e->getTrace());
+            Log::channel('analytics')->error('Real-time Dashboard Error: ' , $e->getTrace());
             return $this->sendError('Error retrieving real-time data', 500);
         }
     }
@@ -1795,7 +1795,7 @@ ORDER BY sub.period ASC";
             return $this->sendResponse($formattedData, 'Payment details retrieved successfully');
 
         } catch (\Exception $e) {
-            Log::error('Payment Details Error: ' , $e->getTrace());
+            Log::channel('analytics')->error('Payment Details Error: ' , $e->getTrace());
             return $this->sendError('Error retrieving payment details', 500);
         }
     }
@@ -1841,7 +1841,7 @@ ORDER BY sub.period ASC";
                     $this->updateRealTimeMetrics($event);
 
                 } catch (\Exception $e) {
-                    Log::error('ANALYTICS_EVENT_PROCESSING_FAILED', [
+                    Log::channel('analytics')->error('ANALYTICS_EVENT_PROCESSING_FAILED', [
                         'event' => $event,
                         'error' => $e->getMessage(),
                         'trace' => $e->getTraceAsString()
@@ -1849,7 +1849,7 @@ ORDER BY sub.period ASC";
                 }
             }
 
-            Log::info('ANALYTICS_EVENTS_BATCH_PROCESSED', [
+            Log::channel('analytics')->info('ANALYTICS_EVENTS_BATCH_PROCESSED', [
                 'total_events' => count($events),
                 'processed_count' => $processedCount,
                 'critical_events' => $criticalEvents,
@@ -1863,7 +1863,7 @@ ORDER BY sub.period ASC";
             ], 'Eventos de analytics procesados exitosamente');
 
         } catch (\Exception $e) {
-            Log::error('ANALYTICS_BATCH_FAILED', [
+            Log::channel('analytics')->error('ANALYTICS_BATCH_FAILED', [
                 'error' => $e->getMessage(),
                 'request_data' => $request->all()
             ]);
@@ -1887,7 +1887,7 @@ ORDER BY sub.period ASC";
             return $this->sendResponse($metrics, 'Dashboard de analytics obtenido exitosamente');
 
         } catch (\Exception $e) {
-            Log::error('ANALYTICS_DASHBOARD_FAILED', [
+            Log::channel('analytics')->error('ANALYTICS_DASHBOARD_FAILED', [
                 'error' => $e->getMessage()
             ]);
 
@@ -1926,7 +1926,7 @@ ORDER BY sub.period ASC";
                 'userId' => $request->userId
             ]);
 
-            Log::info('ANALYTICS_REPORT_GENERATED', [
+            Log::channel('analytics')->info('ANALYTICS_REPORT_GENERATED', [
                 'start_date' => $startDate->toDateString(),
                 'end_date' => $endDate->toDateString(),
                 'total_events' => $report['summary']['total_events']
@@ -1935,7 +1935,7 @@ ORDER BY sub.period ASC";
             return $this->sendResponse($report, 'Reporte de analytics generado exitosamente');
 
         } catch (\Exception $e) {
-            Log::error('ANALYTICS_REPORT_FAILED', [
+            Log::channel('analytics')->error('ANALYTICS_REPORT_FAILED', [
                 'error' => $e->getMessage(),
                 'request_data' => $request->all()
             ]);
@@ -1961,7 +1961,7 @@ ORDER BY sub.period ASC";
             ], 'Eventos críticos obtenidos exitosamente');
 
         } catch (\Exception $e) {
-            Log::error('ANALYTICS_CRITICAL_EVENTS_FAILED', [
+            Log::channel('analytics')->error('ANALYTICS_CRITICAL_EVENTS_FAILED', [
                 'error' => $e->getMessage()
             ]);
 
@@ -2002,14 +2002,14 @@ ORDER BY sub.period ASC";
                 $this->sendCriticalAlertNotifications($alert);
             }
 
-            Log::warning('CRITICAL_ALERT_RECEIVED', $alert);
+            Log::channel('analytics')->warning('CRITICAL_ALERT_RECEIVED', $alert);
 
             return $this->sendResponse([
                 'message' => 'Alerta crítica procesada'
             ], 'Alerta crítica procesada exitosamente');
 
         } catch (\Exception $e) {
-            Log::error('CRITICAL_ALERT_FAILED', [
+            Log::channel('analytics')->error('CRITICAL_ALERT_FAILED', [
                 'error' => $e->getMessage(),
                 'request_data' => $request->all()
             ]);
@@ -2032,7 +2032,7 @@ ORDER BY sub.period ASC";
             return $this->sendResponse($health, 'Métricas de salud del sistema obtenidas exitosamente');
 
         } catch (\Exception $e) {
-            Log::error('SYSTEM_HEALTH_FAILED', [
+            Log::channel('analytics')->error('SYSTEM_HEALTH_FAILED', [
                 'error' => $e->getMessage()
             ]);
 
@@ -2521,9 +2521,10 @@ ORDER BY sub.period ASC";
     {
         // Aquí se implementaría el envío de notificaciones críticas
         // Por ejemplo: Slack, email, SMS, etc.
-        Log::critical('CRITICAL_ALERT_NOTIFICATION', [
+        Log::channel('analytics')->critical('CRITICAL_ALERT_NOTIFICATION', [
             'alert' => $alert,
             'notification_sent' => true
         ]);
     }
 }
+

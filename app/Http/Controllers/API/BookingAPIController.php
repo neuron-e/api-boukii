@@ -204,7 +204,7 @@ class BookingAPIController extends AppBaseController
 
             return $this->sendResponse(new BookingResource($booking), 'Booking saved successfully');
         } catch (\Exception $e) {
-            Log::error('API_BOOKING_CREATE_FAILED', [
+            Log::channel('bookings')->error('API_BOOKING_CREATE_FAILED', [
                 'error' => $e->getMessage(),
                 'user_id' => $request->user()->id ?? null,
             ]);
@@ -328,7 +328,7 @@ class BookingAPIController extends AppBaseController
                 try {
                     Mail::to($booking->clientMain->email)->send(new BookingInfoUpdateMailer($booking->school, $booking, $booking->clientMain));
                 } catch (\Exception $ex) {
-                    \Illuminate\Support\Facades\Log::debug('Admin/COurseController BookingInfoUpdateMailer: ',
+                    \Illuminate\Support\Facades\Log::channel('bookings')->debug('Admin/COurseController BookingInfoUpdateMailer: ',
                         $ex->getTrace());
                 }
             })->afterResponse();
@@ -571,3 +571,4 @@ class BookingAPIController extends AppBaseController
         }
     }
 }
+

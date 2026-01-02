@@ -336,7 +336,7 @@ class BookingController extends SlugAuthController
                         $availableSlots = $availabilityService->getAvailableSlots($courseSubgroup, $normalizedDate);
 
                         if ($availableSlots <= 0) {
-                            Log::warning('BOOKING_PAGE_COLLECTIVE_FULL', [
+                            Log::channel('bookings')->warning('BOOKING_PAGE_COLLECTIVE_FULL', [
                                 'course_id' => $detail['course_id'] ?? null,
                                 'course_date_id' => $detail['course_date_id'] ?? null,
                                 'course_subgroup_id' => $courseSubgroupId,
@@ -570,7 +570,7 @@ class BookingController extends SlugAuthController
             return response()->json(['message' => 'Reserva creada con Ã©xito', 'booking_id' => $booking->id], 201);
 
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::debug('BookingPage/BookingController store: ',
+            \Illuminate\Support\Facades\Log::channel('bookings')->debug('BookingPage/BookingController store: ',
                 $e->getTrace());
             // Revertir la transacciÃ³n si ocurre un error
             DB::rollBack();
@@ -1184,7 +1184,7 @@ class BookingController extends SlugAuthController
             }
             catch (\Exception $ex)
             {
-                \Illuminate\Support\Facades\Log::debug('BookingController->cancelBookingFull BookingCancelMailer: ' . $ex->getMessage());
+                \Illuminate\Support\Facades\Log::channel('emails')->debug('BookingController->cancelBookingFull BookingCancelMailer: ' . $ex->getMessage());
             }
         })->afterResponse();
 
@@ -1319,6 +1319,7 @@ class BookingController extends SlugAuthController
     }
 
 }
+
 
 
 

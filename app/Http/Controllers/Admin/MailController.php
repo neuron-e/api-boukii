@@ -234,7 +234,7 @@ class MailController extends AppBaseController
                 try {
                     Mail::bcc($recipientChunk)->send($blankMailer);
                 } catch (\Exception $ex) {
-                    \Illuminate\Support\Facades\Log::debug('Admin/MailController sendMail: ' .
+                    \Illuminate\Support\Facades\Log::channel('emails')->debug('Admin/MailController sendMail: ' .
                         $ex->getMessage());
                 }
             })->afterResponse();
@@ -406,3 +406,4 @@ class MailController extends AppBaseController
         return $recipients;
     }
 }
+

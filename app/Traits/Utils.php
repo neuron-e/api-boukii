@@ -154,7 +154,7 @@ trait Utils
 
 
                     } else {
-                        \Log::warning("No subgroups found for course {$course->id}");
+                        Log::channel('availability')->warning("No subgroups found for course {$course->id}");
                         // Sin subgrupos, no hay disponibilidad
                         $totalHours = 0;
                         $totalPlaces = 0;
@@ -162,17 +162,17 @@ trait Utils
                         $totalHoursAvailable = 0;
                     }
                 } else {
-                    \Log::warning("No dates found after filter for course {$course->id}");
+                    Log::channel('availability')->warning("No dates found after filter for course {$course->id}");
 
                     // âœ… DEBUG: Â¿POR QUÃ‰ NO HAY FECHAS?
-                    \Log::debug("Checking why dates are filtered out:");
+                    Log::channel('availability')->debug("Checking why dates are filtered out:");
                     foreach ($course->courseDates as $courseDate) {
                         $dateCarbon = Carbon::parse($courseDate->date);
                         $isInRange = $dateCarbon->between($startDate, $endDate);
                         $isWeekend = in_array($dateCarbon->dayOfWeek, [CarbonInterface::SATURDAY, CarbonInterface::SUNDAY]);
                         $passesFilter = $isInRange && (!$onlyWeekends || $isWeekend);
 
-                        \Log::debug("Date {$courseDate->date}: in_range={$isInRange}, is_weekend={$isWeekend}, passes_filter={$passesFilter}");
+                        Log::channel('availability')->debug("Date {$courseDate->date}: in_range={$isInRange}, is_weekend={$isWeekend}, passes_filter={$passesFilter}");
                     }
 
                     // Sin fechas vÃ¡lidas, no hay disponibilidad
@@ -526,7 +526,7 @@ trait Utils
                 ? $this->calculatePrivatePrice($bookingUser, $course->price_range ?? [])
                 : ($course->price ?? 0);
         } else {
-            Log::warning("Tipo de curso invÃ¡lido: {$courseType}");
+            Log::channel('availability')->warning("Tipo de curso invÃ¡lido: {$courseType}");
             return [
                 'priceWithoutExtras' => 0,
                 'totalPrice' => 0,
@@ -600,7 +600,7 @@ trait Utils
         $pricePerParticipant = $priceData[$groupCount] ?? null;
 
         if (!$pricePerParticipant) {
-            Log::debug("Precio no definido para curso {$course->id} con $groupCount participantes en intervalo $interval");
+            Log::channel('availability')->debug("Precio no definido para curso {$course->id} con $groupCount participantes en intervalo $interval");
             return 0;
         }
 
@@ -630,3 +630,4 @@ trait Utils
     }
 
 }
+

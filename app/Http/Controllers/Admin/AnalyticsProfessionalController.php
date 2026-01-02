@@ -380,7 +380,7 @@ class AnalyticsProfessionalController extends AppBaseController
                     $cleared++;
                 }
             } catch (\Exception $e) {
-                \Log::warning('CACHE_CLEAR_FAILED', [
+                \Log::channel('cache')->warning('CACHE_CLEAR_FAILED', [
                     'pattern' => $pattern,
                     'error' => $e->getMessage()
                 ]);

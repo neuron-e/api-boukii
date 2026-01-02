@@ -28,7 +28,7 @@ class PayrexxService
     public function createGatewayLink(School $schoolData, Booking $bookingData, float $totalAmount, ?string $redirectTo = null): string
     {
         if (empty($schoolData->getPayrexxInstance()) || empty($schoolData->getPayrexxKey())) {
-            Log::warning('Configuración de Payrexx incompleta', [
+            Log::channel('payrexx')->warning('Configuración de Payrexx incompleta', [
                 'school_id' => $schoolData->id,
                 'has_instance' => !empty($schoolData->getPayrexxInstance()),
                 'has_key' => !empty($schoolData->getPayrexxKey())
@@ -105,7 +105,7 @@ class PayrexxService
     {
         // Similar a createGatewayLink pero para pagos directos
         // Implementar según documentación de Payrexx para paylinks
-        Log::info('Creación de paylink directo solicitada', [
+        Log::channel('payrexx')->info('Creación de paylink directo solicitada', [
             'school_id' => $schoolData->id,
             'booking_id' => $bookingData->id,
             'amount' => $totalAmount
@@ -185,3 +185,4 @@ class PayrexxService
         }
     }
 }
+
