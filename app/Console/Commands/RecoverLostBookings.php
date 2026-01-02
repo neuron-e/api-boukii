@@ -22,7 +22,7 @@ class RecoverLostBookings extends Command
                               {--to-date= : End date}
                               {--dry-run : Preview}
                               {--booking-id= : Specific booking ID to recover}
-                              {--verbose : Show detailed transaction info}';
+                              {--verbose-details : Show detailed transaction info}';
 
     protected $description = 'Recover soft-deleted bookings paid in Payrexx';
 
@@ -38,7 +38,7 @@ class RecoverLostBookings extends Command
         $fromDate = $this->option('from-date') ?? now()->subDays(7)->format('Y-m-d');
         $toDate = $this->option('to-date') ?? now()->format('Y-m-d');
         $this->dryRun = $this->option('dry-run');
-        $this->verbose = $this->option('verbose');
+        $this->verbose = $this->option('verbose-details');
         $specificBookingId = $this->option('booking-id');
 
         if ($this->dryRun) {

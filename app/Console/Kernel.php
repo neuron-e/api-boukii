@@ -27,6 +27,7 @@ class Kernel extends ConsoleKernel
         RestoreZeroTotalBookings::class,
         CleanupDuplicateBookingUsers::class,
         \App\Console\Commands\BackfillBookingPriceSnapshots::class,
+        \App\Console\Commands\RecoverMissingBooking::class,
     ];
 
     /**
