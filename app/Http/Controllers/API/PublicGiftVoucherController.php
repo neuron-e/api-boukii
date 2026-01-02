@@ -231,9 +231,10 @@ class PublicGiftVoucherController extends AppBaseController
      */
     public function payrexxWebhook(Request $request): JsonResponse
     {
+        $payload = $request->all();
         // Log del webhook recibido
         Log::channel('vouchers')->info('Payrexx webhook received for gift voucher', [
-            'payload' => $request->all()
+            'payload' => $payload
         ]);
 
         // TODO: Validar firma/token de Payrexx para seguridad
@@ -241,10 +242,13 @@ class PublicGiftVoucherController extends AppBaseController
         // Por ahora, aceptamos el webhook directamente
 
         try {
-            $transaction = $request->input('transaction');
+            $transaction = $payload['transaction'] ?? null;
 
             if (!$transaction) {
-                return $this->sendError('Invalid webhook data: missing transaction', [], 400);
+                Log::channel('vouchers')->info('Payrexx webhook ignored: missing transaction', [
+                    'payload_keys' => array_keys($payload)
+                ]);
+                return $this->sendResponse([], 'Webhook ignored');
             }
 
             $transactionId = $transaction['id'] ?? null;
@@ -252,13 +256,20 @@ class PublicGiftVoucherController extends AppBaseController
             $referenceId = $transaction['referenceId'] ?? null;
 
             if (!$transactionId || !$status || !$referenceId) {
-                return $this->sendError('Invalid webhook data: missing required fields', [], 400);
+                Log::channel('vouchers')->warning('Payrexx webhook ignored: missing required fields', [
+                    'transaction_id' => $transactionId,
+                    'status' => $status,
+                    'referenceId' => $referenceId,
+                ]);
+                return $this->sendResponse([], 'Webhook ignored');
             }
 
             // Extraer voucher_id del referenceId (formato: GV-{id})
             if (!preg_match('/^GV-(\d+)$/', $referenceId, $matches)) {
-                Log::channel('vouchers')->warning('Invalid referenceId format in webhook', ['referenceId' => $referenceId]);
-                return $this->sendError('Invalid referenceId format', [], 400);
+                Log::channel('vouchers')->info('Payrexx webhook ignored: non-gift-voucher reference', [
+                    'referenceId' => $referenceId
+                ]);
+                return $this->sendResponse([], 'Webhook ignored');
             }
 
             $voucherId = (int) $matches[1];

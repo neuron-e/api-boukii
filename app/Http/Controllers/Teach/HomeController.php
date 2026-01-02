@@ -10,6 +10,7 @@ use App\Models\Station;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Response;
 use Validator;
 
@@ -310,4 +311,3 @@ class HomeController extends AppBaseController
     }
 
 }
-
