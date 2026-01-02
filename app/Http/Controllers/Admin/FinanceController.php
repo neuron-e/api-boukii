@@ -59,7 +59,7 @@ class FinanceController extends AppBaseController
 
         $cacheKey = $this->generateCacheKeyFromRequest($request);
 
-        Log::channel('finance')->debug('=== INICIANDO DASHBOARD EJECUTIVO CON CLASIFICACIÃ“N ===', [
+        Log::debug('=== INICIANDO DASHBOARD EJECUTIVO CON CLASIFICACIÃ“N ===', [
             'school_id' => $request->school_id,
             'optimization_level' => $optimizationLevel,
             'include_test_detection' => $request->boolean('include_test_detection', true),
@@ -74,7 +74,7 @@ class FinanceController extends AppBaseController
             return $this->sendResponse($dashboard, 'Dashboard ejecutivo con clasificaciÃ³n generado exitosamente');
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error('Error en dashboard ejecutivo con clasificaciÃ³n: ' . $e->getMessage(), [
+            Log::error('Error en dashboard ejecutivo con clasificaciÃ³n: ' . $e->getMessage(), [
                 'school_id' => $request->school_id,
                 'file' => $e->getFile(),
                 'line' => $e->getLine()
@@ -94,7 +94,7 @@ class FinanceController extends AppBaseController
         $includePayrexxAnalysis = $request->boolean('include_payrexx_analysis', false);
         if ($optimizationLevel === 'balanced' && !$includeTestDetection && !$includePayrexxAnalysis) {
             $optimizationLevel = 'fast';
-            Log::channel('finance')->info('Season dashboard: balanced downgraded to fast (no test/payrexx analysis).', [
+            Log::info('Season dashboard: balanced downgraded to fast (no test/payrexx analysis).', [
                 'school_id' => $request->school_id,
                 'start_date' => $dateRange['start_date'],
                 'end_date' => $dateRange['end_date'],
@@ -141,7 +141,7 @@ class FinanceController extends AppBaseController
             'analysis_timestamp' => now()->toDateTimeString()
         ];
 
-        Log::channel('finance')->info('=== DASHBOARD EJECUTIVO CON CLASIFICACIÃ“N COMPLETADO ===', [
+        Log::info('=== DASHBOARD EJECUTIVO CON CLASIFICACIÃ“N COMPLETADO ===', [
             'execution_time_ms' => $executionTime,
             'total_bookings' => $bookings->count(),
             'production_count' => $dashboard['season_info']['booking_classification']['production_count'],
@@ -357,7 +357,7 @@ class FinanceController extends AppBaseController
                 }
             }
 
-            Log::channel('finance')->info('Cache limpiado para dashboard financiero', [
+            Log::info('Cache limpiado para dashboard financiero', [
                 'school_id' => $request->school_id,
                 'levels_cleared' => $clearedKeys
             ]);
@@ -369,7 +369,7 @@ class FinanceController extends AppBaseController
             ], 'Cache limpiado exitosamente');
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error('Error limpiando cache: ' . $e->getMessage());
+            Log::error('Error limpiando cache: ' . $e->getMessage());
             return $this->sendError('Error limpiando cache: ' . $e->getMessage(), 500);
         }
     }
@@ -1155,7 +1155,7 @@ class FinanceController extends AppBaseController
             }
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error('Error exportando reporte de ventas reales: ' . $e->getMessage());
+            Log::error('Error exportando reporte de ventas reales: ' . $e->getMessage());
             return $this->sendError('Error en exportaciÃ³n: ' . $e->getMessage(), 500);
         }
     }
@@ -1531,7 +1531,7 @@ class FinanceController extends AppBaseController
             ]);
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error('Error exportando Excel: ' . $e->getMessage());
+            Log::error('Error exportando Excel: ' . $e->getMessage());
             return $this->sendError('Error generando Excel: ' . $e->getMessage(), 500);
         }
     }
@@ -1890,7 +1890,7 @@ class FinanceController extends AppBaseController
             ];
 
         } catch (\Exception $e) {
-            Log::channel('finance')->warning('Error calculando tendencias de producciÃ³n: ' . $e->getMessage());
+            Log::warning('Error calculando tendencias de producciÃ³n: ' . $e->getMessage());
             $trends['error'] = 'No se pudieron calcular las tendencias';
         }
 
@@ -2268,7 +2268,7 @@ class FinanceController extends AppBaseController
             ]);
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error('Error generando CSV: ' . $e->getMessage(), [
+            Log::error('Error generando CSV: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
                 'export_data_structure' => array_keys($exportData),
                 'metadata_structure' => array_keys($exportData['metadata'] ?? [])
@@ -2527,7 +2527,7 @@ class FinanceController extends AppBaseController
             ], 'Detalles de reservas obtenidos exitosamente');
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error('Error obteniendo detalles de reservas: ' . $e->getMessage());
+            Log::error('Error obteniendo detalles de reservas: ' . $e->getMessage());
             return $this->sendError('Error obteniendo detalles: ' . $e->getMessage(), 500);
         }
     }
@@ -2641,7 +2641,7 @@ class FinanceController extends AppBaseController
             return $this->sendResponse($debug, 'AnÃ¡lisis de discrepancia completado');
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error('Error en debug de discrepancia: ' . $e->getMessage());
+            Log::error('Error en debug de discrepancia: ' . $e->getMessage());
             return $this->sendError('Error en debug: ' . $e->getMessage(), 500);
         }
     }
@@ -2738,7 +2738,7 @@ class FinanceController extends AppBaseController
             ]);
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error('Error exportando detalles de reservas: ' . $e->getMessage());
+            Log::error('Error exportando detalles de reservas: ' . $e->getMessage());
             return $this->sendError('Error en exportaciÃ³n: ' . $e->getMessage(), 500);
         }
     }
@@ -2907,7 +2907,7 @@ class FinanceController extends AppBaseController
             // 3. OBTENER RESERVAS DEL CURSO
             $bookings = $this->getCourseBookings($courseId, $dateRange, $request->school_id);
 
-            Log::channel('finance')->info("Generando estadÃ­sticas para curso {$courseId}", [
+            Log::info("Generando estadÃ­sticas para curso {$courseId}", [
                 'course_name' => $course->name,
                 'bookings_found' => $bookings->count(),
                 'date_range' => $dateRange
@@ -2919,7 +2919,7 @@ class FinanceController extends AppBaseController
             return $this->sendResponse($statistics, 'EstadÃ­sticas del curso generadas exitosamente');
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error("Error generando estadÃ­sticas del curso {$courseId}: " . $e->getMessage(), [
+            Log::error("Error generando estadÃ­sticas del curso {$courseId}: " . $e->getMessage(), [
                 'school_id' => $request->school_id,
                 'trace' => $e->getTraceAsString()
             ]);
@@ -3132,7 +3132,7 @@ class FinanceController extends AppBaseController
                 } catch (\Exception $e) {
                     // Fallback si hay error parseando la fecha
                     $date = 'unknown_date';
-                    Log::channel('finance')->warning("Error parseando fecha en booking_user {$bookingUser->id}: " . $e->getMessage());
+                    Log::warning("Error parseando fecha en booking_user {$bookingUser->id}: " . $e->getMessage());
                 }
 
                 // Solo procesar si tenemos una fecha vÃ¡lida
@@ -3430,7 +3430,7 @@ class FinanceController extends AppBaseController
             }
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error("Error exportando estadÃ­sticas del curso {$courseId}: " . $e->getMessage());
+            Log::error("Error exportando estadÃ­sticas del curso {$courseId}: " . $e->getMessage());
             return $this->sendError('Error en exportaciÃ³n: ' . $e->getMessage(), 500);
         }
     }
@@ -3576,7 +3576,7 @@ class FinanceController extends AppBaseController
             ];
 
         } catch (\Exception $e) {
-            Log::channel('finance')->warning('Error calculando tendencias: ' . $e->getMessage());
+            Log::warning('Error calculando tendencias: ' . $e->getMessage());
             $trends['error'] = 'No se pudieron calcular las tendencias';
         }
 
@@ -3608,7 +3608,7 @@ class FinanceController extends AppBaseController
     private function analyzeSeasonPayrexx($bookings, array $dateRange, array $classification): array
     {
         try {
-            Log::channel('finance')->info('Iniciando anÃ¡lisis de Payrexx con clasificaciÃ³n correcta', [
+            Log::info('Iniciando anÃ¡lisis de Payrexx con clasificaciÃ³n correcta', [
                 'total_bookings' => $bookings->count(),
                 'production_expected_revenue' => $classification['summary']['expected_revenue'],
                 'date_range' => $dateRange
@@ -3662,7 +3662,7 @@ class FinanceController extends AppBaseController
             ];
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error('Error en anÃ¡lisis de Payrexx con clasificaciÃ³n correcta: ' . $e->getMessage());
+            Log::error('Error en anÃ¡lisis de Payrexx con clasificaciÃ³n correcta: ' . $e->getMessage());
 
             return [
                 'executive_summary' => [
@@ -4027,7 +4027,7 @@ class FinanceController extends AppBaseController
      */
     public function exportSeasonDashboard(Request $request): JsonResponse
     {
-        Log::channel('finance')->warning('EXPORT_SEASON_DASHBOARD_CALLED', ['url' => $request->url(), 'params' => $request->all()]);
+        Log::warning('EXPORT_SEASON_DASHBOARD_CALLED', ['url' => $request->url(), 'params' => $request->all()]);
 /*        $request->validate([
             'school_id' => 'required|integer|exists:schools,id',
             'season_id' => 'nullable|integer|exists:seasons,id',
@@ -4057,7 +4057,7 @@ class FinanceController extends AppBaseController
             $exportData = $this->prepareExportData($dashboardData, $request);
 
             // 3. Generar archivo segÃºn formato
-            Log::channel('finance')->info('Export format', ['format' => $format, 'input_format' => $request->input('format')]);
+            Log::info('Export format', ['format' => $format, 'input_format' => $request->input('format')]);
             switch ($format) {
                 case 'csv':
                     return $this->generateCsvExport($exportData, $dashboardData);
@@ -4070,7 +4070,7 @@ class FinanceController extends AppBaseController
             }
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error('Error exportando dashboard', [
+            Log::error('Error exportando dashboard', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
                 'line' => $e->getLine(),
@@ -4614,7 +4614,7 @@ class FinanceController extends AppBaseController
             ]);
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error('Error generando Excel: ' . $e->getMessage());
+            Log::error('Error generando Excel: ' . $e->getMessage());
 
             // Fallback a CSV si Excel falla
             $csvResponse = $this->generateCsvExport($exportData, $dashboardData);
@@ -4680,7 +4680,7 @@ class FinanceController extends AppBaseController
             ]);
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error('Error generando PDF: ' . $e->getMessage());
+            Log::error('Error generando PDF: ' . $e->getMessage());
 
             // Fallback a CSV si PDF falla
             return response()->json([
@@ -5120,7 +5120,7 @@ class FinanceController extends AppBaseController
             }
 
         } catch (\Exception $e) {
-            Log::channel('finance')->warning("Error en anÃ¡lisis rÃ¡pido de booking {$booking->id}: " . $e->getMessage());
+            Log::warning("Error en anÃ¡lisis rÃ¡pido de booking {$booking->id}: " . $e->getMessage());
             $status['has_issues'] = true;
             $status['issue_types'][] = 'analysis_error';
         }
@@ -5531,7 +5531,7 @@ class FinanceController extends AppBaseController
             return $this->sendResponse($debug, 'AnÃ¡lisis de debug completado');
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error("Error en debug de booking {$bookingId}: " . $e->getLine());
+            Log::error("Error en debug de booking {$bookingId}: " . $e->getLine());
             return $this->sendError('Error en anÃ¡lisis: ' . $e->getMessage(), 500);
         }
     }
@@ -6384,7 +6384,7 @@ class FinanceController extends AppBaseController
         $startDate = $startDate ?? $season->start_date;
         $endDate = $request->end_date ?? $season->end_date;
 
-        Log::channel('finance')->info('=== INICIANDO ANÃLISIS FINANCIERO COMPLETO ===', [
+        Log::info('=== INICIANDO ANÃLISIS FINANCIERO COMPLETO ===', [
             'school_id' => $request->school_id,
             'date_range' => [$startDate, $endDate],
             'include_payrexx' => $request->boolean('include_payrexx_comparison', false)
@@ -6398,7 +6398,7 @@ class FinanceController extends AppBaseController
             $excludedCourses = array_map('intval', self::EXCLUDED_COURSES);
             $filteredBookings = $this->filterBookingsWithExcludedCourses($bookings, $excludedCourses);
 
-            Log::channel('finance')->info('Reservas filtradas para anÃ¡lisis', [
+            Log::info('Reservas filtradas para anÃ¡lisis', [
                 'total_bookings_before_filter' => $bookings->count(),
                 'total_bookings_after_filter' => $filteredBookings->count()
             ]);
@@ -6423,7 +6423,7 @@ class FinanceController extends AppBaseController
 
             foreach ($filteredBookings as $booking) {
                 if ($processedCount >= $maxResults) {
-                    Log::channel('finance')->info("LÃ­mite de resultados alcanzado: {$maxResults}");
+                    Log::info("LÃ­mite de resultados alcanzado: {$maxResults}");
                     break;
                 }
 
@@ -6449,7 +6449,7 @@ class FinanceController extends AppBaseController
                 $processedCount++;
 
                 if ($processedCount % 100 === 0) {
-                    Log::channel('finance')->info("Progreso del anÃ¡lisis: {$processedCount}/{$filteredBookings->count()}");
+                    Log::info("Progreso del anÃ¡lisis: {$processedCount}/{$filteredBookings->count()}");
                 }
             }
 
@@ -6491,7 +6491,7 @@ class FinanceController extends AppBaseController
                 'payrexx_analysis' => $payrexxAnalysis
             ];
 
-            Log::channel('finance')->info('=== ANÃLISIS FINANCIERO COMPLETO FINALIZADO ===', [
+            Log::info('=== ANÃLISIS FINANCIERO COMPLETO FINALIZADO ===', [
                 'processed_bookings' => $processedCount,
                 'execution_time_ms' => $executionTime,
                 'inconsistent_bookings' => $globalStats['issues']['total_with_financial_issues']
@@ -6500,7 +6500,7 @@ class FinanceController extends AppBaseController
             return $this->sendResponse($response, 'AnÃ¡lisis completo de realidad financiera completado exitosamente');
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error('Error en anÃ¡lisis financiero completo: ' . $e->getMessage(), [
+            Log::error('Error en anÃ¡lisis financiero completo: ' . $e->getMessage(), [
                 'school_id' => $request->school_id,
                 'trace' => $e->getTraceAsString()
             ]);
@@ -6553,7 +6553,7 @@ class FinanceController extends AppBaseController
             return $this->sendResponse($analysis, 'AnÃ¡lisis financiero individual completado');
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error("Error en anÃ¡lisis individual booking {$bookingId}: " . $e->getMessage());
+            Log::error("Error en anÃ¡lisis individual booking {$bookingId}: " . $e->getMessage());
             return $this->sendError('Error en anÃ¡lisis de reserva: ' . $e->getMessage(), 500);
         }
     }
@@ -6668,7 +6668,7 @@ class FinanceController extends AppBaseController
             return $this->sendResponse($response, 'AnÃ¡lisis de Payrexx completado exitosamente');
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error('Error en anÃ¡lisis de Payrexx: ' . $e->getMessage());
+            Log::error('Error en anÃ¡lisis de Payrexx: ' . $e->getMessage());
             return $this->sendError('Error en anÃ¡lisis de Payrexx: ' . $e->getMessage(), 500);
         }
     }
@@ -6973,7 +6973,7 @@ class FinanceController extends AppBaseController
             ];
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error("Error comparando mÃ©todos para booking {$booking->id}: " . $e->getMessage());
+            Log::error("Error comparando mÃ©todos para booking {$booking->id}: " . $e->getMessage());
 
             return [
                 'booking_id' => $booking->id,
@@ -7077,7 +7077,7 @@ class FinanceController extends AppBaseController
             return $globalComparison;
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error('Error en comparaciÃ³n global de mÃ©todos: ' . $e->getMessage());
+            Log::error('Error en comparaciÃ³n global de mÃ©todos: ' . $e->getMessage());
 
             return [
                 'error' => true,
@@ -7195,7 +7195,7 @@ class FinanceController extends AppBaseController
             ]);
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error('Error generando CSV: ' . $e->getMessage());
+            Log::error('Error generando CSV: ' . $e->getMessage());
             return $this->sendError('Error generando CSV: ' . $e->getMessage(), 500);
         }
     }
@@ -7249,7 +7249,7 @@ class FinanceController extends AppBaseController
             return $this->sendResponse($comparison, 'ComparaciÃ³n de mÃ©todos financieros completada');
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error('Error en comparaciÃ³n de mÃ©todos: ' . $e->getMessage());
+            Log::error('Error en comparaciÃ³n de mÃ©todos: ' . $e->getMessage());
             return $this->sendError('Error en comparaciÃ³n: ' . $e->getMessage(), 500);
         }
     }
@@ -7293,7 +7293,7 @@ class FinanceController extends AppBaseController
             }
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error('Error en exportaciÃ³n de reporte: ' . $e->getMessage());
+            Log::error('Error en exportaciÃ³n de reporte: ' . $e->getMessage());
             return $this->sendError('Error en exportaciÃ³n: ' . $e->getMessage(), 500);
         }
     }
@@ -7972,7 +7972,7 @@ class FinanceController extends AppBaseController
             $testAnalysis['is_test_booking'] = $this->determineIfTestBooking($testAnalysis, $payrexxPayments->count());
             $testAnalysis['confidence_level'] = $this->calculateTestConfidence($testAnalysis);
 
-            Log::channel('finance')->info("AnÃ¡lisis de test para booking {$booking->id}", [
+            Log::info("AnÃ¡lisis de test para booking {$booking->id}", [
                 'is_test' => $testAnalysis['is_test_booking'],
                 'confidence' => $testAnalysis['confidence_level'],
                 'test_transactions' => $testTransactions,
@@ -7981,7 +7981,7 @@ class FinanceController extends AppBaseController
             ]);
 
         } catch (\Exception $e) {
-            Log::channel('finance')->warning("Error analizando test booking {$booking->id}: " . $e->getMessage());
+            Log::warning("Error analizando test booking {$booking->id}: " . $e->getMessage());
             $testAnalysis['test_indicators'][] = 'analysis_error';
             $testAnalysis['reasons'][] = 'Error en anÃ¡lisis: ' . $e->getMessage();
         }
@@ -8092,7 +8092,7 @@ class FinanceController extends AppBaseController
 
                 default:
                     // Fallback para estados no reconocidos
-                    Log::channel('finance')->warning("Estado no reconocido para booking {$booking->id}: {$realStatus}");
+                    Log::warning("Estado no reconocido para booking {$booking->id}: {$realStatus}");
                     $classification['production_active'][] = $booking;
                     $classification['summary']['production_active_count']++;
                     $classification['summary']['expected_revenue'] += $totalRevenue;
@@ -8115,7 +8115,7 @@ class FinanceController extends AppBaseController
             $classification['summary'][$key] = round($classification['summary'][$key], 2);
         }
 
-        Log::channel('finance')->info('âœ… ClasificaciÃ³n CORREGIDA de reservas completada', [
+        Log::info('âœ… ClasificaciÃ³n CORREGIDA de reservas completada', [
             'total_bookings' => $classification['summary']['total_bookings'],
             'production_active' => $classification['summary']['production_active_count'],
             'production_finished' => $classification['summary']['production_finished_count'], // âœ… NUEVA
@@ -8510,7 +8510,7 @@ class FinanceController extends AppBaseController
             }
 
         } catch (\Exception $e) {
-            Log::channel('finance')->warning("Error analizando patrones de test: " . $e->getMessage());
+            Log::warning("Error analizando patrones de test: " . $e->getMessage());
         }
 
         return $patterns;
@@ -8627,7 +8627,7 @@ class FinanceController extends AppBaseController
                 $stats['test_bookings_detected']++;
                 $stats['test_revenue_excluded'] += $quickAnalysis['calculated_amount'];
 
-                Log::channel('finance')->info("Reserva de test excluida del cÃ¡lculo financiero", [
+                Log::info("Reserva de test excluida del cÃ¡lculo financiero", [
                     'booking_id' => $booking->id,
                     'excluded_amount' => $quickAnalysis['calculated_amount'],
                     'confidence' => $testAnalysis['confidence_level'],
@@ -8833,4 +8833,5 @@ class FinanceController extends AppBaseController
         return $dashboardData;
     }
 }
+
 
