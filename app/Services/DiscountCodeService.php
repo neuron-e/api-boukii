@@ -6,6 +6,7 @@ use App\Models\DiscountCode;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 /**
  * DiscountCodeService
@@ -562,7 +563,6 @@ class DiscountCodeService
         ]);
     }
 }
-
 
 
 

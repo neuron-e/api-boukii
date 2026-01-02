@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes; use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Facades\Log;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -658,7 +659,7 @@ class Monitor extends Model
 
         if ($isBooked) {
             $conflictingBookings = $bookingQuery->with('booking')->get();
-            \Log::channel('nwd')->warning('Solapamiento detectado - Monitor ocupado por booking', [
+            Log::channel('nwd')->warning('Solapamiento detectado - Monitor ocupado por booking', [
                 'monitor_id' => $monitorId,
                 'date'       => $date,
                 'start_time' => $startTime,
@@ -692,7 +693,7 @@ class Monitor extends Model
 
         if ($hasFullDayNwd) {
             $conflictingNwd = $fullDayNwdQuery->first();
-            \Log::channel('nwd')->warning('Solapamiento detectado - Monitor ocupado por NWD día completo', [
+            Log::channel('nwd')->warning('Solapamiento detectado - Monitor ocupado por NWD día completo', [
                 'monitor_id' => $monitorId,
                 'date'       => $date,
                 'start_time' => $startTime,
@@ -730,7 +731,7 @@ class Monitor extends Model
 
         if ($isNwd) {
             $conflictingNwds = $nwdQuery->get();
-            \Log::channel('nwd')->warning('Solapamiento detectado - Monitor ocupado por otro NWD', [
+            Log::channel('nwd')->warning('Solapamiento detectado - Monitor ocupado por otro NWD', [
                 'monitor_id'   => $monitorId,
                 'date'         => $date,
                 'start_time'   => $startTime,
@@ -776,7 +777,7 @@ class Monitor extends Model
 
         if ($isCourse) {
             $conflictingCourses = $courseQuery->with('courseDate', 'courseGroup.course')->get();
-            \Log::channel('nwd')->warning('Solapamiento detectado - Monitor ocupado por curso', [
+            Log::channel('nwd')->warning('Solapamiento detectado - Monitor ocupado por curso', [
                 'monitor_id' => $monitorId,
                 'date'       => $date,
                 'start_time' => $startTime,
@@ -814,3 +815,4 @@ class Monitor extends Model
          return LogOptions::defaults();
     }
 }
+

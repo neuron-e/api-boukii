@@ -59,7 +59,7 @@ return [
         ],
 
         'log' => [
-            'driver' => 'log',
+            'driver' => 'log-channel',
         ],
 
         'null' => [

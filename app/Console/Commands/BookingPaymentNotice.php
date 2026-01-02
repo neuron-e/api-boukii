@@ -12,7 +12,7 @@ class BookingPaymentNotice extends Command
      *
      * @var string
      */
-    protected $signature = 'Bookings2:bookingPaymentNotice';
+    protected $signature = 'Bookings:bookingPaymentNotice';
 
     /**
      * The console command description.

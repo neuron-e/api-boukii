@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 /**
@@ -380,7 +381,7 @@ class AnalyticsProfessionalController extends AppBaseController
                     $cleared++;
                 }
             } catch (\Exception $e) {
-                \Log::channel('cache')->warning('CACHE_CLEAR_FAILED', [
+                Log::channel('cache')->warning('CACHE_CLEAR_FAILED', [
                     'pattern' => $pattern,
                     'error' => $e->getMessage()
                 ]);

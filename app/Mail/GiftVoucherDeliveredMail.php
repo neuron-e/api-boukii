@@ -15,7 +15,8 @@ class GiftVoucherDeliveredMail extends Mailable implements ShouldQueue
 
     public GiftVoucher $giftVoucher;
     public School $school;
-    public string $locale;
+    /** @var string */
+    public $locale;
 
     /**
      * Create a new message instance.
@@ -52,4 +53,3 @@ class GiftVoucherDeliveredMail extends Mailable implements ShouldQueue
         return $mail;
     }
 }
-

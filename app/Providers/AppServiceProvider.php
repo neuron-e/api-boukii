@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use Illuminate\Broadcasting\Broadcasters\LogBroadcaster;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -26,6 +28,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Schema::defaultStringLength(125);
+
+        Broadcast::extend('log-channel', function ($app) {
+            return new LogBroadcaster($app['log']->channel('broadcasting'));
+        });
 
         if (!app()->runningInConsole() && env('PERF_LOG_DB', false)) {
             $thresholdMs = (int) env('PERF_LOG_DB_THRESHOLD_MS', 500);

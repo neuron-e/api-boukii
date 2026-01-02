@@ -11,7 +11,7 @@ class BookingInfo extends Command
      *
      * @var string
      */
-    protected $signature = 'Bookings2:bookingInfo';
+    protected $signature = 'Bookings:bookingInfo';
 
     /**
      * The console command description.

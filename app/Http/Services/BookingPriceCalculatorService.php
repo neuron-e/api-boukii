@@ -33,6 +33,9 @@ class BookingPriceCalculatorService
         $discounts = $this->calculateDiscounts($booking, $activitiesPrice);
 
         $totalBeforeVouchers = $activitiesPrice + array_sum($additionalConcepts) - array_sum($discounts);
+        if ($totalBeforeVouchers < 0) {
+            $totalBeforeVouchers = 0.0;
+        }
 
         return [
             'activities_price' => $activitiesPrice,
@@ -112,7 +115,7 @@ class BookingPriceCalculatorService
     private function getFinancialReality(Booking $booking): array
     {
         // Pagos reales
-        $totalPaid = $booking->payments->whereIn('status', ['paid'])->sum('amount');
+        $totalPaid = $booking->payments->whereIn('status', ['paid', 'completed'])->sum('amount');
         $totalRefunded = $booking->payments->whereIn('status', ['refund', 'partial_refund'])->sum('amount');
         $totalNoRefund = $booking->payments->whereIn('status', ['no_refund'])->sum('amount');
 

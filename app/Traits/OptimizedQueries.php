@@ -5,6 +5,7 @@ namespace App\Traits;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * MEJORA CRÍTICA: Trait para optimización de queries y caching
@@ -247,9 +248,10 @@ trait OptimizedQueries
      */
     protected function preloadCriticalRelations(array $ids, array $relations = []): void
     {
-        // Ejecutar en background job si está disponible
-        if (class_exists(\App\Jobs\PreloadRelationsJob::class)) {
-            \App\Jobs\PreloadRelationsJob::dispatch(
+        // Ejecutar en background job si esta disponible
+        $jobClass = 'App\\Jobs\\PreloadRelationsJob';
+        if (class_exists($jobClass)) {
+            $jobClass::dispatch(
                 get_class($this),
                 $ids,
                 $relations
@@ -315,3 +317,8 @@ trait OptimizedQueries
         });
     }
 }
+
+
+
+
+

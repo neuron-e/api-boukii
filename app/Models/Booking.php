@@ -405,7 +405,7 @@ class Booking extends Model
     public function refreshPaymentTotalsFromPayments(): self
     {
         $paid = (float) $this->payments()
-            ->where('status', 'paid')
+            ->whereIn('status', ['paid', 'completed'])
             ->sum('amount');
 
         $paidTotal = round($paid, 2);
@@ -1707,7 +1707,7 @@ class Booking extends Model
      */
     public function getCurrentBalance()
     {
-        $totalPaid = $this->payments->whereIn('status', ['paid'])->sum('amount');
+        $totalPaid = $this->payments->whereIn('status', ['paid', 'completed'])->sum('amount');
         $totalRefunded = $this->payments->whereIn('status', ['refund', 'partial_refund'])->sum('amount');
         $totalNoRefund = $this->payments->whereIn('status', ['no_refund'])->sum('amount');
 

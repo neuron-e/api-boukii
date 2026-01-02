@@ -15,6 +15,7 @@ class ScanBookingPriceMismatches extends Command
                             {--include-cancelled : Include cancelled bookings}
                             {--similar : Only report cases where payments match calculated total}
                             {--free-mismatch : Only report bookings where calculated total is ~0 but pending is > 0}
+                            {--include-matched : Also report bookings with matching totals when payment status is out of sync}
                             {--fix : Update stored totals and paid flag for reported bookings}
                             {--dry-run : Show what would be fixed without saving}
                             {--chunk=200 : Chunk size for batch processing}
@@ -32,6 +33,7 @@ class ScanBookingPriceMismatches extends Command
         $includeCancelled = (bool) $this->option('include-cancelled');
         $similar = (bool) $this->option('similar');
         $freeMismatch = (bool) $this->option('free-mismatch');
+        $includeMatched = (bool) $this->option('include-matched');
         $fix = (bool) $this->option('fix');
         $dryRun = (bool) $this->option('dry-run');
         $chunk = (int) $this->option('chunk');
@@ -61,6 +63,7 @@ class ScanBookingPriceMismatches extends Command
             $tolerance,
             $similar,
             $freeMismatch,
+            $includeMatched,
             $fix,
             $dryRun,
             $asJson,
@@ -87,17 +90,20 @@ class ScanBookingPriceMismatches extends Command
             $storedTotal = round((float) ($booking->price_total ?? 0), 2);
             $diff = round($storedTotal - $calculatedTotal, 2);
 
-            if (abs($diff) < $minDiff) {
-                return true;
-            }
-
             $balance = $booking->getCurrentBalance();
             $received = round((float) ($balance['received'] ?? 0), 2);
             $currentBalance = round((float) ($balance['current_balance'] ?? 0), 2);
             $pending = round((float) $booking->getPendingAmount(), 2);
 
-            $paymentMatches = $received > 0 && abs($received - $calculatedTotal) <= $tolerance;
+            $paymentMatchesCalculated = $received > 0 && abs($received - $calculatedTotal) <= $tolerance;
+            $paymentMatchesStored = $received > 0 && abs($received - $storedTotal) <= $tolerance;
+            $paymentMatches = $paymentMatchesCalculated || $paymentMatchesStored;
             $isFreeMismatch = $calculatedTotal <= $tolerance && $pending > $tolerance;
+            $needsMismatch = abs($diff) >= $minDiff;
+            $needsPaidSync = $paymentMatches && !$booking->paid;
+            if (!$needsMismatch && !($includeMatched && $needsPaidSync)) {
+                return true;
+            }
             if ($similar && !$paymentMatches) {
                 return true;
             }
@@ -107,15 +113,18 @@ class ScanBookingPriceMismatches extends Command
 
             $fixApplied = false;
             if ($fix) {
-                $shouldBePaid = $pending <= $tolerance;
                 if ($dryRun) {
                     $fixApplied = true;
                 } else {
-                    $booking->recalculateAndUpdatePrice();
-                    $booking->refreshPaymentTotalsFromPayments();
-                    $booking->paid = $shouldBePaid;
+                    if ($needsMismatch) {
+                        $booking->recalculateAndUpdatePrice();
+                        $booking->refreshPaymentTotalsFromPayments();
+                        $booking->updateCart();
+                    } else {
+                        $booking->refreshPaymentTotalsFromPayments();
+                    }
+                    $booking->paid = $booking->getPendingAmount() <= $tolerance;
                     $booking->save();
-                    $booking->updateCart();
                     $fixApplied = true;
                 }
             }
@@ -132,7 +141,9 @@ class ScanBookingPriceMismatches extends Command
                 'current_balance' => $currentBalance,
                 'pending' => $pending,
                 'free_mismatch' => $isFreeMismatch,
-                'payment_matches_calculated' => $paymentMatches,
+                'needs_paid_sync' => $needsPaidSync,
+                'payment_matches_calculated' => $paymentMatchesCalculated,
+                'payment_matches_stored' => $paymentMatchesStored,
                 'fix_applied' => $fixApplied,
             ];
 

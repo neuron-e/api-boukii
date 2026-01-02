@@ -11,6 +11,7 @@ use App\Models\EmailLog;
 use App\Models\Monitor;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 

@@ -15,7 +15,8 @@ trait FinanceCacheKeyTrait
         ?string $startDate = null,
         ?string $endDate = null,
         ?int $seasonId = null,
-        string $optimizationLevel = 'fast'
+        string $optimizationLevel = 'fast',
+        string $extraKey = ''
     ): string {
 
         // Si no hay fechas específicas, obtener fechas de temporada actual
@@ -29,7 +30,7 @@ trait FinanceCacheKeyTrait
         $startDate = Carbon::parse($startDate)->format('Y-m-d');
         $endDate = Carbon::parse($endDate)->format('Y-m-d');
 
-        return md5("finance_dashboard_{$schoolId}_{$endDate}_{$startDate}_{$optimizationLevel}");
+        return md5("finance_dashboard_{$schoolId}_{$endDate}_{$startDate}_{$optimizationLevel}_{$extraKey}");
     }
 
     /**
@@ -79,12 +80,19 @@ trait FinanceCacheKeyTrait
      */
     protected function generateCacheKeyFromRequest(Request $request): string
     {
+        $extraKey = implode('|', [
+            $request->get('date_filter', ''),
+            $request->boolean('include_test_detection', true) ? 'test:1' : 'test:0',
+            $request->boolean('include_payrexx_analysis', false) ? 'payrexx:1' : 'payrexx:0',
+        ]);
+
         return $this->generateFinanceCacheKey(
             $request->school_id,
             $request->start_date,
             $request->end_date,
             $request->season_id,
-            $request->get('optimization_level', 'fast')
+            $request->get('optimization_level', 'fast'),
+            $extraKey
         );
     }
 }

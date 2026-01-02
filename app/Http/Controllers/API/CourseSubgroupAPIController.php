@@ -17,6 +17,7 @@ use App\Services\CourseRepairDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Class CourseSubgroupController

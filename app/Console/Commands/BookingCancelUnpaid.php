@@ -11,7 +11,7 @@ class BookingCancelUnpaid extends Command
      *
      * @var string
      */
-    protected $signature = 'Bookings2:bookingUnpaidCancel15m';
+    protected $signature = 'Bookings:bookingUnpaidCancel15m';
 
     /**
      * The console command description.

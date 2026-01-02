@@ -88,11 +88,11 @@ class IntervalDiscountHelper
         if ($intervalId !== null) {
             $intervalDiscounts = self::getIntervalDiscountsFromSettings($course);
             if (array_key_exists($intervalId, $intervalDiscounts) && !empty($intervalDiscounts[$intervalId])) {
-                return $intervalDiscounts[$intervalId];
+                return self::normalizeDiscountSource($intervalDiscounts[$intervalId]);
             }
         }
 
-        return $course->discounts ?? [];
+        return self::normalizeDiscountSource($course->discounts ?? []);
     }
 
     private static function getIntervalDiscountsFromSettings(Course $course): array
@@ -122,6 +122,10 @@ class IntervalDiscountHelper
                 continue;
             }
             $discounts = $interval['discounts'] ?? [];
+            if (is_string($discounts)) {
+                $decoded = json_decode($discounts, true);
+                $discounts = is_array($decoded) ? $decoded : [];
+            }
             if (!is_array($discounts) || empty($discounts)) {
                 continue;
             }
@@ -201,6 +205,16 @@ class IntervalDiscountHelper
         }
 
         return $normalized;
+    }
+
+    private static function normalizeDiscountSource(mixed $discounts): array
+    {
+        if (is_string($discounts)) {
+            $decoded = json_decode($discounts, true);
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        return is_array($discounts) ? $discounts : [];
     }
 
     /**

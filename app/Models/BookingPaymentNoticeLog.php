@@ -20,27 +20,30 @@ class BookingPaymentNoticeLog extends Model
 
     public static function checkToNotify($data)
     {
-        $notify = 1;
+        $bookingId = $data->booking_id
+            ?? $data->booking?->id;
 
-        $logs = self::where('booking_id', $data->booking2_id)
-            ->get();
-
-
-        $fecha_actual = Carbon::createFromFormat('Y-m-d H:i:s', date("Y-m-d H:i:s"));
-        // recorremos los logs para ver si se ha enviado anteriormente el email
-        foreach($logs as $log)
-        {
-            /*
-                si han pasado + de 72 horas volvemos a enviar el aviso ya que será un
-                aviso de otro curso/clase diferente dentro de la misma reserva
-            */
-            $fecha_log = Carbon::createFromFormat('Y-m-d H:i:s', $log->date);
-
-            $diff_in_hours = $fecha_log->diffInHours($fecha_actual);
-            if ($diff_in_hours <= 72) $notify = 0;
+        if (!$bookingId) {
+            return true;
         }
 
-        if($notify==1) return true;
-        return false;
+        $logs = self::where('booking_id', $bookingId)->get();
+        $fecha_actual = Carbon::now();
+
+        // Recorremos los logs para ver si se ha enviado anteriormente el email.
+        foreach ($logs as $log) {
+            /*
+                Si han pasado + de 72 horas volvemos a enviar el aviso ya que sera un
+                aviso de otro curso/clase diferente dentro de la misma reserva.
+            */
+            $fecha_log = Carbon::createFromFormat('Y-m-d H:i:s', $log->date);
+            $diff_in_hours = $fecha_log->diffInHours($fecha_actual);
+            if ($diff_in_hours <= 72) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
+

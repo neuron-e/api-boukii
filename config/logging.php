@@ -264,6 +264,13 @@ return [
             'days' => 14,
             'replace_placeholders' => true,
         ],
+        'broadcasting' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/broadcasting.log'),
+            'level' => 'info',
+            'days' => 14,
+            'replace_placeholders' => true,
+        ],
     ],
 
 ];

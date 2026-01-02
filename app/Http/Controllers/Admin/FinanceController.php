@@ -155,13 +155,24 @@ class FinanceController extends AppBaseController
     private function buildFastDashboard(Request $request, array $dateRange): array
     {
         $schoolId = $request->school_id;
+        $dateFilter = $request->get('date_filter', 'created_at');
+        $startDateTime = Carbon::parse($dateRange['start_date'])->startOfDay();
+        $endDateTime = Carbon::parse($dateRange['end_date'])->endOfDay();
 
-        $bookingIdsQuery = DB::table('booking_users as bu')
-            ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
-            ->where('b.school_id', $schoolId)
-            ->whereBetween('bu.date', [$dateRange['start_date'], $dateRange['end_date']])
-            ->select('b.id')
-            ->distinct();
+        if ($dateFilter === 'activity') {
+            $bookingIdsQuery = DB::table('booking_users as bu')
+                ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
+                ->where('b.school_id', $schoolId)
+                ->whereBetween('bu.date', [$dateRange['start_date'], $dateRange['end_date']])
+                ->select('b.id')
+                ->distinct();
+        } else {
+            $bookingIdsQuery = DB::table('bookings as b')
+                ->where('b.school_id', $schoolId)
+                ->whereBetween('b.created_at', [$startDateTime, $endDateTime])
+                ->select('b.id')
+                ->distinct();
+        }
 
         $bookingsBase = DB::table('bookings as b')
             ->whereIn('b.id', $bookingIdsQuery);
@@ -170,19 +181,32 @@ class FinanceController extends AppBaseController
         $totalClients = (clone $bookingsBase)->distinct('b.client_main_id')->count('b.client_main_id');
         $revenueExpected = (clone $bookingsBase)->where('b.status', 1)->sum('b.price_total');
         $revenuePending = (clone $bookingsBase)->where('b.status', 1)->where('b.paid', 0)->sum('b.price_total');
+        $cancelledCount = (clone $bookingsBase)->where('b.status', 2)->count('b.id');
+        $cancelledRevenue = (clone $bookingsBase)->where('b.status', 2)->sum('b.price_total');
+        $productionCount = max(0, $totalBookings - $cancelledCount);
         $averageBookingValue = $totalBookings > 0 ? $revenueExpected / $totalBookings : 0;
 
-        $totalParticipants = DB::table('booking_users as bu')
-            ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
-            ->where('b.school_id', $schoolId)
-            ->whereBetween('bu.date', [$dateRange['start_date'], $dateRange['end_date']])
-            ->count('bu.id');
+        if ($dateFilter === 'activity') {
+            $totalParticipants = DB::table('booking_users as bu')
+                ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
+                ->where('b.school_id', $schoolId)
+                ->whereBetween('bu.date', [$dateRange['start_date'], $dateRange['end_date']])
+                ->distinct('bu.client_id')
+                ->count('bu.client_id');
+        } else {
+            $totalParticipants = DB::table('booking_users as bu')
+                ->whereIn('bu.booking_id', $bookingIdsQuery)
+                ->distinct('bu.client_id')
+                ->count('bu.client_id');
+        }
 
         $revenueReceived = DB::table('payments as p')
             ->join('bookings as b', 'p.booking_id', '=', 'b.id')
             ->whereIn('b.id', $bookingIdsQuery)
             ->where('p.status', 'paid')
             ->sum('p.amount');
+
+        $revenuePending = max(0, $revenueExpected - $revenueReceived);
 
         $collectionEfficiency = $revenueExpected > 0
             ? round(($revenueReceived / $revenueExpected) * 100, 2)
@@ -264,16 +288,16 @@ class FinanceController extends AppBaseController
                 'total_bookings' => $totalBookings,
                 'booking_classification' => [
                     'total_bookings' => $totalBookings,
-                    'production_count' => $totalBookings,
+                    'production_count' => $productionCount,
                     'test_count' => 0,
-                    'cancelled_count' => 0,
+                    'cancelled_count' => $cancelledCount,
                     'production_revenue' => (float) $revenueExpected,
                     'test_revenue' => 0,
-                    'cancelled_revenue' => 0
+                    'cancelled_revenue' => (float) $cancelledRevenue
                 ]
             ],
             'executive_kpis' => [
-                'total_production_bookings' => $totalBookings,
+                'total_production_bookings' => $productionCount,
                 'total_clients' => $totalClients,
                 'total_participants' => $totalParticipants,
                 'revenue_expected' => (float) $revenueExpected,
@@ -426,6 +450,10 @@ class FinanceController extends AppBaseController
      */
     private function getSeasonBookingsOptimized(Request $request, array $dateRange, string $optimizationLevel)
     {
+        $dateFilter = $request->get('date_filter', 'created_at');
+        $startDateTime = Carbon::parse($dateRange['start_date'])->startOfDay();
+        $endDateTime = Carbon::parse($dateRange['end_date'])->endOfDay();
+
         $query = Booking::query()
             ->with([
                 'bookingUsers' => function($q) {
@@ -439,10 +467,15 @@ class FinanceController extends AppBaseController
             ])
             ->where('school_id', $request->school_id);
 
-        // Filtrar por fechas de booking users
-        $query->whereHas('bookingUsers', function($q) use ($dateRange) {
-            $q->whereBetween('date', [$dateRange['start_date'], $dateRange['end_date']]);
-        });
+        if ($dateFilter === 'activity') {
+            // Filtrar por fechas de booking users (actividad)
+            $query->whereHas('bookingUsers', function($q) use ($dateRange) {
+                $q->whereBetween('date', [$dateRange['start_date'], $dateRange['end_date']]);
+            });
+        } else {
+            // Filtrar por fecha de creación de la reserva
+            $query->whereBetween('created_at', [$startDateTime, $endDateTime]);
+        }
 
         // Aplicar lÃ­mites segÃºn optimizaciÃ³n
         switch ($optimizationLevel) {
@@ -2457,7 +2490,94 @@ class FinanceController extends AppBaseController
         try {
             $this->ensureSchoolInRequest($request);
             $dateRange = $this->getSeasonDateRange($request);
-            $bookings = $this->getSeasonBookingsOptimized($request, $dateRange, 'balanced');
+            $optimizationLevel = $request->get('optimization_level', 'balanced');
+
+            if ($optimizationLevel === 'fast') {
+                $dateFilter = $request->get('date_filter', 'created_at');
+                $startDateTime = Carbon::parse($dateRange['start_date'])->startOfDay();
+                $endDateTime = Carbon::parse($dateRange['end_date'])->endOfDay();
+
+                if ($dateFilter === 'activity') {
+                    $bookingIdsQuery = DB::table('booking_users as bu')
+                        ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
+                        ->where('b.school_id', $request->school_id)
+                        ->whereBetween('bu.date', [$dateRange['start_date'], $dateRange['end_date']])
+                        ->select('b.id')
+                        ->distinct();
+                } else {
+                    $bookingIdsQuery = DB::table('bookings as b')
+                        ->where('b.school_id', $request->school_id)
+                        ->whereBetween('b.created_at', [$startDateTime, $endDateTime])
+                        ->select('b.id')
+                        ->distinct();
+                }
+
+                $baseQuery = DB::table('bookings as b')
+                    ->leftJoin('clients as c', 'b.client_main_id', '=', 'c.id')
+                    ->whereIn('b.id', $bookingIdsQuery)
+                    ->select([
+                        'b.id',
+                        'b.created_at',
+                        'b.status',
+                        'b.price_total',
+                        'b.paid_total',
+                        'c.first_name',
+                        'c.last_name',
+                        'c.email'
+                    ]);
+
+                if ($request->boolean('only_cancelled')) {
+                    $baseQuery->where('b.status', 2);
+                } elseif ($request->boolean('only_pending')) {
+                    $baseQuery->whereIn('b.status', [1, 3]);
+                }
+
+                $rows = $baseQuery->get();
+                $bookingDetails = [];
+
+                foreach ($rows as $row) {
+                    $priceTotal = floatval($row->price_total);
+                    $paidTotal = floatval($row->paid_total);
+                    $pendingAmount = max(0, $priceTotal - $paidTotal);
+
+                    if ($request->boolean('only_pending') && $pendingAmount <= 0.50) {
+                        continue;
+                    }
+
+                    $realStatus = $row->status == 2
+                        ? 'total_cancel'
+                        : ($row->status == 3 ? 'partial_cancel' : 'active');
+
+                    $bookingDetails[] = [
+                        'id' => $row->id,
+                        'client_name' => trim(($row->first_name ?? '') . ' ' . ($row->last_name ?? '')),
+                        'client_email' => $row->email,
+                        'booking_date' => Carbon::parse($row->created_at)->format('Y-m-d'),
+                        'amount' => round($priceTotal, 2),
+                        'received_amount' => round($paidTotal, 2),
+                        'pending_amount' => round($pendingAmount, 2),
+                        'status' => $realStatus,
+                        'status_numeric' => $row->status,
+                        'has_issues' => false,
+                        'is_test' => false,
+                        'real_status_info' => [
+                            'database_status' => $row->status,
+                            'real_status' => $realStatus,
+                            'expected_amount' => round($priceTotal, 2),
+                            'original_calculated' => round($priceTotal, 2)
+                        ]
+                    ];
+                }
+
+                return $this->sendResponse([
+                    'bookings' => $bookingDetails,
+                    'total_count' => count($bookingDetails),
+                    'classification_summary' => [],
+                    'filter_applied' => $request->only('only_pending', 'only_cancelled')
+                ], 'Detalles de reservas obtenidos exitosamente');
+            }
+
+            $bookings = $this->getSeasonBookingsOptimized($request, $dateRange, $optimizationLevel);
 
             // Filtrar reservas que solo tienen cursos excluidos
             $filteredBookings = $this->filterBookingsWithExcludedCourses($bookings, self::EXCLUDED_COURSES);
