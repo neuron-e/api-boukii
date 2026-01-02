@@ -11,7 +11,7 @@ class MarkPastBookings extends Command
      *
      * @var string
      */
-    protected $signature = 'Bookings2:markPastBookings';
+    protected $signature = 'Bookings:markPastBookings';
 
     /**
      * The console command description.
@@ -38,7 +38,6 @@ class MarkPastBookings extends Command
     public function handle()
     {
         //TODO: Check if needed.
-        //\App\Models\Bookings2::markPastBookings();
     }
 
 }

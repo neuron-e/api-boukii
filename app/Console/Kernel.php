@@ -49,12 +49,12 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->runInBackground();
 
-        $schedule->command('Bookings2:bookingInfo')
+        $schedule->command('Bookings:bookingInfo')
             ->hourly()
             ->withoutOverlapping()
             ->runInBackground();
 
-        $schedule->command('Bookings2:bookingPaymentNotice')
+        $schedule->command('Bookings:bookingPaymentNotice')
             ->hourly()
             ->withoutOverlapping()
             ->runInBackground();
