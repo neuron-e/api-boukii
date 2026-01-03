@@ -163,19 +163,22 @@ class FinanceController extends AppBaseController
             $bookingIdsQuery = DB::table('booking_users as bu')
                 ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
                 ->where('b.school_id', $schoolId)
+                ->whereNull('b.deleted_at')
                 ->whereBetween('bu.date', [$dateRange['start_date'], $dateRange['end_date']])
                 ->select('b.id')
                 ->distinct();
         } else {
             $bookingIdsQuery = DB::table('bookings as b')
                 ->where('b.school_id', $schoolId)
+                ->whereNull('b.deleted_at')
                 ->whereBetween('b.created_at', [$startDateTime, $endDateTime])
                 ->select('b.id')
                 ->distinct();
         }
 
         $bookingsBase = DB::table('bookings as b')
-            ->whereIn('b.id', $bookingIdsQuery);
+            ->whereIn('b.id', $bookingIdsQuery)
+            ->whereNull('b.deleted_at');
 
         $totalBookings = (clone $bookingsBase)->count('b.id');
         $totalClients = (clone $bookingsBase)->distinct('b.client_main_id')->count('b.client_main_id');
@@ -190,6 +193,7 @@ class FinanceController extends AppBaseController
             $totalParticipants = DB::table('booking_users as bu')
                 ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
                 ->where('b.school_id', $schoolId)
+                ->whereNull('b.deleted_at')
                 ->whereBetween('bu.date', [$dateRange['start_date'], $dateRange['end_date']])
                 ->distinct('bu.client_id')
                 ->count('bu.client_id');
@@ -203,6 +207,7 @@ class FinanceController extends AppBaseController
         $revenueReceived = DB::table('payments as p')
             ->join('bookings as b', 'p.booking_id', '=', 'b.id')
             ->whereIn('b.id', $bookingIdsQuery)
+            ->whereNull('b.deleted_at')
             ->where('p.status', 'paid')
             ->sum('p.amount');
 
@@ -234,6 +239,7 @@ class FinanceController extends AppBaseController
         $paymentMethodRows = DB::table('payments as p')
             ->join('bookings as b', 'p.booking_id', '=', 'b.id')
             ->whereIn('b.id', $bookingIdsQuery)
+            ->whereNull('b.deleted_at')
             ->where('p.status', 'paid')
             ->selectRaw("
                 CASE
@@ -465,7 +471,8 @@ class FinanceController extends AppBaseController
                 'clientMain',
                 'school'
             ])
-            ->where('school_id', $request->school_id);
+            ->where('school_id', $request->school_id)
+            ->whereNull('deleted_at');
 
         if ($dateFilter === 'activity') {
             // Filtrar por fechas de booking users (actividad)
@@ -2501,12 +2508,14 @@ class FinanceController extends AppBaseController
                     $bookingIdsQuery = DB::table('booking_users as bu')
                         ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
                         ->where('b.school_id', $request->school_id)
+                        ->whereNull('b.deleted_at')
                         ->whereBetween('bu.date', [$dateRange['start_date'], $dateRange['end_date']])
                         ->select('b.id')
                         ->distinct();
                 } else {
                     $bookingIdsQuery = DB::table('bookings as b')
                         ->where('b.school_id', $request->school_id)
+                        ->whereNull('b.deleted_at')
                         ->whereBetween('b.created_at', [$startDateTime, $endDateTime])
                         ->select('b.id')
                         ->distinct();
@@ -2515,6 +2524,7 @@ class FinanceController extends AppBaseController
                 $baseQuery = DB::table('bookings as b')
                     ->leftJoin('clients as c', 'b.client_main_id', '=', 'c.id')
                     ->whereIn('b.id', $bookingIdsQuery)
+                    ->whereNull('b.deleted_at')
                     ->select([
                         'b.id',
                         'b.created_at',

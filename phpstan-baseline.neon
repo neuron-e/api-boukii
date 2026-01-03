@@ -555,10 +555,6 @@ parameters:
 			count: 1
 			path: app/Console/Commands/RecalculateBookingTotals.php
 
-		-
-			message: "#^Access to an undefined property App\\\\Console\\\\Commands\\\\RecoverLostBookings\\:\\:\\$fixDuplicates\\.$#"
-			count: 3
-			path: app/Console/Commands/RecoverLostBookings.php
 
 		-
 			message: "#^Access to an undefined property App\\\\Models\\\\BookingUser\\:\\:\\$client_id\\.$#"
@@ -670,30 +666,10 @@ parameters:
 			count: 1
 			path: app/Console/Commands/RecoverLostBookings.php
 
-		-
-			message: "#^Property App\\\\Console\\\\Commands\\\\RecoverLostBookings\\:\\:\\$dryRun has no type specified\\.$#"
-			count: 1
-			path: app/Console/Commands/RecoverLostBookings.php
 
-		-
-			message: "#^Property App\\\\Console\\\\Commands\\\\RecoverLostBookings\\:\\:\\$failed has no type specified\\.$#"
-			count: 1
-			path: app/Console/Commands/RecoverLostBookings.php
 
-		-
-			message: "#^Property App\\\\Console\\\\Commands\\\\RecoverLostBookings\\:\\:\\$recovered has no type specified\\.$#"
-			count: 1
-			path: app/Console/Commands/RecoverLostBookings.php
 
-		-
-			message: "#^Property App\\\\Console\\\\Commands\\\\RecoverLostBookings\\:\\:\\$skipped has no type specified\\.$#"
-			count: 1
-			path: app/Console/Commands/RecoverLostBookings.php
 
-		-
-			message: "#^Property App\\\\Console\\\\Commands\\\\RecoverLostBookings\\:\\:\\$verbose has no type specified\\.$#"
-			count: 1
-			path: app/Console/Commands/RecoverLostBookings.php
 
 		-
 			message: "#^Unable to resolve the template type TKey in call to function collect$#"

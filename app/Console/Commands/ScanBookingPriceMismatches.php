@@ -94,13 +94,16 @@ class ScanBookingPriceMismatches extends Command
             $received = round((float) ($balance['received'] ?? 0), 2);
             $currentBalance = round((float) ($balance['current_balance'] ?? 0), 2);
             $pending = round((float) $booking->getPendingAmount(), 2);
+            $bookingPaid = (bool) $booking->getAttribute('paid');
+            $bookingStatus = $booking->getAttribute('status');
+            $bookingSchoolId = $booking->getAttribute('school_id');
 
             $paymentMatchesCalculated = $received > 0 && abs($received - $calculatedTotal) <= $tolerance;
             $paymentMatchesStored = $received > 0 && abs($received - $storedTotal) <= $tolerance;
             $paymentMatches = $paymentMatchesCalculated || $paymentMatchesStored;
             $isFreeMismatch = $calculatedTotal <= $tolerance && $pending > $tolerance;
             $needsMismatch = abs($diff) >= $minDiff;
-            $needsPaidSync = $paymentMatches && !$booking->paid;
+            $needsPaidSync = $paymentMatches && !$bookingPaid;
             if (!$needsMismatch && !($includeMatched && $needsPaidSync)) {
                 return true;
             }
@@ -123,7 +126,7 @@ class ScanBookingPriceMismatches extends Command
                     } else {
                         $booking->refreshPaymentTotalsFromPayments();
                     }
-                    $booking->paid = $booking->getPendingAmount() <= $tolerance;
+                    $booking->setAttribute('paid', $booking->getPendingAmount() <= $tolerance);
                     $booking->save();
                     $fixApplied = true;
                 }
@@ -131,9 +134,9 @@ class ScanBookingPriceMismatches extends Command
 
             $row = [
                 'booking_id' => $booking->id,
-                'school_id' => $booking->school_id,
-                'status' => $booking->status,
-                'paid' => (bool) $booking->paid,
+                'school_id' => $bookingSchoolId,
+                'status' => $bookingStatus,
+                'paid' => $bookingPaid,
                 'stored_total' => $storedTotal,
                 'calculated_total' => $calculatedTotal,
                 'difference' => $diff,

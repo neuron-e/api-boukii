@@ -115,9 +115,9 @@ class RecoverMissingBooking extends Command
             'school_id' => $school->id,
             'course_id' => $course->id,
             'course_date_id' => $courseDate->id,
-            'date' => $this->option('date') ?? $courseDate->date?->format('Y-m-d'),
-            'hour_start' => $this->option('start') ?? $courseDate->hour_start,
-            'hour_end' => $this->option('end') ?? $courseDate->hour_end,
+            'date' => $this->option('date') ?? $this->formatCourseDateValue($courseDate->getAttribute('date')),
+            'hour_start' => $this->option('start') ?? $courseDate->getAttribute('hour_start'),
+            'hour_end' => $this->option('end') ?? $courseDate->getAttribute('hour_end'),
             'price_total' => (float) $priceTotal,
             'currency' => (string) $this->option('currency'),
             'source' => (string) $this->option('source'),
@@ -196,9 +196,9 @@ class RecoverMissingBooking extends Command
                 'payrexx_reference' => $payload['payrexx_reference'],
                 'payrexx_transaction' => $payload['payrexx_transaction'],
                 'old_id' => $payload['old_id'],
-                'meeting_point' => $course->meeting_point,
-                'meeting_point_address' => $course->meeting_point_address,
-                'meeting_point_instructions' => $course->meeting_point_instructions,
+                'meeting_point' => $course->getAttribute('meeting_point'),
+                'meeting_point_address' => $course->getAttribute('meeting_point_address'),
+                'meeting_point_instructions' => $course->getAttribute('meeting_point_instructions'),
             ]);
 
             BookingUser::create([
@@ -332,6 +332,19 @@ class RecoverMissingBooking extends Command
         }
 
         return null;
+    }
+
+    private function formatCourseDateValue(mixed $value): ?string
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d');
+        }
+
+        return Carbon::parse($value)->format('Y-m-d');
     }
 
     private function parseCreatedAt(?string $createdAt): ?Carbon

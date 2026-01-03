@@ -22,15 +22,17 @@ class RecoverLostBookings extends Command
                               {--to-date= : End date}
                               {--dry-run : Preview}
                               {--booking-id= : Specific booking ID to recover}
-                              {--verbose-details : Show detailed transaction info}';
+                              {--show-details : Show detailed transaction info}
+                              {--fix-duplicates : Delete duplicate booking_users while recovering}';
 
     protected $description = 'Recover soft-deleted bookings paid in Payrexx';
 
-    private $dryRun = false;
-    private $verbose = false;
-    private $recovered = 0;
-    private $failed = 0;
-    private $skipped = 0;
+    private bool $dryRun = false;
+    private bool $showDetails = false;
+    private bool $fixDuplicates = false;
+    private int $recovered = 0;
+    private int $failed = 0;
+    private int $skipped = 0;
 
     public function handle()
     {
@@ -38,7 +40,8 @@ class RecoverLostBookings extends Command
         $fromDate = $this->option('from-date') ?? now()->subDays(7)->format('Y-m-d');
         $toDate = $this->option('to-date') ?? now()->format('Y-m-d');
         $this->dryRun = $this->option('dry-run');
-        $this->verbose = $this->option('verbose-details');
+        $this->showDetails = $this->option('show-details');
+        $this->fixDuplicates = $this->option('fix-duplicates');
         $specificBookingId = $this->option('booking-id');
 
         if ($this->dryRun) {
@@ -159,7 +162,7 @@ class RecoverLostBookings extends Command
                     $searchEnd
                 );
 
-                if ($this->verbose) {
+                if ($this->showDetails) {
                     $this->newLine();
                     $this->line("  Available transactions in date range:");
                     foreach ($transactions as $t) {
@@ -254,7 +257,7 @@ class RecoverLostBookings extends Command
             }
         }
 
-        if ($this->verbose) {
+        if ($this->showDetails) {
             $this->line("  Price calculation:");
             $this->line("    Booking users ({$uniqueUsers->count()} unique): CHF {$usersPrice}");
             $this->line("    Extras: CHF {$extrasPrice}");

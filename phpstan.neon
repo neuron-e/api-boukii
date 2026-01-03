@@ -3,6 +3,8 @@ includes:
     - phpstan-baseline.neon
 
 parameters:
+    stubFiles:
+        - phpstan-stubs/PreloadRelationsJob.stub.php
     level: 6
     paths:
         - app
