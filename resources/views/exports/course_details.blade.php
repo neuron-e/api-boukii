@@ -105,9 +105,9 @@
                         <td>{{ $subgroup->monitor->fullname ?? __('messages.Sin asignar') }}</td>
                         <td>{{ $bookingUser->client->fullname }}</td>
                         <td>{{ \Carbon\Carbon::parse($bookingUser->client->birth_date)->age ?? 'N/A' }}</td>
-                        <td>{{ $bookingUser->booking->clientMain->phone }}</td>
+                    <td>{{ optional($bookingUser->booking->clientMain ?? null)->phone ?? '' }}</td>
                         <td>{{ $bookingUser->booking->paid ? __('messages.Efectuado') : __('messages.Por hacer') }}</td>
-                        <td>{{ count($bookingUser->bookingUserExtras) ? $bookingUser->bookingUserExtras[0]->courseExtra->description : __('messages.No seleccionado') }}</td>
+                    <td>{{ count($bookingUser->bookingUserExtras) ? (optional($bookingUser->bookingUserExtras[0]->courseExtra ?? null)->description ?? __('messages.No seleccionado')) : __('messages.No seleccionado') }}</td>
                         <td>{{ $bookingUser->client->email}}</td>
                     </tr>
                 @endforeach

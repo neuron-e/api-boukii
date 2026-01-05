@@ -10,8 +10,8 @@ use App\Models\BookingUser;
 use App\Models\CourseGroup;
 use App\Models\CourseSubgroupDate;
 use App\Models\CourseSubgroup;
-use AppModelsCourseIntervalMonitor;
-use AppModelsCourse;
+use App\Models\Course;
+use App\Models\CourseIntervalMonitor;
 use App\Repositories\CourseSubgroupRepository;
 use App\Services\CourseRepairDispatcher;
 use Illuminate\Http\JsonResponse;
@@ -356,7 +356,16 @@ class CourseSubgroupAPIController extends AppBaseController
             }
         }
 
+        $previousMonitorId = $courseSubgroup->monitor_id;
         $courseSubgroup = $this->courseSubgroupRepository->update($input, $id);
+        $monitorUpdated = array_key_exists('monitor_id', $input) && $courseSubgroup->monitor_id !== $previousMonitorId;
+        if ($monitorUpdated) {
+            BookingUser::where('course_subgroup_id', $courseSubgroup->id)
+                ->update([
+                    'monitor_id' => $courseSubgroup->monitor_id,
+                    'updated_at' => now()
+                ]);
+        }
 
         // FIXED BUG #3: Auto-sync monitor assignment to CourseIntervalMonitor table
         // When a subgroup is updated with a monitor AND the course uses intervals,
