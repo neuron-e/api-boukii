@@ -480,23 +480,18 @@ class PlannerController extends AppBaseController
         });
 
         $subgroupPositions = collect();
+        $subgroupTotals = collect();
+        $subgroupKey = static function ($subgroup): string {
+            return ($subgroup->course_id ?? 0) . '-' . ($subgroup->course_date_id ?? 0) . '-' . ($subgroup->degree_id ?? 0);
+        };
         if ($subgroups->isNotEmpty()) {
-            $positionRows = CourseSubgroup::select('id', 'course_group_id')
-                ->whereIn('id', $subgroups->pluck('id'))
-                ->orderBy('course_group_id')
-                ->orderBy('id')
-                ->get();
-
-            $currentGroup = null;
-            $position = 0;
-            foreach ($positionRows as $row) {
-                if ($row->course_group_id !== $currentGroup) {
-                    $currentGroup = $row->course_group_id;
-                    $position = 1;
-                } else {
-                    $position++;
+            $groupedByKey = $subgroups->groupBy(fn($subgroup) => $subgroupKey($subgroup));
+            foreach ($groupedByKey as $key => $items) {
+                $sorted = $items->sortBy('id')->values();
+                $subgroupTotals[$key] = $sorted->count();
+                foreach ($sorted as $index => $subgroup) {
+                    $subgroupPositions[$subgroup->id] = $index + 1;
                 }
-                $subgroupPositions[$row->id] = $position;
             }
         }
 
@@ -510,14 +505,6 @@ class PlannerController extends AppBaseController
                 $bookingUser->user_id = $bookingUser->booking->user_id;
             }
         });
-        // OPTIMIZACION: Filtrar subgroups por school_id antes de contar
-        $subgroupsPerGroup = CourseSubgroup::select('course_group_id', DB::raw('COUNT(*) as total'))
-            ->join('course_groups', 'course_subgroups.course_group_id', '=', 'course_groups.id')
-            ->join('courses', 'course_groups.course_id', '=', 'courses.id')
-            ->where('courses.school_id', $schoolId)
-            ->groupBy('course_group_id')
-            ->pluck('total', 'course_group_id');
-
         $groupedData = collect([]);
 
         // OPTIMIZACION: Calcular full_day NWDs para todos los monitores en una sola query
@@ -575,7 +562,7 @@ class PlannerController extends AppBaseController
 
         foreach ($monitors as $monitor) {
             $monitorBookings = $bookingsByMonitor->get($monitor->id, collect())
-                ->groupBy(function ($booking) use ($subgroupsPerGroup) {
+                ->groupBy(function ($booking) {
                     // Diferencia la agrupacin basada en el course_type
                     if ($booking->course->course_type == 2 || $booking->course->course_type == 3) {
                         // Agrupa por booking.course_id y booking.course_date_id para el tipo 2
@@ -589,12 +576,12 @@ class PlannerController extends AppBaseController
 
             $subgroupsArray = [];
 
-            $subgroupsWithMonitor->each(function ($subgroup) use (&$subgroupsArray, $subgroupsPerGroup) {
+            $subgroupsWithMonitor->each(function ($subgroup) use (&$subgroupsArray, $subgroupTotals, $subgroupPositions, $subgroupKey) {
                 $subgroupId = $subgroup->id;
                 $courseDateId = $subgroup->course_date_id;
                 $courseId = $subgroup->course_id;
 
-                $totalSubgroups = $subgroupsPerGroup[$subgroup->course_group_id] ?? 1;
+                $totalSubgroups = $subgroupTotals[$subgroupKey($subgroup)] ?? 1;
                 $subgroupPosition = $subgroupPositions[$subgroupId] ?? 1;
 
                 $subgroup->subgroup_number = $subgroupPosition;
@@ -619,7 +606,7 @@ class PlannerController extends AppBaseController
                 /*'subgroups' => $availableSubgroups,*/
             ];
         }
-        $bookingsWithoutMonitor = $bookings->whereNull('monitor_id')->groupBy(function ($booking) use ($subgroupsPerGroup) {
+        $bookingsWithoutMonitor = $bookings->whereNull('monitor_id')->groupBy(function ($booking) {
             if ($booking->course->course_type == 2 || $booking->course->course_type == 3) {
                 // Si tiene group_id, agrpalo por course_id, course_date_id y group_id
                 if ($booking->group_id) {
@@ -635,12 +622,12 @@ class PlannerController extends AppBaseController
 
         $subgroupsArray = [];
 
-        $subgroupsWithoutMonitor->each(function ($subgroup) use (&$subgroupsArray, $subgroupsPerGroup) {
+        $subgroupsWithoutMonitor->each(function ($subgroup) use (&$subgroupsArray, $subgroupTotals, $subgroupPositions, $subgroupKey) {
             $subgroupId = $subgroup->id;
             $courseDateId = $subgroup->course_date_id;
             $courseId = $subgroup->course_id;
 
-            $totalSubgroups = $subgroupsPerGroup[$subgroup->course_group_id] ?? 1;
+            $totalSubgroups = $subgroupTotals[$subgroupKey($subgroup)] ?? 1;
             $subgroupPosition = $subgroupPositions[$subgroupId] ?? 1;
 
             $subgroup->subgroup_number = $subgroupPosition;
