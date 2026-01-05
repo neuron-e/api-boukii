@@ -131,7 +131,7 @@ class HomeController extends AppBaseController
                             }
                         }]);
                 },
-                'client:id,first_name,last_name,birth_date,image',
+                'client:id,first_name,last_name,birth_date,image,phone,telephone',
                 'client.sports:id,name',
             ])
                 ->where('school_id', $monitor->active_school)
