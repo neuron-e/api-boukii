@@ -62,7 +62,7 @@
                             $extras = collect($bookingUser->bookingUserExtras ?? []);
                         @endphp
                         @if($extras->count())
-                            {{ implode(', ', $extras->map(fn($ex) => $ex->courseExtra->description ?? '')->filter()->toArray()) }}
+                            {{ implode(', ', $extras->map(fn($ex) => optional($ex->courseExtra ?? null)->description ?? '')->filter()->toArray()) }}
                         @else
                             {{ __('messages.No seleccionado') }}
                         @endif
@@ -76,7 +76,7 @@
     @foreach ($course->courseDates as $date)
         <tr>
             <!-- Agrupar por Fecha -->
-            <td colspan="11"><strong>Fecha: {{ $date->date }}</strong></td>
+            <td colspan="11"><strong>{{ __('messages.Fecha') }}: {{ $date->date }}</strong></td>
         </tr>
         @foreach ($date->courseGroups as $group)
             <tr>
