@@ -335,6 +335,60 @@ class PlannerController extends AppBaseController
         $subgroups = $subgroupsQuery->get();
         $bookings = $bookingQuery->get();
 
+        // Normalize missing monitor_id for private/activity groups so planner can group them together.
+        $monitorByGroupKey = [];
+        $monitorByGroupKeyConflict = [];
+        foreach ($bookings as $booking) {
+            $courseType = $booking->course?->course_type;
+            if (!in_array($courseType, [2, 3], true)) {
+                continue;
+            }
+            if (empty($booking->group_id) || empty($booking->monitor_id)) {
+                continue;
+            }
+            $key = implode('|', [
+                $booking->booking_id ?? 'no-booking',
+                $booking->group_id,
+                $booking->course_id ?? 'no-course',
+                $booking->course_date_id ?? 'no-date',
+                $booking->date ?? 'no-day',
+                $booking->hour_start ?? 'no-start',
+                $booking->hour_end ?? 'no-end',
+            ]);
+            if (!isset($monitorByGroupKey[$key])) {
+                $monitorByGroupKey[$key] = $booking->monitor_id;
+                continue;
+            }
+            if ($monitorByGroupKey[$key] !== $booking->monitor_id) {
+                $monitorByGroupKeyConflict[$key] = true;
+            }
+        }
+
+        foreach ($bookings as $booking) {
+            $courseType = $booking->course?->course_type;
+            if (!in_array($courseType, [2, 3], true)) {
+                continue;
+            }
+            if (!empty($booking->monitor_id) || empty($booking->group_id)) {
+                continue;
+            }
+            $key = implode('|', [
+                $booking->booking_id ?? 'no-booking',
+                $booking->group_id,
+                $booking->course_id ?? 'no-course',
+                $booking->course_date_id ?? 'no-date',
+                $booking->date ?? 'no-day',
+                $booking->hour_start ?? 'no-start',
+                $booking->hour_end ?? 'no-end',
+            ]);
+            if (!empty($monitorByGroupKeyConflict[$key])) {
+                continue;
+            }
+            if (!empty($monitorByGroupKey[$key])) {
+                $booking->monitor_id = $monitorByGroupKey[$key];
+            }
+        }
+
         $courseIds = collect()
             ->merge($bookings->pluck('course_id'))
             ->merge($subgroups->pluck('course_id'))
