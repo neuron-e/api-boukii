@@ -30,6 +30,7 @@ class FinanceController extends AppBaseController
 
     protected $priceCalculator;
     protected string $exportLocale = '';
+    private array $financialSnapshotCache = [];
 
     const COURSE_DETAIL_SAMPLE_SIZE = 5;
 
@@ -181,7 +182,6 @@ class FinanceController extends AppBaseController
             ->whereNull('b.deleted_at');
 
         $totalBookings = (clone $bookingsBase)->count('b.id');
-        $totalClients = (clone $bookingsBase)->distinct('b.client_main_id')->count('b.client_main_id');
         $revenueExpected = (clone $bookingsBase)->where('b.status', 1)->sum('b.price_total');
         $revenuePending = (clone $bookingsBase)->where('b.status', 1)->where('b.paid', 0)->sum('b.price_total');
         $cancelledCount = (clone $bookingsBase)->where('b.status', 2)->count('b.id');
@@ -189,20 +189,24 @@ class FinanceController extends AppBaseController
         $productionCount = max(0, $totalBookings - $cancelledCount);
         $averageBookingValue = $totalBookings > 0 ? $revenueExpected / $totalBookings : 0;
 
-        if ($dateFilter === 'activity') {
-            $totalParticipants = DB::table('booking_users as bu')
-                ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
-                ->where('b.school_id', $schoolId)
-                ->whereNull('b.deleted_at')
-                ->whereBetween('bu.date', [$dateRange['start_date'], $dateRange['end_date']])
-                ->distinct('bu.client_id')
-                ->count('bu.client_id');
-        } else {
-            $totalParticipants = DB::table('booking_users as bu')
-                ->whereIn('bu.booking_id', $bookingIdsQuery)
-                ->distinct('bu.client_id')
-                ->count('bu.client_id');
-        }
+        // Solo clientes y participantes de reservas PRODUCTIVAS (excluir canceladas)
+        $totalClients = (clone $bookingsBase)
+            ->where('b.status', '!=', 2)
+            ->distinct('b.client_main_id')
+            ->count('b.client_main_id');
+
+        $totalParticipants = DB::table('booking_users as bu')
+            ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
+            ->whereIn('b.id', $bookingIdsQuery)
+            ->where('b.status', '!=', 2)  // Solo reservas productivas
+            ->whereNull('b.deleted_at')
+            ->whereNull('bu.deleted_at')
+            ->where(function ($q) {
+                $q->whereNull('bu.status')
+                    ->orWhere('bu.status', '!=', 2);
+            })
+            ->selectRaw('COUNT(DISTINCT COALESCE(bu.client_id, b.client_main_id)) as total')
+            ->value('total');
 
         $revenueReceived = DB::table('payments as p')
             ->join('bookings as b', 'p.booking_id', '=', 'b.id')
@@ -281,7 +285,112 @@ class FinanceController extends AppBaseController
             'online_vs_offline' => $this->calculateOnlineOfflineRatio($paymentMethods)
         ];
 
-        return [
+        $monthlyRows = (clone $bookingsBase)
+            ->where('b.status', '!=', 2)
+            ->selectRaw("DATE_FORMAT(b.created_at, '%Y-%m') as month")
+            ->selectRaw('COUNT(DISTINCT b.id) as bookings')
+            ->selectRaw('SUM(b.price_total) as revenue')
+            ->selectRaw('COUNT(DISTINCT b.client_main_id) as unique_clients')
+            ->selectRaw("SUM(CASE WHEN ABS(b.price_total - b.paid_total) <= 0.50 THEN 1 ELSE 0 END) as consistent_bookings")
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get();
+
+        $monthlyBreakdown = $monthlyRows->map(function ($row) {
+            $bookings = (int) $row->bookings;
+            $revenue = (float) $row->revenue;
+            $consistent = (int) $row->consistent_bookings;
+            $consistencyRate = $bookings > 0 ? round(($consistent / $bookings) * 100, 2) : 0;
+            $avgBookingValue = $bookings > 0 ? round($revenue / $bookings, 2) : 0;
+
+            return [
+                'month' => $row->month,
+                'bookings' => $bookings,
+                'revenue' => round($revenue, 2),
+                'unique_clients' => (int) $row->unique_clients,
+                'consistency_rate' => $consistencyRate,
+                'avg_booking_value' => $avgBookingValue
+            ];
+        })->values();
+
+        $courseTypeRows = DB::table('booking_users as bu')
+            ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
+            ->join('courses as c', 'bu.course_id', '=', 'c.id')
+            ->whereIn('b.id', $bookingIdsQuery)
+            ->whereNull('b.deleted_at')
+            ->whereNull('bu.deleted_at')
+            ->where(function ($q) {
+                $q->whereNull('bu.status')
+                    ->orWhere('bu.status', '!=', 2);
+            })
+            ->where('b.status', '!=', 2)
+            ->select('b.id as booking_id', 'b.price_total', 'c.course_type')
+            ->selectRaw('COUNT(*) as participants')
+            ->groupBy('b.id', 'b.price_total', 'c.course_type')
+            ->get();
+
+        $courseTypeParticipantRows = DB::table('booking_users as bu')
+            ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
+            ->join('courses as c', 'bu.course_id', '=', 'c.id')
+            ->whereIn('b.id', $bookingIdsQuery)
+            ->whereNull('b.deleted_at')
+            ->whereNull('bu.deleted_at')
+            ->where(function ($q) {
+                $q->whereNull('bu.status')
+                    ->orWhere('bu.status', '!=', 2);
+            })
+            ->where('b.status', '!=', 2)
+            ->select('c.course_type')
+            ->selectRaw('COUNT(*) as participants')
+            ->selectRaw('COUNT(DISTINCT COALESCE(bu.client_id, b.client_main_id)) as unique_participants')
+            ->selectRaw('COUNT(DISTINCT c.id) as courses_sold')  // Cursos ÚNICOS, no total de participantes
+            ->selectRaw('SUM(CASE WHEN c.is_flexible = 1 THEN 1 ELSE 0 END) as flexible_participants')
+            ->selectRaw('COUNT(DISTINCT CASE WHEN c.is_flexible = 0 THEN COALESCE(bu.client_id, b.client_main_id) END) as fixed_unique_participants')
+            ->groupBy('c.course_type')
+            ->get()
+            ->keyBy('course_type');
+
+        $courseTypeTotals = [];
+        $courseTypeBookingIds = [];
+        $bookingParticipantTotals = [];
+
+        foreach ($courseTypeRows as $row) {
+            $bookingParticipantTotals[$row->booking_id] =
+                ($bookingParticipantTotals[$row->booking_id] ?? 0) + (int) $row->participants;
+        }
+
+        foreach ($courseTypeRows as $row) {
+            $bookingTotalParticipants = $bookingParticipantTotals[$row->booking_id] ?: 1;
+            $allocatedRevenue = ((float) $row->price_total) * ((int) $row->participants / $bookingTotalParticipants);
+            $type = (int) $row->course_type;
+
+            if (!isset($courseTypeTotals[$type])) {
+                $courseTypeTotals[$type] = [
+                    'type' => $type,
+                    'revenue' => 0,
+                    'bookings' => 0,
+                    'participants' => 0
+                ];
+            }
+
+            $courseTypeTotals[$type]['revenue'] += $allocatedRevenue;
+            $courseTypeBookingIds[$type][$row->booking_id] = true;
+        }
+
+        foreach ($courseTypeTotals as $type => $stats) {
+            $participantStats = $courseTypeParticipantRows->get($type);
+            $courseTypeTotals[$type]['bookings'] = isset($courseTypeBookingIds[$type])
+                ? count($courseTypeBookingIds[$type])
+                : 0;
+            $courseTypeTotals[$type]['revenue'] = round($courseTypeTotals[$type]['revenue'], 2);
+            $courseTypeTotals[$type]['participants'] = (int) ($participantStats->participants ?? 0);
+            $courseTypeTotals[$type]['unique_participants'] = (int) ($participantStats->unique_participants ?? 0);
+            $courseTypeTotals[$type]['courses_sold'] = (int) ($participantStats->courses_sold ?? 0);
+        }
+
+        $courseTypeBreakdown = array_values($courseTypeTotals);
+
+        $result = [
             'season_info' => [
                 'season_name' => $dateRange['season_name'],
                 'date_range' => [
@@ -319,6 +428,11 @@ class FinanceController extends AppBaseController
             ],
             'payment_methods' => $paymentSummary,
             'booking_status_analysis' => [],
+            'trend_analysis' => [
+                'monthly_breakdown' => $monthlyBreakdown,
+                'booking_velocity' => []
+            ],
+            'course_type_breakdown' => $courseTypeBreakdown,
             'financial_summary' => [
                 'revenue_breakdown' => [
                     'total_expected' => (float) $revenueExpected,
@@ -342,15 +456,6 @@ class FinanceController extends AppBaseController
             'critical_issues' => [],
             'executive_alerts' => [],
             'priority_recommendations' => [],
-            'trend_analysis' => [
-                'monthly_breakdown' => [],
-                'booking_velocity' => [
-                    'recent_production_bookings' => 0,
-                    'bookings_per_week' => 0,
-                    'trend_direction' => 'neutral',
-                    'quality_trend' => 'neutral'
-                ]
-            ],
             'export_summary' => [
                 'total_bookings' => $totalBookings,
                 'payment_methods' => [],
@@ -361,6 +466,8 @@ class FinanceController extends AppBaseController
                 ]
             ]
         ];
+
+        return $result;
     }
 
     /**
@@ -833,11 +940,11 @@ class FinanceController extends AppBaseController
      */
     private function calculateActivityRevenue($activity, $booking): array
     {
-        $paidTotal = $booking->payments->where('status', 'paid')->sum('amount');
-        $totalDue = collect($booking->getGroupedActivitiesAttribute())->sum('price') ?: 1;
+        $snapshot = $this->getBookingFinancialSnapshot($booking);
+        $totalDue = $this->getTotalBookingRevenue($booking) ?: 1;
 
-        $expectedRevenue = $activity['price'] ?? 0;
-        $receivedRevenue = ($expectedRevenue / $totalDue) * $paidTotal;
+        $expectedRevenue = $activity['total'] ?? ($activity['price'] ?? 0);
+        $receivedRevenue = ($expectedRevenue / $totalDue) * ($snapshot['net_received'] ?? 0);
 
         return [
             'expected' => $expectedRevenue,
@@ -1387,6 +1494,7 @@ class FinanceController extends AppBaseController
 
         foreach ($validBookings as $booking) {
             $quickAnalysis = $this->getQuickBookingFinancialStatus($booking);
+            $snapshot = $this->getBookingFinancialSnapshot($booking);
             $realStatus = $booking->getCancellationStatusAttribute();
 
             // Calcular expected y received correctos
@@ -1623,11 +1731,8 @@ class FinanceController extends AppBaseController
             $result[$method] += $payment->amount * $factor;
         }
 
-        // Vouchers aplicados
-        foreach ($booking->vouchersLogs as $log) {
-            $amount = $log->amount ?? 0;
-            $result['voucher'] += $amount * $factor;
-        }
+        $voucherAnalysis = $this->priceCalculator->analyzeVouchersForBalance($booking);
+        $result['voucher'] += ($voucherAnalysis['total_used'] ?? 0) * $factor;
 
         return array_map(fn($v) => round($v, 2), $result);
     }
@@ -1719,18 +1824,17 @@ class FinanceController extends AppBaseController
         $consistentCount = 0;
 
         foreach ($productionBookings as $booking) {
-            $quickAnalysis = $this->getQuickBookingFinancialStatus($booking);
+            $snapshot = $this->getBookingFinancialSnapshot($booking);
 
-            $summary['revenue_breakdown']['total_expected'] += $quickAnalysis['calculated_amount'];
-            $summary['revenue_breakdown']['total_received'] += $quickAnalysis['received_amount'];
+            $summary['revenue_breakdown']['total_expected'] += $snapshot['calculated_amount'];
+            $summary['revenue_breakdown']['total_received'] += $snapshot['net_received'];
+            $summary['revenue_breakdown']['total_refunded'] += $snapshot['total_refunded'] + $snapshot['total_vouchers_refunded'];
 
-            // Contabilizar consistencia
-            if (!$quickAnalysis['has_issues']) {
+            if (!$snapshot['has_issues']) {
                 $consistentCount++;
             }
 
-            // DistribuciÃ³n por valor de reserva
-            $bookingValue = $quickAnalysis['calculated_amount'];
+            $bookingValue = $snapshot['calculated_amount'];
             if ($bookingValue < 100) {
                 $summary['booking_value_distribution']['under_100']++;
             } elseif ($bookingValue < 500) {
@@ -1741,30 +1845,18 @@ class FinanceController extends AppBaseController
                 $summary['booking_value_distribution']['over_1000']++;
             }
 
-            // MÃ©todos de pago
             if ($optimizationLevel === 'detailed' || count($paymentMethodCounts) < 100) {
                 foreach ($booking->payments as $payment) {
                     $method = $this->determinePaymentMethodImproved($payment);
                     $paymentMethodCounts[$method] = ($paymentMethodCounts[$method] ?? 0) + 1;
-
-                    if ($payment->status === 'refund') {
-                        $summary['revenue_breakdown']['total_refunded'] += $payment->amount;
-                    }
                 }
             }
 
-            // AnÃ¡lisis de vouchers
-            foreach ($booking->vouchersLogs as $voucherLog) {
-                $summary['voucher_usage']['total_voucher_amount'] += $voucherLog->amount;
-                $summary['voucher_usage']['total_vouchers_used']++;
-
-                if ($voucherLog->voucher && $voucherLog->voucher->code) {
-                    $voucherCodes[] = $voucherLog->voucher->code;
-                }
-            }
+            $summary['voucher_usage']['total_voucher_amount'] += $snapshot['total_vouchers_used'];
+            $summary['voucher_usage']['total_vouchers_used'] += $snapshot['voucher_payment_count'];
+            $voucherCodes = array_merge($voucherCodes, $snapshot['voucher_payment_codes']);
         }
 
-        // Calcular mÃ©tricas finales
         $totalBookings = count($productionBookings);
         $summary['consistency_metrics']['consistent_bookings'] = $consistentCount;
         $summary['consistency_metrics']['inconsistent_bookings'] = $totalBookings - $consistentCount;
@@ -1775,7 +1867,6 @@ class FinanceController extends AppBaseController
         $summary['payment_methods'] = $paymentMethodCounts;
         $summary['voucher_usage']['unique_vouchers'] = count(array_unique($voucherCodes));
 
-        // Redondear valores
         foreach ($summary['revenue_breakdown'] as $key => $value) {
             $summary['revenue_breakdown'][$key] = round($value, 2);
         }
@@ -1830,7 +1921,7 @@ class FinanceController extends AppBaseController
             }
 
             // Inconsistencias de vouchers
-            $voucherTotal = $booking->vouchersLogs->sum('amount');
+            $voucherTotal = $snapshot['total_vouchers_used'];
             if ($voucherTotal > $quickAnalysis['calculated_amount']) {
                 $criticalIssues['voucher_inconsistencies'][] = [
                     'booking_id' => $booking->id,
@@ -2482,9 +2573,12 @@ class FinanceController extends AppBaseController
 
         foreach ($productionBookings as $booking) {
             foreach ($booking->bookingUsers as $bookingUser) {
-                // Solo contar usuarios activos (status = 1)
-                if ($bookingUser->status == 1) {
-                    $uniqueParticipants->push($bookingUser->client_id);
+                // Contar usuarios no cancelados
+                if ($bookingUser->status !== 2 && $bookingUser->status !== '2') {
+                    $participantId = $bookingUser->client_id ?? $booking->client_main_id;
+                    if ($participantId) {
+                        $uniqueParticipants->push($participantId);
+                    }
                 }
             }
         }
@@ -2943,10 +3037,10 @@ class FinanceController extends AppBaseController
     {
         $analysis = [
             'total_cancelled_bookings' => count($cancelledBookings),
-            'total_original_value' => 0,     // Lo que valÃ­an cuando se crearon
-            'money_to_process' => 0,         // Dinero que habÃ­a que procesar
-            'money_processed' => 0,          // Dinero ya procesado (refunds + no-refunds)
-            'money_pending' => 0,            // Dinero aÃºn sin procesar
+            'total_original_value' => 0,
+            'money_to_process' => 0,
+            'money_processed' => 0,
+            'money_pending' => 0,
             'processing_breakdown' => [
                 'refunds_issued' => 0,
                 'no_refunds_applied' => 0,
@@ -2956,17 +3050,16 @@ class FinanceController extends AppBaseController
         ];
 
         foreach ($cancelledBookings as $booking) {
-            $quickAnalysis = $this->getQuickBookingFinancialStatus($booking);
-            $originalValue = $quickAnalysis['calculated_amount'];
-            $receivedAmount = $quickAnalysis['received_amount'];
+            $snapshot = $this->getBookingFinancialSnapshot($booking);
+            $originalValue = $snapshot['calculated_amount'];
+            $receivedAmount = $snapshot['total_received'];
 
             $analysis['total_original_value'] += $originalValue;
-            $analysis['money_to_process'] += $receivedAmount; // Solo lo que realmente se habÃ­a recibido
+            $analysis['money_to_process'] += $receivedAmount;
 
-            // Analizar cÃ³mo se procesÃ³ el dinero recibido
-            $refunds = $booking->payments->whereIn('status', ['refund', 'partial_refund'])->sum('amount');
-            $noRefunds = $booking->payments->where('status', 'no_refund')->sum('amount');
-            $processed = $refunds + $noRefunds;
+            $refunds = $snapshot['total_refunded'] + $snapshot['total_vouchers_refunded'];
+            $noRefunds = $snapshot['total_no_refund'];
+            $processed = $snapshot['total_processed'];
             $pending = max(0, $receivedAmount - $processed);
 
             $analysis['processing_breakdown']['refunds_issued'] += $refunds;
@@ -2986,7 +3079,6 @@ class FinanceController extends AppBaseController
             }
         }
 
-        // Redondear valores
         foreach (['total_original_value', 'money_to_process', 'money_processed'] as $key) {
             $analysis[$key] = round($analysis[$key], 2);
         }
@@ -3138,6 +3230,8 @@ class FinanceController extends AppBaseController
     {
         $financialStats = [
             'total_revenue' => 0,
+            'total_revenue_received' => 0,
+            'total_revenue_pending' => 0,
             'total_bookings' => 0,
             'total_participants' => 0,
             'average_price_per_participant' => 0,
@@ -3148,6 +3242,8 @@ class FinanceController extends AppBaseController
         $monthlyRevenue = [];
         $paymentMethodStats = [];
         $totalRevenue = 0;
+        $totalReceived = 0;
+        $totalPending = 0;
         $totalParticipants = 0;
 
         foreach ($productionBookings as $booking) {
@@ -3161,6 +3257,13 @@ class FinanceController extends AppBaseController
             // Calcular revenue proporcional para este curso
             $bookingRevenue = $this->calculateCourseRevenueFromBooking($booking, $course->id);
             $totalRevenue += $bookingRevenue;
+
+            $revenueAssigned = $this->calculateActivityRevenue(
+                ['total' => $bookingRevenue],
+                $booking
+            );
+            $totalReceived += $revenueAssigned['received'];
+            $totalPending += $revenueAssigned['pending'];
 
             // Contar participantes del curso
             $courseParticipants = $courseBookingUsers->where('status', 1)->count();
@@ -3188,6 +3291,8 @@ class FinanceController extends AppBaseController
 
         // Procesar resultados
         $financialStats['total_revenue'] = round($totalRevenue, 2);
+        $financialStats['total_revenue_received'] = round($totalReceived, 2);
+        $financialStats['total_revenue_pending'] = round($totalPending, 2);
         $financialStats['total_participants'] = $totalParticipants;
         $financialStats['average_price_per_participant'] = $totalParticipants > 0
             ? round($totalRevenue / $totalParticipants, 2) : 0;
@@ -3974,15 +4079,15 @@ class FinanceController extends AppBaseController
     {
         $summary = [
             'revenue_breakdown' => [
-                'total_expected' => 0,        // Solo lo que realmente esperamos
-                'total_received' => 0,        // De las reservas que esperamos cobrar
-                'total_pending' => 0,         // AÃºn por cobrar de expected
-                'total_refunded' => 0         // Solo de producciÃ³n
+                'total_expected' => 0,
+                'total_received' => 0,
+                'total_pending' => 0,
+                'total_refunded' => 0
             ],
             'expected_vs_reality' => [
-                'expected_accuracy' => 0,     // QuÃ© tan preciso es nuestro expected
-                'collection_velocity' => 0,   // Velocidad de cobro
-                'pending_risk_level' => 'low' // Nivel de riesgo de lo pendiente
+                'expected_accuracy' => 0,
+                'collection_velocity' => 0,
+                'pending_risk_level' => 'low'
             ],
             'payment_methods' => [],
             'voucher_usage' => [
@@ -4000,7 +4105,7 @@ class FinanceController extends AppBaseController
                 'consistent_bookings' => 0,
                 'inconsistent_bookings' => 0,
                 'consistency_rate' => 0,
-                'major_discrepancies' => 0    // Discrepancias > 20â‚¬
+                'major_discrepancies' => 0
             ]
         ];
 
@@ -4010,36 +4115,35 @@ class FinanceController extends AppBaseController
         $majorDiscrepancies = 0;
 
         foreach ($productionBookings as $booking) {
-            $quickAnalysis = $this->getQuickBookingFinancialStatus($booking);
+            $snapshot = $this->getBookingFinancialSnapshot($booking);
 
             if ($booking->status == 3) {
-                // Para parciales, calcular proporcionalmente
                 $activeRevenue = $this->calculateActivePortionRevenue($booking);
-                $activeProportion = $activeRevenue > 0 ? $activeRevenue / $quickAnalysis['calculated_amount'] : 0;
+                $activeProportion = $activeRevenue > 0 && $snapshot['calculated_amount'] > 0
+                    ? $activeRevenue / $snapshot['calculated_amount']
+                    : 0;
 
                 $summary['revenue_breakdown']['total_expected'] += $activeRevenue;
-                $summary['revenue_breakdown']['total_received'] += $quickAnalysis['received_amount'] * $activeProportion;
+                $summary['revenue_breakdown']['total_received'] += $snapshot['net_received'] * $activeProportion;
             } else {
-                // Para activas, contar todo
-                $summary['revenue_breakdown']['total_expected'] += $quickAnalysis['calculated_amount'];
-                $summary['revenue_breakdown']['total_received'] += $quickAnalysis['received_amount'];
+                $summary['revenue_breakdown']['total_expected'] += $snapshot['calculated_amount'];
+                $summary['revenue_breakdown']['total_received'] += $snapshot['net_received'];
             }
 
-            // Contabilizar consistencia
-            if (!$quickAnalysis['has_issues']) {
+            $summary['revenue_breakdown']['total_refunded'] += $snapshot['total_refunded'] + $snapshot['total_vouchers_refunded'];
+
+            if (!$snapshot['has_issues']) {
                 $consistentCount++;
             } else {
-                // Verificar si es discrepancia mayor
-                $difference = abs($quickAnalysis['calculated_amount'] - $quickAnalysis['received_amount']);
+                $difference = abs($snapshot['calculated_amount'] - $snapshot['net_received']);
                 if ($difference > 20) {
                     $majorDiscrepancies++;
                 }
             }
 
-            // DistribuciÃ³n por valor (usar expected, no total)
             $expectedValue = $booking->status == 3
                 ? $this->calculateActivePortionRevenue($booking)
-                : $quickAnalysis['calculated_amount'];
+                : $snapshot['calculated_amount'];
 
             if ($expectedValue < 100) {
                 $summary['booking_value_distribution']['under_100']++;
@@ -4051,30 +4155,18 @@ class FinanceController extends AppBaseController
                 $summary['booking_value_distribution']['over_1000']++;
             }
 
-            // MÃ©todos de pago (solo si no hay muchos para performance)
             if ($optimizationLevel === 'detailed' || count($paymentMethodCounts) < 100) {
                 foreach ($booking->payments as $payment) {
                     $method = $this->determinePaymentMethodImproved($payment);
                     $paymentMethodCounts[$method] = ($paymentMethodCounts[$method] ?? 0) + 1;
-
-                    if ($payment->status === 'refund') {
-                        $summary['revenue_breakdown']['total_refunded'] += $payment->amount;
-                    }
                 }
             }
 
-            // AnÃ¡lisis de vouchers
-            foreach ($booking->vouchersLogs as $voucherLog) {
-                $summary['voucher_usage']['total_voucher_amount'] += $voucherLog->amount;
-                $summary['voucher_usage']['total_vouchers_used']++;
-
-                if ($voucherLog->voucher && $voucherLog->voucher->code) {
-                    $voucherCodes[] = $voucherLog->voucher->code;
-                }
-            }
+            $summary['voucher_usage']['total_voucher_amount'] += $snapshot['total_vouchers_used'];
+            $summary['voucher_usage']['total_vouchers_used'] += $snapshot['voucher_payment_count'];
+            $voucherCodes = array_merge($voucherCodes, $snapshot['voucher_payment_codes']);
         }
 
-        // Calcular mÃ©tricas finales
         $totalBookings = count($productionBookings);
         $summary['consistency_metrics']['consistent_bookings'] = $consistentCount;
         $summary['consistency_metrics']['inconsistent_bookings'] = $totalBookings - $consistentCount;
@@ -4084,18 +4176,19 @@ class FinanceController extends AppBaseController
 
         $summary['revenue_breakdown']['total_pending'] = $summary['revenue_breakdown']['total_expected'] - $summary['revenue_breakdown']['total_received'];
 
-        // MÃ©tricas de expected vs realidad
         $summary['expected_vs_reality']['expected_accuracy'] = $summary['revenue_breakdown']['total_expected'] > 0
             ? round(($summary['revenue_breakdown']['total_received'] / $summary['revenue_breakdown']['total_expected']) * 100, 2)
             : 100;
 
         $summary['expected_vs_reality']['collection_velocity'] = $this->calculateCollectionVelocity($productionBookings);
-        $summary['expected_vs_reality']['pending_risk_level'] = $this->assessPendingRiskLevel($summary['revenue_breakdown']['total_pending'], $summary['revenue_breakdown']['total_expected']);
+        $summary['expected_vs_reality']['pending_risk_level'] = $this->assessPendingRiskLevel(
+            $summary['revenue_breakdown']['total_pending'],
+            $summary['revenue_breakdown']['total_expected']
+        );
 
         $summary['payment_methods'] = $paymentMethodCounts;
         $summary['voucher_usage']['unique_vouchers'] = count(array_unique($voucherCodes));
 
-        // Redondear valores
         foreach ($summary['revenue_breakdown'] as $key => $value) {
             $summary['revenue_breakdown'][$key] = round($value, 2);
         }
@@ -5170,6 +5263,60 @@ class FinanceController extends AppBaseController
         return $stats;
     }
 
+    private function getBookingFinancialSnapshot($booking): array
+    {
+        $updatedAt = $booking->updated_at ? $booking->updated_at->timestamp : 0;
+        $cacheKey = $booking->id . '|' . $updatedAt;
+
+        if (isset($this->financialSnapshotCache[$cacheKey])) {
+            return $this->financialSnapshotCache[$cacheKey];
+        }
+
+        $analysis = $this->priceCalculator->analyzeFinancialReality($booking, [
+            'exclude_courses' => self::EXCLUDED_COURSES
+        ]);
+
+        $financial = $analysis['financial_reality'] ?? [];
+        $calculatedAmount = (float) ($analysis['calculated_total'] ?? 0);
+        $netReceived = (float) ($financial['net_balance'] ?? 0);
+        $totalReceived = (float) ($financial['total_received'] ?? 0);
+        $totalRefunded = (float) ($financial['total_refunded'] ?? 0);
+        $totalVouchersUsed = (float) ($financial['total_vouchers_used'] ?? 0);
+        $totalVouchersRefunded = (float) ($financial['total_vouchers_refunded'] ?? 0);
+        $totalNoRefund = (float) ($financial['total_no_refund'] ?? 0);
+        $totalProcessed = (float) ($financial['total_processed'] ?? ($totalRefunded + $totalVouchersRefunded + $totalNoRefund));
+
+        $voucherDetails = $analysis['calculation_details']['vouchers_info']['details'] ?? [];
+        $voucherPaymentCodes = [];
+        foreach ($voucherDetails as $detail) {
+            if (($detail['interpreted_type'] ?? '') === 'payment' && !empty($detail['voucher_code'])) {
+                $voucherPaymentCodes[] = $detail['voucher_code'];
+            }
+        }
+
+        $isConsistent = $analysis['reality_check']['is_consistent'] ?? null;
+        $hasIssues = $isConsistent === null ? false : !$isConsistent;
+
+        $snapshot = [
+            'calculated_amount' => $calculatedAmount,
+            'net_received' => $netReceived,
+            'total_received' => $totalReceived,
+            'total_refunded' => $totalRefunded,
+            'total_vouchers_used' => $totalVouchersUsed,
+            'total_vouchers_refunded' => $totalVouchersRefunded,
+            'total_no_refund' => $totalNoRefund,
+            'total_processed' => $totalProcessed,
+            'voucher_payment_count' => count($voucherPaymentCodes),
+            'voucher_payment_codes' => array_values(array_unique($voucherPaymentCodes)),
+            'has_issues' => $hasIssues
+        ];
+
+        $this->financialSnapshotCache[$cacheKey] = $snapshot;
+
+        return $snapshot;
+    }
+
+
     /**
      * MÃ‰TODO AUXILIAR: AnÃ¡lisis financiero rÃ¡pido de una reserva individual
      */
@@ -5183,60 +5330,11 @@ class FinanceController extends AppBaseController
         ];
 
         try {
-            // Usar grouped activities del modelo para cÃ¡lculo rÃ¡pido
-            $groupedActivities = $booking->getGroupedActivitiesAttribute();
+            $snapshot = $this->getBookingFinancialSnapshot($booking);
 
-            foreach ($groupedActivities as $activity) {
-                $course = $activity['course'];
+            $status['calculated_amount'] = $snapshot['calculated_amount'];
+            $status['received_amount'] = $snapshot['net_received'];
 
-                // Saltar cursos excluidos
-                if (in_array($course->id, self::EXCLUDED_COURSES)) {
-                    continue;
-                }
-
-                // Solo sumar si no estÃ¡ completamente cancelado
-                if ($activity['status'] !== 2) {
-                    $status['calculated_amount'] += $activity['total'];
-                }
-            }
-
-            $voucherPaid = 0;
-            $voucherRefunded = 0;
-
-            $hasVoucherRefundLog = $booking->booking_logs?->contains(function ($log) {
-                return $log->action === 'voucher_refund';
-            }) ?? false;
-
-            foreach ($booking->vouchersLogs as $log) {
-                $voucher = $log->voucher;
-                if (!$voucher) continue;
-
-                $logAmount = abs(floatval($log->amount));
-
-                // Si hay un log de refund â†’ tratamos este uso como devoluciÃ³n
-                if ($hasVoucherRefundLog) {
-                    $voucherRefunded += $logAmount;
-                    continue;
-                }
-
-                $original = floatval($voucher->quantity);
-                $remaining = floatval($voucher->remaining_balance);
-                $used = $original - $remaining;
-
-                if ($used >= $logAmount - 0.01) {
-                    $voucherPaid += $logAmount;
-                } else {
-                    $voucherRefunded += $logAmount;
-                }
-            }
-
-            // Calcular dinero recibido rÃ¡pidamente
-            $status['received_amount'] = $booking->payments->where('status', 'paid')->sum('amount')
-                - $booking->payments->where('status', 'refund')->sum('amount')
-                - $booking->payments->where('status', 'partial_refund')->sum('amount')
-                + $voucherPaid - $voucherRefunded;
-
-            // Detectar problemas bÃ¡sicos
             $difference = abs($status['calculated_amount'] - $status['received_amount']);
 
             if ($difference > 0.50) {
@@ -5250,7 +5348,7 @@ class FinanceController extends AppBaseController
             }
 
         } catch (\Exception $e) {
-            Log::warning("Error en anÃ¡lisis rÃ¡pido de booking {$booking->id}: " . $e->getMessage());
+            Log::warning("Error en analisis rapido de booking {$booking->id}: " . $e->getMessage());
             $status['has_issues'] = true;
             $status['issue_types'][] = 'analysis_error';
         }
@@ -5315,7 +5413,8 @@ class FinanceController extends AppBaseController
             }
 
             // Vouchers que exceden expected
-            $voucherTotal = $booking->vouchersLogs->sum('amount');
+            $snapshot = $this->getBookingFinancialSnapshot($booking);
+            $voucherTotal = $snapshot['total_vouchers_used'];
             if ($voucherTotal > $expectedRevenue) {
                 $criticalIssues['expected_voucher_issues'][] = [
                     'booking_id' => $booking->id,
@@ -8963,5 +9062,4 @@ class FinanceController extends AppBaseController
         return $dashboardData;
     }
 }
-
 

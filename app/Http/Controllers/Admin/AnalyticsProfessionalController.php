@@ -28,6 +28,11 @@ class AnalyticsProfessionalController extends AppBaseController
      */
     public function seasonDashboard(Request $request): JsonResponse
     {
+        \Log::info('==== SEASON DASHBOARD CALLED ====', [
+            'params' => $request->all(),
+            'controller' => 'AnalyticsProfessionalController'
+        ]);
+
         $request->validate([
             'school_id' => 'required|integer',
             'start_date' => 'nullable|date',
@@ -38,9 +43,13 @@ class AnalyticsProfessionalController extends AppBaseController
 
         $schoolId = $request->input('school_id');
         $cacheKey = "season_dashboard_{$schoolId}_" . md5(serialize($request->all()));
-        
+
+        \Log::info('Cache key generated', ['key' => $cacheKey]);
+
         // Cache por 30 minutos para analytics profesionales
         $data = Cache::remember($cacheKey, 1800, function () use ($request, $schoolId) {
+            \Log::info('CACHE MISS - Calculating fresh data');
+
             
             // OPTIMIZACIÓN: Una sola query con JOINs para datos ejecutivos
             $bookingsQuery = DB::table('bookings as b')
@@ -54,12 +63,33 @@ class AnalyticsProfessionalController extends AppBaseController
             $revenuePending = (clone $bookingsQuery)->where('b.status', 1)->where('b.paid', 0)->sum('b.price_total');
             $averageBookingValue = (clone $bookingsQuery)->where('b.status', 1)->avg('b.price_total');
 
-            $totalParticipants = DB::table('booking_users as bu')
+            $participantQuery = DB::table('booking_users as bu')
                 ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
                 ->where('b.school_id', $schoolId)
+                ->whereNull('b.deleted_at')
+                ->whereNull('bu.deleted_at')
+                ->where(function ($q) {
+                    $q->whereNull('bu.status')
+                        ->orWhere('bu.status', '!=', 2);
+                })
                 ->when($request->input('start_date'), fn($q) => $q->where('b.created_at', '>=', $request->input('start_date')))
-                ->when($request->input('end_date'), fn($q) => $q->where('b.created_at', '<=', $request->input('end_date')))
-                ->count('bu.id');
+                ->when($request->input('end_date'), fn($q) => $q->where('b.created_at', '<=', $request->input('end_date')));
+
+            \Log::info('PARTICIPANT QUERY SQL', [
+                'sql' => $participantQuery->toSql(),
+                'bindings' => $participantQuery->getBindings()
+            ]);
+
+            $totalParticipants = $participantQuery
+                ->selectRaw('COUNT(DISTINCT COALESCE(bu.client_id, b.client_main_id)) as total')
+                ->value('total');
+
+            \Log::info('TOTAL PARTICIPANTS RESULT', [
+                'count' => $totalParticipants,
+                'school_id' => $schoolId,
+                'start_date' => $request->input('start_date'),
+                'end_date' => $request->input('end_date')
+            ]);
 
             $revenueReceived = DB::table('payments as p')
                 ->join('bookings as b', 'p.booking_id', '=', 'b.id')
