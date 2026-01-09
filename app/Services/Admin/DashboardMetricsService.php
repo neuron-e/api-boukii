@@ -2,6 +2,8 @@
 
 namespace App\Services\Admin;
 
+use App\Http\Services\BookingPriceCalculatorService;
+use App\Models\Booking;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
@@ -9,6 +11,12 @@ use Carbon\Carbon;
 class DashboardMetricsService
 {
     private const CACHE_TTL = 300; // 5 minutos
+    private BookingPriceCalculatorService $priceCalculator;
+
+    public function __construct(BookingPriceCalculatorService $priceCalculator)
+    {
+        $this->priceCalculator = $priceCalculator;
+    }
 
     /**
      * Obtiene todas las métricas del dashboard de forma optimizada
@@ -81,20 +89,9 @@ class DashboardMetricsService
         $weekStart = Carbon::parse($date)->startOf('week')->toDateString();
         $monthStart = Carbon::parse($date)->startOf('month')->toDateString();
 
-        $revenue = DB::selectOne("
-            SELECT
-                COALESCE(SUM(CASE WHEN DATE(p.created_at) = ? THEN p.amount ELSE 0 END), 0) as ingresos_hoy,
-                COALESCE(SUM(CASE WHEN DATE(p.created_at) BETWEEN ? AND ? THEN p.amount ELSE 0 END), 0) as ingresos_semana,
-                COALESCE(SUM(CASE WHEN DATE(p.created_at) BETWEEN ? AND ? THEN p.amount ELSE 0 END), 0) as ingresos_mes
-            FROM payments p
-            WHERE p.school_id = ?
-              AND p.status = 'paid'
-              AND p.deleted_at IS NULL
-        ", [$date, $weekStart, $date, $monthStart, $date, $schoolId]);
-
-        $hoy = (float) $revenue->ingresos_hoy;
-        $semana = (float) $revenue->ingresos_semana;
-        $mes = (float) $revenue->ingresos_mes;
+        $hoy = $this->calculateNetReceivedForBookings($schoolId, $date, $date);
+        $semana = $this->calculateNetReceivedForBookings($schoolId, $weekStart, $date);
+        $mes = $this->calculateNetReceivedForBookings($schoolId, $monthStart, $date);
 
         // Calcular tendencia
         $dailyAverage = $semana > 0 ? $semana / 7 : 0;
@@ -290,27 +287,44 @@ class DashboardMetricsService
      */
     private function getQuickStats(int $schoolId, string $date): array
     {
-        $stats = DB::selectOne("
-            SELECT
-                COUNT(DISTINCT bu.id) as reservas_hoy,
-                COALESCE(SUM(p.amount), 0) as ingresos_hoy
-            FROM booking_users bu
-            LEFT JOIN bookings b ON b.id = bu.booking_id AND b.deleted_at IS NULL
-            LEFT JOIN payments p ON p.booking_id = b.id
-                AND DATE(p.created_at) = ?
-                AND p.status = 'paid'
-                AND p.deleted_at IS NULL
-            WHERE bu.school_id = ?
-              AND bu.date = ?
-              AND bu.status = 1
-              AND bu.deleted_at IS NULL
-        ", [$date, $schoolId, $date]);
+        $startDateTime = Carbon::parse($date)->startOfDay();
+        $endDateTime = Carbon::parse($date)->endOfDay();
+
+        $reservasHoy = Booking::query()
+            ->where('school_id', $schoolId)
+            ->whereNull('deleted_at')
+            ->whereBetween('created_at', [$startDateTime, $endDateTime])
+            ->count('id');
+
+        $ingresosHoy = $this->calculateNetReceivedForBookings($schoolId, $date, $date);
 
         return [
-            'reservasHoy' => (int) $stats->reservas_hoy,
-            'ingresosHoy' => round((float) $stats->ingresos_hoy, 2),
+            'reservasHoy' => (int) $reservasHoy,
+            'ingresosHoy' => round((float) $ingresosHoy, 2),
             'ocupacionActual' => 0,
             'alertasCriticas' => 0
         ];
+    }
+
+    private function calculateNetReceivedForBookings(int $schoolId, string $startDate, string $endDate): float
+    {
+        $startDateTime = Carbon::parse($startDate)->startOfDay();
+        $endDateTime = Carbon::parse($endDate)->endOfDay();
+        $total = 0.0;
+
+        Booking::query()
+            ->with(['payments', 'vouchersLogs.voucher'])
+            ->where('school_id', $schoolId)
+            ->whereNull('deleted_at')
+            ->whereBetween('created_at', [$startDateTime, $endDateTime])
+            ->orderBy('id')
+            ->chunkById(200, function ($bookings) use (&$total) {
+                foreach ($bookings as $booking) {
+                    $financial = $this->priceCalculator->getFinancialRealitySnapshot($booking);
+                    $total += $financial['net_balance'] ?? 0;
+                }
+            });
+
+        return $total;
     }
 }

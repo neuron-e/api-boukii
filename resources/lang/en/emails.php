@@ -52,6 +52,7 @@ return [
             'summary' => 'Summary',
             'subtotal' => 'Subtotal',
             'tva' => 'VAT',
+            'reduction' => 'Reduction',
             'boukii_care' => 'Boukii Care',
             'cancel_insurance' => 'Cancellation Option (10%)'
         ],

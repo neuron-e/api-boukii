@@ -244,7 +244,7 @@
                                         </td>
                                         <td width="200" align="right" style="font-size:14px; line-height:19px; padding:0px 0px;" >
                                             <font face="Arial, Helvetica, sans-serif" style="font-size:14px; line-height:19px; color:#222222;">
-                                                {{$booking->price_total - $booking->price_tva}} {{$booking->currency}}</font>
+                                                {{ $displaySubtotal ?? ($booking->price_total - $booking->price_tva) }} {{$booking->currency}}</font>
                                         </td>
                                     </tr>
                                     @if($booking->has_tva)
@@ -258,6 +258,18 @@
                                             </td>
                                         </tr>
                                     @endif
+                                    @if($booking->has_reduction)
+                                        <tr>
+                                            <td align="left" style="font-size:14px; line-height:19px; padding:0px 0px;" >
+                                                <font face="Arial, Helvetica, sans-serif" style="font-size:14px; line-height:19px; color:#222222;">
+                                                    {{ __('emails.bookingCreate.reduction') }}</font>
+                                            </td>
+                                            <td width="200" align="right" style="font-size:14px; line-height:19px; padding:0px 0px;" >
+                                                <font face="Arial, Helvetica, sans-serif" style="font-size:14px; line-height:19px; color:#222222;">
+                                                    -{{ number_format($booking->price_reduction, 2, '.', '') }} {{$booking->currency}}</font>
+                                            </td>
+                                        </tr>
+                                    @endif
                                     @if($booking->paid_total > 0)
                                         <tr>
                                             <td align="left" style="font-size:14px; line-height:19px; padding:0px 0px;" >
@@ -266,6 +278,18 @@
                                             <td width="200" align="right" style="font-size:14px; line-height:19px; padding:0px 0px;" >
                                                 <font face="Arial, Helvetica, sans-serif" style="font-size:14px; line-height:19px; color:#222222;">{{$booking->paid_total}}
                                                     {{$booking->currency}}</font>
+                                            </td>
+                                        </tr>
+                                    @endif
+                                    @if(!empty($voucherUsed) && $voucherUsed > 0 && empty($voucherIncludedInPrice))
+                                        <tr>
+                                            <td align="left" style="font-size:14px; line-height:19px; padding:0px 0px;" >
+                                                <font face="Arial, Helvetica, sans-serif" style="font-size:14px; line-height:19px; color:#222222;">
+                                                    {{ __('bookings.voucher') }}</font>
+                                            </td>
+                                            <td width="200" align="right" style="font-size:14px; line-height:19px; padding:0px 0px;" >
+                                                <font face="Arial, Helvetica, sans-serif" style="font-size:14px; line-height:19px; color:#222222;">
+                                                    -{{ number_format($voucherUsed, 2, '.', '') }} {{$booking->currency}}</font>
                                             </td>
                                         </tr>
                                     @endif
@@ -289,7 +313,7 @@
                                             <font face="Arial, Helvetica, sans-serif" style="font-size:16px; line-height:21px; color:#222222; font-weight: bold;">Total</font>
                                         </td>
                                         <td width="200" align="right" style="font-size:16px; line-height:21px; color:#222222; font-weight: bold; padding:0px 0px;" >
-                                            <font face="Arial, Helvetica, sans-serif" style="font-size:16px; line-height:21px; color:#222222; font-weight: bold;">{{$amount}}
+                                            <font face="Arial, Helvetica, sans-serif" style="font-size:16px; line-height:21px; color:#222222; font-weight: bold;">{{ $displayTotal ?? $amount }}
                                                 {{$booking->currency}}</font>
                                         </td>
                                     </tr>

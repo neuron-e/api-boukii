@@ -52,6 +52,7 @@ return [
             'summary' => 'Zusammenfassung',
             'subtotal' => 'Zwischensumme',
             'tva' => 'MwSt',
+            'reduction' => 'Reduktion',
             'boukii_care' => 'Boukii Pflege',
             'cancel_insurance' => 'Stornierungsoption (10%)'
         ],

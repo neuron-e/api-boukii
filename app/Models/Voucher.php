@@ -174,6 +174,10 @@ class Voucher extends Model
         'payrexx_transaction',
         'created_by',
         'notes',
+        'origin_type',
+        'origin_booking_id',
+        'origin_booking_log_id',
+        'origin_gift_voucher_id',
         'old_id'
     ];
 
@@ -198,6 +202,10 @@ class Voucher extends Model
         'transferred_at' => 'datetime',
         'payrexx_reference' => 'string',
         'payrexx_transaction' => 'string',
+        'origin_type' => 'string',
+        'origin_booking_id' => 'integer',
+        'origin_booking_log_id' => 'integer',
+        'origin_gift_voucher_id' => 'integer',
     ];
 
     public static array $rules = [
@@ -216,6 +224,10 @@ class Voucher extends Model
         'school_id' => 'numeric',
         'payrexx_reference' => 'nullable|string|max:65535',
         'payrexx_transaction' => 'nullable|string|max:65535',
+        'origin_type' => 'nullable|string|in:gift_purchase,refund_credit,manual,unknown',
+        'origin_booking_id' => 'nullable|integer',
+        'origin_booking_log_id' => 'nullable|integer',
+        'origin_gift_voucher_id' => 'nullable|integer',
         'created_at' => 'nullable',
         'updated_at' => 'nullable',
         'deleted_at' => 'nullable'
@@ -463,6 +475,10 @@ class Voucher extends Model
             'payed' => $this->payed,
             'school_id' => $this->school_id,
             'course_type_id' => $this->course_type_id,
+            'origin_type' => $this->origin_type,
+            'origin_booking_id' => $this->origin_booking_id,
+            'origin_booking_log_id' => $this->origin_booking_log_id,
+            'origin_gift_voucher_id' => $this->origin_gift_voucher_id,
         ];
     }
 }

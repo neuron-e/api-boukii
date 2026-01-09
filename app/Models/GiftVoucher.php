@@ -263,6 +263,8 @@ class GiftVoucher extends Model
                 'is_gift' => true,
                 'client_id' => $clientId,
                 'school_id' => $this->school_id,
+                'origin_type' => 'gift_purchase',
+                'origin_gift_voucher_id' => $this->id,
             ]);
 
             $this->voucher_id = $voucher->id;

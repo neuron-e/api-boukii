@@ -7,7 +7,7 @@ use Carbon\Carbon;
 
 trait FinanceCacheKeyTrait
 {
-    private const FINANCE_CACHE_VERSION = 'v2.4';
+    private const FINANCE_CACHE_VERSION = 'v2.13';
     /**
      * Generar cache key consistente para dashboard financiero
      */

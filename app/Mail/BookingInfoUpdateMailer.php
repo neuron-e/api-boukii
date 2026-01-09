@@ -50,6 +50,33 @@ class BookingInfoUpdateMailer extends Mailable
         $templateMail = Mail::where('type', 'booking_change')->where('school_id', $this->schoolData->id)
             ->where('lang', $userLocale)->first();
 
+        $groupedActivities = $this->bookingData->buildGroupedActivitiesFromBookingUsers(
+            $this->bookingData->bookingUsers
+        );
+        $voucherBalance = $this->bookingData->getCurrentBalance();
+        $voucherUsed = (float) ($voucherBalance['total_vouchers_used'] ?? 0);
+        if ($voucherUsed <= 0) {
+            $voucherFallback = (float) $this->bookingData->vouchersLogs()
+                ->where('amount', '>', 0)
+                ->sum('amount');
+            if ($voucherFallback > 0) {
+                $voucherUsed = $voucherFallback;
+            }
+        }
+        $voucherIncludedInPrice = $this->bookingData->priceIncludesVoucherDiscounts();
+        $priceTotalStored = (float) ($this->bookingData->price_total ?? 0);
+        $priceTva = (float) ($this->bookingData->price_tva ?? 0);
+        $priceReduction = (float) ($this->bookingData->price_reduction ?? 0);
+        $hasReduction = !empty($this->bookingData->has_reduction) && $priceReduction > 0;
+        $displayTotal = $priceTotalStored;
+        if (!$voucherIncludedInPrice && $voucherUsed > 0) {
+            $displayTotal = max(0, $displayTotal - $voucherUsed);
+        }
+        $displaySubtotal = max(0, $priceTotalStored - $priceTva);
+        if ($hasReduction) {
+            $displaySubtotal = max(0, $displaySubtotal + $priceReduction);
+        }
+
         $templateData = [
             'titleTemplate' => $templateMail ? $templateMail->title : '',
             'bodyTemplate' => $templateMail ? $templateMail->body: '',
@@ -65,10 +92,14 @@ class BookingInfoUpdateMailer extends Mailable
             'booking' => $this->bookingData,
             'bookings' => $this->bookingData->bookingUsers,
             'courses' => $this->bookingData->parseBookedGroupedWithCourses(),
-            'groupedActivities' => $this->bookingData->getGroupedActivitiesAttribute(),
+            'groupedActivities' => $groupedActivities,
             'hasCancellationInsurance' => $this->bookingData->has_cancellation_insurance,
             'actionURL' => null,
-            'footerView' => $footerView
+            'footerView' => $footerView,
+            'voucherUsed' => $voucherUsed,
+            'voucherIncludedInPrice' => $voucherIncludedInPrice,
+            'displayTotal' => number_format($displayTotal, 2, '.', ''),
+            'displaySubtotal' => number_format($displaySubtotal, 2, '.', '')
         ];
 
         $subject = __('emails.bookingInfo.subject');

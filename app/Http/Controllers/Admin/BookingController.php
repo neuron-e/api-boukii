@@ -747,6 +747,44 @@ class BookingController extends AppBaseController
             }
         }
 
+        // Bloquear reservas duplicadas (mismo cliente, curso y horario)
+        if (isset($data['cart'])) {
+            $cartKeys = [];
+            foreach ($data['cart'] as $cartItem) {
+                $cartKey = implode('|', [
+                    $cartItem['client_id'] ?? '',
+                    $cartItem['course_id'] ?? '',
+                    $cartItem['course_date_id'] ?? '',
+                    $cartItem['hour_start'] ?? '',
+                    $cartItem['hour_end'] ?? ''
+                ]);
+
+                if (isset($cartKeys[$cartKey])) {
+                    return $this->sendError('Reserva duplicada en el carrito: mismo cliente, curso y horario.');
+                }
+                $cartKeys[$cartKey] = true;
+
+                $duplicateExists = BookingUser::query()
+                    ->where('school_id', $school['id'])
+                    ->where('client_id', $cartItem['client_id'])
+                    ->where('course_id', $cartItem['course_id'])
+                    ->where('course_date_id', $cartItem['course_date_id'])
+                    ->where('hour_start', $cartItem['hour_start'])
+                    ->where('hour_end', $cartItem['hour_end'])
+                    ->where('status', 1)
+                    ->whereNull('deleted_at')
+                    ->whereHas('booking', function ($query) {
+                        $query->where('status', '!=', 2)
+                            ->whereNull('deleted_at');
+                    })
+                    ->exists();
+
+                if ($duplicateExists) {
+                    return $this->sendError('Este cliente ya tiene una reserva para el mismo curso y horario.');
+                }
+            }
+        }
+
         $basketData = $this->createBasket($data);
 
         $basketJson = json_encode($basketData); // Asegrate de que no haya problemas con la conversin a JSON
@@ -763,15 +801,8 @@ class BookingController extends AppBaseController
 
         DB::beginTransaction();
         try {
-            $voucherAmount = array_sum(array_column($data['vouchers'], 'bonus.reducePrice'));
-            if($voucherAmount > 0){
-                $data['paid'] = $data['price_total'] <= $voucherAmount;
-            }
-            // Si el total es 0 (cubierto por descuento o bonos), marcar como pagado
-            if (isset($data['price_total']) && (float)$data['price_total'] <= 0) {
-                $data['paid'] = true;
-                $data['paid_total'] = 0;
-            }
+            $paidRequested = (bool) ($data['paid'] ?? false);
+            $voucherAmount = array_sum(array_column($data['vouchers'] ?? [], 'bonus.reducePrice'));
             // Crear la reserva (Booking)
             $booking = Booking::create([
                 'school_id' => $school['id'],
@@ -781,14 +812,14 @@ class BookingController extends AppBaseController
                 // BOUKII CARE DESACTIVADO -                 'has_boukii_care' => $data['has_boukii_care'],
                 'has_cancellation_insurance' => $data['has_cancellation_insurance'],
                 'has_reduction' => $data['has_reduction'],
-                'price_total' => $data['price_total'],
+                'price_total' => 0,
                 'price_reduction' => $data['price_reduction'],
                 'price_tva' => $data['price_tva'],
                 // BOUKII CARE DESACTIVADO -                 'price_boukii_care' => $data['price_boukii_care'],
                 'price_cancellation_insurance' => $data['price_cancellation_insurance'],
                 'payment_method_id' => $data['payment_method_id'],
-                'paid_total' => $data['paid_total'],
-                'paid' => $data['paid'],
+                'paid_total' => 0,
+                'paid' => false,
                 'basket' => $basketJson,
                 'source' => 'admin',
                 'status' => 1,
@@ -918,6 +949,35 @@ class BookingController extends AppBaseController
                 }
             }
 
+            $originalPriceTotal = (float) ($data['price_total'] ?? $booking->price_total);
+            $booking->loadMissing([
+                'bookingUsers.course',
+                'bookingUsers.courseDate',
+                'bookingUsers.bookingUserExtras.courseExtra',
+                'vouchersLogs.voucher',
+                'payments'
+            ]);
+            $booking->reloadPrice();
+            $booking->updateCart();
+            if (abs($booking->price_total - $originalPriceTotal) > 0.01) {
+                Log::channel('bookings')->warning('BOOKING_TOTAL_CORRECTED_ON_CREATE', [
+                    'booking_id' => $booking->id,
+                    'original_total' => $originalPriceTotal,
+                    'recalculated_total' => $booking->price_total,
+                ]);
+                $this->notifyPriceCorrection($booking, $originalPriceTotal, 'create');
+                BookingLog::create([
+                    'booking_id' => $booking->id,
+                    'action' => 'price_total_corrected',
+                    'user_id' => $data['user_id'] ?? null,
+                    'metadata' => json_encode([
+                        'source' => 'create',
+                        'original_total' => $originalPriceTotal,
+                        'recalculated_total' => $booking->price_total,
+                    ]),
+                ]);
+            }
+
             // Crear un log inicial de la reserva
             BookingLog::create([
                 'booking_id' => $booking->id,
@@ -926,23 +986,29 @@ class BookingController extends AppBaseController
             ]);
 
             // Crear un registro de pago si el mtodo de pago es 1 o 4
-            if (
-                isset($data['payment_method_id']) &&
-                in_array($data['payment_method_id'], [1, 4]) &&
-                $data['paid']
-            ) {
-                $remainingAmount = $data['price_total'] - $voucherAmount;
-
-                Payment::create([
-                    'booking_id' => $booking->id,
-                    'school_id' => $school['id'],
-                    'amount' => $remainingAmount,
-                    'status' => 'paid', // Puedes ajustar el estado segn tu lgica
-                    'notes' => $data['selectedPaymentOption'] ?? null,
-                    'payrexx_reference' => null, // aqui puedes integrar Payrexx si lo necesitas
-                    'payrexx_transaction' => null
-                ]);
-                $booking->refreshPaymentTotalsFromPayments();
+            if ($paidRequested) {
+                $remainingAmount = max(0, $booking->price_total - $voucherAmount);
+                if ($remainingAmount > 0) {
+                    $paymentNotes = $this->normalizePaymentNotes(
+                        (int) ($booking->payment_method_id ?? ($data['payment_method_id'] ?? 0)),
+                        $data['selectedPaymentOption'] ?? null
+                    );
+                    Payment::create([
+                        'booking_id' => $booking->id,
+                        'school_id' => $school['id'],
+                        'amount' => $remainingAmount,
+                        'status' => 'paid',
+                        'notes' => $paymentNotes,
+                        'payrexx_reference' => null,
+                        'payrexx_transaction' => null
+                    ]);
+                    $booking->refreshPaymentTotalsFromPayments();
+                } else {
+                    $booking->paid_total = 0;
+                    $booking->paid = true;
+                    $booking->save();
+                    $booking->updateCart();
+                }
             }
 
 
@@ -1006,20 +1072,6 @@ class BookingController extends AppBaseController
 
         $booking = $this->bookingRepository->update($data, $id);
 
-        $booking->updateCart();
-
-        if($request->has('send_mail') && $request->input('send_mail')) {
-            dispatch(function () use ($booking) {
-                // N.B. try-catch because some test users enter unexistant emails, throwing Swift_TransportException
-                try {
-                    Mail::to($booking->clientMain->email)->send(new BookingInfoUpdateMailer($booking->school, $booking, $booking->clientMain));
-                } catch (\Exception $ex) {
-                    \Illuminate\Support\Facades\Log::channel('bookings')->debug('Admin/BookingController updatePayment: ',
-                        $ex->getTrace());
-                }
-            })->afterResponse();
-        }
-
         if (!empty($data['vouchers'])) {
             foreach ($data['vouchers'] as $voucherData) {
                 $voucher = Voucher::find($voucherData['bonus']['id']);
@@ -1036,6 +1088,47 @@ class BookingController extends AppBaseController
             }
         }
 
+        $originalPriceTotal = (float) $booking->price_total;
+        $booking->loadMissing([
+            'bookingUsers.course',
+            'bookingUsers.courseDate',
+            'bookingUsers.bookingUserExtras.courseExtra',
+            'vouchersLogs.voucher',
+            'payments'
+        ]);
+        $booking->reloadPrice();
+        $booking->updateCart();
+        if (abs($booking->price_total - $originalPriceTotal) > 0.01) {
+            Log::channel('bookings')->warning('BOOKING_TOTAL_CORRECTED_ON_UPDATE_PAYMENT', [
+                'booking_id' => $booking->id,
+                'original_total' => $originalPriceTotal,
+                'recalculated_total' => $booking->price_total,
+            ]);
+            $this->notifyPriceCorrection($booking, $originalPriceTotal, 'update_payment');
+            BookingLog::create([
+                'booking_id' => $booking->id,
+                'action' => 'price_total_corrected',
+                'user_id' => $data['user_id'] ?? null,
+                'metadata' => json_encode([
+                    'source' => 'update_payment',
+                    'original_total' => $originalPriceTotal,
+                    'recalculated_total' => $booking->price_total,
+                ]),
+            ]);
+        }
+
+        if($request->has('send_mail') && $request->input('send_mail')) {
+            dispatch(function () use ($booking) {
+                // N.B. try-catch because some test users enter unexistant emails, throwing Swift_TransportException
+                try {
+                    Mail::to($booking->clientMain->email)->send(new BookingInfoUpdateMailer($booking->school, $booking, $booking->clientMain));
+                } catch (\Exception $ex) {
+                    \Illuminate\Support\Facades\Log::channel('bookings')->debug('Admin/BookingController updatePayment: ',
+                        $ex->getTrace());
+                }
+            })->afterResponse();
+        }
+
         // Crear un log inicial de la reserva
         BookingLog::create([
             'booking_id' => $booking->id,
@@ -1048,22 +1141,127 @@ class BookingController extends AppBaseController
         // Crear un registro de pago si el mtodo de pago es 1 o 4
         if (in_array($data['payment_method_id'], [1, 4])) {
 
-            $remainingAmount = $data['price_total'] - $voucherAmount;
-
-            Payment::create([
-                'booking_id' => $booking->id,
-                'school_id' => $school['id'],
-                'amount' => $remainingAmount,
-                'status' => 'paid', // Puedes ajustar el estado segn tu lgica
-                'notes' => $data['selectedPaymentOption'],
-                'payrexx_reference' => null, // aqui puedes integrar Payrexx si lo necesitas
-                'payrexx_transaction' => null
-            ]);
-            $booking->refreshPaymentTotalsFromPayments();
+            $remainingAmount = max(0, $booking->price_total - $voucherAmount);
+            if ($remainingAmount > 0) {
+                $paymentNotes = $this->normalizePaymentNotes(
+                    (int) ($booking->payment_method_id ?? ($data['payment_method_id'] ?? 0)),
+                    $data['selectedPaymentOption'] ?? null
+                );
+                Payment::create([
+                    'booking_id' => $booking->id,
+                    'school_id' => $school['id'],
+                    'amount' => $remainingAmount,
+                    'status' => 'paid', // Puedes ajustar el estado segn tu lgica
+                    'notes' => $paymentNotes,
+                    'payrexx_reference' => null, // aqui puedes integrar Payrexx si lo necesitas
+                    'payrexx_transaction' => null
+                ]);
+                $booking->refreshPaymentTotalsFromPayments();
+            }
         }
 
         return $this->sendResponse($booking, 'Booking updated successfully');
 
+    }
+
+    private function notifyPriceCorrection(Booking $booking, float $originalTotal, string $source): void
+    {
+        $payload = [
+            'booking_id' => $booking->id,
+            'school_id' => $booking->school_id,
+            'client_main_id' => $booking->client_main_id,
+            'user_id' => $booking->user_id,
+            'source' => $source,
+            'original_total' => round($originalTotal, 2),
+            'recalculated_total' => round((float) $booking->price_total, 2),
+            'currency' => $booking->currency,
+            'created_at' => (string) $booking->created_at,
+            'updated_at' => (string) $booking->updated_at,
+        ];
+
+        dispatch(function () use ($payload) {
+            try {
+                Mail::raw(
+                    "Booking total corrected\n\n" . json_encode($payload, JSON_PRETTY_PRINT),
+                    function ($message) use ($payload) {
+                        $message->to('andf1992@gmail.com')
+                            ->subject('Booking total corrected #' . $payload['booking_id']);
+                    }
+                );
+            } catch (\Exception $ex) {
+                Log::channel('bookings')->error('BOOKING_TOTAL_CORRECTION_EMAIL_FAILED', [
+                    'booking_id' => $payload['booking_id'] ?? null,
+                    'error_message' => $ex->getMessage(),
+                ]);
+            }
+        })->afterResponse();
+    }
+
+    private function normalizePaymentNotes(int $paymentMethodId, ?string $selectedOption): string
+    {
+        $raw = trim((string) $selectedOption);
+        $normalized = $this->detectPaymentNoteFromText($raw);
+
+        if ($normalized === null) {
+            $normalized = $this->fallbackPaymentNoteByMethod($paymentMethodId);
+        }
+
+        if ($normalized === null) {
+            return $raw;
+        }
+
+        if ($raw === '' || stripos($raw, $normalized) !== false) {
+            return $normalized;
+        }
+
+        return $normalized . ' (' . $raw . ')';
+    }
+
+    private function detectPaymentNoteFromText(string $raw): ?string
+    {
+        if ($raw === '') {
+            return null;
+        }
+
+        $value = strtolower($raw);
+
+        foreach (['cash', 'efectivo', 'bar', 'bargeld'] as $keyword) {
+            if (str_contains($value, $keyword)) {
+                return 'cash';
+            }
+        }
+
+        foreach (['card', 'tarjeta', 'karte', 'kredit'] as $keyword) {
+            if (str_contains($value, $keyword)) {
+                return 'card_offline';
+            }
+        }
+
+        foreach (['transfer', 'transferencia'] as $keyword) {
+            if (str_contains($value, $keyword)) {
+                return 'transfer';
+            }
+        }
+
+        return null;
+    }
+
+    private function fallbackPaymentNoteByMethod(int $paymentMethodId): ?string
+    {
+        switch ($paymentMethodId) {
+            case Booking::ID_CASH:
+                return 'cash';
+            case Booking::ID_BOUKIIPAY:
+                return 'boukii_offline';
+            case Booking::ID_ONLINE:
+                return 'online_manual';
+            case Booking::ID_NOPAYMENT:
+                return 'no_payment';
+            case Booking::ID_OTHER:
+                return 'other';
+            default:
+                return null;
+        }
     }
 
     public function update(Request $request) {
@@ -1599,20 +1797,21 @@ class BookingController extends AppBaseController
      *      )
      * )
      */
-    public function checkClientBookingOverlap(Request $request): JsonResponse
-    {
-        $overlapBookingUsers = [];
-        $bookingUserIds = $request->input('bookingUserIds', []);
-
-        foreach ($request->bookingUsers as $bookingUser) {
-            if (BookingUser::hasOverlappingBookings($bookingUser, $bookingUserIds)) {
-                $overlapBookingUsers[] = $bookingUser;
-            }
-        }
-
-        if (count($overlapBookingUsers)) {
-            return $this->sendResponse($overlapBookingUsers, 'Client has overlapping bookings', 409);
-        }
+      public function checkClientBookingOverlap(Request $request): JsonResponse
+      {
+          $overlapBookingUsers = [];
+          $bookingUserIds = $request->input('bookingUserIds', []);
+  
+          foreach ($request->bookingUsers as $bookingUser) {
+              $overlaps = BookingUser::getOverlappingBookings($bookingUser, $bookingUserIds);
+              foreach ($overlaps as $overlap) {
+                  $overlapBookingUsers[$overlap['booking_user_id']] = $overlap;
+              }
+          }
+  
+          if (count($overlapBookingUsers)) {
+              return $this->sendResponse(array_values($overlapBookingUsers), 'Client has overlapping bookings', 409);
+          }
 
         return $this->sendResponse([], 'Client has no overlapping bookings');
     }

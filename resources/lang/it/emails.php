@@ -52,6 +52,7 @@ return [
             'summary' => 'Riepilogo',
             'subtotal' => 'Subtotale',
             'tva' => 'IVA',
+            'reduction' => 'Riduzione',
             'boukii_care' => 'Boukii Care',
             'cancel_insurance' => 'Opzione di annullamento (10%)'
         ],

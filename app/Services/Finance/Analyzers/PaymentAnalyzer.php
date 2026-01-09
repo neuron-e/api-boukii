@@ -99,11 +99,11 @@ class PaymentAnalyzer
         }
 
         // Métodos offline basados en notas
-        if (str_contains($notes, 'cash') || str_contains($notes, 'efectivo')) {
+        if (str_contains($notes, 'cash') || str_contains($notes, 'efectivo') || str_contains($notes, 'bar') || str_contains($notes, 'bargeld')) {
             return 'cash';
         }
 
-        if (str_contains($notes, 'card') || str_contains($notes, 'tarjeta')) {
+        if (str_contains($notes, 'card') || str_contains($notes, 'tarjeta') || str_contains($notes, 'karte') || str_contains($notes, 'kredit')) {
             return 'card_offline';
         }
 

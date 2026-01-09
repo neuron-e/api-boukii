@@ -6,6 +6,7 @@ use App\Http\Controllers\AppBaseController;
 use App\Http\Requests\API\CreateVoucherAPIRequest;
 use App\Http\Requests\API\UpdateVoucherAPIRequest;
 use App\Http\Resources\API\VoucherResource;
+use App\Models\BookingLog;
 use App\Models\Voucher;
 use App\Models\VouchersLog;
 use App\Repositories\VoucherRepository;
@@ -218,6 +219,32 @@ class VoucherAPIController extends AppBaseController
 
         if (!isset($input['remaining_balance']) && isset($input['quantity'])) {
             $input['remaining_balance'] = $input['quantity'];
+        }
+
+        if (empty($input['origin_type'])) {
+            if (!empty($input['origin_gift_voucher_id']) || !empty($input['is_gift'])) {
+                $input['origin_type'] = 'gift_purchase';
+            } elseif (!empty($input['origin_booking_id'])) {
+                $input['origin_type'] = 'refund_credit';
+            } else {
+                $input['origin_type'] = 'manual';
+            }
+        }
+
+        if (
+            empty($input['origin_booking_log_id'])
+            && !empty($input['origin_booking_id'])
+            && $input['origin_type'] === 'refund_credit'
+        ) {
+            $cancelLog = BookingLog::query()
+                ->where('booking_id', $input['origin_booking_id'])
+                ->where('action', 'LIKE', '%cancel%')
+                ->latest()
+                ->first();
+
+            if ($cancelLog) {
+                $input['origin_booking_log_id'] = $cancelLog->id;
+            }
         }
 
         $voucher = $this->voucherRepository->create($input);

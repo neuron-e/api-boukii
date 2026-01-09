@@ -52,6 +52,7 @@ return [
             'summary' => 'Résumé',
             'subtotal' => 'Sous-total',
             'tva' => 'TVA',
+            'reduction' => 'Réduction',
             'boukii_care' => 'Boukii Care',
             'cancel_insurance' => 'Option d\'annulation (10%)'
         ],

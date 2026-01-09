@@ -90,10 +90,10 @@ class BookingPriceCalculatorService
      */
     public function analyzeFinancialReality(Booking $booking, array $options = []): array
     {
-        // 1. Calcular lo que DEBERÍA costar
+        // 1. Calcular lo que DEBERÃA costar
         $calculatedTotal = $this->calculateBookingTotal($booking, $options);
 
-        // 2. Analizar lo que REALMENTE se movió financieramente
+        // 2. Analizar lo que REALMENTE se moviÃ³ financieramente
         $financialReality = $this->getFinancialReality($booking);
 
         // 3. Comparar realidad vs expectativa
@@ -107,6 +107,16 @@ class BookingPriceCalculatorService
             'calculation_details' => $calculatedTotal,
             'recommendation' => $this->getRecommendation($realityCheck, $booking)
         ];
+    }
+
+    
+    /**
+     * Snapshot ligero: solo realidad financiera (pagos + vouchers).
+     * Se usa cuando no necesitamos recalcular el precio esperado.
+     */
+    public function getFinancialRealitySnapshot(Booking $booking): array
+    {
+        return $this->getFinancialReality($booking);
     }
 
     /**
@@ -168,7 +178,7 @@ class BookingPriceCalculatorService
 
         switch ($booking->status) {
             case 1: // ACTIVA
-                // Para activas: el balance neto debería igualar el precio calculado
+                // Para activas: el balance neto deberÃ­a igualar el precio calculado
                 $discrepancy = abs($calculatedPrice - $netBalance);
                 $comparison['is_consistent'] = $discrepancy <= $tolerance;
                 $comparison['consistency_type'] = 'active_booking';
@@ -176,30 +186,30 @@ class BookingPriceCalculatorService
 
                 if (!$comparison['is_consistent']) {
                     if ($netBalance < $calculatedPrice) {
-                        $comparison['issues'][] = "Falta dinero: se necesita " . round($calculatedPrice - $netBalance, 2) . "€ más";
+                        $comparison['issues'][] = "Falta dinero: se necesita " . round($calculatedPrice - $netBalance, 2) . "â‚¬ mÃ¡s";
                     } else {
-                        $comparison['issues'][] = "Exceso de dinero: se recibió " . round($netBalance - $calculatedPrice, 2) . "€ de más";
+                        $comparison['issues'][] = "Exceso de dinero: se recibiÃ³ " . round($netBalance - $calculatedPrice, 2) . "â‚¬ de mÃ¡s";
                     }
                 }
                 break;
 
             case 2: // CANCELADA
-                // Para canceladas: el balance neto debería ser 0 (todo refundado/procesado)
+                // Para canceladas: el balance neto deberÃ­a ser 0 (todo refundado/procesado)
                 $comparison['is_consistent'] = abs($netBalance) <= $tolerance;
                 $comparison['consistency_type'] = 'cancelled_booking';
                 $comparison['main_discrepancy'] = $netBalance;
 
                 if (!$comparison['is_consistent']) {
                     if ($netBalance > 0) {
-                        $comparison['issues'][] = "Dinero sin procesar: quedan " . round($netBalance, 2) . "€ por refundar";
+                        $comparison['issues'][] = "Dinero sin procesar: quedan " . round($netBalance, 2) . "â‚¬ por refundar";
                     } else {
-                        $comparison['issues'][] = "Se procesó más dinero del recibido: " . round(abs($netBalance), 2) . "€";
+                        $comparison['issues'][] = "Se procesÃ³ mÃ¡s dinero del recibido: " . round(abs($netBalance), 2) . "â‚¬";
                     }
                 }
                 break;
 
             case 3: // PARCIALMENTE CANCELADA
-                // Para parciales: el balance neto debería igualar el precio de usuarios activos
+                // Para parciales: el balance neto deberÃ­a igualar el precio de usuarios activos
                 $activeUsersPrice = $this->calculateActivitiesPrice(
                     $booking->bookingUsers->where('status', 1)
                 );
@@ -210,7 +220,7 @@ class BookingPriceCalculatorService
                 $comparison['main_discrepancy'] = $activeUsersPrice - $netBalance;
 
                 if (!$comparison['is_consistent']) {
-                    $comparison['issues'][] = "Discrepancia en cancelación parcial: " . round($discrepancy, 2) . "€";
+                    $comparison['issues'][] = "Discrepancia en cancelaciÃ³n parcial: " . round($discrepancy, 2) . "â‚¬";
                 }
                 break;
         }
@@ -219,28 +229,28 @@ class BookingPriceCalculatorService
     }
 
     /**
-     * NUEVO: Obtener recomendación basada en realidad financiera
+     * NUEVO: Obtener recomendaciÃ³n basada en realidad financiera
      */
     private function getRecommendation(array $realityCheck, Booking $booking): string
     {
         if ($realityCheck['is_consistent']) {
-            return "✅ Consistente: La realidad financiera coincide con el precio calculado";
+            return "âœ… Consistente: La realidad financiera coincide con el precio calculado";
         }
 
         $mainDiscrepancy = abs($realityCheck['main_discrepancy']);
         $issues = $realityCheck['issues'];
 
         if ($mainDiscrepancy > 10) {
-            return "🚨 CRÍTICO: " . implode(". ", $issues) . ". Revisar inmediatamente.";
+            return "ðŸš¨ CRÃTICO: " . implode(". ", $issues) . ". Revisar inmediatamente.";
         } elseif ($mainDiscrepancy > 1) {
-            return "⚠️ ATENCIÓN: " . implode(". ", $issues) . ". Revisar cuando sea posible.";
+            return "âš ï¸ ATENCIÃ“N: " . implode(". ", $issues) . ". Revisar cuando sea posible.";
         } else {
-            return "ℹ️ MENOR: " . implode(". ", $issues) . ". Diferencia menor, posiblemente redondeo.";
+            return "â„¹ï¸ MENOR: " . implode(". ", $issues) . ". Diferencia menor, posiblemente redondeo.";
         }
     }
 
     /**
-     * NUEVO: Determinar si un voucherLog es payment o refund (copia del método del controller)
+     * NUEVO: Determinar si un voucherLog es payment o refund (copia del mÃ©todo del controller)
      */
     public function determineVoucherLogType($voucherLog, $voucher, $booking)
     {
@@ -249,7 +259,7 @@ class BookingPriceCalculatorService
         $voucherRemainingBalance = $voucher->remaining_balance ?? 0;
         $voucherPayed = $voucher->payed ?? false;
 
-        // ✅ NUEVA LÓGICA: Analizar el contexto completo
+        // âœ… NUEVA LÃ“GICA: Analizar el contexto completo
         $voucherUsedAmount = $voucherQuantity - $voucherRemainingBalance;
 
         Log::channel('finance')->debug("Analizando voucher log", [
@@ -271,7 +281,7 @@ class BookingPriceCalculatorService
             ];
         }
 
-        // REGLA SECUNDARIA: Si el voucher está pagado y se ha usado
+        // REGLA SECUNDARIA: Si el voucher estÃ¡ pagado y se ha usado
         if ($voucherPayed && $voucherUsedAmount > 0) {
             // Si el log amount coincide con lo usado, es payment
             if (abs($logAmount) == $voucherUsedAmount) {
@@ -282,7 +292,7 @@ class BookingPriceCalculatorService
                 ];
             }
 
-            // Si es menor, podría ser un uso parcial
+            // Si es menor, podrÃ­a ser un uso parcial
             if (abs($logAmount) < $voucherUsedAmount) {
                 return [
                     'type' => 'payment',
@@ -291,7 +301,7 @@ class BookingPriceCalculatorService
                 ];
             }
 
-            // Si es mayor, podría ser refund
+            // Si es mayor, podrÃ­a ser refund
             return [
                 'type' => 'refund',
                 'amount' => abs($logAmount),
@@ -299,7 +309,7 @@ class BookingPriceCalculatorService
             ];
         }
 
-        // REGLA FALLBACK: Analizar por signo pero con más contexto
+        // REGLA FALLBACK: Analizar por signo pero con mÃ¡s contexto
         if ($logAmount > 0) {
             return [
                 'type' => 'payment',
@@ -310,7 +320,7 @@ class BookingPriceCalculatorService
             // Para negativos, usar contexto adicional
             $absAmount = abs($logAmount);
 
-            // Si el booking está activo y el voucher se ha usado, probable payment
+            // Si el booking estÃ¡ activo y el voucher se ha usado, probable payment
             if ($booking->status == 1 && $voucherUsedAmount > 0) {
                 return [
                     'type' => 'payment',
@@ -319,7 +329,7 @@ class BookingPriceCalculatorService
                 ];
             }
 
-            // Si el booking está cancelado, más probable refund
+            // Si el booking estÃ¡ cancelado, mÃ¡s probable refund
             if ($booking->status == 2) {
                 return [
                     'type' => 'refund',
@@ -376,12 +386,12 @@ class BookingPriceCalculatorService
                 $totalPrice += $this->calculateFlexibleCollectiveForClient($clientBookingUsers, $course);
             }
         } else {
-            // Colectivo fijo: precio base por cliente único
+            // Colectivo fijo: precio base por cliente Ãºnico
             $uniqueClients = $courseBookingUsers->groupBy('client_id')->count();
             $totalPrice += $course->price * $uniqueClients;
         }
 
-        // Añadir extras
+        // AÃ±adir extras
         $totalPrice += $this->calculateExtrasPrice($courseBookingUsers);
 
         return $totalPrice;
@@ -403,7 +413,7 @@ class BookingPriceCalculatorService
         $totalPrice = 0;
 
         if (!empty($course->is_flexible)) {
-            // CURSO PRIVADO FLEXIBLE → agrupar por sesión y calcular
+            // CURSO PRIVADO FLEXIBLE â†’ agrupar por sesiÃ³n y calcular
             $sessions = $courseBookingUsers->groupBy(function ($bookingUser) {
                 return $bookingUser->date . '|' . $bookingUser->hour_start . '|' .
                     $bookingUser->hour_end . '|' . $bookingUser->monitor_id . '|' .
@@ -415,7 +425,7 @@ class BookingPriceCalculatorService
                 $totalPrice += $sessionPrice;
             }
         } else {
-            // ✅ CURSO PRIVADO FIJO → precio directo por pax
+            // âœ… CURSO PRIVADO FIJO â†’ precio directo por pax
             foreach ($courseBookingUsers as $bookingUser) {
                 $totalPrice += $bookingUser->price ?? $course->price;
             }
@@ -425,14 +435,14 @@ class BookingPriceCalculatorService
     }
 
     /**
-     * Calcula precio de una sesión privada
+     * Calcula precio de una sesiÃ³n privada
      */
     private function calculateSessionPrice(Collection $sessionBookingUsers, $course): float
     {
         $bookingUser = $sessionBookingUsers->first();
         $participantsCount = $sessionBookingUsers->count();
 
-        // Calcular duración
+        // Calcular duraciÃ³n
         $duration = $this->calculateDurationMinutes($bookingUser->hour_start, $bookingUser->hour_end);
         $interval = $this->getDurationInterval($duration);
 
@@ -440,7 +450,7 @@ class BookingPriceCalculatorService
         $priceRange = $this->parsePriceRange($course->price_range);
         $sessionPrice = $this->getPriceFromRange($priceRange, $interval, $participantsCount);
 
-        // Añadir extras de la sesión
+        // AÃ±adir extras de la sesiÃ³n
         $extrasPrice = $sessionBookingUsers->sum(function ($bu) {
             return $bu->bookingUserExtras->sum('courseExtra.price');
         });
@@ -453,7 +463,7 @@ class BookingPriceCalculatorService
      */
     public function calculateActivityPrice(Collection $courseBookingUsers, $course): float
     {
-        // Lógica similar a privados o específica para actividades
+        // LÃ³gica similar a privados o especÃ­fica para actividades
         return $this->calculatePrivatePrice($courseBookingUsers, $course);
     }
 
@@ -631,7 +641,7 @@ class BookingPriceCalculatorService
     }
 
     /**
-     * Recalcula y ajusta vouchers según el nuevo precio total
+     * Recalcula y ajusta vouchers segÃºn el nuevo precio total
      */
     public function recalculateVouchers(Booking $booking, float $newTotalPrice): array
     {
@@ -728,7 +738,7 @@ class BookingPriceCalculatorService
         return $breakdown;
     }
 
-    // Métodos auxiliares
+    // MÃ©todos auxiliares
     private function parseDiscounts($discounts)
     {
         if (is_array($discounts)) return $discounts;
@@ -754,7 +764,7 @@ class BookingPriceCalculatorService
             $end = Carbon::createFromFormat('H:i:s', $endTime);
 
             if (!$start || !$end) {
-                throw new \Exception("Tiempos inválidos: $startTime - $endTime");
+                throw new \Exception("Tiempos invÃ¡lidos: $startTime - $endTime");
             }
 
             if ($end->lt($start)) {
@@ -763,7 +773,7 @@ class BookingPriceCalculatorService
 
             return $start->diffInMinutes($end);
         } catch (\Exception $e) {
-            Log::channel('finance')->warning("Error al calcular duración: " . $e->getMessage());
+            Log::channel('finance')->warning("Error al calcular duraciÃ³n: " . $e->getMessage());
             return 0; // Valor por defecto si hay error
         }
     }
@@ -823,27 +833,27 @@ class BookingPriceCalculatorService
     }
 
     /**
-     * MÉTODO PRINCIPAL: Análisis completo de realidad financiera
-     * Unifica todo el análisis en un solo método comprehensivo
+     * MÃ‰TODO PRINCIPAL: AnÃ¡lisis completo de realidad financiera
+     * Unifica todo el anÃ¡lisis en un solo mÃ©todo comprehensivo
      */
     public function getCompleteFinancialReality(Booking $booking, array $options = []): array
     {
         $excludeCourses = $options['exclude_courses'] ?? [260, 243];
 
-        Log::channel('finance')->info("=== INICIANDO ANÁLISIS COMPLETO REALIDAD FINANCIERA ===", [
+        Log::channel('finance')->info("=== INICIANDO ANÃLISIS COMPLETO REALIDAD FINANCIERA ===", [
             'booking_id' => $booking->id,
             'booking_status' => $booking->status,
             'exclude_courses' => $excludeCourses
         ]);
 
         try {
-            // 1. CALCULAR LO QUE DEBERÍA COSTAR
+            // 1. CALCULAR LO QUE DEBERÃA COSTAR
             $calculatedData = $this->calculateBookingTotal($booking, $options);
 
             // 2. OBTENER REALIDAD FINANCIERA DETALLADA
             $financialReality = $this->getDetailedFinancialReality($booking);
 
-            // 3. ANALIZAR PAGOS CRONOLÓGICAMENTE
+            // 3. ANALIZAR PAGOS CRONOLÃ“GICAMENTE
             $paymentAnalysis = $this->analyzePaymentTimeline($booking);
 
             // 4. ANALIZAR VOUCHERS INTELIGENTEMENTE
@@ -852,10 +862,10 @@ class BookingPriceCalculatorService
             // 5. DETECTAR DISCREPANCIAS Y PROBLEMAS
             $discrepancyAnalysis = $this->detectFinancialDiscrepancies($booking, $calculatedData, $financialReality);
 
-            // 6. GENERAR RECOMENDACIONES ESPECÍFICAS
+            // 6. GENERAR RECOMENDACIONES ESPECÃFICAS
             $recommendations = $this->generateSpecificRecommendations($booking, $discrepancyAnalysis);
 
-            // 7. CALCULAR MÉTRICAS DE CONSISTENCIA
+            // 7. CALCULAR MÃ‰TRICAS DE CONSISTENCIA
             $consistencyMetrics = $this->calculateConsistencyMetrics($booking, $calculatedData, $financialReality);
 
             $result = [
@@ -863,11 +873,11 @@ class BookingPriceCalculatorService
                 'analysis_timestamp' => now()->toDateTimeString(),
                 'booking_info' => $this->getBookingBasicInfo($booking),
 
-                // PRECIOS Y CÁLCULOS
+                // PRECIOS Y CÃLCULOS
                 'calculated_data' => $calculatedData,
                 'stored_price_info' => [
                     'price_total' => $booking->price_total,
-                    'note' => 'Solo informativo - no usado para análisis de consistencia'
+                    'note' => 'Solo informativo - no usado para anÃ¡lisis de consistencia'
                 ],
 
                 // REALIDAD FINANCIERA
@@ -875,7 +885,7 @@ class BookingPriceCalculatorService
                 'payment_analysis' => $paymentAnalysis,
                 'voucher_analysis' => $voucherAnalysis,
 
-                // ANÁLISIS Y PROBLEMAS
+                // ANÃLISIS Y PROBLEMAS
                 'discrepancy_analysis' => $discrepancyAnalysis,
                 'consistency_metrics' => $consistencyMetrics,
                 'detected_issues' => $this->detectAllIssues($booking, $financialReality, $calculatedData),
@@ -890,7 +900,7 @@ class BookingPriceCalculatorService
                 'reliability_flags' => $this->getReliabilityFlags($booking, $financialReality)
             ];
 
-            Log::channel('finance')->info("=== ANÁLISIS COMPLETO FINALIZADO ===", [
+            Log::channel('finance')->info("=== ANÃLISIS COMPLETO FINALIZADO ===", [
                 'booking_id' => $booking->id,
                 'is_consistent' => $discrepancyAnalysis['is_financially_consistent'],
                 'main_discrepancy' => $discrepancyAnalysis['main_discrepancy_amount'],
@@ -900,7 +910,7 @@ class BookingPriceCalculatorService
             return $result;
 
         } catch (\Exception $e) {
-            Log::channel('finance')->error("Error en análisis financiero completo: " . $e->getMessage(), [
+            Log::channel('finance')->error("Error en anÃ¡lisis financiero completo: " . $e->getMessage(), [
                 'booking_id' => $booking->id,
                 'trace' => $e->getTraceAsString()
             ]);
@@ -910,14 +920,14 @@ class BookingPriceCalculatorService
     }
 
     /**
-     * MÉTODO MEJORADO: Realidad financiera detallada con clasificación inteligente
+     * MÃ‰TODO MEJORADO: Realidad financiera detallada con clasificaciÃ³n inteligente
      */
     private function getDetailedFinancialReality(Booking $booking): array
     {
         $payments = $booking->payments;
         $voucherLogs = $booking->vouchersLogs;
 
-        // ANÁLISIS DE PAGOS POR CATEGORÍA
+        // ANÃLISIS DE PAGOS POR CATEGORÃA
         $paidPayments = $payments->where('status', 'paid');
         $refundPayments = $payments->whereIn('status', ['refund', 'partial_refund']);
         $noRefundPayments = $payments->where('status', 'no_refund');
@@ -957,7 +967,7 @@ class BookingPriceCalculatorService
             'voucher_details' => $voucherAnalysis['details'],
             'no_refund_classification' => $noRefundClassification,
 
-            // MÉTRICAS ADICIONALES
+            // MÃ‰TRICAS ADICIONALES
             'payment_methods_breakdown' => $this->getPaymentMethodsBreakdown($paidPayments),
             'temporal_analysis' => $this->getTemporalAnalysis($booking),
             'cash_flow_summary' => [
@@ -969,7 +979,7 @@ class BookingPriceCalculatorService
     }
 
     /**
-     * NUEVO: Análisis temporal de pagos para detectar patrones
+     * NUEVO: AnÃ¡lisis temporal de pagos para detectar patrones
      */
     private function analyzePaymentTimeline(Booking $booking): array
     {
@@ -1009,7 +1019,7 @@ class BookingPriceCalculatorService
             ];
         }
 
-        // ORDENAR CRONOLÓGICAMENTE
+        // ORDENAR CRONOLÃ“GICAMENTE
         usort($timeline, function($a, $b) {
             return $a['timestamp']->timestamp <=> $b['timestamp']->timestamp;
         });
@@ -1033,7 +1043,7 @@ class BookingPriceCalculatorService
                 $milestones[] = [
                     'type' => 'balance_zero',
                     'timestamp' => $event['timestamp'],
-                    'description' => 'Balance llegó a cero'
+                    'description' => 'Balance llegÃ³ a cero'
                 ];
             }
         }
@@ -1050,7 +1060,7 @@ class BookingPriceCalculatorService
     }
 
     /**
-     * NUEVO: Análisis inteligente de vouchers con contexto completo
+     * NUEVO: AnÃ¡lisis inteligente de vouchers con contexto completo
      */
     private function analyzeVouchersIntelligently(Booking $booking): array
     {
@@ -1072,7 +1082,7 @@ class BookingPriceCalculatorService
         $totalRefunded = 0;
         $analysisNotes = [];
 
-        // AGRUPAR POR VOUCHER PARA ANÁLISIS COMPLETO
+        // AGRUPAR POR VOUCHER PARA ANÃLISIS COMPLETO
         $voucherGroups = $voucherLogs->groupBy('voucher_id');
 
         foreach ($voucherGroups as $voucherId => $logs) {
@@ -1105,7 +1115,7 @@ class BookingPriceCalculatorService
     }
 
     /**
-     * NUEVO: Detectar discrepancias financieras con análisis profundo
+     * NUEVO: Detectar discrepancias financieras con anÃ¡lisis profundo
      */
     private function detectFinancialDiscrepancies(Booking $booking, array $calculatedData, array $financialReality): array
     {
@@ -1118,7 +1128,7 @@ class BookingPriceCalculatorService
         $mainDiscrepancy = 0;
         $tolerance = 0.50;
 
-        // ANÁLISIS ESPECÍFICO POR ESTADO DE RESERVA
+        // ANÃLISIS ESPECÃFICO POR ESTADO DE RESERVA
         switch ($bookingStatus) {
             case 1: // ACTIVA
                 $expectedBalance = $calculatedTotal;
@@ -1131,21 +1141,21 @@ class BookingPriceCalculatorService
                             'type' => 'underpayment',
                             'severity' => $mainDiscrepancy > 10 ? 'high' : 'medium',
                             'amount' => round($mainDiscrepancy, 2),
-                            'description' => "Falta pago: se necesita " . round($mainDiscrepancy, 2) . "€ más"
+                            'description' => "Falta pago: se necesita " . round($mainDiscrepancy, 2) . "â‚¬ mÃ¡s"
                         ];
                     } else {
                         $discrepancies[] = [
                             'type' => 'overpayment',
                             'severity' => abs($mainDiscrepancy) > 10 ? 'high' : 'medium',
                             'amount' => round(abs($mainDiscrepancy), 2),
-                            'description' => "Exceso de pago: se recibió " . round(abs($mainDiscrepancy), 2) . "€ de más"
+                            'description' => "Exceso de pago: se recibiÃ³ " . round(abs($mainDiscrepancy), 2) . "â‚¬ de mÃ¡s"
                         ];
                     }
                 }
                 break;
 
             case 2: // CANCELADA
-                $expectedBalance = 0; // Todo debería estar procesado
+                $expectedBalance = 0; // Todo deberÃ­a estar procesado
                 $mainDiscrepancy = $netBalance;
                 $isConsistent = abs($mainDiscrepancy) <= $tolerance;
 
@@ -1155,14 +1165,14 @@ class BookingPriceCalculatorService
                             'type' => 'unprocessed_cancellation',
                             'severity' => 'high',
                             'amount' => round($netBalance, 2),
-                            'description' => "Reserva cancelada con " . round($netBalance, 2) . "€ sin procesar"
+                            'description' => "Reserva cancelada con " . round($netBalance, 2) . "â‚¬ sin procesar"
                         ];
                     } else {
                         $discrepancies[] = [
                             'type' => 'overprocessed_cancellation',
                             'severity' => 'medium',
                             'amount' => round(abs($netBalance), 2),
-                            'description' => "Se procesó más dinero del recibido en cancelación"
+                            'description' => "Se procesÃ³ mÃ¡s dinero del recibido en cancelaciÃ³n"
                         ];
                     }
                 }
@@ -1180,14 +1190,14 @@ class BookingPriceCalculatorService
                         'type' => 'partial_cancellation_discrepancy',
                         'severity' => abs($mainDiscrepancy) > 10 ? 'high' : 'medium',
                         'amount' => round(abs($mainDiscrepancy), 2),
-                        'description' => "Cancelación parcial con discrepancia de " . round($mainDiscrepancy, 2) . "€",
+                        'description' => "CancelaciÃ³n parcial con discrepancia de " . round($mainDiscrepancy, 2) . "â‚¬",
                         'active_users_price' => $activeUsersPrice
                     ];
                 }
                 break;
         }
 
-        // DETECTAR OTROS PROBLEMAS ESPECÍFICOS
+        // DETECTAR OTROS PROBLEMAS ESPECÃFICOS
         $otherIssues = $this->detectAdditionalFinancialIssues($booking, $financialReality, $calculatedData);
         $discrepancies = array_merge($discrepancies, $otherIssues);
 
@@ -1208,7 +1218,7 @@ class BookingPriceCalculatorService
     }
 
     /**
-     * NUEVO: Generar recomendaciones específicas y accionables
+     * NUEVO: Generar recomendaciones especÃ­ficas y accionables
      */
     private function generateSpecificRecommendations(Booking $booking, array $discrepancyAnalysis): array
     {
@@ -1220,8 +1230,8 @@ class BookingPriceCalculatorService
                 'priority' => 'info',
                 'title' => 'Estado Financiero Consistente',
                 'description' => 'La realidad financiera coincide con el precio calculado',
-                'action' => 'No se requiere acción',
-                'icon' => '✅'
+                'action' => 'No se requiere acciÃ³n',
+                'icon' => 'âœ…'
             ];
             return $recommendations;
         }
@@ -1238,11 +1248,11 @@ class BookingPriceCalculatorService
                         'action' => 'Contactar al cliente para completar el pago',
                         'amount' => $discrepancy['amount'],
                         'suggested_steps' => [
-                            'Verificar la información de contacto del cliente',
+                            'Verificar la informaciÃ³n de contacto del cliente',
                             'Enviar recordatorio de pago pendiente',
-                            'Ofrecer métodos de pago alternativos si es necesario'
+                            'Ofrecer mÃ©todos de pago alternativos si es necesario'
                         ],
-                        'icon' => '💳'
+                        'icon' => 'ðŸ’³'
                     ];
                     break;
 
@@ -1259,7 +1269,7 @@ class BookingPriceCalculatorService
                             'Iniciar proceso de reembolso',
                             'Notificar al cliente sobre el reembolso'
                         ],
-                        'icon' => '💰'
+                        'icon' => 'ðŸ’°'
                     ];
                     break;
 
@@ -1267,16 +1277,16 @@ class BookingPriceCalculatorService
                     $recommendations[] = [
                         'type' => 'cancellation_processing',
                         'priority' => 'high',
-                        'title' => 'Cancelación Sin Procesar',
+                        'title' => 'CancelaciÃ³n Sin Procesar',
                         'description' => $discrepancy['description'],
-                        'action' => 'Decidir entre reembolso o no-reembolso según política',
+                        'action' => 'Decidir entre reembolso o no-reembolso segÃºn polÃ­tica',
                         'amount' => $discrepancy['amount'],
                         'suggested_steps' => [
-                            'Revisar política de cancelación aplicable',
-                            'Verificar fecha de cancelación vs fecha del curso',
-                            'Procesar reembolso o aplicar no-reembolso según corresponda'
+                            'Revisar polÃ­tica de cancelaciÃ³n aplicable',
+                            'Verificar fecha de cancelaciÃ³n vs fecha del curso',
+                            'Procesar reembolso o aplicar no-reembolso segÃºn corresponda'
                         ],
-                        'icon' => '❌'
+                        'icon' => 'âŒ'
                     ];
                     break;
 
@@ -1284,15 +1294,15 @@ class BookingPriceCalculatorService
                     $recommendations[] = [
                         'type' => 'partial_review',
                         'priority' => $discrepancy['severity'],
-                        'title' => 'Revisar Cancelación Parcial',
+                        'title' => 'Revisar CancelaciÃ³n Parcial',
                         'description' => $discrepancy['description'],
-                        'action' => 'Verificar cálculo de usuarios activos vs cancelados',
+                        'action' => 'Verificar cÃ¡lculo de usuarios activos vs cancelados',
                         'suggested_steps' => [
-                            'Confirmar qué usuarios están activos vs cancelados',
+                            'Confirmar quÃ© usuarios estÃ¡n activos vs cancelados',
                             'Recalcular precio basado en usuarios activos',
-                            'Ajustar balance según corresponda'
+                            'Ajustar balance segÃºn corresponda'
                         ],
-                        'icon' => '⚖️'
+                        'icon' => 'âš–ï¸'
                     ];
                     break;
             }
@@ -1305,13 +1315,13 @@ class BookingPriceCalculatorService
     }
 
     /**
-     * NUEVO: Calcular métricas de consistencia financiera
+     * NUEVO: Calcular mÃ©tricas de consistencia financiera
      */
     private function calculateConsistencyMetrics(Booking $booking, array $calculatedData, array $financialReality): array
     {
         $metrics = [];
 
-        // MÉTRICAS BÁSICAS
+        // MÃ‰TRICAS BÃSICAS
         $expectedTotal = $calculatedData['total_final'];
         $actualBalance = $financialReality['net_balance'];
         $totalReceived = $financialReality['total_received'];
@@ -1325,7 +1335,7 @@ class BookingPriceCalculatorService
         $metrics['processing_completeness'] = $booking->status == 2 ?
             round((1 - abs($actualBalance) / max($totalReceived, 1)) * 100, 2) : null;
 
-        // MÉTRICAS DE COMPLEJIDAD
+        // MÃ‰TRICAS DE COMPLEJIDAD
         $paymentCount = $booking->payments->count();
         $voucherCount = $booking->vouchersLogs->count();
         $metrics['transaction_complexity'] = min(($paymentCount + $voucherCount) * 10, 100);
@@ -1356,7 +1366,7 @@ class BookingPriceCalculatorService
         return $metrics;
     }
 
-    // ... MÉTODOS AUXILIARES ...
+    // ... MÃ‰TODOS AUXILIARES ...
 
     private function getBookingBasicInfo(Booking $booking): array
     {
@@ -1402,7 +1412,7 @@ class BookingPriceCalculatorService
                 } else {
                     $postPaymentTotal += $payment->amount;
                     $classification = 'post_payment';
-                    $reason = 'Aplicado después del pago';
+                    $reason = 'Aplicado despuÃ©s del pago';
                 }
 
                 $details[] = [
@@ -1499,7 +1509,7 @@ class BookingPriceCalculatorService
         return [
             'booking_id' => $booking->id,
             'error' => true,
-            'error_message' => 'Error en análisis financiero: ' . $e->getMessage(),
+            'error_message' => 'Error en anÃ¡lisis financiero: ' . $e->getMessage(),
             'fallback_data' => [
                 'stored_price_total' => $booking->price_total,
                 'basic_payment_sum' => $booking->payments->where('status', 'paid')->sum('amount'),
@@ -1540,7 +1550,7 @@ class BookingPriceCalculatorService
         $voucherUsedAmount = $voucher->quantity - $voucher->remaining_balance;
 
         if (abs($totalUsed - $voucherUsedAmount) > 0.01) {
-            $warnings[] = "Inconsistencia: logs indican uso de {$totalUsed}€ pero voucher muestra uso de {$voucherUsedAmount}€";
+            $warnings[] = "Inconsistencia: logs indican uso de {$totalUsed}â‚¬ pero voucher muestra uso de {$voucherUsedAmount}â‚¬";
         }
 
         if ($totalUsed > $voucher->quantity) {
@@ -1606,7 +1616,7 @@ class BookingPriceCalculatorService
             $summary['timeline_span_days'] = $firstDate->diffInDays($lastDate);
         }
 
-        // DETERMINAR PATRÓN DE PAGO
+        // DETERMINAR PATRÃ“N DE PAGO
         $paymentEvents = array_filter($timeline, fn($e) => $e['type'] === 'payment' && $e['status'] === 'paid');
         $paymentCount = count($paymentEvents);
 
@@ -1644,7 +1654,7 @@ class BookingPriceCalculatorService
 
         $activitiesPrice = $this->calculateActivitiesPrice($activeBookingUsers);
 
-        // Añadir conceptos adicionales proporcionalmente
+        // AÃ±adir conceptos adicionales proporcionalmente
         $totalUsers = $booking->bookingUsers->where('status', '!=', 2)->count();
         $activeUsers = $activeBookingUsers->count();
 
@@ -1671,7 +1681,7 @@ class BookingPriceCalculatorService
                 'type' => 'voucher_excess',
                 'severity' => 'medium',
                 'amount' => round($excess, 2),
-                'description' => "Vouchers usados ({$financialReality['total_vouchers_used']}€) exceden precio total ({$calculatedData['total_final']}€)"
+                'description' => "Vouchers usados ({$financialReality['total_vouchers_used']}â‚¬) exceden precio total ({$calculatedData['total_final']}â‚¬)"
             ];
         }
 
@@ -1681,18 +1691,18 @@ class BookingPriceCalculatorService
                 'type' => 'payment_status_inconsistency',
                 'severity' => 'medium',
                 'amount' => $financialReality['total_paid'],
-                'description' => "Reserva marcada como no pagada pero se recibió pago significativo sin vouchers"
+                'description' => "Reserva marcada como no pagada pero se recibiÃ³ pago significativo sin vouchers"
             ];
         }
 
-        // PROBLEMA: Múltiples refunds sin lógica clara
+        // PROBLEMA: MÃºltiples refunds sin lÃ³gica clara
         $refundCount = $booking->payments->whereIn('status', ['refund', 'partial_refund'])->count();
         if ($refundCount > 2) {
             $issues[] = [
                 'type' => 'multiple_refunds',
                 'severity' => 'low',
                 'amount' => $financialReality['total_refunded'],
-                'description' => "Múltiples refunds detectados ({$refundCount}) - revisar lógica de procesamiento"
+                'description' => "MÃºltiples refunds detectados ({$refundCount}) - revisar lÃ³gica de procesamiento"
             ];
         }
 
@@ -1744,11 +1754,11 @@ class BookingPriceCalculatorService
         }
         $confidenceFactors[] = $voucherConsistency ? 25 : 15;
 
-        // Factor 3: Completitud de la información
+        // Factor 3: Completitud de la informaciÃ³n
         $hasCompleteInfo = !empty($booking->price_total) && $booking->bookingUsers->isNotEmpty();
         $confidenceFactors[] = $hasCompleteInfo ? 25 : 10;
 
-        // Factor 4: Simplicidad de la transacción
+        // Factor 4: Simplicidad de la transacciÃ³n
         $transactionComplexity = $booking->payments->count() + $booking->vouchersLogs->count();
         $simplicityScore = max(0, 25 - ($transactionComplexity * 2));
         $confidenceFactors[] = $simplicityScore;
@@ -1769,24 +1779,24 @@ class BookingPriceCalculatorService
 
     private function addContextualRecommendations(Booking $booking, array &$recommendations): void
     {
-        // RECOMENDACIÓN: Actualizar flag de pagado
+        // RECOMENDACIÃ“N: Actualizar flag de pagado
         if (!$booking->paid && $this->shouldBeMarkedAsPaid($booking)) {
             $recommendations[] = [
                 'type' => 'status_update',
                 'priority' => 'medium',
                 'title' => 'Actualizar Estado de Pago',
-                'description' => 'La reserva debería marcarse como pagada basado en el balance actual',
+                'description' => 'La reserva deberÃ­a marcarse como pagada basado en el balance actual',
                 'action' => 'Marcar reserva como pagada',
                 'suggested_steps' => [
                     'Verificar que el balance sea suficiente',
                     'Actualizar campo "paid" a true',
                     'Notificar al cliente si es necesario'
                 ],
-                'icon' => '🔄'
+                'icon' => 'ðŸ”„'
             ];
         }
 
-        // RECOMENDACIÓN: Revisar vouchers problemáticos
+        // RECOMENDACIÃ“N: Revisar vouchers problemÃ¡ticos
         $problematicVouchers = $this->getProblematicVouchers($booking);
         if (!empty($problematicVouchers)) {
             $recommendations[] = [
@@ -1796,19 +1806,19 @@ class BookingPriceCalculatorService
                 'description' => 'Se detectaron inconsistencias en ' . count($problematicVouchers) . ' voucher(s)',
                 'action' => 'Revisar y corregir datos de vouchers',
                 'voucher_details' => $problematicVouchers,
-                'icon' => '🎟️'
+                'icon' => 'ðŸŽŸï¸'
             ];
         }
 
-        // RECOMENDACIÓN: Seguimiento post-resolución
+        // RECOMENDACIÃ“N: Seguimiento post-resoluciÃ³n
         if ($this->hasHistoricalIssues($booking)) {
             $recommendations[] = [
                 'type' => 'follow_up',
                 'priority' => 'low',
                 'title' => 'Seguimiento Recomendado',
                 'description' => 'Esta reserva tuvo problemas anteriores, considerar seguimiento adicional',
-                'action' => 'Programar revisión en 7 días',
-                'icon' => '📅'
+                'action' => 'Programar revisiÃ³n en 7 dÃ­as',
+                'icon' => 'ðŸ“…'
             ];
         }
     }
@@ -1827,7 +1837,7 @@ class BookingPriceCalculatorService
             ];
         }
 
-        // ISSUES DE CÁLCULO
+        // ISSUES DE CÃLCULO
         if ($calculatedData['total_final'] <= 0) {
             $allIssues[] = [
                 'category' => 'calculation',
@@ -1933,7 +1943,7 @@ class BookingPriceCalculatorService
             }
         }
 
-        // FLAG: Discrepancias históricas
+        // FLAG: Discrepancias histÃ³ricas
         if ($this->hasHistoricalIssues($booking)) {
             $flags[] = 'historical_issues';
         }
@@ -1941,7 +1951,7 @@ class BookingPriceCalculatorService
         return $flags;
     }
 
-    // Métodos auxiliares simples
+    // MÃ©todos auxiliares simples
 
     private function getPaymentMethodsBreakdown(Collection $paidPayments): array
     {
@@ -2016,7 +2026,7 @@ class BookingPriceCalculatorService
 
     private function hasHistoricalIssues(Booking $booking): bool
     {
-        // Verificar si hay múltiples refunds o patrones sospechosos
+        // Verificar si hay mÃºltiples refunds o patrones sospechosos
         $refundCount = $booking->payments->whereIn('status', ['refund', 'partial_refund'])->count();
         return $refundCount > 1;
     }
@@ -2045,6 +2055,7 @@ class BookingPriceCalculatorService
     }
 
 }
+
 
 
 

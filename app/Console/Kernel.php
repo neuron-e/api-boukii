@@ -3,6 +3,7 @@
 namespace App\Console;
 
 use App\Console\Commands\CleanupDuplicateBookingUsers;
+use App\Console\Commands\FixBookingPriceTotals;
 use App\Console\Commands\RecalculateBookingTotals;
 use App\Console\Commands\RefreshCashPaidTotals;
 use App\Console\Commands\RepairOrphanedCourseData;
@@ -21,6 +22,7 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
         \App\Console\Commands\SendBookingConfirmations::class,
+        FixBookingPriceTotals::class,
         RecalculateBookingTotals::class,
         RefreshCashPaidTotals::class,
         RepairOrphanedCourseData::class,

@@ -104,6 +104,10 @@ class BookingLogAPIController extends AppBaseController
     {
         $input = $request->all();
 
+        if (($input['action'] ?? null) === 'refund_voucher') {
+            $input['action'] = 'voucher_refund';
+        }
+
         $bookingLog = $this->bookingLogRepository->create($input);
 
         return $this->sendResponse($bookingLog, 'Booking Log saved successfully');

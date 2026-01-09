@@ -68,11 +68,18 @@ class FinanceController extends AppBaseController
         ]);
 
         try {
-            $dashboard = Cache::remember($cacheKey, 300, function () use ($request, $optimizationLevel) {
-                return $this->buildDashboard($request, $optimizationLevel);
-            });
+//             $dashboard = Cache::remember($cacheKey, 300, function () use ($request, $optimizationLevel) {
+//                 return $this->buildDashboard($request, $optimizationLevel);
+//             });
+            Log::info('🚀 [DEBUG] Building dashboard WITHOUT cache');
+            $dashboard = $this->buildDashboard($request, $optimizationLevel);
 
-            return $this->sendResponse($dashboard, 'Dashboard ejecutivo con clasificaciÃ³n generado exitosamente');
+            $response = $this->sendResponse($dashboard, 'Dashboard ejecutivo con clasificación generado exitosamente');
+
+            return $response
+                ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+                ->header('Pragma', 'no-cache')
+                ->header('Expires', '0');
 
         } catch (\Exception $e) {
             Log::error('Error en dashboard ejecutivo con clasificaciÃ³n: ' . $e->getMessage(), [
@@ -160,34 +167,56 @@ class FinanceController extends AppBaseController
         $startDateTime = Carbon::parse($dateRange['start_date'])->startOfDay();
         $endDateTime = Carbon::parse($dateRange['end_date'])->endOfDay();
 
+        // Primero obtener todas las reservas según el filtro de fecha
         if ($dateFilter === 'activity') {
-            $bookingIdsQuery = DB::table('booking_users as bu')
+            $allBookingIds = DB::table('booking_users as bu')
                 ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
                 ->where('b.school_id', $schoolId)
                 ->whereNull('b.deleted_at')
                 ->whereBetween('bu.date', [$dateRange['start_date'], $dateRange['end_date']])
                 ->select('b.id')
-                ->distinct();
+                ->distinct()
+                ->pluck('b.id');
         } else {
-            $bookingIdsQuery = DB::table('bookings as b')
+            $allBookingIds = DB::table('bookings as b')
                 ->where('b.school_id', $schoolId)
                 ->whereNull('b.deleted_at')
                 ->whereBetween('b.created_at', [$startDateTime, $endDateTime])
                 ->select('b.id')
-                ->distinct();
+                ->distinct()
+                ->pluck('b.id');
         }
+
+        // Excluir reservas que SOLO tienen cursos de prueba
+        $bookingsWithNonExcludedCourses = DB::table('booking_users')
+            ->whereIn('booking_id', $allBookingIds)
+            ->whereNull('deleted_at')
+            ->whereNotIn('course_id', self::EXCLUDED_COURSES)
+            ->select('booking_id')
+            ->distinct()
+            ->pluck('booking_id');
+
+        // Query final: solo reservas con al menos un curso NO excluido
+        $bookingIdsQuery = DB::table('bookings')
+            ->whereIn('id', $bookingsWithNonExcludedCourses)
+            ->select('id');
 
         $bookingsBase = DB::table('bookings as b')
             ->whereIn('b.id', $bookingIdsQuery)
             ->whereNull('b.deleted_at');
 
         $totalBookings = (clone $bookingsBase)->count('b.id');
-        $revenueExpected = (clone $bookingsBase)->where('b.status', 1)->sum('b.price_total');
-        $revenuePending = (clone $bookingsBase)->where('b.status', 1)->where('b.paid', 0)->sum('b.price_total');
+
+        // Revenue esperado: status 1 (activas completas) + status 3 (solo parte activa de parciales)
+        // IMPORTANTE: Restar price_reduction para obtener el monto REAL a cobrar
+        $revenueStatus1 = (clone $bookingsBase)->where('b.status', 1)->sum(DB::raw('b.price_total - COALESCE(b.price_reduction, 0)'));
+        $revenueStatus3 = (clone $bookingsBase)->where('b.status', 3)->sum(DB::raw('b.price_total - COALESCE(b.price_reduction, 0)'));
+        $revenueExpected = $revenueStatus1 + $revenueStatus3;
+
         $cancelledCount = (clone $bookingsBase)->where('b.status', 2)->count('b.id');
         $cancelledRevenue = (clone $bookingsBase)->where('b.status', 2)->sum('b.price_total');
         $productionCount = max(0, $totalBookings - $cancelledCount);
-        $averageBookingValue = $totalBookings > 0 ? $revenueExpected / $totalBookings : 0;
+        $averageBookingValue = $productionCount > 0 ? $revenueExpected / $productionCount : 0;
 
         // Solo clientes y participantes de reservas PRODUCTIVAS (excluir canceladas)
         $totalClients = (clone $bookingsBase)
@@ -208,18 +237,73 @@ class FinanceController extends AppBaseController
             ->selectRaw('COUNT(DISTINCT COALESCE(bu.client_id, b.client_main_id)) as total')
             ->value('total');
 
+        // Pagos recibidos: solo de reservas activas (status 1) y parciales (status 3)
+        // NO incluir pagos de reservas canceladas (status 2)
         $revenueReceived = DB::table('payments as p')
             ->join('bookings as b', 'p.booking_id', '=', 'b.id')
             ->whereIn('b.id', $bookingIdsQuery)
             ->whereNull('b.deleted_at')
+            ->whereNull('p.deleted_at')
+            ->whereIn('b.status', [1, 3])  // Solo status activos y parciales
             ->where('p.status', 'paid')
             ->sum('p.amount');
 
+        // Pendiente = Esperado - Recibido (ahora que esperado incluye parciales, el cálculo es correcto)
         $revenuePending = max(0, $revenueExpected - $revenueReceived);
 
         $collectionEfficiency = $revenueExpected > 0
             ? round(($revenueReceived / $revenueExpected) * 100, 2)
             : 0;
+
+        // ✅ CALCULAR CATEGORIZACIÓN DE PAGOS (solo reservas productivas: status 1 y 3)
+        // NOTA: price_total YA incluye price_reduction aplicada, NO restar dos veces
+        $paymentCategories = DB::table('bookings as b')
+            ->leftJoin(DB::raw('(SELECT booking_id, SUM(amount) as total_paid FROM payments WHERE status = "paid" AND deleted_at IS NULL GROUP BY booking_id) as p'), 'b.id', '=', 'p.booking_id')
+            ->whereIn('b.id', $bookingIdsQuery)
+            ->whereNull('b.deleted_at')
+            ->whereIn('b.status', [1, 3])
+            ->whereRaw('b.price_total >= 0')
+            ->selectRaw('
+                SUM(CASE
+                    WHEN (b.price_total - COALESCE(p.total_paid, 0)) > 0.50
+                    THEN (b.price_total - COALESCE(p.total_paid, 0))
+                    ELSE 0
+                END) as unpaid_with_debt_amount,
+                SUM(CASE
+                    WHEN (b.price_total - COALESCE(p.total_paid, 0)) > 0.50
+                    THEN 1
+                    ELSE 0
+                END) as unpaid_with_debt_count,
+                SUM(CASE
+                    WHEN (b.price_total - COALESCE(p.total_paid, 0)) < -0.50
+                    THEN ABS(b.price_total - COALESCE(p.total_paid, 0))
+                    ELSE 0
+                END) as overpayment_amount,
+                SUM(CASE
+                    WHEN (b.price_total - COALESCE(p.total_paid, 0)) < -0.50
+                    THEN 1
+                    ELSE 0
+                END) as overpayment_count,
+                SUM(CASE
+                    WHEN (b.price_total - COALESCE(p.total_paid, 0)) >= -0.50
+                    AND (b.price_total - COALESCE(p.total_paid, 0)) <= 0.50
+                    THEN 1
+                    ELSE 0
+                END) as fully_paid_count,
+                SUM(CASE
+                    WHEN (b.price_total - COALESCE(p.total_paid, 0)) < -0.50
+                    THEN COALESCE(p.total_paid, 0) - ABS(b.price_total - COALESCE(p.total_paid, 0))
+                    ELSE COALESCE(p.total_paid, 0)
+                END) as revenue_real
+            ')
+            ->first();
+
+        $unpaidWithDebt = $paymentCategories->unpaid_with_debt_amount ?? 0;
+        $unpaidWithDebtCount = $paymentCategories->unpaid_with_debt_count ?? 0;
+        $overpayment = $paymentCategories->overpayment_amount ?? 0;
+        $overpaymentCount = $paymentCategories->overpayment_count ?? 0;
+        $fullyPaidCount = $paymentCategories->fully_paid_count ?? 0;
+        $revenueReal = $paymentCategories->revenue_real ?? 0;
 
         $sourceRows = (clone $bookingsBase)
             ->selectRaw('b.source, COUNT(*) as count, SUM(b.price_total) as revenue, COUNT(DISTINCT b.client_main_id) as unique_clients')
@@ -244,14 +328,21 @@ class FinanceController extends AppBaseController
             ->join('bookings as b', 'p.booking_id', '=', 'b.id')
             ->whereIn('b.id', $bookingIdsQuery)
             ->whereNull('b.deleted_at')
+            ->whereNull('p.deleted_at')
             ->where('p.status', 'paid')
             ->selectRaw("
                 CASE
                     WHEN p.payrexx_reference IS NOT NULL AND b.payment_method_id = " . Booking::ID_BOUKIIPAY . " THEN 'boukii_direct'
                     WHEN p.payrexx_reference IS NOT NULL THEN 'online_link'
+                    WHEN b.payment_method_id = " . Booking::ID_CASH . " THEN 'cash'
+                    WHEN b.payment_method_id = " . Booking::ID_ONLINE . " THEN 'online_manual'
+                    WHEN b.payment_method_id = " . Booking::ID_BOUKIIPAY . " THEN 'boukii_offline'
+                    WHEN b.payment_method_id = " . Booking::ID_NOPAYMENT . " THEN 'no_payment'
                     WHEN LOWER(p.notes) LIKE '%cash%' OR LOWER(p.notes) LIKE '%efectivo%' THEN 'cash'
+                    WHEN LOWER(p.notes) LIKE '%bar%' OR LOWER(p.notes) LIKE '%bargeld%' THEN 'cash'
                     WHEN LOWER(p.notes) LIKE '%card%' OR LOWER(p.notes) LIKE '%tarjeta%' THEN 'card_offline'
-                    WHEN LOWER(p.notes) LIKE '%transfer%' THEN 'transfer'
+                    WHEN LOWER(p.notes) LIKE '%karte%' OR LOWER(p.notes) LIKE '%kredit%' THEN 'card_offline'
+                    WHEN LOWER(p.notes) LIKE '%transfer%' OR LOWER(p.notes) LIKE '%transferencia%' THEN 'transfer'
                     WHEN LOWER(p.notes) LIKE '%offline%' THEN 'boukii_offline'
                     WHEN LOWER(p.notes) LIKE '%manual%' THEN 'online_manual'
                     ELSE 'other'
@@ -319,6 +410,7 @@ class FinanceController extends AppBaseController
             ->whereIn('b.id', $bookingIdsQuery)
             ->whereNull('b.deleted_at')
             ->whereNull('bu.deleted_at')
+            ->whereNull('c.deleted_at')
             ->where(function ($q) {
                 $q->whereNull('bu.status')
                     ->orWhere('bu.status', '!=', 2);
@@ -335,6 +427,7 @@ class FinanceController extends AppBaseController
             ->whereIn('b.id', $bookingIdsQuery)
             ->whereNull('b.deleted_at')
             ->whereNull('bu.deleted_at')
+            ->whereNull('c.deleted_at')
             ->where(function ($q) {
                 $q->whereNull('bu.status')
                     ->orWhere('bu.status', '!=', 2);
@@ -420,7 +513,13 @@ class FinanceController extends AppBaseController
                 'revenue_pending' => (float) $revenuePending,
                 'collection_efficiency' => $collectionEfficiency,
                 'consistency_rate' => 0,
-                'average_booking_value' => round($averageBookingValue, 2)
+                'average_booking_value' => round($averageBookingValue, 2),
+                'unpaid_with_debt_amount' => (float) ($unpaidWithDebt ?? 0),
+                'unpaid_with_debt_count' => $unpaidWithDebtCount ?? 0,
+                'overpayment_amount' => (float) ($overpayment ?? 0),
+                'overpayment_count' => $overpaymentCount ?? 0,
+                'fully_paid_count' => $fullyPaidCount ?? 0,
+                'revenue_real' => (float) ($revenueReal ?? 0)
             ],
             'booking_sources' => [
                 'total_bookings' => $totalBookings,
@@ -452,7 +551,7 @@ class FinanceController extends AppBaseController
                     'unique_vouchers' => 0
                 ]
             ],
-            'courses' => [],
+            'courses' => $this->generateFastCourseAnalytics($bookingIdsQuery),
             'critical_issues' => [],
             'executive_alerts' => [],
             'priority_recommendations' => [],
@@ -680,7 +779,9 @@ class FinanceController extends AppBaseController
         // ðŸ’¼ RESUMEN COMPLETO PARA EXPORTACIÃ“N CON LÃ“GICA CORRECTA
         $dashboard['export_summary'] = $this->prepareExportSummary($dashboard, $classification);
 
+        \Log::info('🔍 [DASHBOARD] About to call generateCourseAnalytics with bookings count: ' . $bookings->count());
         $dashboard['courses'] = $this->generateCourseAnalytics($bookings);
+        \Log::info('🔍 [DASHBOARD] generateCourseAnalytics returned courses count: ' . count($dashboard['courses']));
 
         return $dashboard;
     }
@@ -1089,6 +1190,7 @@ class FinanceController extends AppBaseController
 
     private function generateCourseAnalytics($bookings)
     {
+        \Log::info('📚 [COURSE ANALYTICS] Starting with bookings count: ' . $bookings->count());
         $courses = [];
         $processedBookings = [];
 
@@ -1249,6 +1351,7 @@ class FinanceController extends AppBaseController
             }
         }
 
+        \Log::info('📚 [COURSE ANALYTICS] Finished with courses count: ' . count($courses));
         return array_values($courses);
     }
 
@@ -2563,6 +2666,50 @@ class FinanceController extends AppBaseController
             ? round($confirmedSales / $confirmedTransactions, 2)
             : 0;
 
+        // ✅ NUEVA SECCIÓN: CATEGORIZACIÓN DE PAGOS
+        // Calcular distribución de reservas según estado de pago
+        $unpaidWithDebt = 0;
+        $unpaidWithDebtCount = 0;
+        $overpayment = 0;
+        $overpaymentCount = 0;
+
+        foreach ($allProductionBookings as $booking) {
+            $realStatus = $booking->getCancellationStatusAttribute();
+            if ($realStatus == 'total_cancel') {
+                continue;
+            }
+
+            $quickAnalysis = $this->getQuickBookingFinancialStatus($booking);
+
+            if ($realStatus == 'partial_cancel') {
+                $activeRevenue = $this->calculateActivePortionRevenue($booking);
+                $activeProportion = $activeRevenue > 0 ? $activeRevenue / $quickAnalysis['calculated_amount'] : 0;
+                $effectiveExpected = $activeRevenue;
+                $effectiveReceived = $quickAnalysis['received_amount'] * $activeProportion;
+            } else {
+                $effectiveExpected = $quickAnalysis['calculated_amount'];
+                $effectiveReceived = $quickAnalysis['received_amount'];
+            }
+
+            $pendingAmount = $effectiveExpected - $effectiveReceived;
+
+            // Categorizar según pending y paid flag
+            if ($pendingAmount > 0.50) {
+                // Tiene deuda pendiente
+                $unpaidWithDebt += $pendingAmount;
+                $unpaidWithDebtCount++;
+            } elseif ($pendingAmount < -0.50) {
+                // Sobrepago
+                $overpayment += abs($pendingAmount);
+                $overpaymentCount++;
+            }
+        }
+
+        $stats['unpaid_with_debt_amount'] = round($unpaidWithDebt, 2);
+        $stats['unpaid_with_debt_count'] = $unpaidWithDebtCount;
+        $stats['overpayment_amount'] = round($overpayment, 2);
+        $stats['overpayment_count'] = $overpaymentCount;
+
         return $stats;
     }
 
@@ -2594,37 +2741,64 @@ class FinanceController extends AppBaseController
             $optimizationLevel = $request->get('optimization_level', 'balanced');
 
             if ($optimizationLevel === 'fast') {
+                Log::info('🔍 BOOKING-DETAILS: Usando optimización FAST con filtro de cursos');
                 $dateFilter = $request->get('date_filter', 'created_at');
                 $startDateTime = Carbon::parse($dateRange['start_date'])->startOfDay();
                 $endDateTime = Carbon::parse($dateRange['end_date'])->endOfDay();
 
+                // Primero obtener todas las reservas según el filtro de fecha
                 if ($dateFilter === 'activity') {
-                    $bookingIdsQuery = DB::table('booking_users as bu')
+                    $allBookingIds = DB::table('booking_users as bu')
                         ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
                         ->where('b.school_id', $request->school_id)
                         ->whereNull('b.deleted_at')
                         ->whereBetween('bu.date', [$dateRange['start_date'], $dateRange['end_date']])
                         ->select('b.id')
-                        ->distinct();
+                        ->distinct()
+                        ->pluck('b.id');
                 } else {
-                    $bookingIdsQuery = DB::table('bookings as b')
+                    $allBookingIds = DB::table('bookings as b')
                         ->where('b.school_id', $request->school_id)
                         ->whereNull('b.deleted_at')
                         ->whereBetween('b.created_at', [$startDateTime, $endDateTime])
                         ->select('b.id')
-                        ->distinct();
+                        ->distinct()
+                        ->pluck('b.id');
                 }
+
+                // Excluir reservas que SOLO tienen cursos de prueba (igual que en KPIs)
+                $bookingsWithNonExcludedCourses = DB::table('booking_users')
+                    ->whereIn('booking_id', $allBookingIds)
+                    ->whereNull('deleted_at')
+                    ->whereNotIn('course_id', self::EXCLUDED_COURSES)
+                    ->select('booking_id')
+                    ->distinct()
+                    ->pluck('booking_id');
+
+                Log::info('🔍 FILTRO DE CURSOS:', [
+                    'total_bookings' => $allBookingIds->count(),
+                    'bookings_after_filter' => $bookingsWithNonExcludedCourses->count(),
+                    'excluded_count' => $allBookingIds->count() - $bookingsWithNonExcludedCourses->count()
+                ]);
+
+                // Query final: solo reservas con al menos un curso NO excluido
+                $bookingIdsQuery = DB::table('bookings')
+                    ->whereIn('id', $bookingsWithNonExcludedCourses)
+                    ->select('id');
 
                 $baseQuery = DB::table('bookings as b')
                     ->leftJoin('clients as c', 'b.client_main_id', '=', 'c.id')
                     ->whereIn('b.id', $bookingIdsQuery)
                     ->whereNull('b.deleted_at')
+                    ->whereNull('c.deleted_at')
                     ->select([
                         'b.id',
                         'b.created_at',
                         'b.status',
                         'b.price_total',
+                        'b.price_reduction',
                         'b.paid_total',
+                        'b.paid',
                         'c.first_name',
                         'c.last_name',
                         'c.email'
@@ -2636,16 +2810,101 @@ class FinanceController extends AppBaseController
                     $baseQuery->whereIn('b.status', [1, 3]);
                 }
 
+                // ✅ FILTRO POR CATEGORÍA DE PAGO (nuevo parámetro)
+                $filterByCategory = $request->get('payment_category'); // Filtro solicitado por el usuario
+
+                // ✅ Si se solicita filtro por categoría (unpaid_with_debt, overpayment o fully_paid),
+                // solo mostrar reservas activas y parciales (excluir canceladas totalmente)
+                if ($filterByCategory && in_array($filterByCategory, ['unpaid_with_debt', 'overpayment', 'fully_paid'])) {
+                    $baseQuery->whereIn('b.status', [1, 3]);
+                }
+
+                // ✅ Excluir reservas con amount_to_pay negativo (datos erróneos)
+                // NOTA: price_total YA incluye price_reduction aplicada, NO restar dos veces
+                $baseQuery->whereRaw('b.price_total >= 0');
+
                 $rows = $baseQuery->get();
+
+                // Obtener pagos reales de la tabla payments para cada booking
+                $bookingIds = $rows->pluck('id')->toArray();
+                $paymentsPerBooking = DB::table('payments')
+                    ->whereIn('booking_id', $bookingIds)
+                    ->where('status', 'paid')
+                    ->whereNull('deleted_at')
+                    ->select('booking_id', DB::raw('SUM(amount) as total_paid'))
+                    ->groupBy('booking_id')
+                    ->get()
+                    ->keyBy('booking_id');
+
+                Log::info('💰 PAYMENTS DEBUG:', [
+                    'total_rows' => $rows->count(),
+                    'total_payments_sum' => $paymentsPerBooking->sum('total_paid'),
+                    'sample_booking_payments' => $paymentsPerBooking->take(3)->toArray()
+                ]);
+
+                // Categorizar reservas según su estado de pago
+                $cat1_unpaid_with_debt = [];      // paid=0 Y pending>0
+                $cat2_paid_but_with_debt = [];    // paid=1 PERO pending>0 (ERROR!)
+                $cat3_overpayment = [];           // pending<0 (sobrepago)
+                $cat4_fully_paid = [];            // pending≈0
+
                 $bookingDetails = [];
+                $totalPendingPositive = 0;
+                $totalOverpayment = 0;
+                $totalExpectedCalculated = 0;
 
                 foreach ($rows as $row) {
                     $priceTotal = floatval($row->price_total);
-                    $paidTotal = floatval($row->paid_total);
-                    $pendingAmount = max(0, $priceTotal - $paidTotal);
+                    $priceReduction = floatval($row->price_reduction ?? 0);
+                    // NOTA: price_total YA incluye price_reduction aplicada, NO restar dos veces
+                    $amountToPay = $priceTotal; // price_total ya es el monto final a pagar
 
-                    if ($request->boolean('only_pending') && $pendingAmount <= 0.50) {
-                        continue;
+                    // Usar pagos reales de la tabla payments, no paid_total
+                    $paidTotal = floatval($paymentsPerBooking[$row->id]->total_paid ?? 0);
+                    $pendingAmount = $amountToPay - $paidTotal; // Permitir negativos para detectar sobrepagos
+                    $isPaid = $row->paid == 1;
+
+                    $totalExpectedCalculated += $amountToPay;
+
+                    // Determinar categoría de esta reserva
+                    $bookingCategory = 'fully_paid';
+                    if ($pendingAmount > 0.50) {
+                        $totalPendingPositive += $pendingAmount;
+                        if ($isPaid) {
+                            $bookingCategory = 'paid_but_with_debt'; // ⚠️ ERROR DE DATOS
+                            $cat2_paid_but_with_debt[] = $row->id;
+                        } else {
+                            $bookingCategory = 'unpaid_with_debt';
+                            $cat1_unpaid_with_debt[] = $row->id;
+                        }
+                    } elseif ($pendingAmount < -0.50) {
+                        $totalOverpayment += abs($pendingAmount);
+                        $bookingCategory = 'overpayment';
+                        $cat3_overpayment[] = $row->id;
+                    } else {
+                        $cat4_fully_paid[] = $row->id;
+                    }
+
+                    // Aplicar filtros si existen
+                    if ($filterByCategory) {
+                        // ✅ FILTRO POR CATEGORÍA ESPECÍFICA
+                        // Solo incluir reservas que coincidan con la categoría solicitada
+                        if ($bookingCategory !== $filterByCategory) {
+                            continue; // Saltar si no coincide con la categoría solicitada
+                        }
+                    } elseif ($request->boolean('only_pending')) {
+                        // ✅ Si only_pending=true, mostrar TODAS las reservas con desbalance
+                        // (tanto pendientes > 0.50 como sobrepagos < -0.50)
+                        // Excluir solo las pagadas exactamente (pending entre -0.50 y 0.50)
+                        if ($pendingAmount >= -0.50 && $pendingAmount <= 0.50) {
+                            continue;
+                        }
+                    } else {
+                        // Si NO hay filtro, mostrar TODAS las reservas con desbalance (pending != 0)
+                        // Excluir las pagadas exactamente (pending entre -0.50 y 0.50)
+                        if ($pendingAmount >= -0.50 && $pendingAmount <= 0.50) {
+                            continue;
+                        }
                     }
 
                     $realStatus = $row->status == 2
@@ -2657,12 +2916,16 @@ class FinanceController extends AppBaseController
                         'client_name' => trim(($row->first_name ?? '') . ' ' . ($row->last_name ?? '')),
                         'client_email' => $row->email,
                         'booking_date' => Carbon::parse($row->created_at)->format('Y-m-d'),
-                        'amount' => round($priceTotal, 2),
+                        'amount' => round($amountToPay, 2), // Monto a pagar (con descuentos aplicados)
+                        'original_amount' => round($priceTotal, 2), // Monto original sin descuentos
+                        'price_reduction' => round($priceReduction, 2),
                         'received_amount' => round($paidTotal, 2),
-                        'pending_amount' => round($pendingAmount, 2),
+                        'pending_amount' => round($pendingAmount, 2), // Puede ser negativo si sobrepago
+                        'is_paid' => $isPaid,
+                        'payment_category' => $bookingCategory,
                         'status' => $realStatus,
                         'status_numeric' => $row->status,
-                        'has_issues' => false,
+                        'has_issues' => $bookingCategory === 'paid_but_with_debt',
                         'is_test' => false,
                         'real_status_info' => [
                             'database_status' => $row->status,
@@ -2673,10 +2936,80 @@ class FinanceController extends AppBaseController
                     ];
                 }
 
+                // ✅ RECALCULAR financial_summary solo con las reservas que se muestran
+                $displayedPendingPositive = 0;
+                $displayedOverpayment = 0;
+                $displayedExpected = 0;
+
+                foreach ($bookingDetails as $booking) {
+                    $displayedExpected += $booking['amount'];
+                    if ($booking['pending_amount'] > 0.50) {
+                        $displayedPendingPositive += $booking['pending_amount'];
+                    } elseif ($booking['pending_amount'] < -0.50) {
+                        $displayedOverpayment += abs($booking['pending_amount']);
+                    }
+                }
+
+                $displayedNetPending = $displayedPendingPositive - $displayedOverpayment;
+                $netPending = $totalPendingPositive - $totalOverpayment;
+
+                Log::info('📊 BOOKING-DETAILS CATEGORIZATION:', [
+                    'total_bookings_analyzed' => $rows->count(),
+                    'cat1_unpaid_with_debt' => count($cat1_unpaid_with_debt),
+                    'cat2_paid_but_with_debt' => count($cat2_paid_but_with_debt),
+                    'cat3_overpayment' => count($cat3_overpayment),
+                    'cat4_fully_paid' => count($cat4_fully_paid),
+                    'total_pending_positive' => round($totalPendingPositive, 2),
+                    'total_overpayment' => round($totalOverpayment, 2),
+                    'net_pending' => round($netPending, 2),
+                    'displayed_pending_positive' => round($displayedPendingPositive, 2),
+                    'displayed_overpayment' => round($displayedOverpayment, 2),
+                    'displayed_net' => round($displayedNetPending, 2)
+                ]);
+
                 return $this->sendResponse([
                     'bookings' => $bookingDetails,
                     'total_count' => count($bookingDetails),
-                    'classification_summary' => [],
+                    'payment_classification' => [
+                        'unpaid_with_debt' => [
+                            'count' => count($cat1_unpaid_with_debt),
+                            'total_pending' => round($totalPendingPositive - array_sum(array_map(function($id) use ($paymentsPerBooking, $rows) {
+                                $row = $rows->firstWhere('id', $id);
+                                if (!$row) return 0;
+                                $amountToPay = floatval($row->price_total) - floatval($row->price_reduction ?? 0);
+                                $paidTotal = floatval($paymentsPerBooking[$row->id]->total_paid ?? 0);
+                                $pending = $amountToPay - $paidTotal;
+                                return $row->paid == 1 ? $pending : 0;
+                            }, $cat2_paid_but_with_debt)), 2),
+                            'description' => 'Reservas marcadas como NO pagadas (paid=0) que aún deben dinero'
+                        ],
+                        'paid_but_with_debt' => [
+                            'count' => count($cat2_paid_but_with_debt),
+                            'total_pending' => round(array_sum(array_map(function($id) use ($paymentsPerBooking, $rows) {
+                                $row = $rows->firstWhere('id', $id);
+                                if (!$row) return 0;
+                                $amountToPay = floatval($row->price_total) - floatval($row->price_reduction ?? 0);
+                                $paidTotal = floatval($paymentsPerBooking[$row->id]->total_paid ?? 0);
+                                return max(0, $amountToPay - $paidTotal);
+                            }, $cat2_paid_but_with_debt)), 2),
+                            'description' => '⚠️ ERROR: Reservas marcadas como PAGADAS (paid=1) pero con deuda pendiente'
+                        ],
+                        'overpayment' => [
+                            'count' => count($cat3_overpayment),
+                            'total_overpayment' => round($totalOverpayment, 2),
+                            'description' => 'Reservas que pagaron de más (sobrepago)'
+                        ],
+                        'fully_paid' => [
+                            'count' => count($cat4_fully_paid),
+                            'description' => 'Reservas pagadas exactamente'
+                        ]
+                    ],
+                    'financial_summary' => [
+                        'total_pending_positive' => round($displayedPendingPositive, 2),
+                        'total_overpayment' => round($displayedOverpayment, 2),
+                        'net_pending' => round($displayedNetPending, 2),
+                        'total_expected' => round($displayedExpected, 2)
+                    ],
                     'filter_applied' => $request->only('only_pending', 'only_cancelled')
                 ], 'Detalles de reservas obtenidos exitosamente');
             }
@@ -3107,7 +3440,9 @@ class FinanceController extends AppBaseController
         $request->validate([
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date',
-            'include_comparison' => 'boolean'
+            'include_comparison' => 'boolean',
+            'date_filter' => 'nullable|in:created_at,activity',
+            'optimization_level' => 'nullable|in:fast,balanced,detailed'
         ]);
 
         try {
@@ -3116,6 +3451,7 @@ class FinanceController extends AppBaseController
             // 1. VERIFICAR QUE EL CURSO EXISTE Y PERTENECE A LA ESCUELA
             $course = \App\Models\Course::where('id', $courseId)
                 ->where('school_id', $request->school_id)
+                ->whereNull('deleted_at')
                 ->with(['sport'])
                 ->first();
 
@@ -3126,8 +3462,17 @@ class FinanceController extends AppBaseController
             // 2. DETERMINAR RANGO DE FECHAS
             $dateRange = $this->getSeasonDateRange($request);
 
+            $dateFilter = $request->input('date_filter', 'created_at');
+            $optimizationLevel = $request->input('optimization_level', 'fast');
+
             // 3. OBTENER RESERVAS DEL CURSO
-            $bookings = $this->getCourseBookings($courseId, $dateRange, $request->school_id);
+            $bookings = $this->getCourseBookings(
+                $courseId,
+                $dateRange,
+                $request->school_id,
+                $dateFilter,
+                $optimizationLevel
+            );
 
             Log::info("Generando estadÃ­sticas para curso {$courseId}", [
                 'course_name' => $course->name,
@@ -3136,7 +3481,14 @@ class FinanceController extends AppBaseController
             ]);
 
             // 4. GENERAR ESTADÃSTICAS COMPLETAS
-            $statistics = $this->generateDetailedCourseStatistics($course, $bookings, $dateRange, $request);
+            $statistics = $this->generateDetailedCourseStatistics(
+                $course,
+                $bookings,
+                $dateRange,
+                $request,
+                $optimizationLevel,
+                $dateFilter
+            );
 
             return $this->sendResponse($statistics, 'EstadÃ­sticas del curso generadas exitosamente');
 
@@ -3153,13 +3505,20 @@ class FinanceController extends AppBaseController
     /**
      * MÃ‰TODO AUXILIAR: Obtener reservas especÃ­ficas del curso
      */
-    private function getCourseBookings($courseId, array $dateRange, $schoolId)
+    private function getCourseBookings($courseId, array $dateRange, $schoolId, string $dateFilter, string $optimizationLevel)
     {
-        return Booking::query()
+        $startDateTime = Carbon::parse($dateRange['start_date'])->startOfDay();
+        $endDateTime = Carbon::parse($dateRange['end_date'])->endOfDay();
+
+        $query = Booking::query()
             ->with([
-                'bookingUsers' => function($q) use ($courseId) {
+                'bookingUsers' => function($q) use ($courseId, $dateRange, $dateFilter) {
                     $q->where('course_id', $courseId)
-                        ->with(['course.sport', 'client', 'bookingUserExtras.courseExtra']);
+                        ->whereNull('deleted_at');
+                    if ($dateFilter === 'activity') {
+                        $q->whereBetween('date', [$dateRange['start_date'], $dateRange['end_date']]);
+                    }
+                    $q->with(['course.sport', 'client', 'bookingUserExtras.courseExtra']);
                 },
                 'payments',
                 'vouchersLogs.voucher',
@@ -3167,12 +3526,32 @@ class FinanceController extends AppBaseController
                 'school'
             ])
             ->where('school_id', $schoolId)
-            ->whereHas('bookingUsers', function($q) use ($courseId, $dateRange) {
+            ->whereNull('deleted_at')
+            ->whereHas('bookingUsers', function($q) use ($courseId, $dateRange, $dateFilter) {
                 $q->where('course_id', $courseId)
-                    ->whereBetween('date', [$dateRange['start_date'], $dateRange['end_date']]);
-            })
-            ->get()
-            ->filter(function($booking) use ($courseId) {
+                    ->whereNull('deleted_at');
+                if ($dateFilter === 'activity') {
+                    $q->whereBetween('date', [$dateRange['start_date'], $dateRange['end_date']]);
+                }
+            });
+
+        if ($dateFilter !== 'activity') {
+            $query->whereBetween('created_at', [$startDateTime, $endDateTime]);
+        }
+
+        switch ($optimizationLevel) {
+            case 'fast':
+                $query->latest()->limit(800);
+                break;
+            case 'balanced':
+                $query->latest()->limit(2000);
+                break;
+            case 'detailed':
+            default:
+                break;
+        }
+
+        return $query->get()->filter(function($booking) use ($courseId) {
                 // Solo incluir reservas que tienen al menos un booking_user de este curso
                 return $booking->bookingUsers->where('course_id', $courseId)->isNotEmpty();
             });
@@ -3181,10 +3560,53 @@ class FinanceController extends AppBaseController
     /**
      * MÃ‰TODO PRINCIPAL: Generar estadÃ­sticas detalladas del curso
      */
-    private function generateDetailedCourseStatistics($course, $bookings, array $dateRange, Request $request): array
+    private function generateDetailedCourseStatistics($course, $bookings, array $dateRange, Request $request, string $optimizationLevel, string $dateFilter): array
     {
         // Filtrar reservas que solo tienen cursos excluidos
         $filteredBookings = $this->filterBookingsWithExcludedCourses($bookings, self::EXCLUDED_COURSES);
+
+        if ($optimizationLevel === 'fast') {
+            $financialStats = $this->calculateCourseFinancialStatsFast(
+                $course->id,
+                $dateRange,
+                (int) $request->school_id,
+                $dateFilter
+            );
+            $participantStats = $this->calculateCourseParticipantStatsFast(
+                $course->id,
+                $dateRange,
+                (int) $request->school_id,
+                $dateFilter
+            );
+            $performanceStats = $this->calculateCoursePerformanceStats($course, $filteredBookings, $request);
+
+            $statistics = [
+                'course_info' => [
+                    'id' => $course->id,
+                    'name' => $course->name,
+                    'type' => $course->course_type,
+                    'sport' => $course->sport->name ?? 'N/A',
+                    'is_flexible' => (bool) $course->is_flexible
+                ],
+                'financial_stats' => $financialStats,
+                'participant_stats' => $participantStats,
+                'performance_stats' => $performanceStats,
+                'analysis_metadata' => [
+                    'total_bookings_analyzed' => $financialStats['total_bookings'] ?? 0,
+                    'test_bookings_excluded' => 0,
+                    'cancelled_bookings_excluded' => 0,
+                    'date_range' => $dateRange,
+                    'analysis_timestamp' => now()->toDateTimeString()
+                ]
+            ];
+
+            if ($request->boolean('include_comparison', true)) {
+                $statistics['performance_stats']['comparison_with_similar'] =
+                    $this->calculateSimilarCoursesComparison($course, $filteredBookings, $request);
+            }
+
+            return $statistics;
+        }
 
         // Clasificar reservas para usar solo las de producciÃ³n
         $classification = $this->classifyBookings($filteredBookings);
@@ -3318,6 +3740,224 @@ class FinanceController extends AppBaseController
         }
 
         return $financialStats;
+    }
+
+    private function calculateCourseFinancialStatsFast(int $courseId, array $dateRange, int $schoolId, string $dateFilter): array
+    {
+        $stats = [
+            'total_revenue' => 0,
+            'total_revenue_received' => 0,
+            'total_revenue_pending' => 0,
+            'total_bookings' => 0,
+            'total_participants' => 0,
+            'average_price_per_participant' => 0,
+            'revenue_trend' => [],
+            'payment_methods' => []
+        ];
+
+        $bookingIds = $this->getFastBookingIdsList($schoolId, $dateRange, $dateFilter);
+
+        $summary = DB::table('booking_users as bu')
+            ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
+            ->join('courses as c', 'bu.course_id', '=', 'c.id')
+            ->leftJoin('payments as p', function($join) {
+                $join->on('p.booking_id', '=', 'b.id')
+                    ->where('p.status', '=', 'paid')
+                    ->whereNull('p.deleted_at');
+            })
+            ->whereIn('bu.booking_id', $bookingIds)
+            ->whereNull('bu.deleted_at')
+            ->whereNull('b.deleted_at')
+            ->whereNull('c.deleted_at')
+            ->where('bu.course_id', $courseId)
+            ->whereNotIn('bu.course_id', self::EXCLUDED_COURSES)
+            ->where('bu.status', '!=', 2)
+            ->select([
+                DB::raw('COUNT(DISTINCT bu.booking_id) as total_bookings'),
+                DB::raw('COUNT(bu.id) as total_participants'),
+                DB::raw('COALESCE(SUM(bu.price), 0) as total_revenue'),
+                DB::raw('COALESCE(SUM(CASE WHEN p.id IS NOT NULL THEN p.amount ELSE 0 END), 0) as total_revenue_received')
+            ])
+            ->first();
+
+        if ($summary) {
+            $stats['total_bookings'] = (int) ($summary->total_bookings ?? 0);
+            $stats['total_participants'] = (int) ($summary->total_participants ?? 0);
+            $stats['total_revenue'] = round((float) ($summary->total_revenue ?? 0), 2);
+            $stats['total_revenue_received'] = round((float) ($summary->total_revenue_received ?? 0), 2);
+            $stats['total_revenue_pending'] = round($stats['total_revenue'] - $stats['total_revenue_received'], 2);
+            $stats['average_price_per_participant'] = $stats['total_participants'] > 0
+                ? round($stats['total_revenue'] / $stats['total_participants'], 2)
+                : 0;
+        }
+
+        $dateColumn = $dateFilter === 'activity' ? 'bu.date' : 'b.created_at';
+        $monthly = DB::table('booking_users as bu')
+            ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
+            ->join('courses as c', 'bu.course_id', '=', 'c.id')
+            ->whereIn('bu.booking_id', $bookingIds)
+            ->whereNull('bu.deleted_at')
+            ->whereNull('b.deleted_at')
+            ->whereNull('c.deleted_at')
+            ->where('bu.course_id', $courseId)
+            ->whereNotIn('bu.course_id', self::EXCLUDED_COURSES)
+            ->where('bu.status', '!=', 2)
+            ->select([
+                DB::raw("DATE_FORMAT({$dateColumn}, '%Y-%m') as month"),
+                DB::raw('COUNT(DISTINCT bu.booking_id) as bookings'),
+                DB::raw('COALESCE(SUM(bu.price), 0) as revenue')
+            ])
+            ->groupBy(DB::raw("DATE_FORMAT({$dateColumn}, '%Y-%m')"))
+            ->orderBy('month')
+            ->get();
+
+        foreach ($monthly as $row) {
+            if (!$row->month) {
+                continue;
+            }
+            $stats['revenue_trend'][] = [
+                'month' => $row->month,
+                'revenue' => round((float) ($row->revenue ?? 0), 2),
+                'bookings' => (int) ($row->bookings ?? 0)
+            ];
+        }
+
+        return $stats;
+    }
+
+    private function calculateCourseParticipantStatsFast(int $courseId, array $dateRange, int $schoolId, string $dateFilter): array
+    {
+        $stats = [
+            'total_participants' => 0,
+            'active_participants' => 0,
+            'cancelled_participants' => 0,
+            'completion_rate' => 0,
+            'bookings_by_date' => [],
+            'booking_sources' => []
+        ];
+
+        $bookingIds = $this->getFastBookingIdsList($schoolId, $dateRange, $dateFilter);
+
+        $summary = DB::table('booking_users as bu')
+            ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
+            ->whereIn('bu.booking_id', $bookingIds)
+            ->whereNull('bu.deleted_at')
+            ->whereNull('b.deleted_at')
+            ->where('bu.course_id', $courseId)
+            ->whereNotIn('bu.course_id', self::EXCLUDED_COURSES)
+            ->select([
+                DB::raw('COUNT(bu.id) as total_participants'),
+                DB::raw('SUM(CASE WHEN bu.status = 1 THEN 1 ELSE 0 END) as active_participants'),
+                DB::raw('SUM(CASE WHEN bu.status != 1 THEN 1 ELSE 0 END) as cancelled_participants')
+            ])
+            ->first();
+
+        if ($summary) {
+            $stats['total_participants'] = (int) ($summary->total_participants ?? 0);
+            $stats['active_participants'] = (int) ($summary->active_participants ?? 0);
+            $stats['cancelled_participants'] = (int) ($summary->cancelled_participants ?? 0);
+            $stats['completion_rate'] = $stats['total_participants'] > 0
+                ? round(($stats['active_participants'] / $stats['total_participants']) * 100, 2)
+                : 100;
+        }
+
+        $daily = DB::table('booking_users as bu')
+            ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
+            ->whereIn('bu.booking_id', $bookingIds)
+            ->whereNull('bu.deleted_at')
+            ->whereNull('b.deleted_at')
+            ->where('bu.course_id', $courseId)
+            ->whereNotIn('bu.course_id', self::EXCLUDED_COURSES)
+            ->whereNotNull('bu.date')
+            ->select([
+                DB::raw('DATE(bu.date) as date'),
+                DB::raw('COUNT(bu.id) as participants'),
+                DB::raw('COALESCE(SUM(bu.price), 0) as revenue')
+            ])
+            ->groupBy(DB::raw('DATE(bu.date)'))
+            ->orderBy('date')
+            ->get();
+
+        foreach ($daily as $row) {
+            if (!$row->date) {
+                continue;
+            }
+            $stats['bookings_by_date'][] = [
+                'date' => $row->date,
+                'participants' => (int) ($row->participants ?? 0),
+                'revenue' => round((float) ($row->revenue ?? 0), 2)
+            ];
+        }
+
+        $sources = DB::table('bookings as b')
+            ->whereIn('b.id', function ($query) use ($courseId, $bookingIds) {
+                $query->from('booking_users as bu')
+                    ->select('bu.booking_id')
+                    ->whereIn('bu.booking_id', $bookingIds)
+                    ->whereNull('bu.deleted_at')
+                    ->where('bu.course_id', $courseId)
+                    ->whereNotIn('bu.course_id', self::EXCLUDED_COURSES)
+                    ->groupBy('bu.booking_id');
+            })
+            ->whereNull('b.deleted_at')
+            ->select(['b.source', DB::raw('COUNT(DISTINCT b.id) as count')])
+            ->groupBy('b.source')
+            ->get();
+
+        $totalBookings = array_sum($sources->pluck('count')->toArray());
+        foreach ($sources as $row) {
+            $source = $row->source ?? 'unknown';
+            $stats['booking_sources'][$source] = [
+                'count' => (int) ($row->count ?? 0),
+                'percentage' => $totalBookings > 0 ? round(($row->count / $totalBookings) * 100, 2) : 0
+            ];
+        }
+
+        return $stats;
+    }
+
+    private function buildFastBookingIdsQuery(int $schoolId, array $dateRange, string $dateFilter)
+    {
+        $startDateTime = Carbon::parse($dateRange['start_date'])->startOfDay();
+        $endDateTime = Carbon::parse($dateRange['end_date'])->endOfDay();
+
+        if ($dateFilter === 'activity') {
+            $allBookingIds = DB::table('booking_users as bu')
+                ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
+                ->where('b.school_id', $schoolId)
+                ->whereNull('b.deleted_at')
+                ->whereBetween('bu.date', [$dateRange['start_date'], $dateRange['end_date']])
+                ->select('b.id')
+                ->distinct()
+                ->pluck('b.id');
+        } else {
+            $allBookingIds = DB::table('bookings as b')
+                ->where('b.school_id', $schoolId)
+                ->whereNull('b.deleted_at')
+                ->whereBetween('b.created_at', [$startDateTime, $endDateTime])
+                ->select('b.id')
+                ->distinct()
+                ->pluck('b.id');
+        }
+
+        $bookingsWithNonExcludedCourses = DB::table('booking_users')
+            ->whereIn('booking_id', $allBookingIds)
+            ->whereNull('deleted_at')
+            ->whereNotIn('course_id', self::EXCLUDED_COURSES)
+            ->select('booking_id')
+            ->distinct()
+            ->pluck('booking_id');
+
+        return DB::table('bookings')
+            ->whereIn('id', $bookingsWithNonExcludedCourses)
+            ->select('id');
+    }
+
+    private function getFastBookingIdsList(int $schoolId, array $dateRange, string $dateFilter)
+    {
+        $bookingIdsQuery = $this->buildFastBookingIdsQuery($schoolId, $dateRange, $dateFilter);
+
+        return (clone $bookingIdsQuery)->limit(800)->pluck('id');
     }
 
     /**
@@ -3638,7 +4278,9 @@ class FinanceController extends AppBaseController
         $request->validate([
             'format' => 'nullable|in:csv,excel,pdf',
             'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date'
+            'end_date' => 'nullable|date',
+            'date_filter' => 'nullable|in:created_at,activity',
+            'optimization_level' => 'nullable|in:fast,balanced,detailed'
         ]);
 
         try {
@@ -8372,8 +9014,11 @@ class FinanceController extends AppBaseController
 
         $sourceStats = [];
 
-        foreach ($bookings as $booking) {
-            $source = $booking->source ?? 'unknown';
+          foreach ($bookings as $booking) {
+              $source = $booking->source ?? 'unknown';
+              if ($source === 'booking_page') {
+                  $source = 'web';
+              }
 
             if (!isset($sourceStats[$source])) {
                 $sourceStats[$source] = [
@@ -8489,8 +9134,9 @@ class FinanceController extends AppBaseController
      */
     private function calculateOnlineOfflineRatio($methodStats): array
     {
+        // ✅ SOLO BoukiiPay y Link de Pago son ONLINE
+        // Todo lo demás (cash, card_offline, transfer, online_manual, etc.) es OFFLINE
         $onlineMethods = ['boukii_direct', 'online_link'];
-        $offlineMethods = ['cash', 'card_offline', 'transfer', 'boukii_offline', 'online_manual'];
 
         $onlineRevenue = 0;
         $offlineRevenue = 0;
@@ -8499,9 +9145,11 @@ class FinanceController extends AppBaseController
 
         foreach ($methodStats as $method) {
             if (in_array($method['method'], $onlineMethods)) {
+                // ✅ ONLINE: solo BoukiiPay y Link de Pago
                 $onlineRevenue += $method['revenue'];
                 $onlineCount += $method['count'];
-            } elseif (in_array($method['method'], $offlineMethods)) {
+            } else {
+                // ✅ OFFLINE: todo lo demás
                 $offlineRevenue += $method['revenue'];
                 $offlineCount += $method['count'];
             }
@@ -9061,5 +9709,78 @@ class FinanceController extends AppBaseController
         }
         return $dashboardData;
     }
-}
 
+    /**
+     * Generate course analytics for fast dashboard using raw queries
+     * Much faster than loading full Eloquent models
+     */
+    private function generateFastCourseAnalytics($bookingIdsQuery)
+    {
+        \Log::info('📚 [FAST COURSE ANALYTICS] Starting with raw query approach');
+
+        // Get booking IDs - LIMIT to 800 for fast mode
+        $bookingIds = $bookingIdsQuery->limit(800)->pluck('id');
+
+        \Log::info('📚 [FAST COURSE ANALYTICS] Processing ' . $bookingIds->count() . ' bookings');
+
+        // Use raw query to get course data directly - MUCH faster
+        $courseData = DB::table('booking_users as bu')
+            ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
+            ->join('courses as c', 'bu.course_id', '=', 'c.id')
+            ->leftJoin('sports as s', 'c.sport_id', '=', 's.id')
+            ->leftJoin('payments as p', function($join) {
+                $join->on('p.booking_id', '=', 'b.id')
+                     ->where('p.status', '=', 'paid')
+                     ->whereNull('p.deleted_at');
+            })
+            ->whereIn('bu.booking_id', $bookingIds)
+            ->whereNull('bu.deleted_at')
+            ->whereNull('b.deleted_at')
+            ->whereNull('c.deleted_at')
+            ->whereNull('s.deleted_at')
+            ->whereNotIn('bu.course_id', self::EXCLUDED_COURSES)
+            ->where('bu.status', '!=', 2) // Exclude cancelled
+            ->select([
+                'c.id as course_id',
+                'c.name as course_name',
+                'c.course_type',
+                'c.is_flexible',
+                's.name as sport_name',
+                DB::raw('COUNT(DISTINCT bu.booking_id) as bookings_count'),
+                DB::raw('COUNT(bu.id) as participants'),
+                DB::raw('SUM(bu.price) as revenue'),
+                DB::raw('SUM(CASE WHEN p.id IS NOT NULL THEN p.amount ELSE 0 END) as revenue_received'),
+            ])
+            ->groupBy('c.id', 'c.name', 'c.course_type', 'c.is_flexible', 's.name')
+            ->get();
+
+        \Log::info('📚 [FAST COURSE ANALYTICS] Found ' . $courseData->count() . ' courses');
+
+        // Transform to expected format
+        $courses = [];
+        foreach ($courseData as $course) {
+            $courses[] = [
+                'id' => $course->course_id,
+                'name' => $course->course_name,
+                'type' => $course->course_type,
+                'is_flexible' => $course->is_flexible,
+                'sport' => $course->sport_name,
+                'revenue' => round($course->revenue, 2),
+                'revenue_received' => round($course->revenue_received, 2),
+                'revenue_pending' => round($course->revenue - $course->revenue_received, 2),
+                'confirmed_sales' => round($course->revenue_received, 2),
+                'participants' => (int) $course->participants,
+                'bookings' => (int) $course->bookings_count,
+                'courses_sold' => (int) $course->bookings_count, // Approximation for fast mode
+                'average_price' => $course->participants > 0 ? round($course->revenue / $course->participants, 2) : 0,
+                'collection_rate' => $course->revenue > 0 ? round(($course->revenue_received / $course->revenue) * 100, 2) : 100,
+                'course_type_name' => $course->course_type,
+                'flexibility_type' => $course->is_flexible ? 'flexible' : 'fixed',
+            ];
+        }
+
+        \Log::info('📚 [FAST COURSE ANALYTICS] Completed successfully');
+
+        return $courses;
+    }
+}

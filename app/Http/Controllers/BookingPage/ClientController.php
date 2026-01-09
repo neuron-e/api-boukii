@@ -159,6 +159,8 @@ class ClientController extends SlugAuthController
                 'recipient_phone' => $giftVoucher->recipient_phone,
                 'expires_at' => $giftVoucher->expires_at,
                 'school_id' => $giftVoucher->school_id,
+                'origin_type' => 'gift_purchase',
+                'origin_gift_voucher_id' => $giftVoucher->id,
             ]);
 
             // Asociar el voucher al gift_voucher

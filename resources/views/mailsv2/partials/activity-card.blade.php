@@ -23,6 +23,7 @@
     $basePrice = $activity['price_base'] ?? max(($activity['total'] ?? 0) - ($activity['extra_price'] ?? 0), 0);
     $extrasPrice = $activity['extra_price'] ?? 0;
     $totalPrice = $activity['total'] ?? ($activity['price'] ?? 0);
+    $currency = $booking->currency ?? 'CHF';
     $forceDatePrice = $forceDatePrice ?? false;
     $degree = $activity['sportLevel'] ?? null;
     if (is_array($degree)) {
@@ -235,7 +236,7 @@
                                                 style="font-size:14px; line-height:19px; padding:0px 0px;">
                                                 <font face="Arial, Helvetica, sans-serif"
                                                       style="font-size:14px; line-height:19px; color:#000000;">
-                                                    {{ $basePrice }} CHF
+                                                    {{ number_format($basePrice, 2, '.', '') }} {{ $currency }}
                                                 </font>
                                             </td>
                                         </tr>
@@ -251,7 +252,7 @@
                                                     style="font-size:14px; line-height:19px; padding:0px 0px;">
                                                     <font face="Arial, Helvetica, sans-serif"
                                                           style="font-size:14px; line-height:19px; color:#000000;">
-                                                        {{ $extrasPrice }} CHF
+                                                        {{ number_format($extrasPrice, 2, '.', '') }} {{ $currency }}
                                                     </font>
                                                 </td>
                                             </tr>
@@ -284,7 +285,7 @@
                                     style="font-size:16px; line-height:21px; color:#000000; font-weight: bold; padding:0px 0px;">
                                     <font face="Arial, Helvetica, sans-serif"
                                           style="font-size:16px; line-height:21px; color:#000000; font-weight: bold;">
-                                        {{ $totalPrice }} CHF
+                                        {{ number_format($totalPrice, 2, '.', '') }} {{ $currency }}
                                     </font>
                                 </td>
                             </tr>

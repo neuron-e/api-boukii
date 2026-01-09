@@ -30,6 +30,11 @@ class BookingEmailPreviewController extends Controller
             abort(404, 'Booking not found');
         }
 
+        $booking->loadMissing([
+            'payments',
+            'vouchersLogs.voucher',
+        ]);
+
         $courses = $booking->parseBookedGroupedWithCourses();
 
         $lang = $request->input('lang') ?? optional($booking->clientMain->language1)->code ?? config('app.locale');
@@ -101,13 +106,43 @@ class BookingEmailPreviewController extends Controller
             $referenceValue = $booking->payrexx_reference;
         }
 
+        $voucherBalance = $booking->getCurrentBalance();
+        $voucherUsed = (float) ($voucherBalance['total_vouchers_used'] ?? 0);
+        if ($voucherUsed <= 0) {
+            $voucherFallback = (float) $booking->vouchersLogs()
+                ->where('amount', '>', 0)
+                ->sum('amount');
+            if ($voucherFallback > 0) {
+                $voucherUsed = $voucherFallback;
+            }
+        }
+        $voucherIncludedInPrice = $booking->priceIncludesVoucherDiscounts();
+        $priceTotalStored = (float) ($booking->price_total ?? 0);
+        $priceTva = (float) ($booking->price_tva ?? 0);
+        $priceReduction = (float) ($booking->price_reduction ?? 0);
+        $hasReduction = !empty($booking->has_reduction) && $priceReduction > 0;
+        $displaySubtotal = max(0, $priceTotalStored - $priceTva);
+        if ($hasReduction) {
+            $displaySubtotal = max(0, $displaySubtotal + $priceReduction);
+        }
+
+        $displayTotal = $priceTotalStored;
+        $pendingAmount = $booking->getPendingAmount();
+        $amountValue = $priceTotalStored - (float) ($booking->paid_total ?? 0);
+        if (in_array($typeInput, ['pay', 'pay_notice'], true)) {
+            $displayTotal = (float) $pendingAmount;
+            $amountValue = (float) $pendingAmount;
+        } elseif (!$voucherIncludedInPrice && $voucherUsed > 0) {
+            $displayTotal = max(0, $displayTotal - $voucherUsed);
+        }
+
         $data = [
             'titleTemplate' => $titleTemplate,
             'bodyTemplate' => $bodyTemplate,
             'userName' => $userName,
             'reference' => $referenceValue,
             'booking' => $booking,
-            'groupedActivities' => $booking->getGroupedActivitiesAttribute(),
+            'groupedActivities' => $booking->buildGroupedActivitiesFromBookingUsers($booking->bookingUsers),
             'courses' => $courses,
             'bookings' => $booking->bookingUsers,
             'bookingNotes' => $booking->notes,
@@ -121,8 +156,12 @@ class BookingEmailPreviewController extends Controller
             'schoolEmail' => $schoolEmail,
             'schoolConditionsURL' => $schoolConditionsURL,
             'client' => $booking->clientMain,
-            'amount' => number_format(($booking->price_total ?? 0) - ($booking->paid_total ?? 0), 2),
+            'amount' => number_format($amountValue, 2, '.', ''),
             'currency' => $booking->currency,
+            'voucherUsed' => $voucherUsed,
+            'voucherIncludedInPrice' => $voucherIncludedInPrice,
+            'displayTotal' => number_format($displayTotal, 2, '.', ''),
+            'displaySubtotal' => number_format($displaySubtotal, 2, '.', ''),
         ];
 
         $data['message'] = new class {

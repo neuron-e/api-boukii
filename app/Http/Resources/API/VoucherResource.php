@@ -31,6 +31,10 @@ class VoucherResource extends JsonResource
             'school_id' => $this->school_id,
             'payrexx_reference' => $this->payrexx_reference,
             'payrexx_transaction' => $this->payrexx_transaction,
+            'origin_type' => $this->origin_type,
+            'origin_booking_id' => $this->origin_booking_id,
+            'origin_booking_log_id' => $this->origin_booking_log_id,
+            'origin_gift_voucher_id' => $this->origin_gift_voucher_id,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'deleted_at' => $this->deleted_at

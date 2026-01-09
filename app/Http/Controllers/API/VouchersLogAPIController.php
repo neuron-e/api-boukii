@@ -106,6 +106,42 @@ class VouchersLogAPIController extends AppBaseController
 
         $vouchersLog = $this->vouchersLogRepository->create($input);
 
+        if (
+            isset($input['voucher_id'], $input['booking_id'], $input['amount'])
+            && (float) $input['amount'] < 0
+        ) {
+            $voucher = \App\Models\Voucher::find($input['voucher_id']);
+
+            if (
+                $voucher
+                && empty($voucher->origin_booking_id)
+                && (empty($voucher->origin_type) || $voucher->origin_type === 'unknown')
+            ) {
+                $voucher->origin_type = 'refund_credit';
+                $voucher->origin_booking_id = (int) $input['booking_id'];
+
+                $refundLog = \App\Models\BookingLog::query()
+                    ->where('booking_id', $input['booking_id'])
+                    ->where('action', 'LIKE', '%refund%')
+                    ->latest()
+                    ->first();
+
+                if (!$refundLog) {
+                    $refundLog = \App\Models\BookingLog::query()
+                        ->where('booking_id', $input['booking_id'])
+                        ->where('action', 'LIKE', '%cancel%')
+                        ->latest()
+                        ->first();
+                }
+
+                if ($refundLog) {
+                    $voucher->origin_booking_log_id = $refundLog->id;
+                }
+
+                $voucher->save();
+            }
+        }
+
         return $this->sendResponse($vouchersLog, 'Vouchers Log saved successfully');
     }
 

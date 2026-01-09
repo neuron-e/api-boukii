@@ -58,6 +58,31 @@ class BookingPayMailer extends Mailable
         $templateMail = Mail::where('type', 'payment_link')->where('school_id', $this->schoolData->id)
             ->where('lang', $userLocale)->first();
 
+        $groupedActivities = $this->bookingData->buildGroupedActivitiesFromBookingUsers(
+            $this->bookingData->bookingUsers
+        );
+        $voucherBalance = $this->bookingData->getCurrentBalance();
+        $voucherUsed = (float) ($voucherBalance['total_vouchers_used'] ?? 0);
+        if ($voucherUsed <= 0) {
+            $voucherFallback = (float) $this->bookingData->vouchersLogs()
+                ->where('amount', '>', 0)
+                ->sum('amount');
+            if ($voucherFallback > 0) {
+                $voucherUsed = $voucherFallback;
+            }
+        }
+        $voucherIncludedInPrice = $this->bookingData->priceIncludesVoucherDiscounts();
+        $pendingAmount = $this->bookingData->getPendingAmount();
+        $priceTotalStored = (float) ($this->bookingData->price_total ?? 0);
+        $priceTva = (float) ($this->bookingData->price_tva ?? 0);
+        $priceReduction = (float) ($this->bookingData->price_reduction ?? 0);
+        $hasReduction = !empty($this->bookingData->has_reduction) && $priceReduction > 0;
+        $displayTotal = (float) $pendingAmount;
+        $displaySubtotal = max(0, $priceTotalStored - $priceTva);
+        if ($hasReduction) {
+            $displaySubtotal = max(0, $displaySubtotal + $priceReduction);
+        }
+
         $templateData = [
             'titleTemplate' => $templateMail ? $templateMail->title : '',
             'bodyTemplate' => $templateMail ? $templateMail->body: '',
@@ -75,10 +100,15 @@ class BookingPayMailer extends Mailable
             'bookings' => $this->bookingData->bookingUsers,
             'client' => $this->bookingData->clientMain,
             'hasCancellationInsurance' => $this->bookingData->has_cancellation_insurance,
-            'amount' => number_format($this->bookingData->price_total - $this->bookingData->paid_total, 2),
+            'amount' => number_format($pendingAmount, 2),
             'currency' => $this->bookingData->currency,
             'actionURL' => $this->payLink,
-            'footerView' => $footerView
+            'footerView' => $footerView,
+            'groupedActivities' => $groupedActivities,
+            'voucherUsed' => $voucherUsed,
+            'voucherIncludedInPrice' => $voucherIncludedInPrice,
+            'displayTotal' => number_format($displayTotal, 2, '.', ''),
+            'displaySubtotal' => number_format($displaySubtotal, 2, '.', '')
         ];
 
         $subject = __('emails.bookingPay.subject');
