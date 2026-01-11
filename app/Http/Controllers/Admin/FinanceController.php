@@ -9,6 +9,7 @@ use App\Models\Booking;
 use App\Models\Course;
 use App\Models\Season;
 use App\Models\School;
+use App\Services\AnalyticsAggregateService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -70,7 +71,8 @@ class FinanceController extends AppBaseController
         } elseif ($cacheTtl > 3600) {
             $cacheTtl = 3600;
         }
-        $forceRefresh = $request->boolean('refresh_cache', false);
+        $refreshAggregates = $request->boolean('refresh_aggregates', false);
+        $forceRefresh = $request->boolean('refresh_cache', false) || $refreshAggregates;
         $leanResponse = $request->boolean('lean_response', true);
 
         Log::debug('=== INICIANDO DASHBOARD EJECUTIVO CON CLASIFICACION ===', [
@@ -94,7 +96,12 @@ class FinanceController extends AppBaseController
             $cacheIsFresh = $cacheAgeSeconds === null ? true : $cacheAgeSeconds < $cacheTtl;
 
             if (is_array($cached) && isset($cached['data'])) {
-                if (!$forceRefresh || $cacheIsFresh) {
+                $allowCached = (!$forceRefresh || $cacheIsFresh);
+                if ($refreshAggregates) {
+                    $allowCached = false;
+                }
+
+                if ($allowCached) {
                     $dashboard = $cached['data'];
                     $dashboard['cache_metadata'] = [
                         'is_cached' => true,
@@ -155,6 +162,11 @@ class FinanceController extends AppBaseController
         $startTime = microtime(true);
         // 1. DETERMINAR PERÃÂODO DE ANÃÂLISIS
         $dateRange = $this->getSeasonDateRange($request);
+
+        if ($request->boolean('use_aggregates', false)) {
+            return $this->buildAggregatedDashboard($request, $dateRange);
+        }
+
 
         $includeTestDetection = $request->boolean('include_test_detection', true);
         $includePayrexxAnalysis = $request->boolean('include_payrexx_analysis', false);
@@ -232,6 +244,527 @@ class FinanceController extends AppBaseController
             'executive_alerts' => $dashboard['executive_alerts'] ?? [],
             'priority_recommendations' => $dashboard['priority_recommendations'] ?? [],
         ];
+    }
+
+    private function buildAggregatedDashboard(Request $request, array $dateRange): array
+    {
+        $dateFilter = $request->get('date_filter', 'created_at');
+        $dateColumn = $dateFilter === 'activity' ? 'activity_date' : 'booking_created_at';
+        $schoolId = $request->school_id;
+        $seasonId = $request->season_id ?: null;
+        $startDateTime = Carbon::parse($dateRange['start_date'])->startOfDay();
+        $endDateTime = Carbon::parse($dateRange['end_date'])->endOfDay();
+
+        $refreshAggregates = $request->boolean('refresh_aggregates', false);
+        $aggregatesRefreshBlocked = false;
+        $aggregatesRefreshAvailableInSeconds = null;
+        $aggregatesCooldownSeconds = 1800;
+
+        if ($refreshAggregates) {
+            $refreshKey = sprintf(
+                'analytics:aggregates:refresh:%s:%s:%s:%s:%s',
+                $schoolId,
+                $seasonId ?? 'none',
+                $dateFilter,
+                $dateRange['start_date'] ?? 'none',
+                $dateRange['end_date'] ?? 'none'
+            );
+
+            $lastRefresh = Cache::get($refreshKey);
+            if ($lastRefresh) {
+                $elapsedSeconds = Carbon::parse($lastRefresh)->diffInSeconds(now());
+                if ($elapsedSeconds < $aggregatesCooldownSeconds) {
+                    $aggregatesRefreshBlocked = true;
+                    $aggregatesRefreshAvailableInSeconds = $aggregatesCooldownSeconds - $elapsedSeconds;
+                }
+            }
+
+            if (!$aggregatesRefreshBlocked) {
+                Cache::put($refreshKey, now()->toDateTimeString(), $aggregatesCooldownSeconds);
+                app(AnalyticsAggregateService::class)->buildActivityFacts(
+                    $schoolId,
+                    $seasonId,
+                    $dateRange['start_date'],
+                    $dateRange['end_date']
+                );
+                app(AnalyticsAggregateService::class)->aggregateForSchoolSeason(
+                    $schoolId,
+                    $seasonId,
+                    $dateFilter
+                );
+            }
+        }
+
+        if ($dateFilter === 'activity') {
+            $allBookingIds = DB::table('booking_users as bu')
+                ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
+                ->where('b.school_id', $schoolId)
+                ->whereNull('b.deleted_at')
+                ->whereBetween('bu.date', [$dateRange['start_date'], $dateRange['end_date']])
+                ->select('b.id')
+                ->distinct()
+                ->pluck('b.id');
+        } else {
+            $allBookingIds = DB::table('bookings as b')
+                ->where('b.school_id', $schoolId)
+                ->whereNull('b.deleted_at')
+                ->whereBetween('b.created_at', [$startDateTime, $endDateTime])
+                ->select('b.id')
+                ->distinct()
+                ->pluck('b.id');
+        }
+
+        $bookingsWithNonExcludedCourses = DB::table('booking_users')
+            ->whereIn('booking_id', $allBookingIds)
+            ->whereNull('deleted_at')
+            ->whereNotIn('course_id', self::EXCLUDED_COURSES)
+            ->select('booking_id')
+            ->distinct()
+            ->pluck('booking_id');
+
+        $bookingsBase = DB::table('bookings as b')
+            ->whereIn('b.id', $bookingsWithNonExcludedCourses)
+            ->whereNull('b.deleted_at');
+
+        $baseQuery = $this->buildFactsQuery($request, $dateRange, false, $dateColumn);
+        $productionQuery = $this->buildFactsQuery($request, $dateRange, true, $dateColumn);
+
+        $totalBookings = (int) (clone $bookingsBase)->count('b.id');
+        $cancelledBookings = (int) (clone $bookingsBase)->where('b.status', 2)->count('b.id');
+        $cancelledRevenue = (float) (clone $bookingsBase)->where('b.status', 2)->sum('b.price_total');
+        $testBookings = 0;
+        $productionBookings = max(0, $totalBookings - $cancelledBookings);
+
+        $productionExpected = (float) (clone $productionQuery)->sum('expected_amount');
+        $productionReceived = (float) (clone $productionQuery)->sum('received_amount');
+        $productionPending = (float) (clone $productionQuery)->sum('pending_amount');
+
+        $totalParticipants = (int) (clone $productionQuery)->sum('participants');
+        $totalClients = (int) (clone $productionQuery)->whereNotNull('client_id')
+            ->distinct('client_id')
+            ->count('client_id');
+
+        $bookingTotals = (clone $productionQuery)
+            ->selectRaw('booking_id, SUM(expected_amount) as expected_total, SUM(received_amount) as received_total')
+            ->groupBy('booking_id')
+            ->get();
+
+        $unpaidWithDebtAmount = 0.0;
+        $unpaidWithDebtCount = 0;
+        $overpaymentAmount = 0.0;
+        $overpaymentCount = 0;
+        $fullyPaidCount = 0;
+
+        foreach ($bookingTotals as $row) {
+            $expected = (float) ($row->expected_total ?? 0);
+            $received = (float) ($row->received_total ?? 0);
+            if ($expected <= 0 && $received <= 0) {
+                continue;
+            }
+
+            if ($received + 0.01 < $expected) {
+                $unpaidWithDebtAmount += ($expected - $received);
+                $unpaidWithDebtCount++;
+            } elseif ($received > $expected) {
+                $overpaymentAmount += ($received - $expected);
+                $overpaymentCount++;
+                $fullyPaidCount++;
+            } else {
+                $fullyPaidCount++;
+            }
+        }
+
+        $sources = (clone $productionQuery)
+            ->selectRaw('source, COUNT(DISTINCT booking_id) as bookings, SUM(expected_amount) as revenue, COUNT(DISTINCT client_id) as unique_clients')
+            ->groupBy('source')
+            ->get();
+
+        $sourceBreakdown = [];
+        foreach ($sources as $row) {
+            $bookings = (int) ($row->bookings ?? 0);
+            $revenue = (float) ($row->revenue ?? 0);
+            $sourceBreakdown[] = [
+                'source' => $row->source ?? 'unknown',
+                'bookings' => $bookings,
+                'percentage' => $totalBookings > 0 ? round(($bookings / $totalBookings) * 100, 2) : 0,
+                'unique_clients' => (int) ($row->unique_clients ?? 0),
+                'revenue' => round($revenue, 2),
+                'avg_booking_value' => $bookings > 0 ? round($revenue / $bookings, 2) : 0,
+                'consistency_rate' => 100
+            ];
+        }
+
+        $bookingIdsQuery = (clone $productionQuery)->select('booking_id')->distinct();
+        $payments = DB::table('payments as p')
+            ->join('bookings as b', 'p.booking_id', '=', 'b.id')
+            ->where('p.status', 'paid')
+            ->whereIn('p.booking_id', $bookingIdsQuery)
+            ->select('p.amount', 'p.notes', 'p.payrexx_reference', 'b.payment_method_id')
+            ->get();
+
+        $paymentMethodStats = [];
+        $totalPayments = 0;
+        $totalPaymentRevenue = 0.0;
+
+        foreach ($payments as $payment) {
+            $methodKey = $this->determinePaymentMethodForAggregate(
+                $payment->payment_method_id ?? null,
+                $payment->payrexx_reference ?? null,
+                $payment->notes ?? null
+            );
+
+            if (!isset($paymentMethodStats[$methodKey])) {
+                $paymentMethodStats[$methodKey] = [
+                    'count' => 0,
+                    'revenue' => 0
+                ];
+            }
+
+            $paymentMethodStats[$methodKey]['count'] += 1;
+            $paymentMethodStats[$methodKey]['revenue'] += (float) ($payment->amount ?? 0);
+            $totalPayments += 1;
+            $totalPaymentRevenue += (float) ($payment->amount ?? 0);
+        }
+
+        $paymentMethods = [];
+        foreach ($paymentMethodStats as $methodKey => $stats) {
+            $count = (int) $stats['count'];
+            $revenue = (float) $stats['revenue'];
+            $paymentMethods[] = [
+                'method' => $methodKey,
+                'display_name' => $this->getPaymentMethodDisplayName($methodKey),
+                'count' => $count,
+                'percentage' => 0,
+                'revenue' => round($revenue, 2),
+                'revenue_percentage' => 0,
+                'avg_payment_amount' => $count > 0 ? round($revenue / $count, 2) : 0,
+                'unique_bookings' => $count
+            ];
+        }
+
+        foreach ($paymentMethods as &$method) {
+            $method['percentage'] = $totalPayments > 0 ? round(($method['count'] / $totalPayments) * 100, 2) : 0;
+            $method['revenue_percentage'] = $totalPaymentRevenue > 0
+                ? round(($method['revenue'] / $totalPaymentRevenue) * 100, 2)
+                : 0;
+        }
+        unset($method);
+
+        usort($paymentMethods, function ($a, $b) {
+            return $b['revenue'] <=> $a['revenue'];
+        });
+
+        $monthlyRows = (clone $productionQuery)
+            ->selectRaw("DATE_FORMAT($dateColumn, '%Y-%m') as month, COUNT(DISTINCT booking_id) as bookings, SUM(expected_amount) as revenue, COUNT(DISTINCT client_id) as unique_clients")
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get();
+
+        $monthlyBreakdown = [];
+        foreach ($monthlyRows as $row) {
+            $bookings = (int) ($row->bookings ?? 0);
+            $revenue = (float) ($row->revenue ?? 0);
+            $monthlyBreakdown[] = [
+                'month' => $row->month,
+                'bookings' => $bookings,
+                'revenue' => round($revenue, 2),
+                'avg_booking_value' => $bookings > 0 ? round($revenue / $bookings, 2) : 0,
+                'unique_clients' => (int) ($row->unique_clients ?? 0)
+            ];
+        }
+
+        $courseRows = (clone $productionQuery)
+            ->selectRaw('course_id, course_type, sport_id, SUM(participants) as participants, COUNT(DISTINCT booking_id) as bookings, SUM(expected_amount) as revenue_expected, SUM(received_amount) as revenue_received')
+            ->groupBy('course_id', 'course_type', 'sport_id')
+            ->get();
+
+        $courseIds = $courseRows->pluck('course_id')->filter()->unique()->values();
+        $coursesById = Course::with('sport:id,name')
+            ->whereIn('id', $courseIds)
+            ->get()
+            ->keyBy('id');
+
+        $courses = [];
+        foreach ($courseRows as $row) {
+            $course = $coursesById->get($row->course_id);
+            $participants = (int) ($row->participants ?? 0);
+            $expected = (float) ($row->revenue_expected ?? 0);
+            $received = (float) ($row->revenue_received ?? 0);
+            $collectionRate = $expected > 0 ? round(($received / $expected) * 100, 2) : 100;
+
+            $courses[] = [
+                'id' => (int) $row->course_id,
+                'name' => $course?->name ?? ('Course #' . $row->course_id),
+                'type' => (int) ($row->course_type ?? 0),
+                'is_flexible' => (bool) ($course?->is_flexible ?? false),
+                'sport' => $course && $course->sport ? $course->sport->name : null,
+                'revenue' => round($expected, 2),
+                'revenue_received' => round($received, 2),
+                'revenue_pending' => round(max(0.0, $expected - $received), 2),
+                'participants' => $participants,
+                'bookings' => (int) ($row->bookings ?? 0),
+                'confirmed_sales' => round($received, 2),
+                'courses_sold' => (int) ($row->bookings ?? 0),
+                'average_price' => $participants > 0 ? round($expected / $participants, 2) : 0,
+                'collection_rate' => $collectionRate,
+                'sales_conversion_rate' => $collectionRate,
+                'course_type_name' => (int) ($row->course_type ?? 0),
+                'flexibility_type' => ($course?->is_flexible ?? false) ? 'flexible' : 'fixed',
+                'payment_methods' => [],
+                'status_breakdown' => [],
+                'source_breakdown' => []
+            ];
+        }
+
+        $courseTypeBreakdown = [];
+        foreach ($courses as $course) {
+            $type = $course['type'] ?? 0;
+            if (!isset($courseTypeBreakdown[$type])) {
+                $courseTypeBreakdown[$type] = [
+                    'type' => $type,
+                    'revenue' => 0,
+                    'revenue_received' => 0,
+                    'participants' => 0,
+                    'unique_participants' => 0,
+                    'courses_sold' => 0,
+                    'bookings' => 0
+                ];
+            }
+            $courseTypeBreakdown[$type]['revenue'] += $course['revenue'] ?? 0;
+            $courseTypeBreakdown[$type]['revenue_received'] += $course['revenue_received'] ?? 0;
+            $courseTypeBreakdown[$type]['participants'] += $course['participants'] ?? 0;
+            $courseTypeBreakdown[$type]['unique_participants'] += $course['participants'] ?? 0;
+            $courseTypeBreakdown[$type]['courses_sold'] += $course['courses_sold'] ?? 0;
+            $courseTypeBreakdown[$type]['bookings'] += $course['bookings'] ?? 0;
+        }
+
+        $courseTypeBreakdown = array_values(array_map(function ($item) {
+            $item['revenue'] = round($item['revenue'], 2);
+            $item['revenue_received'] = round($item['revenue_received'], 2);
+            return $item;
+        }, $courseTypeBreakdown));
+
+        $aggregatesUpdatedAt = (clone $baseQuery)->max('updated_at');
+        $aggregatesAgeSeconds = null;
+        if ($aggregatesUpdatedAt) {
+            try {
+                $aggregatesAgeSeconds = Carbon::parse($aggregatesUpdatedAt)->diffInSeconds(now());
+            } catch (\Exception $exception) {
+                $aggregatesAgeSeconds = null;
+            }
+        }
+
+        return [
+            'season_info' => [
+                'season_name' => $dateRange['season_name'] ?? '',
+                'date_range' => [
+                    'start' => $dateRange['start_date'],
+                    'end' => $dateRange['end_date'],
+                    'total_days' => $dateRange['total_days']
+                ],
+                'school_id' => $request->school_id,
+                'optimization_level' => 'aggregates',
+                'total_bookings' => $totalBookings,
+                'booking_classification' => [
+                    'total_bookings' => $totalBookings,
+                    'production_count' => $productionBookings,
+                    'test_count' => $testBookings,
+                    'cancelled_count' => $cancelledBookings,
+                    'production_revenue' => round($productionExpected, 2),
+                    'test_revenue' => 0,
+                    'cancelled_revenue' => round($cancelledRevenue, 2)
+                ]
+            ],
+            'executive_kpis' => [
+                'total_production_bookings' => $productionBookings,
+                'total_clients' => $totalClients,
+                'total_participants' => $totalParticipants,
+                'revenue_expected' => round($productionExpected, 2),
+                'revenue_received' => round($productionReceived, 2),
+                'revenue_pending' => round($productionPending, 2),
+                'collection_efficiency' => $productionExpected > 0
+                    ? round(($productionReceived / $productionExpected) * 100, 2)
+                    : 0,
+                'consistency_rate' => 100,
+                'average_booking_value' => $productionBookings > 0
+                    ? round($productionExpected / $productionBookings, 2)
+                    : 0,
+                'unpaid_with_debt_amount' => round($unpaidWithDebtAmount, 2),
+                'unpaid_with_debt_count' => $unpaidWithDebtCount,
+                'overpayment_amount' => round($overpaymentAmount, 2),
+                'overpayment_count' => $overpaymentCount,
+                'fully_paid_count' => $fullyPaidCount,
+                'revenue_real' => round($productionReceived, 2)
+            ],
+            'booking_sources' => [
+                'total_bookings' => $totalBookings,
+                'source_breakdown' => $sourceBreakdown
+            ],
+            'payment_methods' => [
+                'total_payments' => $totalPayments,
+                'total_revenue' => round($totalPaymentRevenue, 2),
+                'methods' => $paymentMethods,
+                'online_vs_offline' => $this->calculateOnlineOfflineRatio($paymentMethods)
+            ],
+            'booking_status_analysis' => [],
+            'financial_summary' => [
+                'revenue_breakdown' => [
+                    'total_expected' => round($productionExpected, 2),
+                    'total_received' => round($productionReceived, 2),
+                    'total_pending' => round($productionPending, 2),
+                    'total_refunded' => 0
+                ],
+                'consistency_metrics' => [
+                    'consistency_rate' => 100,
+                    'consistency_issues' => 0
+                ],
+                'payment_methods' => [],
+                'voucher_usage' => [
+                    'total_vouchers_used' => 0,
+                    'total_voucher_amount' => 0,
+                    'unique_vouchers' => 0
+                ]
+            ],
+            'trend_analysis' => [
+                'monthly_breakdown' => $monthlyBreakdown,
+                'booking_velocity' => []
+            ],
+            'courses' => $courses,
+            'course_type_breakdown' => $courseTypeBreakdown,
+            'critical_issues' => [],
+            'executive_alerts' => [],
+            'priority_recommendations' => [],
+            'aggregates_metadata' => [
+                'updated_at' => $aggregatesUpdatedAt,
+                'age_seconds' => $aggregatesAgeSeconds,
+                'refresh_requested' => $refreshAggregates,
+                'refresh_blocked' => $aggregatesRefreshBlocked,
+                'refresh_available_in_seconds' => $aggregatesRefreshAvailableInSeconds,
+                'cooldown_seconds' => $aggregatesCooldownSeconds,
+                'date_filter' => $dateFilter
+            ]
+        ];
+    }
+
+    private function buildFactsQuery(Request $request, array $dateRange, bool $productionOnly, string $dateColumn)
+    {
+        $query = DB::table('analytics_activity_facts')
+            ->where('school_id', $request->school_id);
+
+        if (!empty($request->season_id)) {
+            $query->where('season_id', $request->season_id);
+        }
+
+        if (!empty($dateRange['start_date']) && !empty($dateRange['end_date'])) {
+            $query->whereBetween($dateColumn, [$dateRange['start_date'], $dateRange['end_date']]);
+        }
+
+        $query->whereNotNull($dateColumn);
+
+        if ($productionOnly) {
+            $query->where('is_cancelled', 0);
+        }
+
+        $query->where('is_test', 0);
+
+        if (!empty($request->course_type)) {
+            $query->whereIn('course_type', array_map('intval', explode(',', $request->course_type)));
+        }
+
+        if (!empty($request->source)) {
+            $query->whereIn('source', array_map('trim', explode(',', $request->source)));
+        }
+
+        if (!empty($request->payment_method)) {
+            $query->whereIn('payment_method', array_map('trim', explode(',', $request->payment_method)));
+        }
+
+        if (!empty($request->sport_id)) {
+            $query->whereIn('sport_id', array_map('intval', explode(',', $request->sport_id)));
+        }
+
+        if ($request->boolean('only_weekends', false)) {
+            $query->whereRaw("WEEKDAY($dateColumn) in (5,6)");
+        }
+
+        if ($request->boolean('only_paid', false)) {
+            $query->where('received_amount', '>', 0);
+        }
+
+        return $query;
+    }
+
+    private function determinePaymentMethodForAggregate(?int $paymentMethodId, ?string $payrexxReference, ?string $notes): string
+    {
+        $notesValue = strtolower($notes ?? '');
+
+        if (!empty($payrexxReference)) {
+            if ($paymentMethodId == Booking::ID_BOUKIIPAY) {
+                return 'boukii_direct';
+            }
+            return 'online_link';
+        }
+
+        if (str_contains($notesValue, 'boukii pay') || str_contains($notesValue, 'boukiipay')) {
+            return 'boukii_direct';
+        }
+
+        if (str_contains($notesValue, 'cash') || str_contains($notesValue, 'efectivo')) {
+            return 'cash';
+        }
+
+        if (
+            str_contains($notesValue, 'kasse') ||
+            str_contains($notesValue, 'caja') ||
+            str_contains($notesValue, 'bar') ||
+            str_contains($notesValue, 'bargeld')
+        ) {
+            return 'cash';
+        }
+
+        if (
+            str_contains($notesValue, 'card') ||
+            str_contains($notesValue, 'tarjeta') ||
+            str_contains($notesValue, 'kreditkarte') ||
+            str_contains($notesValue, 'tarjeta de credito') ||
+            str_contains($notesValue, 'tarjeta de crédito') ||
+            str_contains($notesValue, 'kartenzahlung') ||
+            str_contains($notesValue, 'girocard') ||
+            str_contains($notesValue, 'ec') ||
+            str_contains($notesValue, 'tpv') ||
+            str_contains($notesValue, 'stripe') ||
+            str_contains($notesValue, 'sumup') ||
+            str_contains($notesValue, 'dataphone') ||
+            str_contains($notesValue, 'terminal') ||
+            str_contains($notesValue, 'visa') ||
+            str_contains($notesValue, 'mastercard') ||
+            str_contains($notesValue, 'maestro') ||
+            str_contains($notesValue, 'amex') ||
+            str_contains($notesValue, 'credit') ||
+            str_contains($notesValue, 'debit') ||
+            str_contains($notesValue, 'debito') ||
+            str_contains($notesValue, 'karte') ||
+            str_contains($notesValue, 'kredit')
+        ) {
+            return 'card_offline';
+        }
+
+        if (str_contains($notesValue, 'transfer') || str_contains($notesValue, 'transferencia')) {
+            return 'transfer';
+        }
+
+        switch ($paymentMethodId) {
+            case Booking::ID_CASH:
+                return 'cash';
+            case Booking::ID_BOUKIIPAY:
+                return 'boukii_offline';
+            case Booking::ID_ONLINE:
+                return 'online_manual';
+            case Booking::ID_OTHER:
+                return 'card_offline';
+            default:
+                return 'other';
+        }
     }
 
     private function buildFastDashboard(Request $request, array $dateRange): array
@@ -412,10 +945,20 @@ class FinanceController extends AppBaseController
                     WHEN b.payment_method_id = " . Booking::ID_ONLINE . " THEN 'online_manual'
                     WHEN b.payment_method_id = " . Booking::ID_BOUKIIPAY . " THEN 'boukii_offline'
                     WHEN b.payment_method_id = " . Booking::ID_NOPAYMENT . " THEN 'no_payment'
+                    WHEN b.payment_method_id = " . Booking::ID_OTHER . " THEN 'card_offline'
+                    WHEN LOWER(p.notes) LIKE '%boukii pay%' OR LOWER(p.notes) LIKE '%boukiipay%' THEN 'boukii_direct'
                     WHEN LOWER(p.notes) LIKE '%cash%' OR LOWER(p.notes) LIKE '%efectivo%' THEN 'cash'
+                    WHEN LOWER(p.notes) LIKE '%kasse%' OR LOWER(p.notes) LIKE '%caja%' THEN 'cash'
                     WHEN LOWER(p.notes) LIKE '%bar%' OR LOWER(p.notes) LIKE '%bargeld%' THEN 'cash'
                     WHEN LOWER(p.notes) LIKE '%card%' OR LOWER(p.notes) LIKE '%tarjeta%' THEN 'card_offline'
-                    WHEN LOWER(p.notes) LIKE '%karte%' OR LOWER(p.notes) LIKE '%kredit%' THEN 'card_offline'
+                    WHEN LOWER(p.notes) LIKE '%tarjeta de credito%' OR LOWER(p.notes) LIKE '%tarjeta de crédito%' THEN 'card_offline'
+                    WHEN LOWER(p.notes) LIKE '%kreditkarte%' OR LOWER(p.notes) LIKE '%karte%' OR LOWER(p.notes) LIKE '%kredit%' THEN 'card_offline'
+                    WHEN LOWER(p.notes) LIKE '%tpv%' OR LOWER(p.notes) LIKE '%stripe%' THEN 'card_offline'
+                    WHEN LOWER(p.notes) LIKE '%sumup%' OR LOWER(p.notes) LIKE '%dataphone%' THEN 'card_offline'
+                    WHEN LOWER(p.notes) LIKE '%terminal%' OR LOWER(p.notes) LIKE '%visa%' THEN 'card_offline'
+                    WHEN LOWER(p.notes) LIKE '%mastercard%' OR LOWER(p.notes) LIKE '%maestro%' THEN 'card_offline'
+                    WHEN LOWER(p.notes) LIKE '%amex%' OR LOWER(p.notes) LIKE '%credit%' THEN 'card_offline'
+                    WHEN LOWER(p.notes) LIKE '%debit%' OR LOWER(p.notes) LIKE '%debito%' THEN 'card_offline'
                     WHEN LOWER(p.notes) LIKE '%transfer%' OR LOWER(p.notes) LIKE '%transferencia%' THEN 'transfer'
                     WHEN LOWER(p.notes) LIKE '%offline%' THEN 'boukii_offline'
                     WHEN LOWER(p.notes) LIKE '%manual%' THEN 'online_manual'
@@ -828,7 +1371,11 @@ class FinanceController extends AppBaseController
         $dashboard['financial_summary'] = $this->calculateFinancialSummary($productionBookings, $optimizationLevel);
 
         // Ã°Å¸âÂ PROBLEMAS CRÃÂTICOS (solo de expected)
-        $dashboard['critical_issues'] = $this->identifyCriticalIssues($productionBookings, $optimizationLevel);
+        if ($request->boolean('include_critical_issues', true)) {
+            $dashboard['critical_issues'] = $this->identifyCriticalIssues($productionBookings, $optimizationLevel);
+        } else {
+            $dashboard['critical_issues'] = [];
+        }
 
         // Ã°Å¸Â§Âª ANÃÂLISIS SEPARADO DE TEST
         if ($request->boolean('include_test_detection', true)) {
@@ -6331,9 +6878,15 @@ class FinanceController extends AppBaseController
                 ? $this->calculateActivePortionRevenue($booking)
                 : $quickAnalysis['calculated_amount'];
 
-            $receivedRevenue = $booking->status == 3
-                ? $quickAnalysis['received_amount'] * ($expectedRevenue / $quickAnalysis['calculated_amount'])
-                : $quickAnalysis['received_amount'];
+            if ($booking->status == 3) {
+                $calculatedAmount = (float) ($quickAnalysis['calculated_amount'] ?? 0);
+                $receivedAmount = (float) ($quickAnalysis['received_amount'] ?? 0);
+                $receivedRevenue = $calculatedAmount > 0
+                    ? $receivedAmount * ($expectedRevenue / $calculatedAmount)
+                    : $receivedAmount;
+            } else {
+                $receivedRevenue = (float) ($quickAnalysis['received_amount'] ?? 0);
+            }
 
             // Discrepancias en expected
             $difference = abs($expectedRevenue - $receivedRevenue);
@@ -6357,7 +6910,9 @@ class FinanceController extends AppBaseController
                     'expected_amount' => round($expectedRevenue, 2),
                     'received_amount' => round($receivedRevenue, 2),
                     'missing_amount' => round($expectedRevenue - $receivedRevenue, 2),
-                    'collection_rate' => round(($receivedRevenue / $expectedRevenue) * 100, 2)
+                    'collection_rate' => $expectedRevenue > 0
+                        ? round(($receivedRevenue / $expectedRevenue) * 100, 2)
+                        : 0
                 ];
             }
 

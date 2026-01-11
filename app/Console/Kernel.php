@@ -30,6 +30,7 @@ class Kernel extends ConsoleKernel
         CleanupDuplicateBookingUsers::class,
         \App\Console\Commands\BackfillBookingPriceSnapshots::class,
         \App\Console\Commands\RecoverMissingBooking::class,
+        \App\Console\Commands\BackfillAnalyticsAggregates::class,
     ];
 
     /**
@@ -45,9 +46,9 @@ class Kernel extends ConsoleKernel
             ->runInBackground();
         $schedule->job(new UpdateMonitorForSubgroup)->everyFiveMinutes();
 
-        // Pre-calcular dashboards cada 5 minutos para escuelas activas
-        $schedule->command('dashboard:precalculate')
-            ->everyFiveMinutes()
+        // Refrescar agregados de analytics para evitar recalculos pesados en tiempo real
+        $schedule->command('analytics:backfill-aggregates --date_filter=activity')
+            ->everyThirtyMinutes()
             ->withoutOverlapping()
             ->runInBackground();
 
@@ -61,10 +62,6 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->runInBackground();
 
-        // Limpiar cache viejo cada hora
-        $schedule->call(function () {
-            Cache::flush(); // En producción, implementar limpieza más selectiva
-        })->hourly();
 
         // Mantener integridad de datos de cursos (migrar booking_users huérfanos)
         // Se ejecuta diariamente a las 3 AM
