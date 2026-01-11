@@ -7,7 +7,7 @@ use Carbon\Carbon;
 
 trait FinanceCacheKeyTrait
 {
-    private const FINANCE_CACHE_VERSION = 'v2.15';
+    private const FINANCE_CACHE_VERSION = 'v2.17';
     /**
      * Generar cache key consistente para dashboard financiero
      */
@@ -88,6 +88,8 @@ trait FinanceCacheKeyTrait
             $request->boolean('include_test_detection', true) ? 'test:1' : 'test:0',
             $request->boolean('include_payrexx_analysis', false) ? 'payrexx:1' : 'payrexx:0',
             $request->boolean('lean_response', true) ? 'lean:1' : 'lean:0',
+            $request->boolean('include_critical_issues', true) ? 'crit:1' : 'crit:0',
+            $request->boolean('use_aggregates', false) ? 'agg:1' : 'agg:0',
         ]);
 
         return $this->generateFinanceCacheKey(

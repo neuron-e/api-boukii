@@ -72,7 +72,12 @@ class PrecalculateDashboards extends Command
                         'start_date' => $seasonDates['start_date'],
                         'end_date' => $seasonDates['end_date'],
                         'season_id' => $seasonDates['season_id'],
-                        'optimization_level' => $level
+                        'optimization_level' => $level,
+                        'include_test_detection' => false,
+                        'include_payrexx_analysis' => false,
+                        'include_critical_issues' => false,
+                        'lean_response' => true,
+                        'cache_ttl' => 1800
                     ]);
 
                     $startTime = microtime(true);
