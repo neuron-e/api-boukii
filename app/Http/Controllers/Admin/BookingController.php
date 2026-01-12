@@ -802,7 +802,14 @@ class BookingController extends AppBaseController
         DB::beginTransaction();
         try {
             $paidRequested = (bool) ($data['paid'] ?? false);
-            $voucherAmount = array_sum(array_column($data['vouchers'] ?? [], 'bonus.reducePrice'));
+            $voucherAmount = 0.0;
+            foreach (($data['vouchers'] ?? []) as $voucherData) {
+                $reducePrice = $voucherData['bonus']['reducePrice']
+                    ?? $voucherData['reducePrice']
+                    ?? $voucherData['amount']
+                    ?? 0;
+                $voucherAmount += (float) $reducePrice;
+            }
             // Crear la reserva (Booking)
             $booking = Booking::create([
                 'school_id' => $school['id'],
@@ -1727,6 +1734,19 @@ class BookingController extends AppBaseController
             ];
         }
 
+        $expectedCents = (int) round(($bookingData['price_total'] ?? 0) * 100);
+        if ($expectedCents > 0) {
+            $currentCents = array_sum(array_column($finalBasket, 'amount'));
+            $delta = $expectedCents - $currentCents;
+            if ($delta !== 0) {
+                $finalBasket[] = [
+                    'name' => [1 => 'Price adjustment'],
+                    'quantity' => 1,
+                    'amount' => $delta,
+                ];
+            }
+        }
+
         return $finalBasket; // Retorna el arreglo final del basket
     }
 
@@ -1740,13 +1760,17 @@ class BookingController extends AppBaseController
                 $groupedItems[$group_id] = [
                     'group_id' => $group_id,
                     'course_name' => $item['course_name'],
-                    'price_base' =>  $item['price_base'],
-                    'extra_price' =>  $item['extra_price'],
-                    'price' =>  $item['price'],
+                    'price_base' => 0,
+                    'extra_price' => 0,
+                    'price' => 0,
                     'extras' => [],
                     'items' => [],
                 ];
             }
+
+            $groupedItems[$group_id]['price_base'] += (float) ($item['price_base'] ?? 0);
+            $groupedItems[$group_id]['extra_price'] += (float) ($item['extra_price'] ?? 0);
+            $groupedItems[$group_id]['price'] += (float) ($item['price'] ?? 0);
 
             // Sumar extras
             if (!empty($item['extras'])) {
