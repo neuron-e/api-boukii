@@ -810,6 +810,8 @@ class BookingController extends AppBaseController
                     ?? 0;
                 $voucherAmount += (float) $reducePrice;
             }
+
+            $shouldMarkPaid = $paidRequested && (int) ($data['payment_method_id'] ?? 0) !== 3;
             // Crear la reserva (Booking)
             $booking = Booking::create([
                 'school_id' => $school['id'],
@@ -993,7 +995,7 @@ class BookingController extends AppBaseController
             ]);
 
             // Crear un registro de pago si el mtodo de pago es 1 o 4
-            if ($paidRequested) {
+            if ($shouldMarkPaid) {
                 $remainingAmount = max(0, $booking->price_total - $voucherAmount);
                 if ($remainingAmount > 0) {
                     $paymentNotes = $this->normalizePaymentNotes(
@@ -1732,19 +1734,6 @@ class BookingController extends AppBaseController
                 'quantity' => $basket[0]['cancellation_insurance']['quantity'],
                 'amount' => $basket[0]['cancellation_insurance']['price'] * 100, // Convertir el precio a centavos
             ];
-        }
-
-        $expectedCents = (int) round(($bookingData['price_total'] ?? 0) * 100);
-        if ($expectedCents > 0) {
-            $currentCents = array_sum(array_column($finalBasket, 'amount'));
-            $delta = $expectedCents - $currentCents;
-            if ($delta !== 0) {
-                $finalBasket[] = [
-                    'name' => [1 => 'Price adjustment'],
-                    'quantity' => 1,
-                    'amount' => $delta,
-                ];
-            }
         }
 
         return $finalBasket; // Retorna el arreglo final del basket
@@ -2501,4 +2490,5 @@ class BookingController extends AppBaseController
         return $allSame ? $first : $defaults;
     }
 }
+
 
