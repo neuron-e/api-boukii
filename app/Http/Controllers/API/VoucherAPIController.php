@@ -105,6 +105,12 @@ class VoucherAPIController extends AppBaseController
             $query->with($with);
         }
 
+        $query->withCount([
+            'vouchersLogs as computed_uses_count' => function ($logQuery) {
+                $logQuery->where('amount', '>', 0);
+            }
+        ]);
+
         // Apply ordering
         $order = $request->get('order', 'desc');
         $orderColumn = $request->get('orderColumn', 'id');
@@ -113,6 +119,20 @@ class VoucherAPIController extends AppBaseController
         // Paginate
         $perPage = $request->get('perPage', 10);
         $vouchers = $query->paginate($perPage);
+
+        $vouchers->getCollection()->transform(function ($voucher) {
+            $computedUses = (int) ($voucher->computed_uses_count ?? 0);
+            $voucher->computed_uses_count = $computedUses;
+
+            $isExpired = $voucher->expires_at ? $voucher->expires_at->isPast() : false;
+            $hasReachedMax = $voucher->max_uses !== null && $computedUses >= $voucher->max_uses;
+            $hasBalance = (float) $voucher->remaining_balance > 0;
+            $isActive = !$isExpired && $hasBalance && !$hasReachedMax && !$voucher->trashed();
+
+            $voucher->status = $isActive ? 'active' : 'inactive';
+
+            return $voucher;
+        });
 
         return $this->sendResponse($vouchers, 'Vouchers retrieved successfully');
     }
@@ -296,6 +316,22 @@ class VoucherAPIController extends AppBaseController
         if (empty($voucher)) {
             return $this->sendError('Voucher not found');
         }
+
+        $voucher->loadCount([
+            'vouchersLogs as computed_uses_count' => function ($logQuery) {
+                $logQuery->where('amount', '>', 0);
+            }
+        ]);
+
+        $computedUses = (int) ($voucher->computed_uses_count ?? 0);
+        $voucher->computed_uses_count = $computedUses;
+        $voucher->uses_count = $computedUses;
+
+        $isExpired = $voucher->expires_at ? $voucher->expires_at->isPast() : false;
+        $hasReachedMax = $voucher->max_uses !== null && $computedUses >= $voucher->max_uses;
+        $hasBalance = (float) $voucher->remaining_balance > 0;
+        $isActive = !$isExpired && $hasBalance && !$hasReachedMax && !$voucher->trashed();
+        $voucher->status = $isActive ? 'active' : 'inactive';
 
         return $this->sendResponse($voucher, 'Voucher retrieved successfully');
     }
