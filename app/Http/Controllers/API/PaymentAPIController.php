@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\AppBaseController;
 use App\Http\Requests\API\CreatePaymentAPIRequest;
 use App\Http\Requests\API\UpdatePaymentAPIRequest;
+use App\Models\Booking;
 use App\Models\Payment;
 use App\Repositories\PaymentRepository;
 use Illuminate\Http\JsonResponse;
@@ -101,6 +102,16 @@ class PaymentAPIController extends AppBaseController
     public function store(CreatePaymentAPIRequest $request): JsonResponse
     {
         $input = $request->all();
+        $bookingId = $input['booking_id'] ?? null;
+        if ($bookingId) {
+            $booking = Booking::find($bookingId);
+            if ($booking && (int) $booking->payment_method_id === Booking::ID_ONLINE) {
+                $payrexxReference = trim((string) ($input['payrexx_reference'] ?? ''));
+                if ($payrexxReference === '') {
+                    return $this->sendError('Payrexx reference required for online link payments');
+                }
+            }
+        }
 
         $payment = $this->paymentRepository->create($input);
 
@@ -204,6 +215,16 @@ class PaymentAPIController extends AppBaseController
 
         if (empty($payment)) {
             return $this->sendError('Payment not found');
+        }
+
+        $booking = $payment->booking;
+        if ($booking && (int) $booking->payment_method_id === Booking::ID_ONLINE) {
+            $payrexxReference = array_key_exists('payrexx_reference', $input)
+                ? trim((string) $input['payrexx_reference'])
+                : trim((string) ($payment->payrexx_reference ?? ''));
+            if ($payrexxReference === '') {
+                return $this->sendError('Payrexx reference required for online link payments');
+            }
         }
 
         $payment = $this->paymentRepository->update($input, $id);

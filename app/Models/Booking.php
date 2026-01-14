@@ -1311,55 +1311,96 @@ class Booking extends Model
             $activities = $booking->buildGroupedActivitiesFromBookingUsers($lines);
 
             foreach ($activities as $activity) {
-                $closestBookingUser = null;
-                $closestTimeDiff = null;
-                $closestDateTime = null;
+                $activityCourse = $activity['course'] ?? null;
+                $activityCourseType = $activityCourse ? (int) $activityCourse->course_type : null;
+                $isCollective = $activityCourseType === 1;
+                $activityDates = $activity['dates'] ?? [];
 
-                foreach (($activity['dates'] ?? []) as $date) {
-                    $rawDate = (string) ($date['date'] ?? '');
-                    if ($rawDate === '') {
-                        continue;
-                    }
-
-                    $time = $date['startHour'] ?? '00:00';
-                    $hasTime = (bool) preg_match('/\\d{2}:\\d{2}(:\\d{2})?/', $rawDate);
-                    $dateTimeInput = $hasTime ? $rawDate : trim($rawDate . ' ' . $time);
-                    $bookingDateTime = Carbon::parse($dateTimeInput);
-                    if ($bookingDateTime->lessThanOrEqualTo($currentDateTime)) {
-                        continue;
-                    }
-
-                    $timeDiff = $currentDateTime->diffInHours($bookingDateTime);
-                    if ($closestBookingUser === null || $timeDiff < $closestTimeDiff) {
-                        $closestBookingUser = $date['booking_users'][0] ?? null;
-                        $closestTimeDiff = $timeDiff;
-                        $closestDateTime = $bookingDateTime;
-                    }
+                if (empty($activityDates)) {
+                    continue;
                 }
 
-                if (!$closestBookingUser || $closestTimeDiff === null) {
-                    continue;
+                $targetBookingUser = null;
+                $targetTimeDiff = null;
+                $targetDateTime = null;
+                $logDescription = null;
+
+                if ($isCollective) {
+                    foreach ($activityDates as $date) {
+                        $rawDate = (string) ($date['date'] ?? '');
+                        if ($rawDate === '') {
+                            continue;
+                        }
+
+                        $time = $date['startHour'] ?? '00:00';
+                        $hasTime = (bool) preg_match('/\\d{2}:\\d{2}(:\\d{2})?/', $rawDate);
+                        $dateTimeInput = $hasTime ? $rawDate : trim($rawDate . ' ' . $time);
+                        $bookingDateTime = Carbon::parse($dateTimeInput);
+
+                        if ($targetDateTime === null || $bookingDateTime->lessThan($targetDateTime)) {
+                            $targetBookingUser = $date['booking_users'][0] ?? null;
+                            $targetDateTime = $bookingDateTime;
+                        }
+                    }
+
+                    if (!$targetBookingUser || !$targetDateTime || $targetDateTime->lessThanOrEqualTo($currentDateTime)) {
+                        continue;
+                    }
+
+                    $targetTimeDiff = $currentDateTime->diffInHours($targetDateTime);
+                    $logDescription = !empty($activity['group_id'])
+                        ? 'activity_group_id: ' . $activity['group_id']
+                        : 'booking_user_id: ' . $targetBookingUser->id;
+                } else {
+                    foreach ($activityDates as $date) {
+                        $rawDate = (string) ($date['date'] ?? '');
+                        if ($rawDate === '') {
+                            continue;
+                        }
+
+                        $time = $date['startHour'] ?? '00:00';
+                        $hasTime = (bool) preg_match('/\\d{2}:\\d{2}(:\\d{2})?/', $rawDate);
+                        $dateTimeInput = $hasTime ? $rawDate : trim($rawDate . ' ' . $time);
+                        $bookingDateTime = Carbon::parse($dateTimeInput);
+                        if ($bookingDateTime->lessThanOrEqualTo($currentDateTime)) {
+                            continue;
+                        }
+
+                        $timeDiff = $currentDateTime->diffInHours($bookingDateTime);
+                        if ($targetBookingUser === null || $timeDiff < $targetTimeDiff) {
+                            $targetBookingUser = $date['booking_users'][0] ?? null;
+                            $targetTimeDiff = $timeDiff;
+                            $targetDateTime = $bookingDateTime;
+                        }
+                    }
+
+                    if (!$targetBookingUser || $targetTimeDiff === null) {
+                        continue;
+                    }
+
+                    $logDescription = 'booking_user_id: ' . $targetBookingUser->id;
                 }
 
                 $alreadySent = BookingLog::query()
                     ->where('booking_id', $booking->id)
                     ->where('action', 'mail_booking_info_sent')
-                    ->where('description', 'booking_user_id: ' . $closestBookingUser->id)
+                    ->where('description', $logDescription)
                     ->exists();
 
                 // Verificar si el booking user mas cercano cumple con la condicion de las 24 horas
-                if ($closestTimeDiff < 24 && !$alreadySent) {
-                    $bookingType = $closestBookingUser->course->type == 2 ? 'Privado' : 'Colectivo';
+                if ($targetTimeDiff < 24 && !$alreadySent) {
+                    $courseType = (int) ($targetBookingUser->course->course_type ?? 0);
+                    $bookingType = $courseType === 2 ? 'Privado' : ($courseType === 3 ? 'Actividad' : 'Colectivo');
                     \Illuminate\Support\Facades\Log::channel('cron')->debug('bookingInfo24h: '
                         . $bookingType . ' ID ' . $booking->id
                         . ' - Enviamos info de la reserva: '
-                        . $closestBookingUser->id . " : Fecha de inicio "
-                        . $closestDateTime?->toDateTimeString()
+                        . $targetBookingUser->id . " : Fecha de inicio "
+                        . $targetDateTime?->toDateTimeString()
                         . ' - Dif in hours: '
-                        . $closestTimeDiff);
+                        . $targetTimeDiff);
 
-                    $mySchool = School::find($closestBookingUser->booking->school_id);
-                    if (!$mySchool || !$closestBookingUser->booking?->clientMain) {
+                    $mySchool = School::find($targetBookingUser->booking->school_id);
+                    if (!$mySchool || !$targetBookingUser->booking?->clientMain) {
                         continue;
                     }
 
@@ -1371,22 +1412,22 @@ class Booking extends Model
                         ->values();
 
                     // Enviamos el email aqui
-                    dispatch(function () use ($mySchool, $closestBookingUser, $activity, $activityBookingUsers) {
+                    dispatch(function () use ($mySchool, $targetBookingUser, $activity, $activityBookingUsers, $logDescription) {
                         // N.B. try-catch because some test users enter unexistant emails, throwing Swift_TransportException
                         try {
-                            \Mail::to($closestBookingUser->booking->clientMain->email)
+                            \Mail::to($targetBookingUser->booking->clientMain->email)
                                 ->send(new BookingInfoMailer(
                                     $mySchool,
-                                    $closestBookingUser->booking,
-                                    $closestBookingUser->booking->clientMain,
+                                    $targetBookingUser->booking,
+                                    $targetBookingUser->booking->clientMain,
                                     [$activity],
                                     $activityBookingUsers
                                 ));
 
                             BookingLog::create([
-                                'booking_id' => $closestBookingUser->booking->id,
+                                'booking_id' => $targetBookingUser->booking->id,
                                 'action' => 'mail_booking_info_sent',
-                                'description' => 'booking_user_id: ' . $closestBookingUser->id,
+                                'description' => $logDescription,
                                 'user_id' => null,
                             ]);
                         } catch (\Exception $ex) {

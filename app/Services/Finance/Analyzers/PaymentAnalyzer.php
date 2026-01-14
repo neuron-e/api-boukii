@@ -118,7 +118,7 @@ class PaymentAnalyzer
             case Booking::ID_BOUKIIPAY:
                 return 'boukii_offline';  // BoukiiPay sin payrexx = offline
             case Booking::ID_ONLINE:
-                return 'online_manual';   // Online sin payrexx = manual
+                return 'online_link';
             default:
                 return 'other';
         }
@@ -201,7 +201,7 @@ class PaymentAnalyzer
             $paymentMethod = $this->getBookingPaymentMethod($booking);
             $amount = $this->getBookingTotalAmount($booking);
 
-            $isOnline = in_array($paymentMethod, ['boukii_direct', 'online_link', 'online_manual']);
+            $isOnline = in_array($paymentMethod, ['boukii_direct', 'online_link']);
 
             if ($isOnline) {
                 $onlineRevenue += $amount;

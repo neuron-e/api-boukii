@@ -759,7 +759,7 @@ class FinanceController extends AppBaseController
             case Booking::ID_BOUKIIPAY:
                 return 'boukii_offline';
             case Booking::ID_ONLINE:
-                return 'online_manual';
+                return 'online_link';
             case Booking::ID_OTHER:
                 return 'card_offline';
             default:
@@ -942,7 +942,7 @@ class FinanceController extends AppBaseController
                     WHEN p.payrexx_reference IS NOT NULL AND b.payment_method_id = " . Booking::ID_BOUKIIPAY . " THEN 'boukii_direct'
                     WHEN p.payrexx_reference IS NOT NULL THEN 'online_link'
                     WHEN b.payment_method_id = " . Booking::ID_CASH . " THEN 'cash'
-                    WHEN b.payment_method_id = " . Booking::ID_ONLINE . " THEN 'online_manual'
+                    WHEN b.payment_method_id = " . Booking::ID_ONLINE . " THEN 'online_link'
                     WHEN b.payment_method_id = " . Booking::ID_BOUKIIPAY . " THEN 'boukii_offline'
                     WHEN b.payment_method_id = " . Booking::ID_NOPAYMENT . " THEN 'no_payment'
                     WHEN b.payment_method_id = " . Booking::ID_OTHER . " THEN 'card_offline'
@@ -10091,7 +10091,7 @@ class FinanceController extends AppBaseController
             case Booking::ID_BOUKIIPAY:
                 return 'boukii_offline';  // BoukiiPay sin payrexx = offline
             case Booking::ID_ONLINE:
-                return 'online_manual';   // Online sin payrexx = manual
+                return 'online_link';
             default:
                 return 'other';
         }

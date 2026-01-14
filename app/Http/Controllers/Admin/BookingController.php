@@ -1263,7 +1263,7 @@ class BookingController extends AppBaseController
             case Booking::ID_BOUKIIPAY:
                 return 'boukii_offline';
             case Booking::ID_ONLINE:
-                return 'online_manual';
+                return 'online_link';
             case Booking::ID_NOPAYMENT:
                 return 'no_payment';
             case Booking::ID_OTHER:
@@ -2348,11 +2348,15 @@ class BookingController extends AppBaseController
             // Recalcular precio siempre para reflejar cancelaciones parciales/total
             $booking->reloadPrice();
 
-            $booking->load(['payments', 'vouchersLogs.voucher']);
-            $balance = $booking->getCurrentBalance();
-            $booking->paid_total = round((float) ($balance['received'] ?? 0), 2);
-            $booking->paid = ($balance['current_balance'] ?? 0) >= ($booking->price_total - 0.01);
-            $booking->save();
+              if ($booking->status === 3) {
+                  $booking->load(['payments', 'vouchersLogs.voucher']);
+                  $balance = $booking->getCurrentBalance();
+                  $booking->paid_total = round((float) ($balance['received'] ?? 0), 2);
+                  $booking->paid = ($balance['current_balance'] ?? 0) >= ($booking->price_total - 0.01);
+                  $booking->save();
+              } else {
+                  $booking->save();
+              }
 
             $cancelSource = $booking->status === 2 ? 'cancel_full' : 'cancel_partial';
             $cancelNote = sprintf(

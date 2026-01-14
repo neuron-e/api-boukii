@@ -236,7 +236,7 @@ class FinanceControllerRefactor extends AppBaseController
      */
     private function hasOnlinePayments(array $paymentAnalysis): bool
     {
-        $onlineMethods = ['boukii_direct', 'online_link', 'online_manual'];
+        $onlineMethods = ['boukii_direct', 'online_link'];
 
         foreach ($onlineMethods as $method) {
             if (isset($paymentAnalysis[$method]) && $paymentAnalysis[$method]['count'] > 0) {

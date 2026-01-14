@@ -496,7 +496,7 @@ class AnalyticsAggregateService
             case Booking::ID_BOUKIIPAY:
                 return 'boukii_offline';
             case Booking::ID_ONLINE:
-                return 'online_manual';
+                return 'online_link';
             case Booking::ID_OTHER:
                 return 'card_offline';
             default:
