@@ -87,6 +87,16 @@ class EvaluationFulfilledGoal extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-         return LogOptions::defaults();
+         return LogOptions::defaults()
+             ->dontSubmitEmptyLogs()
+             ->useLogName('evaluation_goal');
+    }
+
+    public function tapActivity($activity, string $eventName): void
+    {
+        $user = request()->user() ?? auth('sanctum')->user();
+        if ($user) {
+            $activity->causer()->associate($user);
+        }
     }
 }

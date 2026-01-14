@@ -103,6 +103,18 @@ class Evaluation extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-         return LogOptions::defaults();
+         return LogOptions::defaults()
+             ->logFillable()
+             ->logOnlyDirty()
+             ->dontSubmitEmptyLogs()
+             ->useLogName('evaluation');
+    }
+
+    public function tapActivity($activity, string $eventName): void
+    {
+        $user = request()->user() ?? auth('sanctum')->user();
+        if ($user) {
+            $activity->causer()->associate($user);
+        }
     }
 }

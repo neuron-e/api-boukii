@@ -104,6 +104,16 @@ class EvaluationAPIController extends AppBaseController
     {
         $input = $request->all();
 
+        $existing = Evaluation::query()
+            ->where('client_id', $input['client_id'] ?? null)
+            ->where('degree_id', $input['degree_id'] ?? null)
+            ->first();
+
+        if ($existing) {
+            $evaluation = $this->evaluationRepository->update($input, $existing->id);
+            return $this->sendResponse(new EvaluationResource($evaluation), 'Evaluation updated successfully');
+        }
+
         $evaluation = $this->evaluationRepository->create($input);
 
         return $this->sendResponse($evaluation, 'Evaluation saved successfully');

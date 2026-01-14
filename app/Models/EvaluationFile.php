@@ -93,6 +93,16 @@ use Spatie\Activitylog\Traits\LogsActivity;
 
     public function getActivitylogOptions(): LogOptions
     {
-         return LogOptions::defaults();
+         return LogOptions::defaults()
+             ->dontSubmitEmptyLogs()
+             ->useLogName('evaluation_file');
+    }
+
+    public function tapActivity($activity, string $eventName): void
+    {
+        $user = request()->user() ?? auth('sanctum')->user();
+        if ($user) {
+            $activity->causer()->associate($user);
+        }
     }
 }

@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\FrontendLogController;
 use App\Http\Controllers\Admin\ReferenceDataController;
 use App\Http\Controllers\Admin\FinanceController;
 use App\Http\Controllers\Admin\FinanceControllerRefactor;
+use App\Http\Controllers\Admin\EvaluationLogController;
 use App\Http\Controllers\Admin\StatisticsController;
 use App\Http\Controllers\Admin\PaymentTerminalController;
 use App\Http\Controllers\Admin\MeetingPointController;
@@ -109,6 +110,9 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
             'update' => 'api.admin.clients.update',
             'destroy' => 'api.admin.clients.destroy',
         ]);
+
+    Route::get('evaluations/{id}/activity', [EvaluationLogController::class, 'index'])
+        ->name('api.admin.evaluations.activity');
 
     Route::get('clients/{id}/utilizers', [\App\Http\Controllers\Admin\ClientsController::class, 'getUtilizers'])
         ->name('api.admin.clients.utilizers');
