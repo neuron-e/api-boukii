@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Http\Controllers\AppBaseController;
 use App\Http\Resources\EvaluationFileResource;
+use App\Models\EvaluationHistory;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -150,6 +151,7 @@ class EvaluationFileAPIController extends AppBaseController
         }
 
         $evaluationFile = $this->evaluationFileRepository->create($input);
+        $this->logFileHistory($evaluationFile, $request, 'file_added');
 
         return $this->sendResponse(new EvaluationFileResource($evaluationFile), 'Evaluation File saved successfully');
     }
@@ -346,8 +348,25 @@ class EvaluationFileAPIController extends AppBaseController
             return $this->sendError('Evaluation File not found');
         }
 
+        $this->logFileHistory($evaluationFile, request(), 'file_deleted');
         $evaluationFile->delete();
 
         return $this->sendSuccess('Evaluation File deleted successfully');
+    }
+
+    private function logFileHistory(EvaluationFile $file, Request $request, string $type): void
+    {
+        $user = $request->user() ?? auth('sanctum')->user();
+
+        EvaluationHistory::create([
+            'evaluation_id' => $file->evaluation_id,
+            'user_id' => $user?->id,
+            'type' => $type,
+            'payload' => [
+                'file_id' => $file->id,
+                'file_type' => $file->type,
+                'file' => $file->file,
+            ],
+        ]);
     }
 }

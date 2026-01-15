@@ -7,6 +7,7 @@ use App\Http\Requests\API\CreateEvaluationFulfilledGoalAPIRequest;
 use App\Http\Requests\API\UpdateEvaluationFulfilledGoalAPIRequest;
 use App\Http\Resources\API\EvaluationFulfilledGoalResource;
 use App\Models\EvaluationFulfilledGoal;
+use App\Models\EvaluationHistory;
 use App\Repositories\EvaluationFulfilledGoalRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -105,6 +106,7 @@ class EvaluationFulfilledGoalAPIController extends AppBaseController
         $input = $request->all();
 
         $evaluationFulfilledGoal = $this->evaluationFulfilledGoalRepository->create($input);
+        $this->logGoalHistory($evaluationFulfilledGoal, null, $request, 'goal_created');
 
         return $this->sendResponse($evaluationFulfilledGoal, 'Evaluation Fulfilled Goal saved successfully');
     }
@@ -208,7 +210,11 @@ class EvaluationFulfilledGoalAPIController extends AppBaseController
             return $this->sendError('Evaluation Fulfilled Goal not found');
         }
 
+        $previousScore = $evaluationFulfilledGoal->score;
         $evaluationFulfilledGoal = $this->evaluationFulfilledGoalRepository->update($input, $id);
+        if ($previousScore !== $evaluationFulfilledGoal->score) {
+            $this->logGoalHistory($evaluationFulfilledGoal, $previousScore, $request, 'goal_updated');
+        }
 
         return $this->sendResponse(new EvaluationFulfilledGoalResource($evaluationFulfilledGoal), 'EvaluationFulfilledGoal updated successfully');
     }
@@ -258,8 +264,29 @@ class EvaluationFulfilledGoalAPIController extends AppBaseController
             return $this->sendError('Evaluation Fulfilled Goal not found');
         }
 
+        $this->logGoalHistory($evaluationFulfilledGoal, $evaluationFulfilledGoal->score, request(), 'goal_deleted');
         $evaluationFulfilledGoal->delete();
 
         return $this->sendSuccess('Evaluation Fulfilled Goal deleted successfully');
+    }
+
+    private function logGoalHistory(
+        EvaluationFulfilledGoal $goal,
+        ?int $previousScore,
+        Request $request,
+        string $type
+    ): void {
+        $user = $request->user() ?? auth('sanctum')->user();
+
+        EvaluationHistory::create([
+            'evaluation_id' => $goal->evaluation_id,
+            'user_id' => $user?->id,
+            'type' => $type,
+            'payload' => [
+                'goal_id' => $goal->degrees_school_sport_goals_id,
+                'score' => $goal->score,
+                'previous_score' => $previousScore,
+            ],
+        ]);
     }
 }

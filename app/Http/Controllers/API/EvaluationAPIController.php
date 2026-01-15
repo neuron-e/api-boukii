@@ -7,6 +7,7 @@ use App\Http\Requests\API\CreateEvaluationAPIRequest;
 use App\Http\Requests\API\UpdateEvaluationAPIRequest;
 use App\Http\Resources\API\EvaluationResource;
 use App\Models\Evaluation;
+use App\Models\EvaluationHistory;
 use App\Repositories\EvaluationRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -110,6 +111,7 @@ class EvaluationAPIController extends AppBaseController
             ->first();
 
         if ($existing) {
+            $this->logObservationChange($existing, $input['observations'] ?? null, $request);
             $evaluation = $this->evaluationRepository->update($input, $existing->id);
             return $this->sendResponse(new EvaluationResource($evaluation), 'Evaluation updated successfully');
         }
@@ -218,9 +220,32 @@ class EvaluationAPIController extends AppBaseController
             return $this->sendError('Evaluation not found');
         }
 
+        $this->logObservationChange($evaluation, $input['observations'] ?? null, $request);
         $evaluation = $this->evaluationRepository->update($input, $id);
 
         return $this->sendResponse(new EvaluationResource($evaluation), 'Evaluation updated successfully');
+    }
+
+    private function logObservationChange(Evaluation $evaluation, ?string $newValue, Request $request): void
+    {
+        $oldValue = (string) ($evaluation->observations ?? '');
+        $newValue = (string) ($newValue ?? '');
+
+        if ($oldValue === $newValue) {
+            return;
+        }
+
+        $user = $request->user() ?? auth('sanctum')->user();
+
+        EvaluationHistory::create([
+            'evaluation_id' => $evaluation->id,
+            'user_id' => $user?->id,
+            'type' => 'observation_updated',
+            'payload' => [
+                'previous' => $oldValue,
+                'new' => $newValue,
+            ],
+        ]);
     }
 
     /**

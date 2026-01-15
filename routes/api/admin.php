@@ -8,6 +8,8 @@ use App\Http\Controllers\Admin\ReferenceDataController;
 use App\Http\Controllers\Admin\FinanceController;
 use App\Http\Controllers\Admin\FinanceControllerRefactor;
 use App\Http\Controllers\Admin\EvaluationLogController;
+use App\Http\Controllers\Admin\EvaluationCommentController;
+use App\Http\Controllers\Admin\EvaluationHistoryController;
 use App\Http\Controllers\Admin\StatisticsController;
 use App\Http\Controllers\Admin\PaymentTerminalController;
 use App\Http\Controllers\Admin\MeetingPointController;
@@ -113,6 +115,15 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
 
     Route::get('evaluations/{id}/activity', [EvaluationLogController::class, 'index'])
         ->name('api.admin.evaluations.activity');
+
+    Route::get('evaluations/{id}/comments', [EvaluationCommentController::class, 'index'])
+        ->name('api.admin.evaluations.comments.index');
+
+    Route::post('evaluations/{id}/comments', [EvaluationCommentController::class, 'store'])
+        ->name('api.admin.evaluations.comments.store');
+
+    Route::get('evaluations/{id}/history', [EvaluationHistoryController::class, 'index'])
+        ->name('api.admin.evaluations.history.index');
 
     Route::get('clients/{id}/utilizers', [\App\Http\Controllers\Admin\ClientsController::class, 'getUtilizers'])
         ->name('api.admin.clients.utilizers');
