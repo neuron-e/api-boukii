@@ -323,6 +323,7 @@ class School extends Model
         'cancellation_insurance_percent',
         'payrexx_instance',
         'payrexx_key',
+        'payment_link_validity_hours',
         'conditions_url',
         'bookings_comission_cash',
         'bookings_comission_boukii_pay',
@@ -362,6 +363,7 @@ class School extends Model
         'cancellation_insurance_percent' => 'decimal:2',
         'payrexx_instance' => 'string',
         'payrexx_key' => 'string',
+        'payment_link_validity_hours' => 'integer',
         'conditions_url' => 'string',
         'bookings_comission_cash' => 'decimal:2',
         'bookings_comission_boukii_pay' => 'decimal:2',
@@ -401,6 +403,7 @@ class School extends Model
         'cancellation_insurance_percent' => 'nullable',
         'payrexx_instance' => 'nullable',
         'payrexx_key' => 'nullable',
+        'payment_link_validity_hours' => 'nullable',
         'conditions_url' => 'nullable',
         'bookings_comission_cash' => 'nullable',
         'bookings_comission_boukii_pay' => 'nullable',
@@ -557,5 +560,14 @@ class School extends Model
         }
 
         return config('services.payrexx.key');
+    }
+
+    /**
+     * Get payment link validity in hours.
+     * Returns school-specific setting or default 48 hours.
+     */
+    public function getPaymentLinkValidityHours(): int
+    {
+        return $this->payment_link_validity_hours ?? 48;
     }
 }

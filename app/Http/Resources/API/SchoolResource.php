@@ -61,6 +61,7 @@ class SchoolResource extends JsonResource
             'cancellation_insurance_percent' => $this->cancellation_insurance_percent,
             'payrexx_instance' => $this->payrexx_instance,
             'payrexx_key' => $this->payrexx_key,
+            'payment_link_validity_hours' => $this->payment_link_validity_hours ?? 48,
             'conditions_url' => $this->conditions_url,
             'bookings_comission_cash' => $this->bookings_comission_cash,
             'bookings_comission_boukii_pay' => $this->bookings_comission_boukii_pay,

@@ -50,8 +50,11 @@ class PayrexxHelpers
         $link = '';
 
         try {
-            // Payrexx invoice expiration accepts date-only (Y-m-d), so exact 48h alignment is not guaranteed.
-            $expirationDate = Carbon::now()->addHours(48)->format('Y-m-d');
+            // Get validity hours from school settings (default: 48h)
+            $validityHours = $schoolData->getPaymentLinkValidityHours();
+
+            // Payrexx invoice expiration accepts date-only (Y-m-d), so exact alignment is not guaranteed.
+            $expirationDate = Carbon::now()->addHours($validityHours)->format('Y-m-d');
             $basketPayload = [];
             if ($basketData instanceof \Illuminate\Http\Request) {
                 $basketPayload = $basketData->all();
@@ -73,8 +76,8 @@ class PayrexxHelpers
             $gr->setAmount($bookingData->price_total * 100);
             $gr->setCurrency($bookingData->currency);
             $gr->setVatRate($schoolData->bookings_comission_cash);                  // TODO TBD as of 2022-10 all Schools are at Switzerland and there's no VAT ???
-            // Keep Boukii's 48h window consistent with internal paylink expiry logic.
-            $gr->setValidity(48 * 60);
+            // Use school-specific payment link validity (in minutes)
+            $gr->setValidity($validityHours * 60);
 
             // Add School's legal terms, if set
             if ($schoolData->conditions_url) {

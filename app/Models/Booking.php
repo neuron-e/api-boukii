@@ -241,8 +241,8 @@ class Booking extends Model
     use LogsActivity, SoftDeletes, HasFactory;
 
     public $table = 'bookings';
-    // Paylink expiration uses strict 48h from sent_at; Payrexx invoice expiry is date-only and may drift.
-    private const PAY_LINK_VALIDITY_HOURS = 48;
+    // Paylink expiration now uses school-specific validity hours; fallback to 48h if not set.
+    private const PAY_LINK_VALIDITY_HOURS_DEFAULT = 48;
 
     public $fillable = [
         'school_id',
@@ -1143,7 +1143,12 @@ class Booking extends Model
             return false;
         }
 
-        return $sentAt->copy()->addHours(self::PAY_LINK_VALIDITY_HOURS)->isPast();
+        // Use school-specific validity hours, or default
+        $validityHours = $this->school
+            ? $this->school->getPaymentLinkValidityHours()
+            : self::PAY_LINK_VALIDITY_HOURS_DEFAULT;
+
+        return $sentAt->copy()->addHours($validityHours)->isPast();
     }
 
     private function getLastPayLinkSentAt(): ?Carbon
