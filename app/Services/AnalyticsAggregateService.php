@@ -122,7 +122,7 @@ class AnalyticsAggregateService
                         $baseTotal += $activityTotal;
                     }
 
-                    if ($baseTotal <= 0 || empty($activities)) {
+                    if (empty($activities)) {
                         continue;
                     }
 
@@ -151,9 +151,6 @@ class AnalyticsAggregateService
                         $adjustedTotal += $activities[$index]['adjusted_total'];
                     }
 
-                    if ($adjustedTotal <= 0) {
-                        continue;
-                    }
 
                     $paidTotal = (float) $booking->payments->where('status', 'paid')->sum('amount');
                     $voucherInfo = $booking->getPriceCalculator()->analyzeVouchersForBalance($booking);

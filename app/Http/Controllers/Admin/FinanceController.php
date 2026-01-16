@@ -335,6 +335,16 @@ class FinanceController extends AppBaseController
         $testBookings = 0;
         $productionBookings = max(0, $totalBookings - $cancelledBookings);
 
+        $totalBookingsFacts = (int) (clone $baseQuery)->distinct()->count('booking_id');
+        $cancelledBookingsFacts = (int) (clone $baseQuery)->where('is_cancelled', 1)->distinct()->count('booking_id');
+        $productionBookingsFacts = (int) (clone $productionQuery)->distinct()->count('booking_id');
+        if ($totalBookingsFacts > 0) {
+            $totalBookings = $totalBookingsFacts;
+            $cancelledBookings = $cancelledBookingsFacts;
+            $productionBookings = $productionBookingsFacts;
+            $cancelledRevenue = (float) (clone $baseQuery)->where('is_cancelled', 1)->sum('expected_amount');
+        }
+
         $productionExpected = (float) (clone $productionQuery)->sum('expected_amount');
         $productionReceived = (float) (clone $productionQuery)->sum('received_amount');
         $productionPending = (float) (clone $productionQuery)->sum('pending_amount');
@@ -455,7 +465,7 @@ class FinanceController extends AppBaseController
         });
 
         $monthlyRows = (clone $productionQuery)
-            ->selectRaw("DATE_FORMAT($dateColumn, '%Y-%m') as month, COUNT(DISTINCT booking_id) as bookings, SUM(expected_amount) as revenue, COUNT(DISTINCT client_id) as unique_clients")
+            ->selectRaw("DATE_FORMAT($dateColumn, '%Y-%m') as month, COUNT(DISTINCT booking_id) as bookings, SUM(expected_amount) as revenue, SUM(received_amount) as revenue_received, COUNT(DISTINCT client_id) as unique_clients")
             ->groupBy('month')
             ->orderBy('month')
             ->get();
@@ -464,10 +474,12 @@ class FinanceController extends AppBaseController
         foreach ($monthlyRows as $row) {
             $bookings = (int) ($row->bookings ?? 0);
             $revenue = (float) ($row->revenue ?? 0);
+            $revenueReceived = (float) ($row->revenue_received ?? 0);
             $monthlyBreakdown[] = [
                 'month' => $row->month,
                 'bookings' => $bookings,
                 'revenue' => round($revenue, 2),
+                'revenue_received' => round($revenueReceived, 2),
                 'avg_booking_value' => $bookings > 0 ? round($revenue / $bookings, 2) : 0,
                 'unique_clients' => (int) ($row->unique_clients ?? 0)
             ];
@@ -774,7 +786,7 @@ class FinanceController extends AppBaseController
         $startDateTime = Carbon::parse($dateRange['start_date'])->startOfDay();
         $endDateTime = Carbon::parse($dateRange['end_date'])->endOfDay();
 
-        // Primero obtener todas las reservas segÃºn el filtro de fecha
+        // Primero obtener todas las reservas segun el filtro de fecha
         if ($dateFilter === 'activity') {
             $allBookingIds = DB::table('booking_users as bu')
                 ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
@@ -802,6 +814,12 @@ class FinanceController extends AppBaseController
             ->select('booking_id')
             ->distinct()
             ->pluck('booking_id');
+
+        Log::info('FILTRO DE CURSOS:', [
+            'total_bookings' => $allBookingIds->count(),
+            'bookings_after_filter' => $bookingsWithNonExcludedCourses->count(),
+            'excluded_count' => $allBookingIds->count() - $bookingsWithNonExcludedCourses->count()
+        ]);
 
         // Query final: solo reservas con al menos un curso NO excluido
         $bookingIdsQuery = DB::table('bookings')
@@ -3363,43 +3381,58 @@ class FinanceController extends AppBaseController
             if ($optimizationLevel === 'fast') {
                 Log::info('ð BOOKING-DETAILS: Usando optimizaciÃ³n FAST con filtro de cursos');
                 $dateFilter = $request->get('date_filter', 'created_at');
+                $dateColumn = $dateFilter === 'activity' ? 'activity_date' : 'booking_created_at';
                 $startDateTime = Carbon::parse($dateRange['start_date'])->startOfDay();
                 $endDateTime = Carbon::parse($dateRange['end_date'])->endOfDay();
 
-                // Primero obtener todas las reservas segÃºn el filtro de fecha
-                if ($dateFilter === 'activity') {
-                    $allBookingIds = DB::table('booking_users as bu')
-                        ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
-                        ->where('b.school_id', $request->school_id)
-                        ->whereNull('b.deleted_at')
-                        ->whereBetween('bu.date', [$dateRange['start_date'], $dateRange['end_date']])
-                        ->select('b.id')
-                        ->distinct()
-                        ->pluck('b.id');
-                } else {
-                    $allBookingIds = DB::table('bookings as b')
-                        ->where('b.school_id', $request->school_id)
-                        ->whereNull('b.deleted_at')
-                        ->whereBetween('b.created_at', [$startDateTime, $endDateTime])
-                        ->select('b.id')
-                        ->distinct()
-                        ->pluck('b.id');
+                $factsQuery = $this->buildFactsQuery($request, $dateRange, false, $dateColumn);
+                if ($request->boolean('only_cancelled')) {
+                    $factsQuery->where('is_cancelled', 1);
                 }
+                $factsBookingIds = $factsQuery->distinct()->pluck('booking_id');
 
-                // Excluir reservas que SOLO tienen cursos de prueba (igual que en KPIs)
-                $bookingsWithNonExcludedCourses = DB::table('booking_users')
-                    ->whereIn('booking_id', $allBookingIds)
-                    ->whereNull('deleted_at')
-                    ->whereNotIn('course_id', self::EXCLUDED_COURSES)
-                    ->select('booking_id')
-                    ->distinct()
-                    ->pluck('booking_id');
+                if ($factsBookingIds->isNotEmpty()) {
+                    $allBookingIds = $factsBookingIds;
+                    $bookingsWithNonExcludedCourses = $factsBookingIds;
+                    Log::info('BOOKING-DETAILS: usando facts para filtrar reservas', [
+                        'total_bookings' => $allBookingIds->count()
+                    ]);
+                } else {
+                    // Primero obtener todas las reservas segun el filtro de fecha
+                    if ($dateFilter === 'activity') {
+                        $allBookingIds = DB::table('booking_users as bu')
+                            ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
+                            ->where('b.school_id', $request->school_id)
+                            ->whereNull('b.deleted_at')
+                            ->whereBetween('bu.date', [$dateRange['start_date'], $dateRange['end_date']])
+                            ->select('b.id')
+                            ->distinct()
+                            ->pluck('b.id');
+                    } else {
+                        $allBookingIds = DB::table('bookings as b')
+                            ->where('b.school_id', $request->school_id)
+                            ->whereNull('b.deleted_at')
+                            ->whereBetween('b.created_at', [$startDateTime, $endDateTime])
+                            ->select('b.id')
+                            ->distinct()
+                            ->pluck('b.id');
+                    }
 
-                Log::info('ð FILTRO DE CURSOS:', [
-                    'total_bookings' => $allBookingIds->count(),
-                    'bookings_after_filter' => $bookingsWithNonExcludedCourses->count(),
-                    'excluded_count' => $allBookingIds->count() - $bookingsWithNonExcludedCourses->count()
-                ]);
+                    // Excluir reservas que SOLO tienen cursos de prueba (igual que en KPIs)
+                    $bookingsWithNonExcludedCourses = DB::table('booking_users')
+                        ->whereIn('booking_id', $allBookingIds)
+                        ->whereNull('deleted_at')
+                        ->whereNotIn('course_id', self::EXCLUDED_COURSES)
+                        ->select('booking_id')
+                        ->distinct()
+                        ->pluck('booking_id');
+
+                    Log::info('BOOKING-DETAILS: filtro de cursos', [
+                        'total_bookings' => $allBookingIds->count(),
+                        'bookings_after_filter' => $bookingsWithNonExcludedCourses->count(),
+                        'excluded_count' => $allBookingIds->count() - $bookingsWithNonExcludedCourses->count()
+                    ]);
+                }
 
                 // Query final: solo reservas con al menos un curso NO excluido
                 $bookingIdsQuery = DB::table('bookings')
@@ -3519,7 +3552,7 @@ class FinanceController extends AppBaseController
                         if ($pendingAmount >= -0.50 && $pendingAmount <= 0.50) {
                             continue;
                         }
-                    } else {
+                    } elseif (!$request->boolean('only_cancelled')) {
                         // Si NO hay filtro, mostrar TODAS las reservas con desbalance (pending != 0)
                         // Excluir las pagadas exactamente (pending entre -0.50 y 0.50)
                         if ($pendingAmount >= -0.50 && $pendingAmount <= 0.50) {
@@ -4084,6 +4117,61 @@ class FinanceController extends AppBaseController
 
             $dateFilter = $request->input('date_filter', 'created_at');
             $optimizationLevel = $request->input('optimization_level', 'fast');
+
+            if ($optimizationLevel === 'fast') {
+                $financialStats = $this->calculateCourseFinancialStatsFastFromFacts(
+                    $course->id,
+                    $dateRange,
+                    $request,
+                    $dateFilter
+                );
+                $participantStats = $this->calculateCourseParticipantStatsFastFromFacts(
+                    $course->id,
+                    $dateRange,
+                    $request,
+                    $dateFilter
+                );
+                $performanceStats = $this->calculateCoursePerformanceStatsFast(
+                    $course,
+                    $dateRange,
+                    $request,
+                    $dateFilter
+                );
+
+                $statistics = [
+                    'course_info' => [
+                        'id' => $course->id,
+                        'name' => $course->name,
+                        'type' => $course->course_type,
+                        'sport' => $course->sport->name ?? 'N/A',
+                        'is_flexible' => (bool) $course->is_flexible
+                    ],
+                    'financial_stats' => $financialStats,
+                    'participant_stats' => $participantStats,
+                    'performance_stats' => $performanceStats,
+                    'analysis_metadata' => [
+                        'total_bookings_analyzed' => $financialStats['total_bookings'] ?? 0,
+                        'test_bookings_excluded' => 0,
+                        'cancelled_bookings_excluded' => 0,
+                        'date_range' => $dateRange,
+                        'analysis_timestamp' => now()->toDateTimeString()
+                    ]
+                ];
+
+                if ($request->boolean('include_comparison', true)) {
+                    $statistics['performance_stats']['comparison_with_similar'] =
+                        $this->calculateSimilarCoursesComparisonFast(
+                            $course,
+                            $request,
+                            $dateRange,
+                            $dateFilter,
+                            $financialStats,
+                            $participantStats
+                        );
+                }
+
+                return $this->sendResponse($statistics, 'Estadísticas del curso generadas exitosamente');
+            }
 
             // 3. OBTENER RESERVAS DEL CURSO
             $bookings = $this->getCourseBookings(
@@ -4870,6 +4958,279 @@ class FinanceController extends AppBaseController
         $performanceStats['popularity_rank'] = $this->calculateCoursePopularityRank($course, $request);
 
         return $performanceStats;
+    }
+
+    private function calculateCoursePerformanceStatsFast($course, array $dateRange, Request $request, string $dateFilter): array
+    {
+        $performanceStats = [
+            'occupancy_rate' => 0,
+            'average_class_size' => 0,
+            'total_sessions' => 0,
+            'completion_rate' => 0,
+            'popularity_rank' => 0
+        ];
+
+        $dateColumn = $dateFilter === 'activity' ? 'activity_date' : 'booking_created_at';
+        $productionFacts = $this->buildCourseFactsQuery($request, $dateRange, $dateFilter, $course->id, true);
+
+        $totalSessions = (clone $productionFacts)
+            ->whereNotNull('activity_date')
+            ->distinct()
+            ->count('activity_date');
+
+        $activeParticipants = (clone $productionFacts)
+            ->sum('participants');
+
+        $completedParticipants = (clone $productionFacts)
+            ->whereNotNull('activity_date')
+            ->where('activity_date', '<', now()->toDateString())
+            ->sum('participants');
+
+        $estimatedCapacity = $this->estimateCourseCapacity($course);
+        $maxCapacityTotal = $totalSessions * $estimatedCapacity;
+
+        $performanceStats['total_sessions'] = $totalSessions;
+        $performanceStats['average_class_size'] = $totalSessions > 0
+            ? round($activeParticipants / $totalSessions, 1) : 0;
+        $performanceStats['occupancy_rate'] = $maxCapacityTotal > 0
+            ? round(($activeParticipants / $maxCapacityTotal) * 100, 2) : 0;
+        $performanceStats['completion_rate'] = $activeParticipants > 0
+            ? round(($completedParticipants / $activeParticipants) * 100, 2) : 100;
+        $performanceStats['popularity_rank'] = $this->calculateCoursePopularityRank($course, $request);
+
+        return $performanceStats;
+    }
+
+    private function calculateSimilarCoursesComparisonFast(
+        $course,
+        Request $request,
+        array $dateRange,
+        string $dateFilter,
+        array $financialStats,
+        array $participantStats
+    ): array {
+        $similarCourseIds = \App\Models\Course::where('school_id', $request->school_id)
+            ->where('course_type', $course->course_type)
+            ->where('sport_id', $course->sport_id)
+            ->where('id', '!=', $course->id)
+            ->limit(10)
+            ->pluck('id');
+
+        if ($similarCourseIds->isEmpty()) {
+            return [
+                'revenue_vs_average' => 0,
+                'participants_vs_average' => 0,
+                'price_vs_average' => 0
+            ];
+        }
+
+        $dateColumn = $dateFilter === 'activity' ? 'activity_date' : 'booking_created_at';
+        $similarStats = $this->buildFactsQuery($request, $dateRange, true, $dateColumn)
+            ->whereIn('course_id', $similarCourseIds)
+            ->select([
+                'course_id',
+                DB::raw('SUM(participants) as participants'),
+                DB::raw('COALESCE(SUM(expected_amount), 0) as revenue')
+            ])
+            ->groupBy('course_id')
+            ->get();
+
+        $totalRevenue = 0.0;
+        $totalParticipants = 0;
+        $coursesCount = 0;
+        foreach ($similarStats as $row) {
+            $totalRevenue += (float) ($row->revenue ?? 0);
+            $totalParticipants += (int) ($row->participants ?? 0);
+            $coursesCount++;
+        }
+
+        if ($coursesCount === 0) {
+            return [
+                'revenue_vs_average' => 0,
+                'participants_vs_average' => 0,
+                'price_vs_average' => 0
+            ];
+        }
+
+        $avgRevenue = $totalRevenue / $coursesCount;
+        $avgParticipants = $totalParticipants / $coursesCount;
+        $avgPrice = $avgParticipants > 0 ? $avgRevenue / $avgParticipants : 0;
+
+        $currentRevenue = (float) ($financialStats['total_revenue'] ?? 0);
+        $currentParticipants = (int) ($participantStats['total_participants'] ?? 0);
+        $currentAvgPrice = $currentParticipants > 0 ? $currentRevenue / $currentParticipants : 0;
+
+        return [
+            'revenue_vs_average' => $avgRevenue > 0
+                ? round((($currentRevenue - $avgRevenue) / $avgRevenue) * 100, 2) : 0,
+            'participants_vs_average' => $avgParticipants > 0
+                ? round((($currentParticipants - $avgParticipants) / $avgParticipants) * 100, 2) : 0,
+            'price_vs_average' => $avgPrice > 0
+                ? round((($currentAvgPrice - $avgPrice) / $avgPrice) * 100, 2) : 0
+        ];
+    }
+
+    private function calculateCourseFinancialStatsFastFromFacts(
+        int $courseId,
+        array $dateRange,
+        Request $request,
+        string $dateFilter
+    ): array {
+        $stats = [
+            'total_revenue' => 0,
+            'total_revenue_received' => 0,
+            'total_revenue_pending' => 0,
+            'total_bookings' => 0,
+            'total_participants' => 0,
+            'average_price_per_participant' => 0,
+            'revenue_trend' => [],
+            'payment_methods' => []
+        ];
+
+        $dateColumn = $dateFilter === 'activity' ? 'activity_date' : 'booking_created_at';
+        $productionFacts = $this->buildCourseFactsQuery($request, $dateRange, $dateFilter, $courseId, true);
+
+        $summary = (clone $productionFacts)->selectRaw(
+            'COUNT(DISTINCT booking_id) as total_bookings, ' .
+            'SUM(participants) as total_participants, ' .
+            'COALESCE(SUM(expected_amount), 0) as total_revenue, ' .
+            'COALESCE(SUM(received_amount), 0) as total_revenue_received, ' .
+            'COALESCE(SUM(pending_amount), 0) as total_revenue_pending'
+        )->first();
+
+        if ($summary) {
+            $stats['total_bookings'] = (int) ($summary->total_bookings ?? 0);
+            $stats['total_participants'] = (int) ($summary->total_participants ?? 0);
+            $stats['total_revenue'] = round((float) ($summary->total_revenue ?? 0), 2);
+            $stats['total_revenue_received'] = round((float) ($summary->total_revenue_received ?? 0), 2);
+            $stats['total_revenue_pending'] = round((float) ($summary->total_revenue_pending ?? 0), 2);
+            $stats['average_price_per_participant'] = $stats['total_participants'] > 0
+                ? round($stats['total_revenue'] / $stats['total_participants'], 2)
+                : 0;
+        }
+
+        $monthly = (clone $productionFacts)
+            ->selectRaw("DATE_FORMAT($dateColumn, '%Y-%m') as month, COUNT(DISTINCT booking_id) as bookings, SUM(expected_amount) as revenue")
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get();
+
+        foreach ($monthly as $row) {
+            if (!$row->month) {
+                continue;
+            }
+            $stats['revenue_trend'][] = [
+                'month' => $row->month,
+                'revenue' => round((float) ($row->revenue ?? 0), 2),
+                'bookings' => (int) ($row->bookings ?? 0)
+            ];
+        }
+
+        $paymentRows = (clone $productionFacts)
+            ->selectRaw('payment_method, COUNT(DISTINCT booking_id) as bookings, SUM(expected_amount) as revenue')
+            ->groupBy('payment_method')
+            ->get();
+
+        $totalPaymentAmount = 0.0;
+        foreach ($paymentRows as $row) {
+            $method = $row->payment_method ?? 'unknown';
+            $amount = (float) ($row->revenue ?? 0);
+            $totalPaymentAmount += $amount;
+            $stats['payment_methods'][$method] = [
+                'count' => (int) ($row->bookings ?? 0),
+                'amount' => round($amount, 2),
+                'percentage' => 0
+            ];
+        }
+
+        if ($totalPaymentAmount > 0) {
+            foreach ($stats['payment_methods'] as $method => $data) {
+                $stats['payment_methods'][$method]['percentage'] = round(($data['amount'] / $totalPaymentAmount) * 100, 2);
+            }
+        }
+
+        return $stats;
+    }
+
+    private function calculateCourseParticipantStatsFastFromFacts(
+        int $courseId,
+        array $dateRange,
+        Request $request,
+        string $dateFilter
+    ): array {
+        $stats = [
+            'total_participants' => 0,
+            'active_participants' => 0,
+            'cancelled_participants' => 0,
+            'completion_rate' => 0,
+            'bookings_by_date' => [],
+            'booking_sources' => []
+        ];
+
+        $dateColumn = $dateFilter === 'activity' ? 'activity_date' : 'booking_created_at';
+        $allFacts = $this->buildCourseFactsQuery($request, $dateRange, $dateFilter, $courseId, false);
+        $productionFacts = $this->buildCourseFactsQuery($request, $dateRange, $dateFilter, $courseId, true);
+
+        $summary = (clone $allFacts)->selectRaw(
+            'COALESCE(SUM(participants), 0) as total_participants, ' .
+            'COALESCE(SUM(CASE WHEN is_cancelled = 0 THEN participants ELSE 0 END), 0) as active_participants, ' .
+            'COALESCE(SUM(CASE WHEN is_cancelled = 1 THEN participants ELSE 0 END), 0) as cancelled_participants'
+        )->first();
+
+        if ($summary) {
+            $stats['total_participants'] = (int) ($summary->total_participants ?? 0);
+            $stats['active_participants'] = (int) ($summary->active_participants ?? 0);
+            $stats['cancelled_participants'] = (int) ($summary->cancelled_participants ?? 0);
+            $stats['completion_rate'] = $stats['total_participants'] > 0
+                ? round(($stats['active_participants'] / $stats['total_participants']) * 100, 2)
+                : 100;
+        }
+
+        $daily = (clone $productionFacts)
+            ->whereNotNull('activity_date')
+            ->selectRaw('activity_date as date, SUM(participants) as participants, SUM(expected_amount) as revenue')
+            ->groupBy('activity_date')
+            ->orderBy('activity_date')
+            ->get();
+
+        foreach ($daily as $row) {
+            if (!$row->date) {
+                continue;
+            }
+            $stats['bookings_by_date'][] = [
+                'date' => $row->date,
+                'participants' => (int) ($row->participants ?? 0),
+                'revenue' => round((float) ($row->revenue ?? 0), 2)
+            ];
+        }
+
+        $sources = (clone $productionFacts)
+            ->selectRaw('source, COUNT(DISTINCT booking_id) as count')
+            ->groupBy('source')
+            ->get();
+
+        $totalBookings = array_sum($sources->pluck('count')->toArray());
+        foreach ($sources as $row) {
+            $source = $row->source ?? 'unknown';
+            $stats['booking_sources'][$source] = [
+                'count' => (int) ($row->count ?? 0),
+                'percentage' => $totalBookings > 0 ? round(($row->count / $totalBookings) * 100, 2) : 0
+            ];
+        }
+
+        return $stats;
+    }
+
+    private function buildCourseFactsQuery(
+        Request $request,
+        array $dateRange,
+        string $dateFilter,
+        int $courseId,
+        bool $productionOnly
+    ) {
+        $dateColumn = $dateFilter === 'activity' ? 'activity_date' : 'booking_created_at';
+        return $this->buildFactsQuery($request, $dateRange, $productionOnly, $dateColumn)
+            ->where('course_id', $courseId);
     }
 
     /**
