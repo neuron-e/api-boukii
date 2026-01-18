@@ -7130,7 +7130,12 @@ class FinanceController extends AppBaseController
         }
 
         $analysis = $this->priceCalculator->analyzeFinancialReality($booking, [
-            'exclude_courses' => self::EXCLUDED_COURSES
+            'exclude_courses' => self::EXCLUDED_COURSES,
+            'include_details' => false,
+            'include_breakdown' => false,
+            'include_vouchers_info' => false,
+            'include_voucher_details' => false,
+            'include_payment_codes' => true,
         ]);
 
         $financial = $analysis['financial_reality'] ?? [];
@@ -7143,13 +7148,7 @@ class FinanceController extends AppBaseController
         $totalNoRefund = (float) ($financial['total_no_refund'] ?? 0);
         $totalProcessed = (float) ($financial['total_processed'] ?? ($totalRefunded + $totalVouchersRefunded + $totalNoRefund));
 
-        $voucherDetails = $analysis['calculation_details']['vouchers_info']['details'] ?? [];
-        $voucherPaymentCodes = [];
-        foreach ($voucherDetails as $detail) {
-            if (($detail['interpreted_type'] ?? '') === 'payment' && !empty($detail['voucher_code'])) {
-                $voucherPaymentCodes[] = $detail['voucher_code'];
-            }
-        }
+        $voucherPaymentCodes = $analysis['financial_reality']['voucher_payment_codes'] ?? [];
 
         $isConsistent = $analysis['reality_check']['is_consistent'] ?? null;
         $hasIssues = $isConsistent === null ? false : !$isConsistent;

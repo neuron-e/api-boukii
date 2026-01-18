@@ -19,6 +19,10 @@ class BookingPriceCalculatorService
     {
         $excludeCourses = $options['exclude_courses'] ?? [];
         $includeInsurance = $options['include_insurance'] ?? true;
+        $includeBreakdown = $options['include_breakdown'] ?? true;
+        $includeVouchersInfo = $options['include_vouchers_info'] ?? true;
+        $vouchersIncludeDetails = $options['vouchers_include_details'] ?? true;
+        $vouchersIncludePaymentCodes = $options['vouchers_include_payment_codes'] ?? false;
 
         // Obtener usuarios de reserva activos y no excluidos
         $activeBookingUsers = $this->getActiveBookingUsers($booking, $excludeCourses);
@@ -43,18 +47,29 @@ class BookingPriceCalculatorService
             'discounts' => $discounts,
             'total_before_vouchers' => $totalBeforeVouchers,
             'total_final' => $totalBeforeVouchers, // Los vouchers no reducen el precio, son forma de pago
-            'vouchers_info' => $this->analyzeVouchersForBalance($booking),
-            'breakdown' => $this->getDetailedBreakdown($booking, $activeBookingUsers, $additionalConcepts, $discounts)
+            'vouchers_info' => $includeVouchersInfo
+                ? $this->analyzeVouchersForBalance($booking, [
+                    'include_details' => $vouchersIncludeDetails,
+                    'include_payment_codes' => $vouchersIncludePaymentCodes,
+                ])
+                : [],
+            'breakdown' => $includeBreakdown
+                ? $this->getDetailedBreakdown($booking, $activeBookingUsers, $additionalConcepts, $discounts)
+                : []
         ];
     }
 
-    public function analyzeVouchersForBalance(Booking $booking): array
+    public function analyzeVouchersForBalance(Booking $booking, array $options = []): array
     {
+        $includeDetails = $options['include_details'] ?? true;
+        $includePaymentCodes = $options['include_payment_codes'] ?? false;
+
         $voucherData = [
             'total_used' => 0,
             'total_refunded' => 0,
             'net_voucher_payment' => 0,
-            'details' => []
+            'details' => [],
+            'payment_codes' => []
         ];
 
         foreach ($booking->vouchersLogs as $voucherLog) {
@@ -70,17 +85,31 @@ class BookingPriceCalculatorService
                 $voucherData['total_refunded'] += $voucherAnalysis['amount'];
             }
 
-            $voucherData['details'][] = [
-                'voucher_log_id' => $voucherLog->id,
-                'voucher_code' => $voucher->code,
-                'original_amount' => $voucherLog->amount,
-                'interpreted_amount' => $voucherAnalysis['amount'],
-                'interpreted_type' => $voucherAnalysis['type'],
-                'reason' => $voucherAnalysis['reason']
-            ];
+            if ($includeDetails) {
+                $voucherData['details'][] = [
+                    'voucher_log_id' => $voucherLog->id,
+                    'voucher_code' => $voucher->code,
+                    'original_amount' => $voucherLog->amount,
+                    'interpreted_amount' => $voucherAnalysis['amount'],
+                    'interpreted_type' => $voucherAnalysis['type'],
+                    'reason' => $voucherAnalysis['reason']
+                ];
+            }
+
+            if ($includePaymentCodes && ($voucherAnalysis['type'] ?? '') === 'payment' && !empty($voucher->code)) {
+                $voucherData['payment_codes'][] = $voucher->code;
+            }
         }
 
         $voucherData['net_voucher_payment'] = $voucherData['total_used'] - $voucherData['total_refunded'];
+        if ($includePaymentCodes) {
+            $voucherData['payment_codes'] = array_values(array_unique($voucherData['payment_codes']));
+        } else {
+            $voucherData['payment_codes'] = [];
+        }
+        if (!$includeDetails) {
+            $voucherData['details'] = [];
+        }
 
         return $voucherData;
     }
@@ -91,10 +120,24 @@ class BookingPriceCalculatorService
     public function analyzeFinancialReality(Booking $booking, array $options = []): array
     {
         // 1. Calcular lo que DEBERÃA costar
-        $calculatedTotal = $this->calculateBookingTotal($booking, $options);
+        $includeDetails = $options['include_details'] ?? true;
+        $includeBreakdown = $options['include_breakdown'] ?? $includeDetails;
+        $includeVouchersInfo = $options['include_vouchers_info'] ?? $includeDetails;
+        $includeVoucherDetails = $options['include_voucher_details'] ?? $includeDetails;
+        $includeVoucherPaymentCodes = $options['include_payment_codes'] ?? false;
+
+        $calculatedTotal = $this->calculateBookingTotal($booking, array_merge($options, [
+            'include_breakdown' => $includeBreakdown,
+            'include_vouchers_info' => $includeVouchersInfo,
+            'vouchers_include_details' => $includeVoucherDetails,
+            'vouchers_include_payment_codes' => $includeVoucherPaymentCodes,
+        ]));
 
         // 2. Analizar lo que REALMENTE se moviÃ³ financieramente
-        $financialReality = $this->getFinancialReality($booking);
+        $financialReality = $this->getFinancialReality($booking, [
+            'include_voucher_details' => $includeVoucherDetails,
+            'include_payment_codes' => $includeVoucherPaymentCodes,
+        ]);
 
         // 3. Comparar realidad vs expectativa
         $realityCheck = $this->compareRealityVsCalculated($calculatedTotal, $financialReality, $booking);
@@ -104,7 +147,7 @@ class BookingPriceCalculatorService
             'stored_total' => $booking->price_total, // Solo informativo
             'financial_reality' => $financialReality,
             'reality_check' => $realityCheck,
-            'calculation_details' => $calculatedTotal,
+            'calculation_details' => $includeDetails ? $calculatedTotal : [],
             'recommendation' => $this->getRecommendation($realityCheck, $booking)
         ];
     }
@@ -116,21 +159,30 @@ class BookingPriceCalculatorService
      */
     public function getFinancialRealitySnapshot(Booking $booking): array
     {
-        return $this->getFinancialReality($booking);
+        return $this->getFinancialReality($booking, [
+            'include_voucher_details' => false,
+            'include_payment_codes' => false,
+        ]);
     }
 
     /**
      * NUEVO: Obtener la realidad financiera real
      */
-    private function getFinancialReality(Booking $booking): array
+    private function getFinancialReality(Booking $booking, array $options = []): array
     {
+        $includeVoucherDetails = $options['include_voucher_details'] ?? true;
+        $includeVoucherPaymentCodes = $options['include_payment_codes'] ?? false;
+
         // Pagos reales
         $totalPaid = $booking->payments->whereIn('status', ['paid', 'completed'])->sum('amount');
         $totalRefunded = $booking->payments->whereIn('status', ['refund', 'partial_refund'])->sum('amount');
         $totalNoRefund = $booking->payments->whereIn('status', ['no_refund'])->sum('amount');
 
         // Vouchers reales
-        $voucherAnalysis = $this->analyzeVouchersForBalance($booking);
+        $voucherAnalysis = $this->analyzeVouchersForBalance($booking, [
+            'include_details' => $includeVoucherDetails,
+            'include_payment_codes' => $includeVoucherPaymentCodes,
+        ]);
         $totalVouchersUsed = $voucherAnalysis['total_used'];
         $totalVouchersRefunded = $voucherAnalysis['total_refunded'];
 
@@ -150,7 +202,8 @@ class BookingPriceCalculatorService
             'total_processed' => $totalProcessed,
             'net_balance' => $netBalance,
           //  'payment_details' => $this->getPaymentDetails($booking),
-            'voucher_details' => $voucherAnalysis['details']
+            'voucher_details' => $voucherAnalysis['details'],
+            'voucher_payment_codes' => $voucherAnalysis['payment_codes'] ?? []
         ];
     }
 
@@ -2055,7 +2108,3 @@ class BookingPriceCalculatorService
     }
 
 }
-
-
-
-
