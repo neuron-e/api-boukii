@@ -9,6 +9,7 @@ use App\Models\BookingUser;
 use App\Models\Client;
 use App\Models\ClientsSchool;
 use App\Models\ClientsUtilizer;
+use App\Models\Language;
 use App\Models\User;
 use App\Models\Voucher;
 use App\Models\GiftVoucher;
@@ -244,6 +245,20 @@ class ClientController extends SlugAuthController
                 continue;
             }
 
+            if (is_string($value)) {
+                $normalized = trim(mb_strtolower($value));
+                if ($normalized !== '') {
+                    $language = Language::query()
+                        ->whereRaw('LOWER(code) = ?', [$normalized])
+                        ->orWhereRaw('LOWER(name) = ?', [$normalized])
+                        ->first();
+                    if ($language) {
+                        $input[$field] = $language->id;
+                        continue;
+                    }
+                }
+            }
+
             $input[$field] = $value;
         }
 
@@ -317,13 +332,17 @@ class ClientController extends SlugAuthController
      */
     public function storeUtilizers($id, Request $request): JsonResponse
     {
-        // Valida los datos de la solicitud, asegúrate de que contenga al menos los campos necesarios
-        $request->validate([
+        $input = $this->normalizeLanguageIds($request->all());
+
+        $validator = Validator::make($input, [
             'first_name' => 'required|string',
             'last_name' => 'required|string',
             'birth_date' => 'required',
-            'language1_id' => 'required'
+            'language1_id' => 'required|integer|exists:languages,id'
         ]);
+
+        $validator->validate();
+        $input = $validator->validated();
 
         // Encuentra al cliente principal con la ID proporcionada
         $mainClient = Client::find($id);
@@ -334,9 +353,9 @@ class ClientController extends SlugAuthController
 
         // Crea un nuevo cliente con los datos de la solicitud
         $newClient = new Client([
-            'first_name' => $request->input('first_name'),
-            'last_name' => $request->input('last_name'),
-            'birth_date' => $request->input('birth_date'),
+            'first_name' => $input['first_name'],
+            'last_name' => $input['last_name'],
+            'birth_date' => $input['birth_date'],
             'email' => $mainClient->email,
             'phone' => $mainClient->phone,
             'telephone' => $mainClient->email,
@@ -347,7 +366,7 @@ class ClientController extends SlugAuthController
             'country' => $mainClient->country,
             'station_id' => $mainClient->station_id,
             'password' => bcrypt(Str::random(8)),
-            'language1_id' => $request->input('language1_id')
+            'language1_id' => $input['language1_id']
         ]);
 
 
@@ -361,9 +380,9 @@ class ClientController extends SlugAuthController
         ]);
 
         $newUser = new User([
-            'first_name' => $request->input('first_name'),
-            'last_name' => $request->input('last_name'),
-            'birth_date' => $request->input('birth_date'),
+            'first_name' => $input['first_name'],
+            'last_name' => $input['last_name'],
+            'birth_date' => $input['birth_date'],
             'email' => $mainClient->email,
             'phone' => $mainClient->phone,
             'telephone' => $mainClient->email,
@@ -374,7 +393,7 @@ class ClientController extends SlugAuthController
             'country' => $mainClient->country,
             'station_id' => $mainClient->station_id,
             'password' => bcrypt(Str::random(8)),
-            'language1_id' => $request->input('language1_id')
+            'language1_id' => $input['language1_id']
             ]
         );
         $newUser->type = 'client';
