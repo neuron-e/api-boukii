@@ -58,4 +58,16 @@ Route::middleware(['auth:sanctum', 'ability:teach:all'])->group(function() {
     Route::post('push-test', [\App\Http\Controllers\Teach\PushTokenController::class, 'test'])
         ->name('api.teach.push-test');
 
+    Route::get('notifications', [\App\Http\Controllers\Teach\NotificationController::class, 'index'])
+        ->name('api.teach.notifications.index');
+
+    Route::get('notifications/unread-count', [\App\Http\Controllers\Teach\NotificationController::class, 'unreadCount'])
+        ->name('api.teach.notifications.unread-count');
+
+    Route::post('notifications/{id}/read', [\App\Http\Controllers\Teach\NotificationController::class, 'markRead'])
+        ->name('api.teach.notifications.read');
+
+    Route::post('notifications/read-all', [\App\Http\Controllers\Teach\NotificationController::class, 'markAllRead'])
+        ->name('api.teach.notifications.read-all');
+
 });

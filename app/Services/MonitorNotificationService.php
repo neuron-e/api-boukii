@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Events\MonitorAssigned;
 use App\Events\MonitorRemoved;
+use App\Models\AppNotification;
 use App\Models\Monitor;
 use App\Models\MonitorPushToken;
 use Illuminate\Support\Facades\Cache;
@@ -38,6 +39,11 @@ class MonitorNotificationService
             'payload' => $normalizedPayload,
             'notification' => $notification,
         ];
+
+        $notificationId = $this->storeNotification($monitorId, $type, $normalizedPayload, $notification, $actorId);
+        if ($notificationId) {
+            $eventPayload['notification_id'] = $notificationId;
+        }
 
         $hasBroadcastDriver = $this->hasBroadcastDriver();
         $this->emitEvent($type, $monitorId, $eventPayload);
@@ -123,6 +129,7 @@ class MonitorNotificationService
         }
 
         $notification = $payload['notification'] ?? $this->resolveNotificationCopy($type, $payload['payload'] ?? [], config('app.locale', 'es'));
+        $notificationId = $payload['notification_id'] ?? null;
         $url = "https://{$instanceId}.pushnotifications.pusher.com/publish_api/v1/instances/{$instanceId}/publishes/interests";
 
         try {
@@ -134,7 +141,7 @@ class MonitorNotificationService
                             'title' => $notification['title'] ?? 'Boukii',
                             'body' => $notification['body'] ?? '',
                         ],
-                        'data' => $payload,
+                        'data' => array_merge($payload, ['notification_id' => $notificationId]),
                     ],
                 ]);
 
@@ -181,6 +188,7 @@ class MonitorNotificationService
             $data = [
                 'type' => (string) $type,
                 'payload' => json_encode($payload['payload'] ?? []),
+                'notification_id' => (string) ($payload['notification_id'] ?? ''),
             ];
 
             $tokenValues = $tokenList->pluck('token')->filter()->values()->all();
@@ -255,6 +263,7 @@ class MonitorNotificationService
                     $data = [
                         'type' => (string) $type,
                         'payload' => json_encode($payload['payload'] ?? []),
+                        'notification_id' => (string) ($payload['notification_id'] ?? ''),
                     ];
 
             foreach ($tokenList as $tokenItem) {
@@ -620,5 +629,36 @@ class MonitorNotificationService
         }
 
         return $normalized;
+    }
+
+    private function storeNotification(
+        int $monitorId,
+        string $type,
+        array $payload,
+        array $notification,
+        ?int $actorId
+    ): ?int {
+        try {
+            $record = AppNotification::create([
+                'recipient_type' => 'monitor',
+                'recipient_id' => $monitorId,
+                'actor_id' => $actorId,
+                'school_id' => $payload['school_id'] ?? null,
+                'type' => $type,
+                'title' => $notification['title'] ?? 'Boukii',
+                'body' => $notification['body'] ?? '',
+                'payload' => $payload,
+                'event_date' => $payload['date'] ?? null,
+                'read_at' => null,
+            ]);
+            return $record->id;
+        } catch (\Throwable $exception) {
+            Log::channel('notifications')->warning('Monitor notification db save failed', [
+                'monitor_id' => $monitorId,
+                'type' => $type,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+        return null;
     }
 }

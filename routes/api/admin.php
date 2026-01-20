@@ -92,6 +92,12 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
     Route::get('monitors', [ReferenceDataController::class, 'monitors'])
         ->name('api.admin.monitors.index');
 
+    Route::get('monitors/{id}/notifications', [\App\Http\Controllers\Admin\MonitorNotificationController::class, 'index'])
+        ->name('api.admin.monitors.notifications');
+
+    Route::post('monitors/{id}/notifications/{notificationId}/read', [\App\Http\Controllers\Admin\MonitorNotificationController::class, 'markRead'])
+        ->name('api.admin.monitors.notifications.read');
+
     Route::get('getPlanner', [\App\Http\Controllers\Admin\PlannerController::class, 'getPlanner'])
         ->name('api.admin.planner');
 
