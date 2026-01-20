@@ -59,6 +59,44 @@ class PushTokenController extends AppBaseController
         ], 'Push token removed');
     }
 
+    public function test(Request $request): JsonResponse
+    {
+        $request->validate([
+            'type' => 'nullable|string|max:50',
+            'date' => 'nullable|date',
+        ]);
+
+        $user = $request->user();
+        $monitorId = $this->resolveMonitorId($request, $user?->id);
+
+        if (!$monitorId) {
+            return $this->sendError('Monitor not found for user', [], 404);
+        }
+
+        $type = $request->input('type', 'booking_created');
+        $payload = [
+            'date' => $request->input('date', now()->toDateString()),
+            'hour_start' => '09:00',
+            'hour_end' => '10:00',
+            'booking_id' => 0,
+            'course_date_id' => 0,
+        ];
+
+        app(\App\Services\MonitorNotificationService::class)->notifyAssignment(
+            $monitorId,
+            $type,
+            $payload,
+            [],
+            $user?->id
+        );
+
+        return $this->sendResponse([
+            'monitor_id' => $monitorId,
+            'type' => $type,
+            'payload' => $payload,
+        ], 'Test push sent');
+    }
+
     private function resolveMonitorId(Request $request, ?int $userId): ?int
     {
         if (!$userId) {

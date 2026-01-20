@@ -179,8 +179,8 @@ class MonitorNotificationService
         foreach ($tokensByLocale as $locale => $tokenList) {
             $notification = $this->resolveNotificationCopy($type, $payload['payload'] ?? [], $locale);
             $data = [
-                'type' => $type,
-                'payload' => $payload['payload'] ?? [],
+                'type' => (string) $type,
+                'payload' => json_encode($payload['payload'] ?? []),
             ];
 
             $tokenValues = $tokenList->pluck('token')->filter()->values()->all();
@@ -252,10 +252,10 @@ class MonitorNotificationService
         $url = "https://fcm.googleapis.com/v1/projects/{$projectId}/messages:send";
         foreach ($tokensByLocale as $locale => $tokenList) {
             $notification = $this->resolveNotificationCopy($type, $payload['payload'] ?? [], $locale);
-            $data = [
-                'type' => $type,
-                'payload' => $payload['payload'] ?? [],
-            ];
+                    $data = [
+                        'type' => (string) $type,
+                        'payload' => json_encode($payload['payload'] ?? []),
+                    ];
 
             foreach ($tokenList as $tokenItem) {
                 $token = $tokenItem->token ?? null;

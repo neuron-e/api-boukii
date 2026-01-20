@@ -55,4 +55,7 @@ Route::middleware(['auth:sanctum', 'ability:teach:all'])->group(function() {
     Route::delete('push-tokens/{token}', [\App\Http\Controllers\Teach\PushTokenController::class, 'destroy'])
         ->name('api.teach.push-tokens.destroy');
 
+    Route::post('push-test', [\App\Http\Controllers\Teach\PushTokenController::class, 'test'])
+        ->name('api.teach.push-test');
+
 });
