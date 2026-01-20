@@ -1037,6 +1037,35 @@ class BookingController extends AppBaseController
 
             DB::commit();
 
+            $booking->loadMissing(['bookingUsers.course']);
+            $monitorNotificationService = app(MonitorNotificationService::class);
+            $schoolSettings = $this->getSchoolSettings($school);
+            foreach ($booking->bookingUsers as $bookingUser) {
+                if (!$bookingUser->monitor_id) {
+                    continue;
+                }
+                $payload = [
+                    'booking_id' => $bookingUser->booking_id,
+                    'course_id' => $bookingUser->course_id,
+                    'course_date_id' => $bookingUser->course_date_id,
+                    'date' => $bookingUser->date,
+                    'hour_start' => $bookingUser->hour_start,
+                    'hour_end' => $bookingUser->hour_end,
+                    'client_id' => $bookingUser->client_id,
+                    'course_subgroup_id' => $bookingUser->course_subgroup_id,
+                    'course_group_id' => $bookingUser->course_group_id,
+                    'group_id' => $bookingUser->group_id,
+                    'school_id' => $school['id'] ?? null,
+                ];
+                $monitorNotificationService->notifyAssignment(
+                    $bookingUser->monitor_id,
+                    'booking_created',
+                    $payload,
+                    $schoolSettings,
+                    auth()->id()
+                );
+            }
+
             app(BookingConfirmationService::class)->sendConfirmation($booking, (bool) $booking->paid);
 
             return $this->sendResponse($booking, 'Reserva creada con xito', 201);
@@ -1328,6 +1357,12 @@ class BookingController extends AppBaseController
                             ->find($bookingUserData['id']);
 
                         if ($bookingUser) {
+                            $previousDate = $bookingUser->date;
+                            $previousCourseDateId = $bookingUser->course_date_id;
+                            $previousHourStart = $bookingUser->hour_start;
+                            $previousHourEnd = $bookingUser->hour_end;
+                            $previousSubgroupId = $bookingUser->course_subgroup_id;
+
                             // MEJORA CRTICA: Si es curso colectivo y se cambia la fecha/subgrupo, validar capacidad
                             $isChangingCriticalData = (
                                 $bookingUser->course_date_id != $date['course_date_id'] ||
@@ -1440,6 +1475,33 @@ class BookingController extends AppBaseController
                                 );
                             }
 
+                            if ($previousMonitorId && $newMonitorId && $previousMonitorId === $newMonitorId) {
+                                $changedSchedule = $previousCourseDateId != $date['course_date_id']
+                                    || $previousDate != $date['date']
+                                    || $previousHourStart != $date['startHour']
+                                    || $previousHourEnd != $date['endHour'];
+                                $changedSubgroup = ($previousSubgroupId != $bookingUser->course_subgroup_id)
+                                    && ($previousSubgroupId || $bookingUser->course_subgroup_id);
+
+                                if ($changedSubgroup) {
+                                    $monitorNotificationService->notifyAssignment(
+                                        $newMonitorId,
+                                        'subgroup_changed',
+                                        $assignmentPayload,
+                                        $schoolSettings,
+                                        auth()->id()
+                                    );
+                                } elseif ($changedSchedule) {
+                                    $monitorNotificationService->notifyAssignment(
+                                        $newMonitorId,
+                                        'booking_updated',
+                                        $assignmentPayload,
+                                        $schoolSettings,
+                                        auth()->id()
+                                    );
+                                }
+                            }
+
                             // 3. Actualizar los extras: eliminamos los existentes y los creamos nuevamente
                             BookingUserExtra::where('booking_user_id', $bookingUser->id)->delete();
 
@@ -1471,8 +1533,6 @@ class BookingController extends AppBaseController
             foreach ($bookingUsersNotInRequest as $bookingUser) {
                 if ($bookingUser->monitor_id) {
                     $bookingUser->loadMissing('course');
-                    $isGroupCancelled = ($bookingUser->course && (int) $bookingUser->course->course_type === 1) || $bookingUser->course_subgroup_id;
-                    $cancelTypePrefix = $isGroupCancelled ? 'group' : 'private';
                     $cancelPayload = [
                         'booking_id' => $bookingUser->booking_id,
                         'course_id' => $bookingUser->course_id,
@@ -1488,7 +1548,7 @@ class BookingController extends AppBaseController
                     ];
                     $monitorNotificationService->notifyAssignment(
                         $bookingUser->monitor_id,
-                        "{$cancelTypePrefix}_removed",
+                        'booking_cancelled',
                         $cancelPayload,
                         $schoolSettings,
                         auth()->id()
@@ -2418,6 +2478,34 @@ class BookingController extends AppBaseController
             return $this->sendError('Error al cancelar la reserva: ' . $e->getMessage(), 500);
         }
 
+        $monitorNotificationService = app(MonitorNotificationService::class);
+        $schoolSettings = $this->getSchoolSettings($school);
+        foreach ($bookingUsersToCancel as $bookingUser) {
+            if (!$bookingUser->monitor_id) {
+                continue;
+            }
+            $cancelPayload = [
+                'booking_id' => $bookingUser->booking_id,
+                'course_id' => $bookingUser->course_id,
+                'course_date_id' => $bookingUser->course_date_id,
+                'date' => $bookingUser->date,
+                'hour_start' => $bookingUser->hour_start,
+                'hour_end' => $bookingUser->hour_end,
+                'client_id' => $bookingUser->client_id,
+                'course_subgroup_id' => $bookingUser->course_subgroup_id,
+                'course_group_id' => $bookingUser->course_group_id,
+                'group_id' => $bookingUser->group_id,
+                'school_id' => $school['id'] ?? null,
+            ];
+            $monitorNotificationService->notifyAssignment(
+                $bookingUser->monitor_id,
+                'booking_cancelled',
+                $cancelPayload,
+                $schoolSettings,
+                auth()->id()
+            );
+        }
+
         // Flag para enviar correos, por defecto true
         $sendEmails = $request->input('sendEmails', true);
 
@@ -2494,5 +2582,3 @@ class BookingController extends AppBaseController
         return $allSame ? $first : $defaults;
     }
 }
-
-

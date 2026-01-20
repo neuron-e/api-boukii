@@ -56,4 +56,12 @@ return [
         'secret_key' => env('PUSHER_BEAMS_SECRET_KEY'),
     ],
 
+    'fcm' => [
+        'use_v1' => env('FCM_USE_V1', true),
+        'server_key' => env('FCM_SERVER_KEY'),
+        'send_url' => env('FCM_SEND_URL', 'https://fcm.googleapis.com/fcm/send'),
+        'project_id' => env('FCM_PROJECT_ID'),
+        'service_account_json' => env('FCM_SERVICE_ACCOUNT_JSON'),
+    ],
+
 ];

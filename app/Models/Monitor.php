@@ -486,6 +486,11 @@ class Monitor extends Model
         return $this->hasMany(\App\Models\MonitorsSchool::class, 'monitor_id');
     }
 
+    public function pushTokens(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\MonitorPushToken::class, 'monitor_id');
+    }
+
     /**
      * NUEVO: Asignaciones de monitores por intervalo
      */
@@ -815,4 +820,3 @@ class Monitor extends Model
          return LogOptions::defaults();
     }
 }
-

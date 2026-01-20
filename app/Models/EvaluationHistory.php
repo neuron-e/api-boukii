@@ -14,6 +14,7 @@ class EvaluationHistory extends Model
     public $fillable = [
         'evaluation_id',
         'user_id',
+        'monitor_id',
         'type',
         'payload'
     ];
@@ -30,5 +31,10 @@ class EvaluationHistory extends Model
     public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(\App\Models\User::class, 'user_id');
+    }
+
+    public function monitor(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Monitor::class, 'monitor_id');
     }
 }

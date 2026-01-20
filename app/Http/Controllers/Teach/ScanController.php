@@ -68,6 +68,7 @@ class ScanController extends AppBaseController
             'booking' => $booking ? [
                 'id' => $booking->id,
                 'status' => $booking->status,
+                'status_key' => $booking->cancellation_status,
                 'paid' => $booking->paid,
                 'payment_method_status' => $booking->payment_method_status,
             ] : null,
@@ -108,4 +109,5 @@ class ScanController extends AppBaseController
 
         return $this->sendResponse($response, 'Scan booking resolved successfully');
     }
+
 }

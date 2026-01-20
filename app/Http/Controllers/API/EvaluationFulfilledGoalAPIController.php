@@ -281,12 +281,47 @@ class EvaluationFulfilledGoalAPIController extends AppBaseController
         EvaluationHistory::create([
             'evaluation_id' => $goal->evaluation_id,
             'user_id' => $user?->id,
+            'monitor_id' => $this->resolveMonitorId($user),
             'type' => $type,
-            'payload' => [
+            'payload' => array_merge([
                 'goal_id' => $goal->degrees_school_sport_goals_id,
                 'score' => $goal->score,
                 'previous_score' => $previousScore,
-            ],
+            ], $this->getCourseContext($request)),
         ]);
+    }
+
+    private function resolveMonitorId(?\App\Models\User $user): ?int
+    {
+        if (!$user) {
+            return null;
+        }
+
+        $type = $user->type;
+        if ($type !== 3 && $type !== 'monitor') {
+            return null;
+        }
+
+        return $user->monitors()
+            ->orderByDesc('active_school')
+            ->orderByDesc('id')
+            ->value('id');
+    }
+
+    private function getCourseContext(Request $request): array
+    {
+        $payload = [];
+        $courseId = $request->input('course_id');
+        $courseName = $request->input('course_name');
+
+        if ($courseId) {
+            $payload['course_id'] = $courseId;
+        }
+
+        if ($courseName) {
+            $payload['course_name'] = $courseName;
+        }
+
+        return $payload;
     }
 }

@@ -194,12 +194,16 @@ class DashboardMetricsService
                 c.course_type,
                 cl.first_name as client_name,
                 m.first_name as monitor_name,
-                bu.monitor_id
+                bu.monitor_id,
+                bu.course_subgroup_id,
+                d.name as degree_name
             FROM booking_users bu
             INNER JOIN bookings b ON b.id = bu.booking_id AND b.deleted_at IS NULL
             INNER JOIN courses c ON c.id = bu.course_id AND c.deleted_at IS NULL
             LEFT JOIN clients cl ON cl.id = bu.client_id AND cl.deleted_at IS NULL
             LEFT JOIN monitors m ON m.id = bu.monitor_id AND m.deleted_at IS NULL
+            LEFT JOIN course_subgroups cs ON cs.id = bu.course_subgroup_id AND cs.deleted_at IS NULL
+            LEFT JOIN degrees d ON d.id = cs.degree_id
             WHERE bu.school_id = ?
               AND bu.date = ?
               AND bu.status = 1
@@ -210,21 +214,44 @@ class DashboardMetricsService
 
         $proximasHoras = [];
         $monitorPendiente = [];
+        $collectiveGroups = [];
 
         foreach ($activities as $activity) {
-            $item = [
-                'id' => $activity->id,
-                'clientName' => $activity->client_name ?? 'Cliente',
-                'courseName' => $activity->course_name ?? 'Curso',
-                'time' => $activity->time ?? '00:00',
-                'type' => $activity->course_type == 2 ? 'private' : 'collective',
-                'status' => $activity->monitor_id ? 'confirmed' : 'warning',
-                'monitor' => $activity->monitor_name
-            ];
+            if ((int) $activity->course_type === 1 && $activity->course_subgroup_id) {
+                $groupKey = $activity->course_subgroup_id . '|' . ($activity->time ?? '');
+                if (!isset($collectiveGroups[$groupKey])) {
+                    $item = [
+                        'id' => (int) $activity->course_subgroup_id,
+                        'clientName' => $activity->degree_name ?: 'Subgrupo',
+                        'courseName' => $activity->course_name ?? 'Curso',
+                        'time' => $activity->time ?? '00:00',
+                        'type' => 'collective',
+                        'status' => $activity->monitor_id ? 'confirmed' : 'warning',
+                        'monitor' => $activity->monitor_name,
+                        'participantsCount' => 1
+                    ];
+                    $collectiveGroups[$groupKey] = $item;
+                    $proximasHoras[] = &$collectiveGroups[$groupKey];
+                } else {
+                    $collectiveGroups[$groupKey]['participantsCount']++;
+                }
+            } else {
+                $item = [
+                    'id' => $activity->id,
+                    'clientName' => $activity->client_name ?? 'Cliente',
+                    'courseName' => $activity->course_name ?? 'Curso',
+                    'time' => $activity->time ?? '00:00',
+                    'type' => $activity->course_type == 2 ? 'private' : 'collective',
+                    'status' => $activity->monitor_id ? 'confirmed' : 'warning',
+                    'monitor' => $activity->monitor_name
+                ];
 
-            $proximasHoras[] = $item;
+                $proximasHoras[] = $item;
+            }
+        }
 
-            if (!$activity->monitor_id) {
+        foreach ($proximasHoras as $item) {
+            if (($item['status'] ?? null) === 'warning') {
                 $monitorPendiente[] = $item;
             }
         }
@@ -290,6 +317,13 @@ class DashboardMetricsService
         $startDateTime = Carbon::parse($date)->startOfDay();
         $endDateTime = Carbon::parse($date)->endOfDay();
 
+        $reservasDia = DB::table('booking_users')
+            ->where('school_id', $schoolId)
+            ->where('date', $date)
+            ->where('status', 1)
+            ->whereNull('deleted_at')
+            ->count('id');
+
         $reservasHoy = Booking::query()
             ->where('school_id', $schoolId)
             ->whereNull('deleted_at')
@@ -299,7 +333,8 @@ class DashboardMetricsService
         $ingresosHoy = $this->calculateNetReceivedForBookings($schoolId, $date, $date);
 
         return [
-            'reservasHoy' => (int) $reservasHoy,
+            'reservasDia' => (int) $reservasDia,
+            'reservasCreadasDia' => (int) $reservasHoy,
             'ingresosHoy' => round((float) $ingresosHoy, 2),
             'ocupacionActual' => 0,
             'alertasCriticas' => 0

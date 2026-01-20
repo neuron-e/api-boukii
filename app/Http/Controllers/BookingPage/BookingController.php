@@ -1161,6 +1161,34 @@ class BookingController extends SlugAuthController
             'bookingUsers.monitor', 'bookingUsers.courseSubGroup', 'bookingUsers.course',
             'bookingUsers.courseDate', 'clientMain']);
 
+        $settings = $this->getSchoolSettings();
+        $monitorNotificationService = app(MonitorNotificationService::class);
+        foreach ($bookingUsers as $bookingUser) {
+            if (!$bookingUser->monitor_id) {
+                continue;
+            }
+            $payload = [
+                'course_id' => $bookingUser->course_id,
+                'course_date_id' => $bookingUser->course_date_id,
+                'date' => $bookingUser->date,
+                'hour_start' => $bookingUser->hour_start,
+                'hour_end' => $bookingUser->hour_end,
+                'client_id' => $bookingUser->client_id,
+                'booking_id' => $bookingUser->booking_id,
+                'group_id' => $bookingUser->group_id,
+                'course_subgroup_id' => $bookingUser->course_subgroup_id,
+                'course_group_id' => $bookingUser->course_group_id,
+                'school_id' => $this->school->id ?? null,
+            ];
+            $monitorNotificationService->notifyAssignment(
+                $bookingUser->monitor_id,
+                'booking_cancelled',
+                $payload,
+                $settings,
+                auth()->id()
+            );
+        }
+
         /*        foreach ($bookingUsers as $bookingUser) {
                     $bookingUser->status = 2;
                     $bookingUser->save();
@@ -1218,7 +1246,7 @@ class BookingController extends SlugAuthController
 
             $monitorNotificationService->notifyAssignment(
                 $bookingUser->monitor_id,
-                'private_assigned',
+                'booking_created',
                 $payload,
                 $settings,
                 auth()->id()
@@ -1319,8 +1347,6 @@ class BookingController extends SlugAuthController
     }
 
 }
-
-
 
 
 

@@ -361,12 +361,47 @@ class EvaluationFileAPIController extends AppBaseController
         EvaluationHistory::create([
             'evaluation_id' => $file->evaluation_id,
             'user_id' => $user?->id,
+            'monitor_id' => $this->resolveMonitorId($user),
             'type' => $type,
-            'payload' => [
+            'payload' => array_merge([
                 'file_id' => $file->id,
                 'file_type' => $file->type,
                 'file' => $file->file,
-            ],
+            ], $this->getCourseContext($request)),
         ]);
+    }
+
+    private function resolveMonitorId(?\App\Models\User $user): ?int
+    {
+        if (!$user) {
+            return null;
+        }
+
+        $type = $user->type;
+        if ($type !== 3 && $type !== 'monitor') {
+            return null;
+        }
+
+        return $user->monitors()
+            ->orderByDesc('active_school')
+            ->orderByDesc('id')
+            ->value('id');
+    }
+
+    private function getCourseContext(Request $request): array
+    {
+        $payload = [];
+        $courseId = $request->input('course_id');
+        $courseName = $request->input('course_name');
+
+        if ($courseId) {
+            $payload['course_id'] = $courseId;
+        }
+
+        if ($courseName) {
+            $payload['course_name'] = $courseName;
+        }
+
+        return $payload;
     }
 }

@@ -240,12 +240,47 @@ class EvaluationAPIController extends AppBaseController
         EvaluationHistory::create([
             'evaluation_id' => $evaluation->id,
             'user_id' => $user?->id,
+            'monitor_id' => $this->resolveMonitorId($user),
             'type' => 'observation_updated',
-            'payload' => [
+            'payload' => array_merge([
                 'previous' => $oldValue,
                 'new' => $newValue,
-            ],
+            ], $this->getCourseContext($request)),
         ]);
+    }
+
+    private function getCourseContext(Request $request): array
+    {
+        $payload = [];
+        $courseId = $request->input('course_id');
+        $courseName = $request->input('course_name');
+
+        if ($courseId) {
+            $payload['course_id'] = $courseId;
+        }
+
+        if ($courseName) {
+            $payload['course_name'] = $courseName;
+        }
+
+        return $payload;
+    }
+
+    private function resolveMonitorId(?\App\Models\User $user): ?int
+    {
+        if (!$user) {
+            return null;
+        }
+
+        $type = $user->type;
+        if ($type !== 3 && $type !== 'monitor') {
+            return null;
+        }
+
+        return $user->monitors()
+            ->orderByDesc('active_school')
+            ->orderByDesc('id')
+            ->value('id');
     }
 
     /**

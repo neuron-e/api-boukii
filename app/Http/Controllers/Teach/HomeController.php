@@ -136,7 +136,6 @@ class HomeController extends AppBaseController
             ])
                 ->where('school_id', $monitor->active_school)
                 ->where('status', 1)
-                ->where('accepted', 1)
                 ->whereHas('booking', function ($subQuery) {
                     $subQuery->where('status',  1);
                 })
@@ -239,7 +238,7 @@ class HomeController extends AppBaseController
         // Obtén los resultados para las reservas y los MonitorNwd
         try {
             Log::channel('teach')->info('Executing booking query...');
-            $bookings = $bookingQuery->get();
+        $bookings = $bookingQuery->get();
             Log::channel('teach')->info('Bookings fetched successfully: ' . $bookings->count() . ' records');
         } catch (\Exception $e) {
             Log::channel('teach')->error('Error fetching bookings: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
@@ -271,6 +270,7 @@ class HomeController extends AppBaseController
 
         return $this->sendResponse($data, 'Agenda retrieved successfully');
     }
+
 
     public function get12HourlyForecastByStation(Request $request)
     {

@@ -15,7 +15,7 @@ class EvaluationHistoryController extends AppBaseController
         $limit = $limit > 1000 ? 1000 : $limit;
 
         $history = EvaluationHistory::query()
-            ->with('user')
+            ->with(['user', 'monitor'])
             ->where('evaluation_id', $id)
             ->orderByDesc('id')
             ->limit($limit)

@@ -40,4 +40,19 @@ Route::middleware(['auth:sanctum', 'ability:teach:all'])->group(function() {
     Route::get('scan/booking', [\App\Http\Controllers\Teach\ScanController::class, 'resolve'])
         ->name('api.teach.scan.booking');
 
+    Route::get('evaluations/{id}/comments', [\App\Http\Controllers\Admin\EvaluationCommentController::class, 'index'])
+        ->name('api.teach.evaluations.comments.index');
+
+    Route::post('evaluations/{id}/comments', [\App\Http\Controllers\Admin\EvaluationCommentController::class, 'store'])
+        ->name('api.teach.evaluations.comments.store');
+
+    Route::get('evaluations/{id}/history', [\App\Http\Controllers\Admin\EvaluationHistoryController::class, 'index'])
+        ->name('api.teach.evaluations.history.index');
+
+    Route::post('push-tokens', [\App\Http\Controllers\Teach\PushTokenController::class, 'store'])
+        ->name('api.teach.push-tokens.store');
+
+    Route::delete('push-tokens/{token}', [\App\Http\Controllers\Teach\PushTokenController::class, 'destroy'])
+        ->name('api.teach.push-tokens.destroy');
+
 });
