@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('monitor_push_tokens', function (Blueprint $table) {
             $table->id();
-            $table->unsignedInteger('monitor_id');
+            $table->bigInteger('monitor_id');
             $table->string('token', 2048)->unique();
             $table->string('platform', 32)->nullable();
             $table->string('device_id', 128)->nullable();
