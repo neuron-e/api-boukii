@@ -295,45 +295,16 @@ class FinanceController extends AppBaseController
             }
         }
 
-        if ($dateFilter === 'activity') {
-            $allBookingIds = DB::table('booking_users as bu')
-                ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
-                ->where('b.school_id', $schoolId)
-                ->whereNull('b.deleted_at')
-                ->whereBetween('bu.date', [$dateRange['start_date'], $dateRange['end_date']])
-                ->select('b.id')
-                ->distinct()
-                ->pluck('b.id');
-        } else {
-            $allBookingIds = DB::table('bookings as b')
-                ->where('b.school_id', $schoolId)
-                ->whereNull('b.deleted_at')
-                ->whereBetween('b.created_at', [$startDateTime, $endDateTime])
-                ->select('b.id')
-                ->distinct()
-                ->pluck('b.id');
-        }
+        $baseQuery = $this->buildFactsQuery($request, $dateRange, false, $dateColumn)
+            ->whereNotIn('course_id', self::EXCLUDED_COURSES);
+        $productionQuery = $this->buildFactsQuery($request, $dateRange, true, $dateColumn)
+            ->whereNotIn('course_id', self::EXCLUDED_COURSES);
 
-        $bookingsWithNonExcludedCourses = DB::table('booking_users')
-            ->whereIn('booking_id', $allBookingIds)
-            ->whereNull('deleted_at')
-            ->whereNotIn('course_id', self::EXCLUDED_COURSES)
-            ->select('booking_id')
-            ->distinct()
-            ->pluck('booking_id');
-
-        $bookingsBase = DB::table('bookings as b')
-            ->whereIn('b.id', $bookingsWithNonExcludedCourses)
-            ->whereNull('b.deleted_at');
-
-        $baseQuery = $this->buildFactsQuery($request, $dateRange, false, $dateColumn);
-        $productionQuery = $this->buildFactsQuery($request, $dateRange, true, $dateColumn);
-
-        $totalBookings = (int) (clone $bookingsBase)->count('b.id');
-        $cancelledBookings = (int) (clone $bookingsBase)->where('b.status', 2)->count('b.id');
-        $cancelledRevenue = (float) (clone $bookingsBase)->where('b.status', 2)->sum('b.price_total');
+        $totalBookings = 0;
+        $cancelledBookings = 0;
+        $cancelledRevenue = 0.0;
         $testBookings = 0;
-        $productionBookings = max(0, $totalBookings - $cancelledBookings);
+        $productionBookings = 0;
 
         $totalBookingsFacts = (int) (clone $baseQuery)->distinct()->count('booking_id');
         $cancelledBookingsFacts = (int) (clone $baseQuery)->where('is_cancelled', 1)->distinct()->count('booking_id');
@@ -343,6 +314,34 @@ class FinanceController extends AppBaseController
             $cancelledBookings = $cancelledBookingsFacts;
             $productionBookings = $productionBookingsFacts;
             $cancelledRevenue = (float) (clone $baseQuery)->where('is_cancelled', 1)->sum('expected_amount');
+        } else {
+            $bookingsBase = DB::table('bookings as b')
+                ->where('b.school_id', $schoolId)
+                ->whereNull('b.deleted_at')
+                ->when($dateFilter === 'activity', function ($q) use ($dateRange) {
+                    $q->whereExists(function ($sub) use ($dateRange) {
+                        $sub->select(DB::raw(1))
+                            ->from('booking_users as bu')
+                            ->whereColumn('bu.booking_id', 'b.id')
+                            ->whereNull('bu.deleted_at')
+                            ->whereBetween('bu.date', [$dateRange['start_date'], $dateRange['end_date']])
+                            ->whereNotIn('bu.course_id', self::EXCLUDED_COURSES);
+                    });
+                }, function ($q) use ($startDateTime, $endDateTime) {
+                    $q->whereBetween('b.created_at', [$startDateTime, $endDateTime])
+                        ->whereExists(function ($sub) {
+                            $sub->select(DB::raw(1))
+                                ->from('booking_users as bu')
+                                ->whereColumn('bu.booking_id', 'b.id')
+                                ->whereNull('bu.deleted_at')
+                                ->whereNotIn('bu.course_id', self::EXCLUDED_COURSES);
+                        });
+                });
+
+            $totalBookings = (int) (clone $bookingsBase)->count('b.id');
+            $cancelledBookings = (int) (clone $bookingsBase)->where('b.status', 2)->count('b.id');
+            $cancelledRevenue = (float) (clone $bookingsBase)->where('b.status', 2)->sum('b.price_total');
+            $productionBookings = max(0, $totalBookings - $cancelledBookings);
         }
 
         $productionExpected = (float) (clone $productionQuery)->sum('expected_amount');

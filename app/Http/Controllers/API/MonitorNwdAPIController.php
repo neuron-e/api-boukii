@@ -11,6 +11,7 @@ use App\Models\CourseSubgroup;
 use App\Models\Monitor;
 use App\Models\MonitorNwd;
 use App\Repositories\MonitorNwdRepository;
+use App\Services\MonitorNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Support\Facades\NwdLog as Log;
@@ -154,6 +155,7 @@ class MonitorNwdAPIController extends AppBaseController
 
                     $monitorNwd = $this->monitorNwdRepository->create($nwdData);
                     $createdNwds[] = $monitorNwd;
+                    $this->notifyMonitor($request, $monitorNwd, "nwd_created");
 
                     Log::info('MonitorNwd creado para fecha específica', [
                         'nwd_id' => $monitorNwd->id,
@@ -337,6 +339,7 @@ class MonitorNwdAPIController extends AppBaseController
         }
 
         $monitorNwd = $this->monitorNwdRepository->update($input, $id);
+        $this->notifyMonitor($request, $monitorNwd, "nwd_updated");
 
         // Log exitoso
         Log::info('MonitorNwd actualizado exitosamente', [
@@ -386,7 +389,7 @@ class MonitorNwdAPIController extends AppBaseController
      *      )
      * )
      */
-    public function destroy($id): JsonResponse
+    public function destroy($id, Request $request): JsonResponse
     {
         /** @var MonitorNwd $monitorNwd */
         $monitorNwd = $this->monitorNwdRepository->find($id);
@@ -395,11 +398,63 @@ class MonitorNwdAPIController extends AppBaseController
             return $this->sendError('Monitor Nwd not found');
         }
 
+        $payloadNwd = clone $monitorNwd;
         $monitorNwd->delete();
+        $this->notifyMonitor($request, $payloadNwd, "nwd_deleted");
 
         return $this->sendSuccess('Monitor Nwd deleted successfully');
     }
-}
+    private function notifyMonitor(Request $request, MonitorNwd $monitorNwd, string $type): void
+    {
+        $payload = $this->buildNwdPayload($monitorNwd);
+        $actorId = $request->user()?->id;
+        app(MonitorNotificationService::class)->notifyAssignment(
+            $monitorNwd->monitor_id,
+            $type,
+            $payload,
+            [],
+            $actorId
+        );
+    }
 
+    private function buildNwdPayload(MonitorNwd $monitorNwd): array
+    {
+        $nwdType = $this->resolveNwdTypeKey($monitorNwd->user_nwd_subtype_id);
+        $hourStart = $monitorNwd->full_day ? null : $this->formatHour($monitorNwd->start_time);
+        $hourEnd = $monitorNwd->full_day ? null : $this->formatHour($monitorNwd->end_time);
+
+        return [
+            'monitor_id' => $monitorNwd->monitor_id,
+            'school_id' => $monitorNwd->school_id,
+            'date' => optional($monitorNwd->start_date)->format('Y-m-d'),
+            'hour_start' => $hourStart,
+            'hour_end' => $hourEnd,
+            'full_day' => (bool) $monitorNwd->full_day,
+            'nwd_subtype_id' => $monitorNwd->user_nwd_subtype_id,
+            'nwd_type' => $nwdType,
+        ];
+    }
+
+    private function resolveNwdTypeKey($subtypeId): string
+    {
+        $subtypeId = (int) $subtypeId;
+        if ($subtypeId === 2) {
+            return 'paid';
+        }
+        if ($subtypeId === 1) {
+            return 'unpaid';
+        }
+        return 'absence';
+    }
+
+    private function formatHour(?string $value): ?string
+    {
+        if (!$value) {
+            return null;
+        }
+        return substr($value, 0, 5);
+    }
+
+}
 
 

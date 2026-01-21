@@ -11,7 +11,9 @@ return new class extends Migration
         Schema::create('monitor_push_tokens', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('monitor_id');
-            $table->string('token', 2048)->unique();
+            // Token can be large (Firebase/APNs tokens can be up to 2048 chars)
+            // Using text instead of string to avoid index length issues
+            $table->text('token');
             $table->string('platform', 32)->nullable();
             $table->string('device_id', 128)->nullable();
             $table->string('locale', 16)->nullable();
@@ -22,6 +24,10 @@ return new class extends Migration
             $table->foreign('monitor_id')->references('id')->on('monitors')->onDelete('cascade');
             $table->index(['monitor_id', 'app']);
         });
+
+        // Create unique index on token using first 191 characters
+        // This is sufficient for uniqueness while staying under MySQL index limits (3072 bytes)
+        \DB::statement('CREATE UNIQUE INDEX monitor_push_tokens_token_unique ON monitor_push_tokens (token(191))');
     }
 
     public function down(): void

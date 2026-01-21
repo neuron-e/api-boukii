@@ -75,6 +75,14 @@ class AppBaseController extends Controller
             return null;
         }
 
+        $requestedId = $request->input('school_id');
+        if ($requestedId) {
+            $match = $user->schools->firstWhere('id', (int) $requestedId);
+            if ($match) {
+                return $match;
+            }
+        }
+
         return $user->schools->first();
     }
 

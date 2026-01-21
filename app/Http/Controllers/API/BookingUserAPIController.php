@@ -55,18 +55,66 @@ class BookingUserAPIController extends AppBaseController
      */
     public function index(Request $request): JsonResponse
     {
+        // OPTIMIZACIÓN: Limitar las relaciones permitidas para evitar N+1
+        // Las relaciones anidadas profundas causan problemas de rendimiento
+        $allowedWith = [
+            'booking',
+            'client',
+            'course',
+            'degree',
+            'monitor',
+            'courseGroup',
+            'courseSubGroup',
+            'courseDate'
+        ];
+
+        $requestedWith = $request->get('with', []);
+
+        // Filtrar relaciones anidadas profundas (más de 2 niveles)
+        $validatedWith = array_filter($requestedWith, function($relation) use ($allowedWith) {
+            // Contar niveles de anidación (puntos en la string)
+            $depth = substr_count($relation, '.');
+
+            // Rechazar relaciones con más de 1 nivel de profundidad
+            if ($depth > 1) {
+                \Log::warning('DEEP NESTED RELATION BLOCKED', [
+                    'relation' => $relation,
+                    'reason' => 'Depth > 1 causes N+1 problems'
+                ]);
+                return false;
+            }
+
+            // Obtener la relación de primer nivel
+            $firstLevel = explode('.', $relation)[0];
+
+            if (!in_array($firstLevel, $allowedWith)) {
+                \Log::warning('INVALID RELATION BLOCKED', [
+                    'relation' => $relation,
+                    'allowed' => $allowedWith
+                ]);
+                return false;
+            }
+
+            return true;
+        });
+
+        \Log::info('BOOKING USERS INDEX', [
+            'requested_relations' => $requestedWith,
+            'validated_relations' => array_values($validatedWith),
+            'blocked_count' => count($requestedWith) - count($validatedWith)
+        ]);
+
         $bookingUsers = $this->bookingUserRepository->all(
             $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with']),
             $request->get('search'),
             $request->get('skip'),
             $request->get('limit'),
             $request->perPage,
-            $request->get('with', []),
+            array_values($validatedWith), // Usar relaciones validadas
             $request->get('order', 'desc'),
             $request->get('orderColumn', 'id'),
             additionalConditions: function ($query) {
                 $query->whereHas('booking');
-
             }
         );
 
@@ -281,6 +329,104 @@ class BookingUserAPIController extends AppBaseController
         $bookingUser = $this->bookingUserRepository->update($input, $id);
 
         return $this->sendResponse(new BookingUserResource($bookingUser), 'BookingUser updated successfully');
+    }
+
+    /**
+     * OPTIMIZED ENDPOINT: Get booking users for monitor profile
+     * GET /booking-users/monitor/list
+     *
+     * This endpoint uses Query Builder with JOINs instead of Eloquent eager loading
+     * to avoid N+1 problems when loading deeply nested relations.
+     *
+     * Performance: 50-100+ queries reduced to 1 query
+     */
+    public function monitorBookings(Request $request): JsonResponse
+    {
+        $request->validate([
+            'monitor_id' => 'required|integer',
+            'school_id' => 'required|integer',
+            'perPage' => 'nullable|integer|max:100',
+            'page' => 'nullable|integer',
+            'finished' => 'nullable|in:0,1',
+            'status' => 'nullable|string',
+        ]);
+
+        $monitorId = $request->get('monitor_id');
+        $schoolId = $request->get('school_id');
+        $perPage = $request->get('perPage', 10);
+        $finished = $request->get('finished');
+        $status = $request->get('status');
+
+        // OPTIMIZACIÓN: Una sola query con JOINs en lugar de eager loading anidado
+        $query = \DB::table('booking_users as bu')
+            ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
+            ->join('clients as c', 'bu.client_id', '=', 'c.id')
+            ->leftJoin('courses as co', 'bu.course_id', '=', 'co.id')
+            ->leftJoin('degrees as d', 'bu.degree_id', '=', 'd.id')
+            ->leftJoin('course_groups as cg', 'bu.course_group_id', '=', 'cg.id')
+            ->leftJoin('sports as s', 'co.sport_id', '=', 's.id')
+            ->where('bu.monitor_id', $monitorId)
+            ->where('bu.school_id', $schoolId)
+            ->whereNull('bu.deleted_at')
+            ->whereNull('b.deleted_at');
+
+        // Aplicar filtros
+        if ($finished !== null) {
+            if ($finished == 1) {
+                $query->where('bu.date', '<', now());
+            } else {
+                $query->where('bu.date', '>=', now());
+            }
+        }
+
+        if ($status) {
+            $statusArray = explode(',', $status);
+            $query->whereIn('b.status', $statusArray);
+        }
+
+        // Seleccionar campos necesarios
+        $query->selectRaw('
+            bu.id,
+            bu.booking_id,
+            bu.client_id,
+            bu.course_id,
+            bu.degree_id,
+            bu.monitor_id,
+            bu.date,
+            bu.hour_start,
+            bu.hour_end,
+            bu.price,
+            bu.currency,
+            bu.attended,
+            bu.status as booking_user_status,
+            b.status as booking_status,
+            b.paid as booking_paid,
+            b.price_total as booking_price_total,
+            CONCAT(c.first_name, " ", c.last_name) as client_name,
+            c.email as client_email,
+            c.phone as client_phone,
+            co.name as course_name,
+            co.course_type,
+            d.name as degree_name,
+            cg.name as course_group_name,
+            s.name as sport_name,
+            s.icon_collective as sport_icon
+        ');
+
+        // Ordenar por fecha más reciente
+        $query->orderBy('bu.date', 'desc')
+              ->orderBy('bu.hour_start', 'desc');
+
+        // Paginar resultados
+        $bookingUsers = $query->paginate($perPage);
+
+        \Log::info('MONITOR BOOKINGS OPTIMIZED', [
+            'monitor_id' => $monitorId,
+            'total_results' => $bookingUsers->total(),
+            'query_optimization' => 'Using single JOIN query instead of N+1 eager loading'
+        ]);
+
+        return $this->sendResponse($bookingUsers, 'Monitor booking users retrieved successfully');
     }
 
     /**

@@ -1673,3 +1673,4 @@ Route::get('/courses/{courseId}/intervals/{intervalId}/available-discounts', [Ap
 
 Route::middleware('auth:sanctum')->get('/admin/courses/{id}/structure', [CourseController::class, 'structure']);
 Route::middleware('auth:sanctum')->post('/admin/courses/{id}/translate', [TranslationAPIController::class, 'translateCourse']);
+

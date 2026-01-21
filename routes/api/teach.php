@@ -70,4 +70,7 @@ Route::middleware(['auth:sanctum', 'ability:teach:all'])->group(function() {
     Route::post('notifications/read-all', [\App\Http\Controllers\Teach\NotificationController::class, 'markAllRead'])
         ->name('api.teach.notifications.read-all');
 
+    Route::get('statistics/monitors/daily', [\App\Http\Controllers\Teach\StatisticsController::class, 'getMonitorDailyBookings'])
+        ->name('api.teach.statistics.monitors.daily');
+
 });

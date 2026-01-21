@@ -477,6 +477,7 @@ class MonitorNotificationService
         $locale = $this->normalizeLocale($locale);
         $when = $this->formatWhen($payload);
         $bookingLabel = $payload['booking_id'] ?? $payload['course_date_id'] ?? null;
+        $nwdType = $this->resolveNwdTypeLabel($payload, $locale);
 
         $copy = [
             'es' => [
@@ -488,6 +489,9 @@ class MonitorNotificationService
                 'group_removed' => ['title' => 'Reserva desasignada', 'body' => $bookingLabel ? "Te han quitado de la reserva {$bookingLabel}." : 'Te han quitado una reserva.'],
                 'private_removed' => ['title' => 'Reserva desasignada', 'body' => $bookingLabel ? "Te han quitado de la reserva {$bookingLabel}." : 'Te han quitado una reserva.'],
                 'subgroup_changed' => ['title' => 'Subgrupo actualizado', 'body' => $when ? "Se actualizo tu subgrupo para {$when}." : 'Se actualizo tu subgrupo.'],
+                'nwd_created' => ['title' => 'Bloqueo creado', 'body' => $when ? "Se ha creado {$nwdType} para {$when}." : 'Se ha creado un bloqueo.'],
+                'nwd_updated' => ['title' => 'Bloqueo actualizado', 'body' => $when ? "Se ha actualizado {$nwdType} para {$when}." : 'Se ha actualizado un bloqueo.'],
+                'nwd_deleted' => ['title' => 'Bloqueo eliminado', 'body' => $when ? "Se ha eliminado {$nwdType} para {$when}." : 'Se ha eliminado un bloqueo.'],
             ],
             'fr' => [
                 'booking_created' => ['title' => 'Nouvelle reservation', 'body' => $when ? "Nouvelle reservation pour {$when}." : 'Vous avez une nouvelle reservation.'],
@@ -498,6 +502,9 @@ class MonitorNotificationService
                 'group_removed' => ['title' => 'Reservation retiree', 'body' => $bookingLabel ? "Vous avez ete retire de la reservation {$bookingLabel}." : 'Une reservation a ete retiree.'],
                 'private_removed' => ['title' => 'Reservation retiree', 'body' => $bookingLabel ? "Vous avez ete retire de la reservation {$bookingLabel}." : 'Une reservation a ete retiree.'],
                 'subgroup_changed' => ['title' => 'Sous-groupe mis a jour', 'body' => $when ? "Votre sous-groupe a ete mis a jour pour {$when}." : 'Votre sous-groupe a ete mis a jour.'],
+                'nwd_created' => ['title' => 'Blocage cree', 'body' => $when ? "Un {$nwdType} a ete cree pour {$when}." : 'Un blocage a ete cree.'],
+                'nwd_updated' => ['title' => 'Blocage mis a jour', 'body' => $when ? "Un {$nwdType} a ete mis a jour pour {$when}." : 'Un blocage a ete mis a jour.'],
+                'nwd_deleted' => ['title' => 'Blocage supprime', 'body' => $when ? "Un {$nwdType} a ete supprime pour {$when}." : 'Un blocage a ete supprime.'],
             ],
             'en' => [
                 'booking_created' => ['title' => 'New booking', 'body' => $when ? "New booking for {$when}." : 'You have a new booking.'],
@@ -508,6 +515,9 @@ class MonitorNotificationService
                 'group_removed' => ['title' => 'Booking removed', 'body' => $bookingLabel ? "You were removed from booking {$bookingLabel}." : 'You were removed from a booking.'],
                 'private_removed' => ['title' => 'Booking removed', 'body' => $bookingLabel ? "You were removed from booking {$bookingLabel}." : 'You were removed from a booking.'],
                 'subgroup_changed' => ['title' => 'Subgroup updated', 'body' => $when ? "Your subgroup was updated for {$when}." : 'Your subgroup was updated.'],
+                'nwd_created' => ['title' => 'Block created', 'body' => $when ? "A {$nwdType} was created for {$when}." : 'A block was created.'],
+                'nwd_updated' => ['title' => 'Block updated', 'body' => $when ? "A {$nwdType} was updated for {$when}." : 'A block was updated.'],
+                'nwd_deleted' => ['title' => 'Block removed', 'body' => $when ? "A {$nwdType} was removed for {$when}." : 'A block was removed.'],
             ],
             'de' => [
                 'booking_created' => ['title' => 'Neue Buchung', 'body' => $when ? "Neue Buchung fuer {$when}." : 'Du hast eine neue Buchung.'],
@@ -518,6 +528,9 @@ class MonitorNotificationService
                 'group_removed' => ['title' => 'Buchung entfernt', 'body' => $bookingLabel ? "Du wurdest von Buchung {$bookingLabel} entfernt." : 'Du wurdest von einer Buchung entfernt.'],
                 'private_removed' => ['title' => 'Buchung entfernt', 'body' => $bookingLabel ? "Du wurdest von Buchung {$bookingLabel} entfernt." : 'Du wurdest von einer Buchung entfernt.'],
                 'subgroup_changed' => ['title' => 'Untergruppe aktualisiert', 'body' => $when ? "Deine Untergruppe wurde fuer {$when} aktualisiert." : 'Deine Untergruppe wurde aktualisiert.'],
+                'nwd_created' => ['title' => 'Block erstellt', 'body' => $when ? "Ein {$nwdType} wurde fuer {$when} erstellt." : 'Ein Block wurde erstellt.'],
+                'nwd_updated' => ['title' => 'Block aktualisiert', 'body' => $when ? "Ein {$nwdType} wurde fuer {$when} aktualisiert." : 'Ein Block wurde aktualisiert.'],
+                'nwd_deleted' => ['title' => 'Block entfernt', 'body' => $when ? "Ein {$nwdType} wurde fuer {$when} entfernt." : 'Ein Block wurde entfernt.'],
             ],
             'it' => [
                 'booking_created' => ['title' => 'Nuova prenotazione', 'body' => $when ? "Nuova prenotazione per {$when}." : 'Hai una nuova prenotazione.'],
@@ -528,6 +541,9 @@ class MonitorNotificationService
                 'group_removed' => ['title' => 'Prenotazione rimossa', 'body' => $bookingLabel ? "Sei stato rimosso dalla prenotazione {$bookingLabel}." : 'Sei stato rimosso da una prenotazione.'],
                 'private_removed' => ['title' => 'Prenotazione rimossa', 'body' => $bookingLabel ? "Sei stato rimosso dalla prenotazione {$bookingLabel}." : 'Sei stato rimosso da una prenotazione.'],
                 'subgroup_changed' => ['title' => 'Sottogruppo aggiornato', 'body' => $when ? "Il tuo sottogruppo e stato aggiornato per {$when}." : 'Il tuo sottogruppo e stato aggiornato.'],
+                'nwd_created' => ['title' => 'Blocco creato', 'body' => $when ? "Un {$nwdType} e stato creato per {$when}." : 'Un blocco e stato creato.'],
+                'nwd_updated' => ['title' => 'Blocco aggiornato', 'body' => $when ? "Un {$nwdType} e stato aggiornato per {$when}." : 'Un blocco e stato aggiornato.'],
+                'nwd_deleted' => ['title' => 'Blocco rimosso', 'body' => $when ? "Un {$nwdType} e stato rimosso per {$when}." : 'Un blocco e stato rimosso.'],
             ],
         ];
 
@@ -566,6 +582,44 @@ class MonitorNotificationService
         }
 
         return in_array($locale, ['es', 'fr', 'en', 'de', 'it'], true) ? $locale : 'es';
+    }
+
+    private function resolveNwdTypeLabel(array $payload, string $locale): string
+    {
+        $typeKey = $payload['nwd_type'] ?? null;
+        $subtypeId = $payload['nwd_subtype_id'] ?? $payload['user_nwd_subtype_id'] ?? null;
+        if (!$typeKey) {
+            $typeKey = ((int) $subtypeId === 2) ? 'paid' : (((int) $subtypeId === 1) ? 'unpaid' : 'absence');
+        }
+        $labels = [
+            'es' => [
+                'paid' => 'bloqueo pagado',
+                'unpaid' => 'bloqueo no pagado',
+                'absence' => 'ausencia',
+            ],
+            'fr' => [
+                'paid' => 'blocage paye',
+                'unpaid' => 'blocage non paye',
+                'absence' => 'absence',
+            ],
+            'en' => [
+                'paid' => 'paid block',
+                'unpaid' => 'unpaid block',
+                'absence' => 'absence',
+            ],
+            'de' => [
+                'paid' => 'bezahlter Block',
+                'unpaid' => 'unbezahlter Block',
+                'absence' => 'Abwesenheit',
+            ],
+            'it' => [
+                'paid' => 'blocco pagato',
+                'unpaid' => 'blocco non pagato',
+                'absence' => 'assenza',
+            ],
+        ];
+
+        return $labels[$locale][$typeKey] ?? $labels[$locale]['unpaid'] ?? '';
     }
     private function sendEmailFallback(Monitor $monitor, string $type, array $payload): void
     {

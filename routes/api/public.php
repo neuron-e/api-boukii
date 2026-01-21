@@ -73,6 +73,9 @@ Route::middleware(['guest'])->group(function () {
     Route::resource('booking-users', App\Http\Controllers\API\BookingUserAPIController::class)
         ->except(['create', 'edit']);
 
+    // OPTIMIZED ENDPOINT: Monitor bookings with single JOIN query (no N+1)
+    Route::get('booking-users/monitor/list', [App\Http\Controllers\API\BookingUserAPIController::class, 'monitorBookings']);
+
     Route::resource('booking-user-extras', App\Http\Controllers\API\BookingUserExtraAPIController::class)
         ->except(['create', 'edit']);
 

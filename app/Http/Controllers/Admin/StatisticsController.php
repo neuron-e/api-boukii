@@ -10,6 +10,7 @@ use App\Models\Course;
 use App\Models\CourseSubgroup;
 use App\Models\Monitor;
 use App\Models\MonitorNwd;
+use App\Models\School;
 use App\Models\Season;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -6897,7 +6898,23 @@ class StatisticsController extends AppBaseController
     }
     public function getMonitorDailyBookings(Request $request, $monitorId): JsonResponse
     {
-        $schoolId = $this->getSchool($request)->id;
+        $school = $this->getSchool($request);
+        if (!$school) {
+            $schoolId = (int) $request->input('school_id');
+            if (!$schoolId && $monitorId) {
+                $monitor = Monitor::find($monitorId);
+                $schoolId = $monitor?->active_school ?? 0;
+            }
+            if ($schoolId) {
+                $school = School::find($schoolId);
+            }
+        }
+
+        if (!$school) {
+            return $this->sendError('School not found for user', [], 404);
+        }
+
+        $schoolId = (int) $school->id;
         $today = Carbon::now()->format('Y-m-d');
         $season = Season::whereDate('start_date', '<=', $today)
             ->whereDate('end_date', '>=', $today)
@@ -6927,7 +6944,7 @@ class StatisticsController extends AppBaseController
                 return $item->hour_start . $item->hour_end . $item->date;
             });
 
-        $settings = json_decode($this->getSchool($request)->settings);
+        $settings = json_decode($school->settings);
 
         $nwds = MonitorNwd::with(['monitor.monitorSportsDegrees.salary', 'monitor.monitorSportsDegrees.sport'])
             ->where('school_id', $schoolId)
@@ -7125,4 +7142,3 @@ class StatisticsController extends AppBaseController
         return $hours + ($minutes / 60) + ($seconds / 3600);
     }
 }
-
