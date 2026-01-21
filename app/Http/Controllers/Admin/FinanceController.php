@@ -63,6 +63,12 @@ class FinanceController extends AppBaseController
             $optimizationLevel = 'detailed';
             $request->merge(['optimization_level' => 'detailed']);
         }
+        if (!$request->has('use_aggregates')) {
+            $dateRangeProbe = $this->getSeasonDateRange($request);
+            if (($dateRangeProbe['total_days'] ?? 0) >= 60) {
+                $request->merge(['use_aggregates' => true]);
+            }
+        }
 
         $cacheKey = $this->generateCacheKeyFromRequest($request);
         $cacheTtl = (int) $request->get('cache_ttl', 1800);
@@ -252,6 +258,16 @@ class FinanceController extends AppBaseController
         $dateColumn = $dateFilter === 'activity' ? 'activity_date' : 'booking_created_at';
         $schoolId = $request->school_id;
         $seasonId = $request->season_id ?: null;
+        if (!$seasonId && !empty($dateRange['start_date']) && !empty($dateRange['end_date'])) {
+            $season = Season::where('school_id', $schoolId)
+                ->whereDate('start_date', '<=', $dateRange['start_date'])
+                ->whereDate('end_date', '>=', $dateRange['end_date'])
+                ->first();
+            if ($season) {
+                $seasonId = $season->id;
+                $request->merge(['season_id' => $seasonId]);
+            }
+        }
         $startDateTime = Carbon::parse($dateRange['start_date'])->startOfDay();
         $endDateTime = Carbon::parse($dateRange['end_date'])->endOfDay();
 
