@@ -443,7 +443,9 @@ class Course extends Model
         return $this->hasMany(\App\Models\BookingUser::class, 'course_id')
             ->where('status', 1) // BookingUser debe tener status 1
             ->whereHas('booking', function ($query) {
-                $query->where('status', '!=', 2); // La Booking no debe tener status 2
+                // Exclude cancelled bookings and soft-deleted records
+                $query->whereIn('status', [1, 3])
+                    ->whereNull('deleted_at');
             })
             ->where(function ($query) {
                 $query->whereNull('course_group_id') // Permitir si es null
@@ -867,15 +869,16 @@ class Course extends Model
                     ->where('cs.course_id', $courseId)
 
                     // Verificar capacidad disponible usando max_participants del intervalo si existe
-                    ->whereRaw('COALESCE(cis.max_participants, cig.max_participants, cs.max_participants) > (
-                        SELECT COUNT(*)
-                        FROM booking_users
-                        JOIN bookings ON booking_users.booking_id = bookings.id
-                        WHERE booking_users.course_subgroup_id = cs.id
-                            AND booking_users.status = 1
-                            AND booking_users.deleted_at IS NULL
-                            AND bookings.deleted_at IS NULL
-                    )');
+                      ->whereRaw('COALESCE(cis.max_participants, cig.max_participants, cs.max_participants) > (
+                          SELECT COUNT(*)
+                          FROM booking_users
+                          JOIN bookings ON booking_users.booking_id = bookings.id
+                          WHERE booking_users.course_subgroup_id = cs.id
+                              AND booking_users.status = 1
+                              AND booking_users.deleted_at IS NULL
+                              AND bookings.status != 2
+                              AND bookings.deleted_at IS NULL
+                      )');
 
                 // Verificar solapamiento de horarios si se proporcionó clientId
                 if (!is_null($clientId)) {
@@ -883,15 +886,20 @@ class Course extends Model
 
                     foreach ($clientIds as $cId) {
                         $subQuery->whereNotExists(function ($overlapQuery) use ($cId) {
-                            $overlapQuery->select(\DB::raw(1))
-                                ->from('booking_users as bu')
-                                ->join('course_dates as cd_overlap', 'bu.course_date_id', '=', 'cd_overlap.id')
-                                ->where('bu.client_id', $cId)
-                                ->whereColumn('cd_overlap.date', 'course_dates.date')
-                                ->where(function ($timeQuery) {
-                                    $timeQuery->where(function ($subTimeQuery) {
-                                        // Solapamiento
-                                        $subTimeQuery->whereColumn('cd_overlap.hour_start', '<', 'course_dates.hour_end')
+                                  $overlapQuery->select(\DB::raw(1))
+                                      ->from('booking_users as bu')
+                                      ->join('course_dates as cd_overlap', 'bu.course_date_id', '=', 'cd_overlap.id')
+                                      ->join('bookings as b', 'bu.booking_id', '=', 'b.id')
+                                      ->where('bu.client_id', $cId)
+                                      ->where('bu.status', 1)
+                                      ->whereNull('bu.deleted_at')
+                                      ->where('b.status', '!=', 2)
+                                      ->whereNull('b.deleted_at')
+                                      ->whereColumn('cd_overlap.date', 'course_dates.date')
+                                      ->where(function ($timeQuery) {
+                                          $timeQuery->where(function ($subTimeQuery) {
+                                              // Solapamiento
+                                              $subTimeQuery->whereColumn('cd_overlap.hour_start', '<', 'course_dates.hour_end')
                                             ->whereColumn('cd_overlap.hour_end', '>', 'course_dates.hour_start');
                                     })->orWhere(function ($subTimeQuery) {
                                         // Horarios idénticos
@@ -934,15 +942,16 @@ class Course extends Model
                 $isAdultClient, $clientLanguages, $clientId
             ) {
                 // Verificamos que haya al menos un subgrupo con capacidad disponible
-                $subQuery->whereRaw('max_participants > (
-                SELECT COUNT(*)
-                FROM booking_users
-                JOIN bookings ON booking_users.booking_id = bookings.id
-                WHERE booking_users.course_subgroup_id = course_subgroups.id
-                    AND booking_users.status = 1
-                    AND booking_users.deleted_at IS NULL
-                    AND bookings.deleted_at IS NULL
-                     )');
+                  $subQuery->whereRaw('max_participants > (
+                  SELECT COUNT(*)
+                  FROM booking_users
+                  JOIN bookings ON booking_users.booking_id = bookings.id
+                  WHERE booking_users.course_subgroup_id = course_subgroups.id
+                      AND booking_users.status = 1
+                      AND booking_users.deleted_at IS NULL
+                      AND bookings.status != 2
+                      AND bookings.deleted_at IS NULL
+                       )');
 
                 // Si se proporcionó clientId
                 if (!is_null($clientId)) {
@@ -950,14 +959,19 @@ class Course extends Model
                     $clientIds = is_array($clientId) ? $clientId : [$clientId];
 
                     foreach ($clientIds as $cId) {
-                        $subQuery->whereDoesntHave('courseDate', function (Builder $dateQuery) use ($cId) {
-                            $dateQuery->whereHas('bookingUsers', function (Builder $bookingUserQuery) use ($cId) {
-                                $bookingUserQuery->where('client_id', $cId)
-                                    ->where(function ($query) {
-                                        $query->where(function ($subQuery) {
-                                            // Excluir si hay solapamiento
-                                            $subQuery->whereColumn('hour_start', '<', 'course_dates.hour_end')
-                                                ->whereColumn('hour_end', '>', 'course_dates.hour_start');
+                          $subQuery->whereDoesntHave('courseDate', function (Builder $dateQuery) use ($cId) {
+                              $dateQuery->whereHas('bookingUsers', function (Builder $bookingUserQuery) use ($cId) {
+                                  $bookingUserQuery->where('client_id', $cId)
+                                      ->where('status', 1)
+                                      ->whereHas('booking', function (Builder $bookingQuery) {
+                                          $bookingQuery->where('status', '!=', 2)
+                                              ->whereNull('deleted_at');
+                                      })
+                                      ->where(function ($query) {
+                                          $query->where(function ($subQuery) {
+                                              // Excluir si hay solapamiento
+                                              $subQuery->whereColumn('hour_start', '<', 'course_dates.hour_end')
+                                                  ->whereColumn('hour_end', '>', 'course_dates.hour_start');
                                         })->orWhere(function ($subQuery) {
                                             // Excluir si son horarios idénticos
                                             $subQuery->whereColumn('hour_start', '=', 'course_dates.hour_start')
