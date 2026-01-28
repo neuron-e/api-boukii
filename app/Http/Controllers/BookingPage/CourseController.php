@@ -503,6 +503,10 @@ class CourseController extends SlugAuthController
             return $this->sendError('Invalid start time.');
         }
 
+        if ((int) $course->course_type === 2 && $this->isPrivateLeadTimeViolated($courseDate->date, $startTime)) {
+            return $this->sendResponse([], 'No availability: private lead time.');
+        }
+
         // Verificar si es un d?a festivo
         if ($this->isHoliday($courseDate->school_id, $courseDate->date)) {
             return $this->sendResponse([], 'No availability: holiday.');
@@ -755,6 +759,43 @@ class CourseController extends SlugAuthController
         $formattedDate = $date instanceof Carbon ? $date->format('Y-m-d') : (string)$date;
 
         return in_array($formattedDate, $vacationDays, true);
+    }
+
+    private function getSchoolSettings(): array
+    {
+        $settings = $this->school->settings ?? [];
+
+        if (is_string($settings)) {
+            $decoded = json_decode($settings, true);
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        return is_array($settings) ? $settings : [];
+    }
+
+    private function getPrivateLeadMinutes(): int
+    {
+        $settings = $this->getSchoolSettings();
+        $value = $settings['booking']['private_min_lead_minutes'] ?? null;
+
+        if (is_numeric($value) && (int) $value >= 0) {
+            return (int) $value;
+        }
+
+        return 30;
+    }
+
+    private function isPrivateLeadTimeViolated($date, ?string $startTime): bool
+    {
+        if (!$date || !$startTime) {
+            return false;
+        }
+
+        $dateString = $date instanceof Carbon ? $date->format('Y-m-d') : (string) $date;
+        $start = Carbon::parse(sprintf('%s %s', $dateString, $startTime));
+        $minStart = Carbon::now()->addMinutes($this->getPrivateLeadMinutes());
+
+        return $start->lt($minStart);
     }
 
 

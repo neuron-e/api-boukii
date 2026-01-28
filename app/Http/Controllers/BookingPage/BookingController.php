@@ -102,11 +102,31 @@ class BookingController extends SlugAuthController
             $cartItems = Arr::get($data, 'cart', []);
             $courseIds = [];
             $degreeIds = [];
+            $courseTypeCache = [];
+            $courseIdByCourseDateCache = [];
 
             foreach ($cartItems as $cartItem) {
                 $details = Arr::get($cartItem, 'details', []);
                 foreach ($details as $detail) {
                     $courseType = Arr::get($detail, "course.course_type", Arr::get($detail, "course_type"));
+                    if ($courseType === null) {
+                        $courseId = Arr::get($detail, 'course_id', Arr::get($detail, 'course.id'));
+                        $courseDateId = Arr::get($detail, 'course_date_id');
+
+                        if (!$courseId && $courseDateId) {
+                            if (!array_key_exists($courseDateId, $courseIdByCourseDateCache)) {
+                                $courseIdByCourseDateCache[$courseDateId] = CourseDate::whereKey($courseDateId)->value('course_id');
+                            }
+                            $courseId = $courseIdByCourseDateCache[$courseDateId] ?? null;
+                        }
+
+                        if ($courseId) {
+                            if (!array_key_exists($courseId, $courseTypeCache)) {
+                                $courseTypeCache[$courseId] = Course::whereKey($courseId)->value('course_type');
+                            }
+                            $courseType = $courseTypeCache[$courseId];
+                        }
+                    }
                     if ((int) $courseType === 2) {
                         $timingError = $this->validatePrivateTiming([
                             "course_date_id" => $detail["course_date_id"] ?? null,
@@ -1347,7 +1367,6 @@ class BookingController extends SlugAuthController
     }
 
 }
-
 
 
 
