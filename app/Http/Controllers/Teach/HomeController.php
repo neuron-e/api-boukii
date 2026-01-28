@@ -146,6 +146,16 @@ class HomeController extends AppBaseController
                     $query->where('monitor_id', $monitor->id)
                         ->orWhereHas('courseSubGroup', function ($subQuery) use ($monitor) {
                             $subQuery->where('monitor_id', $monitor->id);
+                        })
+                        // Fallback: include booking_users without subgroup if their course_group
+                        // has any subgroup assigned to this monitor (data inconsistency workaround).
+                        ->orWhere(function ($subQuery) use ($monitor) {
+                            $subQuery->whereNull('course_subgroup_id')
+                                ->whereHas('courseGroup', function ($groupQuery) use ($monitor) {
+                                    $groupQuery->whereHas('courseSubgroups', function ($sgQuery) use ($monitor) {
+                                        $sgQuery->where('monitor_id', $monitor->id);
+                                    });
+                                });
                         });
                 })
                 ->orderBy('hour_start');
