@@ -173,7 +173,9 @@ class ClientsController extends AppBaseController
 
         $bookingQuery = BookingUser::with('booking', 'course.courseDates')
             ->whereHas('booking', function ($query) {
-                $query->where('status', '!=', 2); // La Booking no debe tener status 2
+                // Exclude cancelled bookings and soft-deleted records
+                $query->whereIn('status', [1, 3])
+                    ->whereNull('deleted_at');
             })
             ->where('status', 1)
             ->where('client_id', $id);

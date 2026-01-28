@@ -137,7 +137,10 @@ class HomeController extends AppBaseController
                 ->where('school_id', $monitor->active_school)
                 ->where('status', 1)
                 ->whereHas('booking', function ($subQuery) {
-                    $subQuery->where('status',  1);
+                    // Include partially cancelled bookings (status 3) so active booking_users still show
+                    // Also exclude soft-deleted bookings explicitly
+                    $subQuery->whereIn('status', [1, 3])
+                        ->whereNull('deleted_at');
                 })
                 ->where(function ($query) use ($monitor) {
                     $query->where('monitor_id', $monitor->id)
