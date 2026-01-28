@@ -92,6 +92,7 @@ class BookingController extends AppBaseController
         }
 
         $perPage = max(1, (int)$request->input('perPage', 10));
+        $perPage = min($perPage, 50);
         $orderDirection = strtolower($request->input('order', 'desc')) === 'asc' ? 'asc' : 'desc';
         $orderColumnRequest = $request->input('orderColumn', 'id');
         $search = $request->input('search');
@@ -404,12 +405,6 @@ class BookingController extends AppBaseController
                 ]);
             }
         ];
-
-        foreach ($requestedWith as $relation) {
-            if (!array_key_exists($relation, $relations)) {
-                $relations[] = $relation;
-            }
-        }
 
         return $relations;
     }

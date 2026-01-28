@@ -60,6 +60,20 @@ class AdminRateLimit
     protected function getEndpointLimits(Request $request): array
     {
         $path = $request->path();
+
+        // Endpoints pesados (dashboard y tablas grandes)
+        if (
+            str_contains($path, 'admin/dashboard') ||
+            str_contains($path, 'admin/bookings/table') ||
+            str_contains($path, 'admin/analytics/executive-dashboard') ||
+            str_contains($path, 'admin/analytics/operational-dashboard') ||
+            str_contains($path, 'admin/analytics/financial-dashboard')
+        ) {
+            return [
+                'maxAttempts' => 20, // 20 requests por minuto
+                'decayMinutes' => 1
+            ];
+        }
         
         // Analytics endpoints - más permisivos por dashboard intensivo
         if (str_contains($path, 'admin/analytics') || str_contains($path, 'admin/finance')) {

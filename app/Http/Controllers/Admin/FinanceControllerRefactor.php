@@ -11,6 +11,7 @@ use App\Services\Finance\Analyzers\KpiCalculator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
@@ -256,7 +257,6 @@ class FinanceControllerRefactor extends AppBaseController
         try {
             $this->ensureSchoolInRequest($request);
 
-            dd($request);
             $dashboard = $this->seasonFinanceService->generateSeasonDashboard($request);
 
             return $this->sendResponse($dashboard, 'Financial dashboard retrieved successfully');
@@ -1096,12 +1096,48 @@ class FinanceControllerRefactor extends AppBaseController
 
     public function getExecutiveDashboard(Request $request): JsonResponse
     {
-        return $this->getFinancialDashboard($request);
+        try {
+            $this->ensureSchoolInRequest($request);
+
+            $schoolId = (int) $request->input('school_id');
+            $cacheKey = 'executive_dashboard_' . $schoolId . '_' . md5(json_encode($request->all()));
+
+            $dashboard = Cache::remember($cacheKey, 300, function () use ($request) {
+                return $this->seasonFinanceService->generateSeasonDashboard($request);
+            });
+
+            return $this->sendResponse($dashboard, 'Executive dashboard retrieved successfully');
+        } catch (\Exception $e) {
+            Log::channel('finance')->error('Error getting executive dashboard', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+
+            return $this->sendError('Error retrieving executive dashboard: ' . $e->getMessage(), 500);
+        }
     }
 
     public function getOperationalDashboard(Request $request): JsonResponse
     {
-        return $this->getFinancialDashboard($request);
+        try {
+            $this->ensureSchoolInRequest($request);
+
+            $schoolId = (int) $request->input('school_id');
+            $cacheKey = 'operational_dashboard_' . $schoolId . '_' . md5(json_encode($request->all()));
+
+            $dashboard = Cache::remember($cacheKey, 300, function () use ($request) {
+                return $this->seasonFinanceService->generateSeasonDashboard($request);
+            });
+
+            return $this->sendResponse($dashboard, 'Operational dashboard retrieved successfully');
+        } catch (\Exception $e) {
+            Log::channel('finance')->error('Error getting operational dashboard', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+
+            return $this->sendError('Error retrieving operational dashboard: ' . $e->getMessage(), 500);
+        }
     }
 
     public function getPricingAnalysis(Request $request): JsonResponse

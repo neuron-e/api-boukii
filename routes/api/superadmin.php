@@ -1,13 +1,31 @@
 <?php
 
+use App\Http\Controllers\Superadmin\AdminController;
+use App\Http\Controllers\Superadmin\AuthController;
+use App\Http\Controllers\Superadmin\ImpersonationController;
+use App\Http\Controllers\Superadmin\RoleController;
+use App\Http\Controllers\Superadmin\SchoolController;
+use App\Http\Controllers\Superadmin\StatsController;
 use Illuminate\Support\Facades\Route;
 
-use App\Models\UserType;
+Route::post('/login', [AuthController::class, 'login']);
 
+Route::middleware(['userRequired:superadmin'])->group(function () {
+    Route::get('/dashboard', [StatsController::class, 'overview']);
 
-// Private
-Route::middleware('userRequired:superadmin')->group(function() {
+    Route::get('/schools', [SchoolController::class, 'index']);
+    Route::post('/schools', [SchoolController::class, 'store']);
+    Route::get('/schools/{id}', [SchoolController::class, 'show']);
+    Route::put('/schools/{id}', [SchoolController::class, 'update']);
+    Route::delete('/schools/{id}', [SchoolController::class, 'destroy']);
 
+    Route::get('/roles', [RoleController::class, 'index']);
+    Route::post('/roles', [RoleController::class, 'store']);
+    Route::put('/roles/{id}', [RoleController::class, 'update']);
+    Route::delete('/roles/{id}', [RoleController::class, 'destroy']);
 
+    Route::get('/admins', [AdminController::class, 'index']);
+    Route::post('/admins', [AdminController::class, 'store']);
 
+    Route::post('/impersonate', [ImpersonationController::class, 'impersonate']);
 });

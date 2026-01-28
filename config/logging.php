@@ -54,7 +54,7 @@ return [
     'channels' => [
         'stack' => [
             'driver' => 'stack',
-            'channels' => ['single'],
+            'channels' => ['daily'],
             'ignore_exceptions' => false,
         ],
 
@@ -143,7 +143,7 @@ return [
         'finance' => [
             'driver' => 'daily',
             'path' => storage_path('logs/finance.log'),
-            'level' => 'debug',
+            'level' => 'warning',
             'days' => 7
         ],
 
@@ -176,7 +176,7 @@ return [
         'availability' => [
             'driver' => 'daily',
             'path' => storage_path('logs/availability.log'),
-            'level' => 'debug',
+            'level' => 'warning',
             'days' => 7,
             'replace_placeholders' => true,
         ],
@@ -260,7 +260,7 @@ return [
         'courses' => [
             'driver' => 'daily',
             'path' => storage_path('logs/courses.log'),
-            'level' => 'debug',
+            'level' => 'warning',
             'days' => 14,
             'replace_placeholders' => true,
         ],

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\AnalyticsProfessionalController;
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\CourseIntervalMonitorController;
 use App\Http\Controllers\Admin\FrontendLogController;
 use App\Http\Controllers\Admin\ReferenceDataController;
@@ -36,6 +37,15 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
         ->name('api.admin.courses.preview-availability');
     Route::post('/courses/validate-booking', [App\Http\Controllers\Admin\CourseCapacityController::class, 'validateBookingCapacity']);
     Route::post('/frontend/logs', [FrontendLogController::class, 'store'])->name('api.admin.frontend.logs.store');
+
+    Route::prefix('dashboard')->controller(DashboardController::class)->group(function () {
+        Route::get('/system', 'systemStats');
+        Route::get('/system-details', 'systemDetails');
+        Route::get('/operations', 'operations');
+        Route::get('/courses', 'coursesCapacity');
+        Route::get('/forecast', 'forecast');
+        Route::get('/commercial', 'commercialPerformance');
+    });
 
     Route::resource('courses', App\Http\Controllers\Admin\CourseController::class)
         ->except(['create', 'edit'])->names([
@@ -326,6 +336,9 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
 
     Route::get('weather/week', [\App\Http\Controllers\Admin\HomeController::class, 'get5DaysForecastByStation'])
         ->name('api.admin.weatherweek');
+
+    Route::get('weather/slots', [\App\Http\Controllers\Admin\HomeController::class, 'getFixedSlotsForecastByStation'])
+        ->name('api.admin.weatherslots');
 
     // ==================== STATISTICS LEGACY (mantener para compatibilidad) ====================
 
