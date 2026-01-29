@@ -133,6 +133,12 @@ class EvaluationFileAPIController extends AppBaseController
                     'image/svg+xml' => 'svg',
                     'application/pdf' => 'pdf',
                     'video/mp4' => 'mp4',
+                    'video/quicktime' => 'mov',
+                    'video/x-m4v' => 'm4v',
+                    'video/webm' => 'webm',
+                    'video/ogg' => 'ogv',
+                    'video/3gpp' => '3gp',
+                    'video/3gpp2' => '3g2',
                     'image/webp' => 'webp',
             ];
 
@@ -281,6 +287,12 @@ class EvaluationFileAPIController extends AppBaseController
                     'image/svg+xml' => 'svg',
                     'application/pdf' => 'pdf',
                     'video/mp4' => 'mp4',
+                    'video/quicktime' => 'mov',
+                    'video/x-m4v' => 'm4v',
+                    'video/webm' => 'webm',
+                    'video/ogg' => 'ogv',
+                    'video/3gpp' => '3gp',
+                    'video/3gpp2' => '3g2',
                     'image/webp' => 'webp',
             ];
 

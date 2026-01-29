@@ -319,6 +319,11 @@ class BookingUserAPIController extends AppBaseController
             $input['attendance'] = $input['attended'];
         }
 
+        $user = $request->user() ?? auth('sanctum')->user();
+        if (!$this->canManageSchoolNotes($user)) {
+            unset($input['notes_school']);
+        }
+
         /** @var BookingUser $bookingUser */
         $bookingUser = $this->bookingUserRepository->find($id, with: $request->get('with', []));
 
@@ -329,6 +334,23 @@ class BookingUserAPIController extends AppBaseController
         $bookingUser = $this->bookingUserRepository->update($input, $id);
 
         return $this->sendResponse(new BookingUserResource($bookingUser), 'BookingUser updated successfully');
+    }
+
+    private function canManageSchoolNotes($user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        if (method_exists($user, 'tokenCan') && (
+            $user->tokenCan('admin:all') ||
+            $user->tokenCan('teach:all') ||
+            $user->tokenCan('monitor:all')
+        )) {
+            return true;
+        }
+
+        return in_array((string) $user->type, ['1', '3'], true) || in_array($user->type, ['admin', 'monitor'], true);
     }
 
     /**

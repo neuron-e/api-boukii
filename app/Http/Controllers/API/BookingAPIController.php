@@ -266,6 +266,11 @@ class BookingAPIController extends AppBaseController
             return $this->sendError('Booking not found');
         }
 
+        $user = $request->user() ?? auth('sanctum')->user();
+        if (!$this->canManageSchoolNotes($user)) {
+            $booking->notes_school = null;
+        }
+
         return $this->sendResponse($booking, 'Booking retrieved successfully');
     }
 
@@ -312,6 +317,11 @@ class BookingAPIController extends AppBaseController
     public function update($id, UpdateBookingAPIRequest $request): JsonResponse
     {
         $input = $request->all();
+        $user = $request->user() ?? auth('sanctum')->user();
+
+        if (!$this->canManageSchoolNotes($user)) {
+            unset($input['notes_school']);
+        }
 
         /** @var Booking $booking */
         $booking = $this->bookingRepository->find($id, with: $request->get('with', []));
@@ -321,6 +331,10 @@ class BookingAPIController extends AppBaseController
         }
 
         $booking = $this->bookingRepository->update($input, $id);
+
+        if (!$this->canManageSchoolNotes($user)) {
+            $booking->notes_school = null;
+        }
 
         if($request->has('send_mail') && $request->input('send_mail')) {
             dispatch(function () use ($booking) {
@@ -335,6 +349,23 @@ class BookingAPIController extends AppBaseController
         }
 
         return $this->sendResponse($booking, 'Booking updated successfully');
+    }
+
+    private function canManageSchoolNotes($user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        if (method_exists($user, 'tokenCan') && (
+            $user->tokenCan('admin:all') ||
+            $user->tokenCan('teach:all') ||
+            $user->tokenCan('monitor:all')
+        )) {
+            return true;
+        }
+
+        return in_array((string) $user->type, ['1', '3'], true) || in_array($user->type, ['admin', 'monitor'], true);
     }
 
     /**
@@ -571,4 +602,3 @@ class BookingAPIController extends AppBaseController
         }
     }
 }
-

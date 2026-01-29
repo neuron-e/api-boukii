@@ -28,6 +28,7 @@ class Kernel extends ConsoleKernel
         RepairOrphanedCourseData::class,
         RestoreZeroTotalBookings::class,
         CleanupDuplicateBookingUsers::class,
+        \App\Console\Commands\CleanupClientObservations::class,
         \App\Console\Commands\BackfillBookingPriceSnapshots::class,
         \App\Console\Commands\RecoverMissingBooking::class,
         \App\Console\Commands\BackfillAnalyticsAggregates::class,
@@ -80,4 +81,3 @@ class Kernel extends ConsoleKernel
         require base_path('routes/console.php');
     }
 }
-

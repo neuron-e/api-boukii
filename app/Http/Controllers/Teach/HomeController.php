@@ -117,7 +117,7 @@ class HomeController extends AppBaseController
                 'color',
                 'school_id',
             ])->with([
-                'booking:id,status,paid,paid_total,price_total',
+                'booking:id,status,paid,paid_total,price_total,notes,notes_school',
                 'course' => function ($query) use ($dateStart, $dateEnd) {
                     $query->select('id', 'name', 'school_id', 'sport_id', 'course_type', 'max_participants')
                         ->withCount(['courseDates as course_dates_total'])
@@ -133,6 +133,7 @@ class HomeController extends AppBaseController
                 },
                 'client:id,first_name,last_name,birth_date,image,phone,telephone',
                 'client.sports:id,name',
+                'client.observations',
             ])
                 ->where('school_id', $monitor->active_school)
                 ->where('status', 1)
