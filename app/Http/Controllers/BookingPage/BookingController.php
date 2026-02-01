@@ -89,6 +89,10 @@ class BookingController extends SlugAuthController
             $client = Client::with('user')->find(Arr::get($data, 'client_main_id'));
             if (!$client || !$client->user) {
                 DB::rollBack();
+                $this->logBookingError('booking.errors.client_main_invalid', [
+                    'client_main_id' => Arr::get($data, 'client_main_id'),
+                    'school_id' => Arr::get($data, 'school_id'),
+                ]);
                 return response()->json([
                     'message' => 'booking.errors.client_main_invalid',
                     'errors' => ['client_main_id' => ['booking.errors.client_main_required']]
@@ -136,6 +140,13 @@ class BookingController extends SlugAuthController
                         ]);
                         if ($timingError) {
                             DB::rollBack();
+                            $this->logBookingError($timingError, [
+                                'course_date_id' => $detail["course_date_id"] ?? null,
+                                'date' => $detail["date"] ?? null,
+                                'hour_start' => $detail["hour_start"] ?? null,
+                                'hour_end' => $detail["hour_end"] ?? null,
+                                'school_id' => Arr::get($data, 'school_id'),
+                            ]);
                             return response()->json([
                                 "message" => $timingError,
                                 "errors" => ["time" => [$timingError]]
@@ -149,6 +160,13 @@ class BookingController extends SlugAuthController
                         );
                         if ($overbookingError) {
                             DB::rollBack();
+                            $this->logBookingError($overbookingError, [
+                                'date' => $detail["date"] ?? null,
+                                'hour_start' => $detail["hour_start"] ?? null,
+                                'hour_end' => $detail["hour_end"] ?? null,
+                                'sport_id' => $detail["course"]["sport_id"] ?? $detail["course_sport_id"] ?? null,
+                                'school_id' => Arr::get($data, 'school_id'),
+                            ]);
                             return response()->json([
                                 "message" => $overbookingError,
                                 "errors" => ["overbooking" => [$overbookingError]]
@@ -191,6 +209,10 @@ class BookingController extends SlugAuthController
                 $discountCode = DiscountCode::lockForUpdate()->find($discountCodeId);
                 if (!$discountCode) {
                     DB::rollBack();
+                    $this->logBookingError('booking.errors.discount_code_not_found', [
+                        'discount_code_id' => $discountCodeId,
+                        'school_id' => Arr::get($data, 'school_id'),
+                    ]);
                     return response()->json([
                         'message' => 'booking.errors.discount_code_not_found',
                         'errors' => ['discount_code' => ['booking.errors.discount_code_not_found']]
@@ -199,6 +221,11 @@ class BookingController extends SlugAuthController
 
                 if (!empty($vouchersPayload) && !$discountCode->stackable) {
                     DB::rollBack();
+                    $this->logBookingError('booking.errors.discount_code_not_stackable', [
+                        'discount_code_id' => $discountCode->id,
+                        'voucher_count' => count($vouchersPayload),
+                        'school_id' => Arr::get($data, 'school_id'),
+                    ]);
                     return response()->json([
                         'message' => 'booking.errors.discount_code_not_stackable',
                         'errors' => ['discount_code' => ['booking.errors.discount_code_not_stackable']]
@@ -223,6 +250,10 @@ class BookingController extends SlugAuthController
 
                 if (!$validation['valid']) {
                     DB::rollBack();
+                    $this->logBookingError('booking.errors.discount_code_validation_failed', [
+                        'discount_code_id' => $discountCodeId,
+                        'school_id' => Arr::get($data, 'school_id'),
+                    ]);
                     return response()->json([
                         'message' => 'booking.errors.discount_code_validation_failed',
                         'errors' => ['booking.errors.discount_code_validation_failed']
@@ -312,6 +343,11 @@ class BookingController extends SlugAuthController
                         $courseSubgroup = $courseSubgroupCache[$courseSubgroupId];
                         if (!$courseSubgroup) {
                             DB::rollBack();
+                            $this->logBookingError('booking.errors.subgroup_not_found', [
+                                'course_subgroup_id' => $courseSubgroupId,
+                                'course_group_id' => $courseGroupId,
+                                'school_id' => Arr::get($data, 'school_id'),
+                            ]);
                             return response()->json([
                                 'message' => 'booking.errors.subgroup_not_found',
                                 'errors' => ['course_subgroup_id' => ["booking.errors.subgroup_not_found"]],
@@ -331,6 +367,10 @@ class BookingController extends SlugAuthController
                         $courseGroup = $courseGroupCache[$courseGroupId];
                         if (!$courseGroup) {
                             DB::rollBack();
+                            $this->logBookingError('booking.errors.group_not_found', [
+                                'course_group_id' => $courseGroupId,
+                                'school_id' => Arr::get($data, 'school_id'),
+                            ]);
                             return response()->json([
                                 'message' => 'booking.errors.group_not_found',
                                 'errors' => ['course_group_id' => ["booking.errors.group_not_found"]],
@@ -339,6 +379,11 @@ class BookingController extends SlugAuthController
 
                         if (!empty($detail['course_date_id']) && $courseGroup->course_date_id !== $detail['course_date_id']) {
                             DB::rollBack();
+                            $this->logBookingError('booking.errors.group_date_mismatch', [
+                                'course_group_id' => $courseGroupId,
+                                'course_date_id' => $detail['course_date_id'],
+                                'school_id' => Arr::get($data, 'school_id'),
+                            ]);
                             return response()->json([
                                 'message' => 'booking.errors.group_date_mismatch',
                                 'errors' => ['course_group_id' => ["booking.errors.group_date_mismatch"]],
@@ -365,6 +410,14 @@ class BookingController extends SlugAuthController
                             ]);
 
                             DB::rollBack();
+                            $this->logBookingError('booking.errors.subgroup_full', [
+                                'course_id' => $detail['course_id'] ?? null,
+                                'course_date_id' => $detail['course_date_id'] ?? null,
+                                'course_subgroup_id' => $courseSubgroupId,
+                                'degree_id' => $degreeId,
+                                'date' => $normalizedDate,
+                                'school_id' => Arr::get($data, 'school_id'),
+                            ]);
                             return response()->json([
                                 'message' => 'booking.errors.subgroup_full',
                                 'errors' => [
@@ -497,6 +550,10 @@ class BookingController extends SlugAuthController
 
                 if (!empty($voucherErrors)) {
                     DB::rollBack();
+                    $this->logBookingError('booking.errors.voucher_validation_failed', [
+                        'voucher_error_count' => count($voucherErrors),
+                        'school_id' => Arr::get($data, 'school_id'),
+                    ]);
                     return response()->json([
                         'message' => 'booking.errors.voucher_validation_failed',
                         'errors' => array_values(array_unique($voucherErrors)),
@@ -510,6 +567,10 @@ class BookingController extends SlugAuthController
 
                     if (!$voucher->use($amount)) {
                         DB::rollBack();
+                        $this->logBookingError('booking.errors.voucher_apply_failed', [
+                            'voucher_id' => $voucher->id,
+                            'school_id' => Arr::get($data, 'school_id'),
+                        ]);
                         return response()->json([
                             'message' => 'booking.errors.voucher_apply_failed',
                             'errors' => ['booking.errors.voucher_apply_failed'],
@@ -587,6 +648,10 @@ class BookingController extends SlugAuthController
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::channel('bookings')->debug('BookingPage/BookingController store: ',
                 $e->getTrace());
+            $this->logBookingError('booking.errors.create_failed', [
+                'school_id' => Arr::get($data ?? [], 'school_id'),
+                'client_main_id' => Arr::get($data ?? [], 'client_main_id'),
+            ], $e);
             // Revertir la transacciÃ³n si ocurre un error
             DB::rollBack();
 
@@ -967,7 +1032,7 @@ class BookingController extends SlugAuthController
 
         $minStart = Carbon::now()->addMinutes($this->getPrivateLeadMinutes());
         if ($start->lt($minStart)) {
-            return sprintf('La reserva de privados debe hacerse con al menos %d minutos de antelación', $this->getPrivateLeadMinutes());
+            return 'booking.errors.private_lead_minutes';
         }
 
         return null;
@@ -1008,6 +1073,9 @@ class BookingController extends SlugAuthController
         $paymentMethod = 2;
 
         if (!$booking) {
+            $this->logBookingError('booking.errors.payment_booking_not_found', [
+                'booking_id' => $id,
+            ]);
             return $this->sendError('booking.errors.payment_booking_not_found');
         }
 
@@ -1026,6 +1094,10 @@ class BookingController extends SlugAuthController
             return $this->sendResponse($payrexxLink, 'Link retrieved successfully');
         }
 
+        $this->logBookingError('booking.errors.payment_link_failed', [
+            'booking_id' => $booking->id,
+            'school_id' => $booking->school_id ?? null,
+        ]);
         return $this->sendError('booking.errors.payment_link_failed');
 
 
@@ -1359,6 +1431,26 @@ class BookingController extends SlugAuthController
         }
 
         return false;
+    }
+
+    private function logBookingError(string $event, array $context = [], ?\Throwable $exception = null): void
+    {
+        $payload = array_merge([
+            'event' => $event,
+            'school_id' => $this->school?->id ?? null,
+            'route' => request()->path(),
+            'ip' => request()->ip(),
+        ], $context);
+
+        if ($exception) {
+            $payload['exception'] = $exception->getMessage();
+            $payload['file'] = $exception->getFile();
+            $payload['line'] = $exception->getLine();
+            Log::channel('bookings')->error('BOOKING_PAGE_EXCEPTION', $payload);
+            return;
+        }
+
+        Log::channel('bookings')->warning('BOOKING_PAGE_ERROR', $payload);
     }
 
 }
