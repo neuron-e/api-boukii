@@ -90,8 +90,8 @@ class BookingController extends SlugAuthController
             if (!$client || !$client->user) {
                 DB::rollBack();
                 return response()->json([
-                    'message' => 'Cliente principal no válido',
-                    'errors' => ['client_main_id' => ['El cliente principal es obligatorio para la reserva']]
+                    'message' => 'booking.errors.client_main_invalid',
+                    'errors' => ['client_main_id' => ['booking.errors.client_main_required']]
                 ], 422);
             }
 
@@ -192,16 +192,16 @@ class BookingController extends SlugAuthController
                 if (!$discountCode) {
                     DB::rollBack();
                     return response()->json([
-                        'message' => 'Código promocional no encontrado',
-                        'errors' => ['discount_code' => ['El código indicado no existe']]
+                        'message' => 'booking.errors.discount_code_not_found',
+                        'errors' => ['discount_code' => ['booking.errors.discount_code_not_found']]
                     ], 422);
                 }
 
                 if (!empty($vouchersPayload) && !$discountCode->stackable) {
                     DB::rollBack();
                     return response()->json([
-                        'message' => 'El código promocional no se puede combinar con bonos',
-                        'errors' => ['discount_code' => ['Este código no permite combinarse con bonos en la misma reserva']]
+                        'message' => 'booking.errors.discount_code_not_stackable',
+                        'errors' => ['discount_code' => ['booking.errors.discount_code_not_stackable']]
                     ], 422);
                 }
 
@@ -224,8 +224,8 @@ class BookingController extends SlugAuthController
                 if (!$validation['valid']) {
                     DB::rollBack();
                     return response()->json([
-                        'message' => 'No se pudo validar el código promocional',
-                        'errors' => [$validation['message']]
+                        'message' => 'booking.errors.discount_code_validation_failed',
+                        'errors' => ['booking.errors.discount_code_validation_failed']
                     ], 422);
                 }
 
@@ -313,8 +313,8 @@ class BookingController extends SlugAuthController
                         if (!$courseSubgroup) {
                             DB::rollBack();
                             return response()->json([
-                                'message' => 'Subgrupo de curso no encontrado',
-                                'errors' => ['course_subgroup_id' => ["El subgrupo {$courseSubgroupId} ya no existe"]],
+                                'message' => 'booking.errors.subgroup_not_found',
+                                'errors' => ['course_subgroup_id' => ["booking.errors.subgroup_not_found"]],
                             ], 422);
                         }
 
@@ -332,16 +332,16 @@ class BookingController extends SlugAuthController
                         if (!$courseGroup) {
                             DB::rollBack();
                             return response()->json([
-                                'message' => 'Grupo no encontrado',
-                                'errors' => ['course_group_id' => ["El grupo {$courseGroupId} ya no existe"]],
+                                'message' => 'booking.errors.group_not_found',
+                                'errors' => ['course_group_id' => ["booking.errors.group_not_found"]],
                             ], 422);
                         }
 
                         if (!empty($detail['course_date_id']) && $courseGroup->course_date_id !== $detail['course_date_id']) {
                             DB::rollBack();
                             return response()->json([
-                                'message' => 'Grupo y fecha desalineados',
-                                'errors' => ['course_group_id' => ["El grupo {$courseGroupId} no pertenece a la fecha {$detail['course_date_id']}"]],
+                                'message' => 'booking.errors.group_date_mismatch',
+                                'errors' => ['course_group_id' => ["booking.errors.group_date_mismatch"]],
                             ], 422);
                         }
 
@@ -366,10 +366,10 @@ class BookingController extends SlugAuthController
 
                             DB::rollBack();
                             return response()->json([
-                                'message' => 'El subgrupo seleccionado ya no tiene plazas disponibles.',
+                                'message' => 'booking.errors.subgroup_full',
                                 'errors' => [
                                     'course_subgroup_id' => [
-                                        "El subgrupo {$courseSubgroupId} no tiene plazas disponibles para la fecha {$normalizedDate}."
+                                        "booking.errors.subgroup_full"
                                     ],
                                 ],
                             ], 422);
@@ -437,55 +437,50 @@ class BookingController extends SlugAuthController
                     $amount = (float) Arr::get($voucherData, 'reducePrice', 0);
 
                     if (!$voucherId) {
-                        $voucherErrors[] = 'Voucher identifier missing';
+                        $voucherErrors[] = 'booking.errors.voucher_missing_id';
                         continue;
                     }
 
                     /** @var Voucher|null $voucher */
                     $voucher = Voucher::where('id', $voucherId)->lockForUpdate()->first();
                     if (!$voucher) {
-                        $voucherErrors[] = sprintf('Voucher %s not found', $voucherCode);
+                        $voucherErrors[] = 'booking.errors.voucher_not_found';
                         continue;
                     }
 
                     $currentErrors = [];
 
                     if ((int) $voucher->school_id !== (int) $booking->school_id) {
-                        $currentErrors[] = sprintf('Voucher %s belongs to a different school', $voucher->code);
+                        $currentErrors[] = 'booking.errors.voucher_wrong_school';
                     }
 
                     if ($amount <= 0) {
-                        $currentErrors[] = sprintf('Voucher %s must be applied with an amount greater than zero', $voucher->code);
+                        $currentErrors[] = 'booking.errors.voucher_amount_invalid';
                     }
 
                     if ($amount > $voucher->remaining_balance) {
-                        $currentErrors[] = sprintf(
-                            'Voucher %s does not have enough balance (requested %s, available %s)',
-                            $voucher->code,
-                            number_format($amount, 2, '.', ''),
-                            number_format($voucher->remaining_balance, 2, '.', '')
-                        );
+                        $currentErrors[] = 'booking.errors.voucher_insufficient_balance';
                     }
 
                     if (!$voucher->payed) {
-                        $currentErrors[] = sprintf('Voucher %s is not active yet', $voucher->code);
+                        $currentErrors[] = 'booking.errors.voucher_not_active';
                     }
 
                     if (!$voucher->canBeUsed()) {
                         if ($voucher->isExpired()) {
-                            $currentErrors[] = sprintf('Voucher %s is expired', $voucher->code);
+                            $currentErrors[] = 'booking.errors.voucher_expired';
                         }
                         if (!$voucher->hasBalance()) {
-                            $currentErrors[] = sprintf('Voucher %s has no remaining balance', $voucher->code);
+                            $currentErrors[] = 'booking.errors.voucher_no_balance';
                         }
                         if ($voucher->hasReachedMaxUses()) {
-                            $currentErrors[] = sprintf('Voucher %s reached its maximum uses', $voucher->code);
+                            $currentErrors[] = 'booking.errors.voucher_max_uses';
                         }
                         if ($voucher->trashed()) {
-                            $currentErrors[] = sprintf('Voucher %s is inactive', $voucher->code);
+                            $currentErrors[] = 'booking.errors.voucher_inactive';
                         }
                     } elseif (!$voucher->canBeUsedByClient($booking->client_main_id)) {
-                        $currentErrors[] = sprintf('Voucher %s cannot be used by this client', $voucher->code);
+                        $currentErrors[] = 'booking.errors.voucher_not_allowed';
                     }
 
                     if (!empty($currentErrors)) {
@@ -503,7 +498,7 @@ class BookingController extends SlugAuthController
                 if (!empty($voucherErrors)) {
                     DB::rollBack();
                     return response()->json([
-                        'message' => 'Voucher validation failed',
+                        'message' => 'booking.errors.voucher_validation_failed',
                         'errors' => array_values(array_unique($voucherErrors)),
                     ], 422);
                 }
@@ -516,8 +511,8 @@ class BookingController extends SlugAuthController
                     if (!$voucher->use($amount)) {
                         DB::rollBack();
                         return response()->json([
-                            'message' => 'Unable to apply voucher',
-                            'errors' => [sprintf('Voucher %s could not be used', $voucher->code)],
+                            'message' => 'booking.errors.voucher_apply_failed',
+                            'errors' => ['booking.errors.voucher_apply_failed'],
                         ], 500);
                     }
 
@@ -587,7 +582,7 @@ class BookingController extends SlugAuthController
             DB::commit();
 
 
-            return response()->json(['message' => 'Reserva creada con Ã©xito', 'booking_id' => $booking->id], 201);
+            return response()->json(['message' => 'booking.success.created', 'booking_id' => $booking->id], 201);
 
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::channel('bookings')->debug('BookingPage/BookingController store: ',
@@ -604,7 +599,7 @@ class BookingController extends SlugAuthController
                 $e
             );
 
-            return response()->json(['message' => 'Error al crear la reserva', 'error' => $e->getMessage()], 500);
+            return response()->json(['message' => 'booking.errors.create_failed', 'error' => $e->getMessage()], 500);
         }
     }
 
@@ -916,7 +911,7 @@ class BookingController extends SlugAuthController
         $concurrentBookings = $this->getConcurrentPrivateBookings($date, $startTime, $endTime);
 
         if ($availableCount + $overbookingLimit <= $concurrentBookings) {
-            return 'No hay monitores disponibles para ese horario (límite de overbooking alcanzado)';
+            return 'booking.errors.private_overbooking';
         }
 
         return null;
@@ -947,27 +942,27 @@ class BookingController extends SlugAuthController
         $endTime = $bookingUser['hour_end'] ?? null;
 
         if (!$courseDateId || !$date || !$startTime || !$endTime) {
-            return 'Horario de reserva inválido';
+            return 'booking.errors.private_timing_invalid';
         }
 
         /** @var CourseDate|null $courseDate */
         $courseDate = CourseDate::find($courseDateId);
         if (!$courseDate) {
-            return 'Fecha de curso no válida';
+            return 'booking.errors.private_date_invalid';
         }
 
         $start = Carbon::parse(sprintf('%s %s', $date, $startTime));
         $end = Carbon::parse(sprintf('%s %s', $date, $endTime));
 
         if ($end->lessThanOrEqualTo($start)) {
-            return 'La hora de fin debe ser posterior a la hora de inicio';
+            return 'booking.errors.private_end_before_start';
         }
 
         $courseStart = Carbon::parse(sprintf('%s %s', $courseDate->date->format('Y-m-d'), $courseDate->hour_start));
         $courseEnd = Carbon::parse(sprintf('%s %s', $courseDate->date->format('Y-m-d'), $courseDate->hour_end));
 
         if ($start->lt($courseStart) || $end->gt($courseEnd)) {
-            return 'La reserva debe estar dentro del horario configurado para el curso';
+            return 'booking.errors.private_outside_schedule';
         }
 
         $minStart = Carbon::now()->addMinutes($this->getPrivateLeadMinutes());
@@ -1013,7 +1008,7 @@ class BookingController extends SlugAuthController
         $paymentMethod = 2;
 
         if (!$booking) {
-            return $this->sendError('Booking not found');
+            return $this->sendError('booking.errors.payment_booking_not_found');
         }
 
         $booking->payment_method_id = $paymentMethod;
@@ -1031,7 +1026,7 @@ class BookingController extends SlugAuthController
             return $this->sendResponse($payrexxLink, 'Link retrieved successfully');
         }
 
-        return $this->sendError('Link could not be created. Booking has been removed.');
+        return $this->sendError('booking.errors.payment_link_failed');
 
 
     }
@@ -1080,7 +1075,7 @@ class BookingController extends SlugAuthController
      *      ),
      *      @OA\Response(
      *          response=404,
-     *          description="Booking not found",
+     *          description="booking.errors.payment_booking_not_found",
      *          @OA\JsonContent(
      *              type="object",
      *              @OA\Property(
@@ -1091,7 +1086,7 @@ class BookingController extends SlugAuthController
      *              @OA\Property(
      *                  property="error",
      *                  type="string",
-     *                  example={"message": "Booking not found"}
+     *                  example={"message": "booking.errors.payment_booking_not_found"}
      *              )
      *          )
      *      ),
@@ -1121,7 +1116,7 @@ class BookingController extends SlugAuthController
         $amountToRefund = $request->get('amount');
 
         if (!$booking) {
-            return $this->sendError('Booking not found', 404);
+            return $this->sendError('booking.errors.payment_booking_not_found', 404);
         }
 
         if (!is_numeric($amountToRefund) || $amountToRefund <= 0) {

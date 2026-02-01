@@ -116,6 +116,8 @@ class HomeController extends AppBaseController
                 'degree_id',
                 'color',
                 'school_id',
+                'notes',
+                'notes_school',
             ])->with([
                 'booking:id,status,paid,paid_total,price_total,notes,notes_school',
                 'course' => function ($query) use ($dateStart, $dateEnd) {

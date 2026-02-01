@@ -81,6 +81,8 @@ class CourseController extends AppBaseController
     public function index(Request $request): JsonResponse
     {
         $school = $this->getSchool($request);
+        $includeAvailability = $request->boolean('include_availability', true);
+        $light = $request->boolean('light', false);
         $courses = $this->courseRepository->all(
             searchArray: $request->except(['skip', 'limit', 'search', 'exclude', 'active', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with', 'include_archived']),
             search: $request->get('search'),
@@ -92,10 +94,38 @@ class CourseController extends AppBaseController
                 'courseExtras']),
             order: $request->get('order', 'desc'),
             orderColumn: $request->get('orderColumn', 'id'),
-            additionalConditions: function ($query) use ($request, $school) {
+            additionalConditions: function ($query) use ($request, $school, $light) {
                 // ObtÃ©n el ID de la escuela y aÃ±Ã¡delo a los parÃ¡metros de bÃºsqueda
 
                 $query->where('school_id', $school->id);
+
+                if ($light) {
+                    $query->select([
+                        'id',
+                        'course_type',
+                        'is_flexible',
+                        'sport_id',
+                        'station_id',
+                        'name',
+                        'translations',
+                        'duration',
+                        'price',
+                        'currency',
+                        'max_participants',
+                        'created_at',
+                        'active',
+                        'options',
+                        'online',
+                        'archived_at',
+                        'date_start',
+                        'date_end',
+                        'date_start_res',
+                        'date_end_res',
+                        'hour_min',
+                        'hour_max',
+                        'unique',
+                    ]);
+                }
 
                 // Excluir cursos archivados por defecto (a menos que se pida explÃ­citamente incluirlos)
                 if (!$request->get('include_archived', false)) {
@@ -141,6 +171,7 @@ class CourseController extends AppBaseController
         $monitorsBySportAndDegree = $this->getGroupedMonitors($school->id);
         $courseIds = $courses->pluck('id')->filter()->all();
         $activeBookingCounts = [];
+        $courseDatesSummary = collect();
 
         if (!empty($courseIds)) {
             $activeBookingCounts = BookingUser::selectRaw('course_id, COUNT(*) as total')
@@ -152,18 +183,38 @@ class CourseController extends AppBaseController
                 ->groupBy('course_id')
                 ->pluck('total', 'course_id')
                 ->toArray();
+
+            $courseDatesSummary = CourseDate::selectRaw('course_id, COUNT(*) as total, MIN(date) as min_date, MAX(date) as max_date')
+                ->whereIn('course_id', $courseIds)
+                ->whereNull('deleted_at')
+                ->where('active', 1)
+                ->groupBy('course_id')
+                ->get()
+                ->keyBy('course_id');
         }
 
         // Calcula reservas y plazas disponibles para cada curso
         foreach ($courses as $course) {
-            if($course->course_type == 1) {
-                $availability = $this->getCourseAvailability($course, $monitorsBySportAndDegree);
+            $course->total_reservations = $activeBookingCounts[$course->id] ?? 0;
+            $summary = $courseDatesSummary->get($course->id);
+            $course->dates_summary = [
+                'count' => (int) ($summary->total ?? 0),
+                'min' => $summary->min_date ?? null,
+                'max' => $summary->max_date ?? null,
+            ];
+            if ($light) {
+                $course->course_dates = $course->dates_summary;
+            }
 
-                $course->total_reservations = $activeBookingCounts[$course->id] ?? 0;
-                $course->total_available_places = $availability['total_available_places'];
-                $course->total_places = $availability['total_places'];
-            } else {
-                $course->total_reservations = $course->bookingUsersActive->count();
+            if ($course->course_type == 1) {
+                if ($includeAvailability) {
+                    $availability = $this->getCourseAvailability($course, $monitorsBySportAndDegree);
+                    $course->total_available_places = $availability['total_available_places'];
+                    $course->total_places = $availability['total_places'];
+                } else {
+                    $course->total_available_places = null;
+                    $course->total_places = null;
+                }
             }
 
         }
@@ -211,16 +262,44 @@ class CourseController extends AppBaseController
     {
         $school = $this->getSchool($request);
 
-        // Comprueba si el cliente principal tiene booking_users asociados con el ID del monitor
-        $course = Course::with( 'station','bookingUsersActive.client.sports', 'bookingUsers.client.sports',
-            'courseDates.courseSubgroups.bookingUsers.client',
-            'courseDates.courseSubgroups.monitor',
-            'courseDates.courseGroups.courseSubgroups.monitor',
-            'courseDates.courseGroups.bookingUsers.client',
-            'courseDates.bookingUsersActive.client',
-            'courseExtras',
-            'courseDates.courseGroups.courseSubgroups.bookingUsers.client')
-            ->where('school_id', $school->id)->find($id);
+        $light = $request->boolean('light', false);
+        $includeAvailability = $request->boolean('include_availability', !$light);
+
+        if ($light) {
+            $includeGroups = $request->boolean('include_groups', false);
+            $with = [
+                'station:id,name',
+                'sport:id,name,icon_collective,icon_prive,icon_selected',
+                'courseExtras:id,course_id,name,price',
+                'courseDates' => function ($query) {
+                    $query->select('id', 'course_id', 'date', 'hour_start', 'hour_end', 'interval_id', 'order', 'active')
+                        ->whereNull('deleted_at')
+                        ->orderBy('date');
+                },
+            ];
+            if ($includeGroups) {
+                $with['courseDates.courseGroups'] = function ($query) {
+                    $query->select('id', 'course_date_id', 'degree_id')
+                        ->whereNull('deleted_at');
+                };
+                $with['courseDates.courseGroups.courseSubgroups'] = function ($query) {
+                    $query->select('id', 'course_id', 'course_date_id', 'degree_id', 'course_group_id', 'subgroup_dates_id', 'max_participants')
+                        ->whereNull('deleted_at');
+                };
+            }
+            $course = Course::with($with)->where('school_id', $school->id)->find($id);
+        } else {
+            // Comprueba si el cliente principal tiene booking_users asociados con el ID del monitor
+            $course = Course::with( 'station','bookingUsersActive.client.sports', 'bookingUsers.client.sports',
+                'courseDates.courseSubgroups.bookingUsers.client',
+                'courseDates.courseSubgroups.monitor',
+                'courseDates.courseGroups.courseSubgroups.monitor',
+                'courseDates.courseGroups.bookingUsers.client',
+                'courseDates.bookingUsersActive.client',
+                'courseExtras',
+                'courseDates.courseGroups.courseSubgroups.bookingUsers.client')
+                ->where('school_id', $school->id)->find($id);
+        }
 
         if (empty($course)) {
             return $this->sendError('Course does not exist in this school');
@@ -228,10 +307,12 @@ class CourseController extends AppBaseController
 
         $monitorsBySportAndDegree = $this->getGroupedMonitors($school->id);
 
-        $availability = $this->getCourseAvailability($course, $monitorsBySportAndDegree);
-        $course->total_reservations = $availability['total_reservations_places'];
-        $course->total_available_places = $availability['total_available_places'];
-        $course->total_places = $availability['total_places'];
+        if ($includeAvailability) {
+            $availability = $this->getCourseAvailability($course, $monitorsBySportAndDegree);
+            $course->total_reservations = $availability['total_reservations_places'];
+            $course->total_available_places = $availability['total_available_places'];
+            $course->total_places = $availability['total_places'];
+        }
 
         Log::channel('courses')->info('[DEBUG] CourseController show - courseGroups:', ['course_id' => $course->id, 'courseGroups' => ($course->courseGroups ?? collect())->map(fn($g) => ['id' => $g->id, 'degree_id' => $g->degree_id, 'age_min' => $g->age_min, 'age_max' => $g->age_max])->toArray()]);
         return $this->sendResponse($course, 'Course retrieved successfully');
@@ -2573,6 +2654,4 @@ class CourseController extends AppBaseController
     }
 
 }
-
-
 
