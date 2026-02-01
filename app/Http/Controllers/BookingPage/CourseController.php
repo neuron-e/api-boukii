@@ -410,22 +410,12 @@ class CourseController extends SlugAuthController
             }
 
             if ($course->course_type === 2) {
-                $maxParticipants = (int) $course->max_participants;
                 foreach ($course->courseDates as $courseDate) {
                     if (!empty($dateAvailabilityMap[$courseDate->id])) {
                         continue;
                     }
 
-                    $activeBookings = BookingUser::where('course_date_id', $courseDate->id)
-                        ->where('status', 1)
-                        ->whereHas('booking', function ($query) {
-                            $query->where('status', '!=', 2);
-                        })
-                        ->count();
-
-                    if ($maxParticipants <= 0 || $activeBookings < $maxParticipants) {
-                        $dateAvailabilityMap[$courseDate->id] = true;
-                    }
+                    $dateAvailabilityMap[$courseDate->id] = $this->hasPrivateAvailabilityForDate($course, $courseDate);
                 }
             }
 
@@ -783,6 +773,124 @@ class CourseController extends SlugAuthController
         }
 
         return 30;
+    }
+
+    private function getPrivateOverbookingLimit(): int
+    {
+        $settings = $this->getSchoolSettings();
+        $value = $settings['booking']['private_overbooking_limit'] ?? null;
+
+        if (is_numeric($value) && (int) $value >= 0) {
+            return (int) $value;
+        }
+
+        return 0;
+    }
+
+    private function getConcurrentPrivateBookings(string $date, string $startTime, string $endTime): int
+    {
+        return BookingUser::whereDate('date', $date)
+            ->where(function ($query) use ($startTime, $endTime) {
+                $query->whereTime('hour_start', '<', Carbon::createFromFormat('H:i', $endTime))
+                    ->whereTime('hour_end', '>', Carbon::createFromFormat('H:i', $startTime));
+            })
+            ->where('status', 1)
+            ->whereHas('booking', function ($query) {
+                $query->where('status', '!=', 2);
+            })
+            ->count();
+    }
+
+    private function hasPrivateAvailabilityForDate($course, $courseDate): bool
+    {
+        if (!$course || !$courseDate) {
+            return false;
+        }
+
+        $dateString = $courseDate->date instanceof Carbon
+            ? $courseDate->date->format('Y-m-d')
+            : (string) $courseDate->date;
+
+        if ($this->isHoliday($courseDate->school_id, $dateString)) {
+            return false;
+        }
+
+        $startSource = $courseDate->hour_start ?: ($course->hour_min ?? null);
+        $endSource = $courseDate->hour_end ?: ($course->hour_max ?? null);
+        if (!$startSource || !$endSource) {
+            return false;
+        }
+
+        $minDurationSeconds = 0;
+        if ($course->is_flexible) {
+            $durations = [];
+            $priceRange = $course->price_range;
+            if (is_string($priceRange)) {
+                $decoded = json_decode($priceRange, true);
+                $priceRange = is_array($decoded) ? $decoded : [];
+            }
+            foreach ($priceRange ?? [] as $price) {
+                $interval = $price['intervalo'] ?? null;
+                if ($interval) {
+                    $seconds = $this->convertDurationRangeToSeconds($interval);
+                    if ($seconds > 0) {
+                        $durations[] = $seconds;
+                    }
+                }
+            }
+            if (!empty($durations)) {
+                $minDurationSeconds = min($durations);
+            }
+        } else {
+            $minDurationSeconds = $this->convertDurationToSeconds($course->duration);
+        }
+
+        if ($minDurationSeconds <= 0) {
+            return false;
+        }
+
+        $startParsed = Carbon::parse('1970-01-01 ' . $startSource);
+        $endParsed = Carbon::parse('1970-01-01 ' . $endSource);
+        $hourStartMinutes = $startParsed->hour * 60 + $startParsed->minute;
+        $hourEndMinutes = $endParsed->hour * 60 + $endParsed->minute;
+        $durationMinutes = (int) ceil($minDurationSeconds / 60);
+        if ($hourEndMinutes <= $hourStartMinutes || $durationMinutes <= 0) {
+            return false;
+        }
+
+        $stepMinutes = $course->is_flexible ? 5 : 15;
+        $minStart = Carbon::now()->addMinutes($this->getPrivateLeadMinutes());
+        $overbookingLimit = $this->getPrivateOverbookingLimit();
+
+        for ($minute = $hourStartMinutes; $minute <= $hourEndMinutes - $durationMinutes; $minute += $stepMinutes) {
+            $startTime = sprintf('%02d:%02d', intdiv($minute, 60), $minute % 60);
+            $endTimestamp = $minute + $durationMinutes;
+            $endTime = sprintf('%02d:%02d', intdiv($endTimestamp, 60), $endTimestamp % 60);
+
+            $startDateTime = Carbon::parse($dateString . ' ' . $startTime);
+            if ($startDateTime->lt($minStart)) {
+                continue;
+            }
+
+            $monitorRequest = new Request([
+                'date' => $dateString,
+                'startTime' => $startTime,
+                'endTime' => $endTime,
+                'clientIds' => [],
+                'sportId' => $course->sport_id ?? null,
+                'minimumDegreeId' => null,
+            ]);
+
+            $availableMonitors = $this->getMonitorsAvailable($monitorRequest);
+            $availableCount = is_array($availableMonitors) ? count($availableMonitors) : 0;
+            $concurrentBookings = $this->getConcurrentPrivateBookings($dateString, $startTime, $endTime);
+
+            if ($availableCount + $overbookingLimit > $concurrentBookings) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function isPrivateLeadTimeViolated($date, ?string $startTime): bool
