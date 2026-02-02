@@ -508,17 +508,20 @@ class CourseController extends SlugAuthController
             return $this->sendResponse([], 'No monitors available.');
         }
 
-        foreach ($request->bookingUsers as $bookingUser) {
-            if ($bookingUser['course']['course_type'] == 2) {
-                $clientIds[] = $bookingUser['client']['id'];
+        $clientIds = [];
+        $bookingUsers = $request->bookingUsers ?? [];
+        if (is_array($bookingUsers)) {
+            foreach ($bookingUsers as $bookingUser) {
+                if (($bookingUser['course']['course_type'] ?? null) == 2 && !empty($bookingUser['client']['id'])) {
+                    $clientIds[] = $bookingUser['client']['id'];
+                }
             }
-
-            $request['clientIds'] = $clientIds;
-
-/*            if (BookingUser::hasOverlappingBookings($bookingUser, [])) {
-                return $this->sendError('Client has booking on that date');
-            }*/
         }
+        $request['clientIds'] = $clientIds;
+
+/*        if (BookingUser::hasOverlappingBookings($bookingUser, [])) {
+            return $this->sendError('Client has booking on that date');
+        }*/
 
         // Procesar duraciones
         $durationsWithMonitors = $this->processDurations($course, $courseDate, $startTime, $endTime, $request, $monitors);
@@ -567,8 +570,10 @@ class CourseController extends SlugAuthController
         if (strtotime($endTimeForFixed) <= strtotime($endTime)) {
             $monitorAvailabilityRequest = $this->buildMonitorAvailabilityRequest($courseDate, $startTime, $endTimeForFixed, $request);
             $availableMonitors = $this->getAvailableMonitorsForTimeRange($this->getMonitorsAvailable($monitorAvailabilityRequest), $courseDate->date, $startTime, $endTimeForFixed);
+            $availableCount = is_array($availableMonitors) ? count($availableMonitors) : 0;
+            $overbookingAllowed = $this->hasPrivateOverbookingCapacity($courseDate->date, $startTime, $endTimeForFixed, $availableCount);
 
-            if (!empty($availableMonitors)) {
+            if ($availableCount > 0 || $overbookingAllowed) {
                 return [[
                     'duration' => $this->convertSecondsToHourFormat($durationInSeconds),
                     'monitors' => $availableMonitors,
@@ -592,8 +597,10 @@ class CourseController extends SlugAuthController
                     if (strtotime($endTimeForFlexible) <= strtotime($endTime)) {
                         $monitorAvailabilityRequest = $this->buildMonitorAvailabilityRequest($courseDate, $startTime, $endTimeForFlexible, $request);
                         $availableMonitors = $this->getAvailableMonitorsForTimeRange($this->getMonitorsAvailable($monitorAvailabilityRequest), $courseDate->date, $startTime, $endTimeForFlexible);
+                        $availableCount = is_array($availableMonitors) ? count($availableMonitors) : 0;
+                        $overbookingAllowed = $this->hasPrivateOverbookingCapacity($courseDate->date, $startTime, $endTimeForFlexible, $availableCount);
 
-                        if (!empty($availableMonitors)) {
+                        if ($availableCount > 0 || $overbookingAllowed) {
                             $durationsWithMonitors[] = [
                                 'duration' => $this->convertSecondsToHourFormat($intervalInSeconds),
                                 'monitors' => $availableMonitors,
@@ -799,6 +806,17 @@ class CourseController extends SlugAuthController
                 $query->where('status', '!=', 2);
             })
             ->count();
+    }
+
+    private function hasPrivateOverbookingCapacity(string $date, string $startTime, string $endTime, int $availableCount): bool
+    {
+        $overbookingLimit = $this->getPrivateOverbookingLimit();
+        if ($overbookingLimit <= 0) {
+            return false;
+        }
+
+        $concurrentBookings = $this->getConcurrentPrivateBookings($date, $startTime, $endTime);
+        return ($availableCount + $overbookingLimit) > $concurrentBookings;
     }
 
     private function hasPrivateAvailabilityForDate($course, $courseDate): bool

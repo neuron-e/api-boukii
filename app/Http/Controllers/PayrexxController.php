@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Mail\GiftVoucherDeliveredMail;
 use App\Models\Booking;
+use App\Models\BookingLog;
 use App\Models\Client;
 use App\Models\GiftVoucher;
 use App\Models\Payment;
@@ -38,8 +39,7 @@ class PayrexxController
         try {
             // 1. Pick their Transaction data
             $data = $request->transaction;
-            if ($data && is_array($data) && isset($data['status']) &&
-                $data['status'] === TransactionResponse::CONFIRMED) {
+            if ($data && is_array($data) && isset($data['status'])) {
                 // 2. Pick related Booking from our database:
                 // we sent its ReferenceID when the payment was requested
                 $referenceID = $data['invoice']['paymentLink']['referenceId']
@@ -49,6 +49,9 @@ class PayrexxController
                     ?? '';
 
                 $referenceID = trim($referenceID);
+                $statusRaw = (string) ($data['status'] ?? '');
+                $statusNormalized = strtolower($statusRaw);
+                $transactionID = intval($data['id'] ?? -1);
 
                 Log::channel('webhooks')->debug('ReferenceID: ' . $referenceID );
 
@@ -59,6 +62,16 @@ class PayrexxController
                     : null;
 
                 if ($booking) {
+                    if ($statusRaw !== TransactionResponse::CONFIRMED) {
+                        if ($this->shouldRestoreForPayrexxStatus($statusNormalized)) {
+                            $this->restoreBookingForPayrexx($booking);
+                        }
+                        $this->logPayrexxBookingStatus($booking, $referenceID, $transactionID, $statusNormalized);
+                        if ($this->shouldCreatePaymentLog($statusNormalized)) {
+                            $this->createPayrexxPaymentLog($booking, $referenceID, $statusNormalized, $data);
+                        }
+                        return response()->json(['status' => 'received', 'type' => 'booking']);
+                    }
 
                     // Continue if still unpaid and user chose Payrexx (i.e. BoukiiPay or Online payment methods) - else ignore
                     if (!$booking->paid &&
@@ -71,7 +84,6 @@ class PayrexxController
                             // (or was faked by someone who just did a POST to our URL)
                             // because it has no special signature.
                             // So we just pick its ID and ask Payrexx for the details
-                            $transactionID = intval($data['id'] ?? -1);
                             $data2 = PayrexxHelpers::retrieveTransaction(
                                 $schoolData->getPayrexxInstance(),
                                 $schoolData->getPayrexxKey(),
@@ -162,6 +174,14 @@ class PayrexxController
                     }
 
                 } else {
+                    if ($statusRaw !== TransactionResponse::CONFIRMED) {
+                        Log::channel('webhooks')->info('Payrexx webhook ignored (non-confirmed, no booking match)', [
+                            'reference' => $referenceID,
+                            'transaction_id' => $transactionID,
+                            'status' => $statusNormalized,
+                        ]);
+                        return response()->json(['status' => 'ignored']);
+                    }
                     // Si no se encontró un booking, buscar primero voucher
                     $voucher = (strlen($referenceID) > 2)
                         ? Voucher::with('school')->where('payrexx_reference', '=', $referenceID)->first()
@@ -305,6 +325,105 @@ class PayrexxController
 
         return response()->make('OK');
     }
+
+    private function restoreBookingForPayrexx(Booking $booking): void
+    {
+        if ($booking->trashed()) {
+            $booking->restore();
+            foreach ($booking->bookingUsers as $bookinguser) {
+                if ($bookinguser->trashed()) {
+                    $bookinguser->restore();
+                }
+            }
+        }
+    }
+
+    private function logPayrexxBookingStatus(Booking $booking, string $referenceID, int $transactionID, string $status): void
+    {
+        try {
+            BookingLog::create([
+                'booking_id' => $booking->id,
+                'action' => 'payrexx_status_' . ($status ?: 'unknown'),
+                'user_id' => $booking->client_main_id,
+            ]);
+        } catch (\Exception $e) {
+            Log::channel('webhooks')->warning('Payrexx webhook booking log failed', [
+                'booking_id' => $booking->id,
+                'reference' => $referenceID,
+                'transaction_id' => $transactionID,
+                'status' => $status,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        Log::channel('webhooks')->info('Payrexx webhook received for booking (non-confirmed)', [
+            'booking_id' => $booking->id,
+            'reference' => $referenceID,
+            'transaction_id' => $transactionID,
+            'status' => $status,
+            'school_id' => $booking->school_id ?? null,
+        ]);
+    }
+
+    private function createPayrexxPaymentLog(Booking $booking, string $referenceID, string $status, array $payload): void
+    {
+        if ($booking->paid) {
+            return;
+        }
+
+        if (!in_array((int) $booking->payment_method_id, [2, 3], true)) {
+            return;
+        }
+
+        $mappedStatus = $this->mapPayrexxStatusToPaymentStatus($status);
+        $amount = isset($payload['amount']) ? ((float) $payload['amount']) / 100 : null;
+
+        $existing = Payment::where('booking_id', $booking->id)
+            ->where('payrexx_reference', $referenceID)
+            ->where('status', $mappedStatus)
+            ->when($amount !== null, function ($query) use ($amount) {
+                return $query->where('amount', $amount);
+            })
+            ->latest()
+            ->first();
+
+        if ($existing) {
+            return;
+        }
+
+        $payment = new Payment();
+        $payment->booking_id = $booking->id;
+        $payment->school_id = $booking->school_id;
+        $payment->amount = $amount ?? 0;
+        $payment->status = $mappedStatus;
+        $payment->notes = 'Payrexx ' . ($status ?: 'unknown');
+        $payment->payrexx_reference = $referenceID;
+        $payment->payrexx_transaction = $booking->payrexx_transaction;
+        $payment->save();
+    }
+
+    private function mapPayrexxStatusToPaymentStatus(string $status): string
+    {
+        $normalized = strtolower($status);
+
+        if (in_array($normalized, ['waiting', 'authorized', 'pending', 'reserved'], true)) {
+            return 'pending';
+        }
+
+        if (in_array($normalized, ['cancelled', 'canceled', 'failed', 'expired', 'refunded', 'chargeback'], true)) {
+            return $normalized;
+        }
+
+        return $normalized ?: 'pending';
+    }
+
+    private function shouldRestoreForPayrexxStatus(string $status): bool
+    {
+        return in_array($status, ['waiting', 'authorized', 'pending', 'reserved'], true);
+    }
+
+    private function shouldCreatePaymentLog(string $status): bool
+    {
+        return $this->shouldRestoreForPayrexxStatus($status);
+    }
 }
-
-

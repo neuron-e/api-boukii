@@ -333,6 +333,22 @@ class BookingUserAPIController extends AppBaseController
 
         $bookingUser = $this->bookingUserRepository->update($input, $id);
 
+        $notePayload = [];
+        if (array_key_exists('notes', $input)) {
+            $notePayload['notes'] = $input['notes'];
+        }
+        if (array_key_exists('notes_school', $input)) {
+            $notePayload['notes_school'] = $input['notes_school'];
+        }
+        if (!empty($notePayload) && !empty($bookingUser->group_id)) {
+            BookingUser::query()
+                ->where('booking_id', $bookingUser->booking_id)
+                ->where('group_id', $bookingUser->group_id)
+                ->where('client_id', $bookingUser->client_id)
+                ->where('school_id', $bookingUser->school_id)
+                ->update($notePayload);
+        }
+
         return $this->sendResponse(new BookingUserResource($bookingUser), 'BookingUser updated successfully');
     }
 

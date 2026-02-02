@@ -279,6 +279,20 @@ class BookingController extends SlugAuthController
 
             $zeroTotalBooking = $netPriceTotal <= 0 || $basketZeroOverride;
 
+            $paymentMethodId = Arr::get($data, 'payment_method_id');
+            if (!$paymentMethodId) {
+                $paymentMethodId = Arr::get($data, 'basket.payment_method_id');
+            }
+            if (!$paymentMethodId && is_string(Arr::get($data, 'basket'))) {
+                $decodedBasket = json_decode(Arr::get($data, 'basket'), true);
+                if (is_array($decodedBasket)) {
+                    $paymentMethodId = $decodedBasket['payment_method_id'] ?? null;
+                }
+            }
+
+            $showUnpaidBooking = in_array((int) $paymentMethodId, [Booking::ID_BOUKIIPAY, Booking::ID_ONLINE], true);
+            $shouldSoftDelete = !$zeroTotalBooking && !$showUnpaidBooking;
+
             $meetingPointData = $this->resolveMeetingPointFromCourses($courseIds);
 
             // Crear la reserva (Booking)
@@ -296,6 +310,7 @@ class BookingController extends SlugAuthController
                 'source' => Arr::get($data, 'source'),
                 'status' => 1,
                 'currency' => 'CHF',
+                'payment_method_id' => $paymentMethodId,
                 'discount_code_id' => $discountCodeId,
                 'discount_code_value' => $discountCodeAmount,
                 'meeting_point' => Arr::get($data, 'meeting_point', $meetingPointData['meeting_point']),
@@ -446,7 +461,7 @@ class BookingController extends SlugAuthController
                         'hour_end' => $detail['hour_end'],
                         'group_id' => $groupId,
                         'accepted' => !empty($courseSubgroupId),
-                        'deleted_at' => $zeroTotalBooking ? null : now(),
+                        'deleted_at' => $shouldSoftDelete ? now() : null,
                     ]);
 
                     $bookingUser->save();
@@ -468,7 +483,7 @@ class BookingController extends SlugAuthController
                 }
                 $groupId++; // Incrementar el `group_id` para el siguiente `cartItem`
             }
-            $booking->deleted_at = $zeroTotalBooking ? null : now();
+            $booking->deleted_at = $shouldSoftDelete ? now() : null;
             if ($zeroTotalBooking) {
                 $booking->paid = true;
                 $booking->paid_total = 0;
