@@ -221,6 +221,15 @@ class PayrexxHelpers
                 }
             }
 
+            $totalAmount = (int) round($totalAmount);
+            if ($totalAmount <= 0) {
+                $fallbackAmount = (float) ($bookingData->pending_amount ?? $bookingData->price_total ?? 0);
+                $totalAmount = (int) round($fallbackAmount * 100);
+            }
+            if ($totalAmount <= 0) {
+                throw new \Exception('Invalid payment amount for Payrexx gateway');
+            }
+
             Log::channel('payrexx')->info('BASKET_NORMALIZED_PAYLINK', [
                 'booking_id' => $bookingData->id,
                 'basket_items' => $basket,
@@ -256,8 +265,13 @@ class PayrexxHelpers
             $paymentMeans = self::resolvePayrexxPaymentMeans($schoolData, $bookingData, $options, $payrexx);
 
             if (!empty($options['restrict_invoice'])) {
+                $gatewayBasket = [[
+                    'name' => [1 => $bookingData->getOrGeneratePayrexxReference()],
+                    'quantity' => 1,
+                    'amount' => $totalAmount,
+                ]];
                 $gr->setAmount($totalAmount);
-                $gr->setBasket($basket);
+                $gr->setBasket($gatewayBasket);
                 $gr->setPurpose([1 => 'Booking: #' . $bookingData->id]);
                 $gr->setSuccessRedirectUrl(route('api.payrexx.finish', ['status' => 'success']));
                 $gr->setFailedRedirectUrl(route('api.payrexx.finish', ['status' => 'failed']));
@@ -372,7 +386,9 @@ class PayrexxHelpers
             }
             $paymentMethodsCatalog = $payrexx->getAll($paymentMethodRequest);
             $catalogNormalized = self::normalizePayrexxPaymentMeans($paymentMethodsCatalog);
-            if (empty($paymentMeans)) {
+            if (!empty($catalogNormalized)) {
+                $paymentMeans = $catalogNormalized;
+            } elseif (empty($paymentMeans)) {
                 $paymentMeans = $catalogNormalized;
             }
         } catch (\Exception $e) {
