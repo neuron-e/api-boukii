@@ -364,14 +364,16 @@ class PayrexxHelpers
         }
 
         $paymentMethodsCatalog = [];
+        $catalogNormalized = [];
         try {
             $paymentMethodRequest = new PaymentMethodRequest();
             if (!empty($bookingData->currency)) {
                 $paymentMethodRequest->setFilterCurrency($bookingData->currency);
             }
             $paymentMethodsCatalog = $payrexx->getAll($paymentMethodRequest);
+            $catalogNormalized = self::normalizePayrexxPaymentMeans($paymentMethodsCatalog);
             if (empty($paymentMeans)) {
-                $paymentMeans = self::normalizePayrexxPaymentMeans($paymentMethodsCatalog);
+                $paymentMeans = $catalogNormalized;
             }
         } catch (\Exception $e) {
             Log::channel('payrexx')->warning('PayrexxHelpers payment means lookup failed', [
@@ -414,6 +416,19 @@ class PayrexxHelpers
             }
             return true;
         }));
+
+        if (empty($filtered) && !empty($catalogNormalized)) {
+            $filtered = array_values(array_filter($catalogNormalized, function ($method) use ($invoiceIds) {
+                $methodStr = strtolower((string) $method);
+                if ($methodStr === 'invoice') {
+                    return false;
+                }
+                if (!empty($invoiceIds) && in_array((string) $method, $invoiceIds, true)) {
+                    return false;
+                }
+                return true;
+            }));
+        }
 
         if (empty($filtered)) {
             Log::channel('payrexx')->warning('PayrexxHelpers payment means only invoice; restriction skipped', [
