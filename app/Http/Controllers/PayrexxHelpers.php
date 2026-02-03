@@ -422,25 +422,54 @@ class PayrexxHelpers
             }
         }
 
-        $filtered = array_values(array_filter($paymentMeans, function ($method) use ($invoiceIds) {
-            $methodStr = strtolower((string) $method);
-            if ($methodStr === 'invoice') {
+        $extractMethod = function ($method): array {
+            $id = null;
+            $label = '';
+            if (is_array($method)) {
+                $id = isset($method['id']) ? (string) $method['id'] : null;
+                $label = (string) ($method['name'] ?? $method['label'] ?? $method['type'] ?? $id ?? '');
+            } elseif (is_object($method)) {
+                $id = method_exists($method, 'getId') ? (string) $method->getId() : null;
+                $name = method_exists($method, 'getName') ? (string) $method->getName() : '';
+                $label = method_exists($method, 'getLabel') ? (string) $method->getLabel() : '';
+                $type = method_exists($method, 'getType') ? (string) $method->getType() : '';
+                $label = trim($name . ' ' . $label . ' ' . $type);
+                if ($label === '' && $id) {
+                    $label = $id;
+                }
+            } else {
+                $label = (string) $method;
+                $id = $label !== '' ? $label : null;
+            }
+
+            return [$id, strtolower(trim($label))];
+        };
+
+        $filtered = array_values(array_filter($paymentMeans, function ($method) use ($invoiceIds, $extractMethod) {
+            [$id, $label] = $extractMethod($method);
+            if ($label === 'invoice') {
                 return false;
             }
-            if (!empty($invoiceIds) && in_array((string) $method, $invoiceIds, true)) {
-                return false;
+            if (!empty($invoiceIds)) {
+                $candidate = $id ?? $label;
+                if ($candidate && in_array((string) $candidate, $invoiceIds, true)) {
+                    return false;
+                }
             }
             return true;
         }));
 
         if (empty($filtered) && !empty($catalogNormalized)) {
-            $filtered = array_values(array_filter($catalogNormalized, function ($method) use ($invoiceIds) {
-                $methodStr = strtolower((string) $method);
-                if ($methodStr === 'invoice') {
+            $filtered = array_values(array_filter($catalogNormalized, function ($method) use ($invoiceIds, $extractMethod) {
+                [$id, $label] = $extractMethod($method);
+                if ($label === 'invoice') {
                     return false;
                 }
-                if (!empty($invoiceIds) && in_array((string) $method, $invoiceIds, true)) {
-                    return false;
+                if (!empty($invoiceIds)) {
+                    $candidate = $id ?? $label;
+                    if ($candidate && in_array((string) $candidate, $invoiceIds, true)) {
+                        return false;
+                    }
                 }
                 return true;
             }));
