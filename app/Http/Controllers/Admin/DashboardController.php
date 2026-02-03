@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class DashboardController extends AppBaseController
 {
@@ -34,16 +35,44 @@ class DashboardController extends AppBaseController
         }
 
         $selectedDate = $request->get('date') ?? now()->toDateString();
+        $subgroupMaxColumn = $this->getSubgroupMaxParticipantsColumn();
+        $overbookingGroupBy = ['sg.id', 'c.max_participants'];
+        if ($subgroupMaxColumn !== 'NULL') {
+            $overbookingGroupBy[] = 'sg.max_participants';
+        }
         $cacheKey = "dashboard_system_stats_{$schoolId}_{$selectedDate}";
-        $payload = Cache::remember($cacheKey, 60, function () use ($schoolId, $selectedDate) {
-            $pendingPayments = $this->countPendingPayments($schoolId, $selectedDate);
-
-            $overbookings = CourseSubgroup::join('courses as c', 'c.id', '=', 'course_subgroups.course_id')
-                ->where('c.school_id', $schoolId)
-                ->whereRaw(
-                    '(SELECT COUNT(*) FROM booking_users bu JOIN bookings b ON b.id = bu.booking_id WHERE bu.course_subgroup_id = course_subgroups.id AND bu.status = 1 AND bu.deleted_at IS NULL AND b.deleted_at IS NULL AND b.status <> 2 AND date(bu.date) = ?) > COALESCE(course_subgroups.max_participants, c.max_participants, 0)',
-                    [$selectedDate]
-                )
+        $payload = Cache::remember($cacheKey, 60, function () use ($schoolId, $selectedDate, $subgroupMaxColumn, $overbookingGroupBy) {
+            $overbookings = DB::table('booking_users as bu')
+                ->join('course_subgroups as sg', 'sg.id', '=', 'bu.course_subgroup_id')
+                ->join('courses as c', 'c.id', '=', 'bu.course_id')
+                ->join('course_dates as cd', 'cd.id', '=', 'sg.course_date_id')
+                ->leftJoin('course_dates as cdbu', 'cdbu.id', '=', 'bu.course_date_id')
+                ->join('bookings as b', 'b.id', '=', 'bu.booking_id')
+                ->where('bu.school_id', $schoolId)
+                ->whereNull('bu.deleted_at')
+                ->whereNull('sg.deleted_at')
+                ->whereNull('cd.deleted_at')
+                ->whereNull('c.deleted_at')
+                ->whereNull('b.deleted_at')
+                ->where('bu.status', 1)
+                ->where('b.status', '<>', 2)
+                ->where(function ($query) use ($selectedDate) {
+                    $query->whereDate('bu.date', $selectedDate)
+                        ->orWhereDate('cdbu.date', $selectedDate)
+                        ->orWhereDate('cd.date', $selectedDate)
+                        ->orWhereExists(function ($subquery) use ($selectedDate) {
+                            $subquery->select(DB::raw(1))
+                                ->from('course_subgroup_dates as csd')
+                                ->join('course_dates as cdsg', 'cdsg.id', '=', 'csd.course_date_id')
+                                ->whereColumn('csd.course_subgroup_id', 'sg.id')
+                                ->whereDate('cdsg.date', $selectedDate);
+                        });
+                })
+                ->groupBy($overbookingGroupBy)
+                ->select('sg.id')
+                ->selectRaw("COALESCE({$subgroupMaxColumn}, c.max_participants, 0) as subgroup_capacity")
+                ->havingRaw("COUNT(bu.id) > subgroup_capacity")
+                ->get()
                 ->count();
 
             $today = $selectedDate;
@@ -67,30 +96,33 @@ class DashboardController extends AppBaseController
             $unassignedPrivate = DB::table('booking_users as bu')
                 ->join('courses as c', 'c.id', '=', 'bu.course_id')
                 ->join('bookings as b', 'b.id', '=', 'bu.booking_id')
+                ->leftJoin('course_dates as cd', 'cd.id', '=', 'bu.course_date_id')
                 ->whereNull('bu.deleted_at')
                 ->whereNull('c.deleted_at')
                 ->whereNull('b.deleted_at')
                 ->where('bu.school_id', $schoolId)
                 ->where('bu.status', 1)
                 ->where('b.status', '<>', 2)
-                ->whereDate('bu.date', $today)
+                ->where(function ($query) use ($today) {
+                    $query->whereDate('bu.date', $today)
+                        ->orWhereDate('cd.date', $today);
+                })
                 ->whereNull('bu.monitor_id')
                 ->where('c.course_type', 2)
                 ->selectRaw(
-                    "COUNT(DISTINCT COALESCE(bu.group_id, CONCAT(bu.booking_id, '_', DATE(bu.date), '_', IFNULL(bu.hour_start,''), '_', IFNULL(bu.hour_end,'')))) as aggregate"
+                    "COUNT(DISTINCT CONCAT(bu.booking_id, '_', IFNULL(bu.group_id,'no-group'), '_', IFNULL(bu.course_id,'no-course'), '_', IFNULL(bu.course_date_id,'no-date'), '_', DATE(COALESCE(bu.date, cd.date)), '_', IFNULL(bu.hour_start,''), '_', IFNULL(bu.hour_end,''))) as aggregate"
                 )
                 ->value('aggregate') ?? 0;
 
             $unassigned = $unassignedGroupSubgroups + $unassignedPrivate;
 
-            return [
-                'pending_payments' => $pendingPayments,
-                'overbookings' => $overbookings,
+            return [                'overbookings' => $overbookings,
                 'unassigned_courses' => $unassigned,
                 'unassigned_group_subgroups' => $unassignedGroupSubgroups,
                 'unassigned_private_courses' => $unassignedPrivate,
             ];
         });
+        $payload['pending_payments'] = $this->countPendingPayments($schoolId, $selectedDate);
 
         return $this->sendResponse($payload, 'System statistics retrieved.');
     }
@@ -104,6 +136,11 @@ class DashboardController extends AppBaseController
 
         $type = $request->get('type');
         $date = $request->get('date') ?? now()->toDateString();
+        $subgroupMaxColumn = $this->getSubgroupMaxParticipantsColumn();
+        $overbookedGroupBy = ['sg.id', 'c.name', 'c.max_participants', 'cd.hour_start', 'cd.hour_end', 'd.name', 'd.degree_order', 'sg.course_group_id', 'sg.degree_id'];
+        if ($subgroupMaxColumn !== 'NULL') {
+            $overbookedGroupBy[] = 'sg.max_participants';
+        }
 
         $allowed = ['pending_payments', 'overbooked_groups', 'unassigned_groups', 'unassigned_private'];
         if (!in_array($type, $allowed, true)) {
@@ -120,25 +157,40 @@ class DashboardController extends AppBaseController
                     ->whereNull('b.deleted_at')
                     ->where('bu.status', 1)
                     ->where('b.status', '<>', 2)
-                    ->whereDate('bu.date', $date)
-                    ->where(function ($query) {
-                        $query->where('b.paid', 0)->orWhereNull('b.paid');
+                    ->where(function ($query) use ($date) {
+                        $query->whereDate('bu.date', $date)
+                            ->orWhereDate('cd.date', $date);
+                    })
+                    ->where(function ($query) use ($date) {
+                        $query->whereRaw(
+                            '(SELECT COALESCE(SUM(bu2.price),0) FROM booking_users bu2 WHERE bu2.booking_id = b.id AND bu2.deleted_at IS NULL AND bu2.status = 1 AND DATE(bu2.date) = ?) - COALESCE(b.paid_total, 0) > 0.01',
+                            [$date]
+                        )->orWhereRaw(
+                            '(SELECT COALESCE(SUM(bu2.price),0) FROM booking_users bu2 WHERE bu2.booking_id = b.id AND bu2.deleted_at IS NULL AND bu2.status = 1 AND DATE(bu2.date) = ?) = 0 AND (b.paid = 0 OR b.paid IS NULL)',
+                            [$date]
+                        );
                     })
                     ->groupBy('bu.booking_id', 'c.first_name', 'c.last_name')
+                    ->select('bu.booking_id')
                     ->selectRaw('bu.booking_id as booking_id')
                     ->selectRaw("CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,'')) as client_name")
                     ->selectRaw('COUNT(bu.id) as participants')
+                    ->selectRaw('MAX(COALESCE(b.paid_total, 0)) as paid_total')
                     ->selectRaw('COALESCE(SUM(bu.price), 0) as total_due')
                     ->selectRaw('MIN(bu.hour_start) as start_time')
                     ->selectRaw('MAX(bu.hour_end) as end_time')
                     ->limit(200)
                     ->get()
                     ->map(function ($row) {
+                        $priceTotal = (float) ($row->total_due ?? 0);
+                        $paidTotal = (float) ($row->paid_total ?? 0);
+                        $totalDue = max($priceTotal - $paidTotal, 0);
+
                         return [
                             'booking_id' => $row->booking_id,
                             'client_name' => trim($row->client_name) ?: null,
                             'participants' => (int) $row->participants,
-                            'total_due' => round((float) $row->total_due, 2),
+                            'total_due' => round($totalDue, 2),
                             'time_label' => $this->makeTimeLabel($row->start_time, $row->end_time),
                         ];
                     });
@@ -148,6 +200,12 @@ class DashboardController extends AppBaseController
                     ->join('course_subgroups as sg', 'sg.id', '=', 'bu.course_subgroup_id')
                     ->join('courses as c', 'c.id', '=', 'bu.course_id')
                     ->join('course_dates as cd', 'cd.id', '=', 'sg.course_date_id')
+                    ->leftJoin('course_dates as cdbu', 'cdbu.id', '=', 'bu.course_date_id')
+                    ->leftJoin('course_subgroup_dates as csd', 'csd.course_subgroup_id', '=', 'sg.id')
+                    ->leftJoin('course_dates as cdsg', function ($join) use ($date) {
+                        $join->on('cdsg.id', '=', 'csd.course_date_id')
+                            ->whereDate('cdsg.date', $date);
+                    })
                     ->join('bookings as b', 'b.id', '=', 'bu.booking_id')
                     ->leftJoin('degrees as d', 'd.id', '=', 'sg.degree_id')
                     ->where('bu.school_id', $schoolId)
@@ -158,18 +216,31 @@ class DashboardController extends AppBaseController
                     ->whereNull('b.deleted_at')
                     ->where('bu.status', 1)
                     ->where('b.status', '<>', 2)
-                    ->whereDate('bu.date', $date)
-                    ->groupBy('sg.id', 'c.name', 'sg.max_participants', 'c.max_participants', 'cd.hour_start', 'cd.hour_end', 'd.name', 'd.degree_order', 'sg.course_group_id', 'sg.degree_id')
-                    ->havingRaw('COUNT(bu.id) > COALESCE(sg.max_participants, c.max_participants, 0)')
+                    ->where(function ($query) use ($date) {
+                        $query->whereDate('bu.date', $date)
+                            ->orWhereDate('cdbu.date', $date)
+                            ->orWhereDate('cd.date', $date)
+                            ->orWhereExists(function ($subquery) use ($date) {
+                                $subquery->select(DB::raw(1))
+                                    ->from('course_subgroup_dates as csd2')
+                                    ->join('course_dates as cdsg2', 'cdsg2.id', '=', 'csd2.course_date_id')
+                                    ->whereColumn('csd2.course_subgroup_id', 'sg.id')
+                                    ->whereDate('cdsg2.date', $date);
+                            });
+                    })
+                    ->groupBy($overbookedGroupBy)
+                    ->havingRaw("COUNT(bu.id) > subgroup_capacity")
+                    ->select('sg.id')
                     ->selectRaw('sg.id as subgroup_id')
                     ->selectRaw('c.name as course_name')
                     ->selectRaw('d.name as degree_name')
                     ->selectRaw('d.degree_order as degree_order')
                     ->selectRaw('(SELECT COUNT(*) FROM course_subgroups sg2 WHERE IFNULL(sg2.course_group_id,0) = IFNULL(sg.course_group_id,0) AND IFNULL(sg2.degree_id,0) = IFNULL(sg.degree_id,0) AND sg2.deleted_at IS NULL AND sg2.id <= sg.id) as subgroup_number')
-                    ->selectRaw('COALESCE(sg.max_participants, c.max_participants, 0) as max_participants')
+                    ->selectRaw("COALESCE({$subgroupMaxColumn}, c.max_participants, 0) as subgroup_capacity")
+                    ->selectRaw("COALESCE({$subgroupMaxColumn}, c.max_participants, 0) as max_participants")
                     ->selectRaw('COUNT(bu.id) as participants')
-                    ->selectRaw('MIN(cd.hour_start) as start_time')
-                    ->selectRaw('MAX(cd.hour_end) as end_time')
+                    ->selectRaw('MIN(COALESCE(cd.hour_start, cdbu.hour_start, cdsg.hour_start)) as start_time')
+                    ->selectRaw('MAX(COALESCE(cd.hour_end, cdbu.hour_end, cdsg.hour_end)) as end_time')
                     ->limit(200)
                     ->get()
                     ->map(function ($row) {
@@ -200,10 +271,14 @@ class DashboardController extends AppBaseController
                     ->whereNull('b.deleted_at')
                     ->where('bu.status', 1)
                     ->where('b.status', '<>', 2)
-                    ->whereDate('bu.date', $date)
+                    ->where(function ($query) use ($date) {
+                        $query->whereDate('bu.date', $date)
+                            ->orWhereDate('cd.date', $date);
+                    })
                     ->whereNull('bu.monitor_id')
                     ->where('c.course_type', 1)
                     ->groupBy('sg.id', 'c.name', 'cd.hour_start', 'cd.hour_end', 'd.name', 'd.degree_order', 'sg.course_group_id', 'sg.degree_id')
+                                        ->select('sg.id')
                     ->selectRaw('sg.id as subgroup_id')
                     ->selectRaw('c.name as course_name')
                     ->selectRaw('d.name as degree_name')
@@ -227,7 +302,7 @@ class DashboardController extends AppBaseController
                     });
                 break;
             case 'unassigned_private':
-                $entries = BookingUser::with(['course:id,name,course_type', 'client:id,first_name,last_name'])
+        $entries = BookingUser::with(['course:id,name,course_type', 'client:id,first_name,last_name'])
                     ->select([
                         'id',
                         'course_id',
@@ -241,7 +316,10 @@ class DashboardController extends AppBaseController
                         'monitor_id'
                     ])
                     ->where('school_id', $schoolId)
-                    ->whereDate('date', $date)
+                    ->where(function ($query) use ($date) {
+                        $query->whereDate('date', $date)
+                            ->orWhereHas('courseDate', fn($q) => $q->whereDate('date', $date));
+                    })
                     ->where('status', 1)
                     ->whereNull('deleted_at')
                     ->whereNull('monitor_id')
@@ -255,15 +333,14 @@ class DashboardController extends AppBaseController
 
                 $rows = $entries
                     ->groupBy(function ($bookingUser) {
-                        if ($bookingUser->group_id) {
-                            return 'g_' . $bookingUser->group_id;
-                        }
+                        $start = $bookingUser->hour_start ?? $bookingUser->courseDate?->hour_start ?? '';
+                        $end = $bookingUser->hour_end ?? $bookingUser->courseDate?->hour_end ?? '';
+                        $date = $bookingUser->date?->toDateString() ?? $bookingUser->courseDate?->date?->toDateString() ?? '';
+                        $courseDateId = $bookingUser->course_date_id ?? 'no-date';
+                        $groupId = $bookingUser->group_id ?? 'no-group';
+                        $courseId = $bookingUser->course_id ?? 'no-course';
 
-                        $start = $bookingUser->hour_start ?? '';
-                        $end = $bookingUser->hour_end ?? '';
-                        $date = $bookingUser->date?->toDateString() ?? '';
-
-                        return 'b_' . $bookingUser->booking_id . '_' . $date . '_' . $start . '_' . $end;
+                        return 'b_' . $bookingUser->booking_id . '_' . $groupId . '_' . $courseId . '_' . $courseDateId . '_' . $date . '_' . $start . '_' . $end;
                     })
                     ->map(function ($group) {
                         $first = $group->first();
@@ -282,6 +359,10 @@ class DashboardController extends AppBaseController
 
                         $startTime = $group->pluck('hour_start')->filter()->sort()->first();
                         $endTime = $group->pluck('hour_end')->filter()->sort()->last();
+                        if (!$startTime || !$endTime) {
+                            $startTime = $group->pluck('courseDate.hour_start')->filter()->sort()->first() ?? $startTime;
+                            $endTime = $group->pluck('courseDate.hour_end')->filter()->sort()->last() ?? $endTime;
+                        }
 
                         return [
                             'course_name' => $courseName,
@@ -318,23 +399,38 @@ class DashboardController extends AppBaseController
                 ->whereHas('courseDates', fn($q) => $q->whereDate('date', $today))
                 ->count();
 
-            $groupCourses = BookingUser::where('school_id', $schoolId)
-                ->whereHas('course', fn($q) => $q->where('course_type', 1))
-                ->whereDate('date', $today)
-                ->where('status', 1)
-                ->whereNotNull('course_subgroup_id')
-                ->distinct('course_subgroup_id')
-                ->count('course_subgroup_id');
-
-            $privateCourses = DB::table('booking_users as bu')
+            $groupCourses = DB::table('booking_users as bu')
+                ->join('bookings as b', 'b.id', '=', 'bu.booking_id')
                 ->join('courses as c', 'c.id', '=', 'bu.course_id')
                 ->where('bu.school_id', $schoolId)
+                ->whereNull('bu.deleted_at')
+                ->whereNull('b.deleted_at')
+                ->whereNull('c.deleted_at')
+                ->where('bu.status', 1)
+                ->where('b.status', '<>', 2)
+                ->where('c.course_type', 1)
                 ->whereDate('bu.date', $today)
+                ->whereNotNull('bu.course_subgroup_id')
+                ->distinct('bu.course_subgroup_id')
+                ->count('bu.course_subgroup_id');
+
+            $privateCourses = DB::table('booking_users as bu')
+                ->join('bookings as b', 'b.id', '=', 'bu.booking_id')
+                ->join('courses as c', 'c.id', '=', 'bu.course_id')
+                ->leftJoin('course_dates as cd', 'cd.id', '=', 'bu.course_date_id')
+                ->where('bu.school_id', $schoolId)
+                ->where(function ($query) use ($today) {
+                    $query->whereDate('bu.date', $today)
+                        ->orWhereDate('cd.date', $today);
+                })
                 ->where('bu.status', 1)
                 ->whereNull('bu.deleted_at')
+                ->whereNull('b.deleted_at')
+                ->where('b.status', '<>', 2)
+                ->whereNull('c.deleted_at')
                 ->where('c.course_type', 2)
                 ->selectRaw(
-                    "COUNT(DISTINCT COALESCE(bu.group_id, CONCAT(bu.booking_id, '_', DATE(bu.date), '_', IFNULL(bu.hour_start,''), '_', IFNULL(bu.hour_end,'')))) as aggregate"
+                    "COUNT(DISTINCT COALESCE(bu.group_id, CONCAT(bu.booking_id, '_', IFNULL(bu.course_date_id,'no-date'), '_', DATE(COALESCE(bu.date, cd.date)), '_', IFNULL(bu.hour_start,''), '_', IFNULL(bu.hour_end,'')))) as aggregate"
                 )
                 ->value('aggregate') ?? 0;
 
@@ -348,13 +444,14 @@ class DashboardController extends AppBaseController
                 ->where('c.course_type', 1)
                 ->whereNotNull('bu.course_subgroup_id')
                 ->groupBy('s.id', 's.name', 's.icon_collective', 's.icon_selected')
+                ->select('s.id')
                 ->selectRaw('s.id as sport_id, s.name as sport_name, s.icon_collective as icon_collective, s.icon_selected as icon_selected, COUNT(DISTINCT bu.course_subgroup_id) as total')
                 ->orderByDesc('total')
                 ->get()
                 ->map(fn($row) => [
                     'sport_id' => (int) $row->sport_id,
                     'sport_name' => $row->sport_name,
-                    'icon' => $row->icon_collective ?: $row->icon_selected,
+                    'icon' => $row->icon_selected ?: $row->icon_collective,
                     'count' => (int) $row->total,
                 ])
                 ->values();
@@ -368,61 +465,87 @@ class DashboardController extends AppBaseController
                 ->whereNull('bu.deleted_at')
                 ->where('c.course_type', 2)
                 ->groupBy('s.id', 's.name', 's.icon_prive', 's.icon_selected')
+                ->select('s.id')
                 ->selectRaw("s.id as sport_id, s.name as sport_name, s.icon_prive as icon_prive, s.icon_selected as icon_selected, COUNT(DISTINCT COALESCE(bu.group_id, CONCAT(bu.booking_id, '_', DATE(bu.date), '_', IFNULL(bu.hour_start,''), '_', IFNULL(bu.hour_end,'')))) as total")
                 ->orderByDesc('total')
                 ->get()
                 ->map(fn($row) => [
                     'sport_id' => (int) $row->sport_id,
                     'sport_name' => $row->sport_name,
-                    'icon' => $row->icon_prive ?: $row->icon_selected,
+                    'icon' => $row->icon_selected ?: $row->icon_prive,
                     'count' => (int) $row->total,
                 ])
                 ->values();
 
-            $assignedMonitors = BookingUser::where('school_id', $schoolId)
-                ->whereNotNull('monitor_id')
-                ->whereDate('date', $today)
-                ->where('status', 1)
-                ->distinct('monitor_id')
-                ->count('monitor_id');
+            $assignedMonitors = DB::table('booking_users as bu')
+                ->join('bookings as b', 'b.id', '=', 'bu.booking_id')
+                ->where('bu.school_id', $schoolId)
+                ->whereNotNull('bu.monitor_id')
+                ->whereDate('bu.date', $today)
+                ->where('bu.status', 1)
+                ->whereNull('bu.deleted_at')
+                ->whereNull('b.deleted_at')
+                ->where('b.status', '<>', 2)
+                ->distinct('bu.monitor_id')
+                ->count('bu.monitor_id');
 
             $assignedMonitorsGroup = DB::table('booking_users as bu')
+                ->join('bookings as b', 'b.id', '=', 'bu.booking_id')
                 ->join('courses as c', 'c.id', '=', 'bu.course_id')
                 ->where('bu.school_id', $schoolId)
                 ->whereDate('bu.date', $today)
                 ->where('bu.status', 1)
                 ->whereNotNull('bu.monitor_id')
+                ->whereNull('bu.deleted_at')
+                ->whereNull('b.deleted_at')
+                ->where('b.status', '<>', 2)
+                ->whereNull('c.deleted_at')
                 ->where('c.course_type', 1)
                 ->distinct('bu.monitor_id')
                 ->count('bu.monitor_id');
 
             $assignedMonitorsPrivate = DB::table('booking_users as bu')
+                ->join('bookings as b', 'b.id', '=', 'bu.booking_id')
                 ->join('courses as c', 'c.id', '=', 'bu.course_id')
                 ->where('bu.school_id', $schoolId)
                 ->whereDate('bu.date', $today)
                 ->where('bu.status', 1)
                 ->whereNotNull('bu.monitor_id')
+                ->whereNull('bu.deleted_at')
+                ->whereNull('b.deleted_at')
+                ->where('b.status', '<>', 2)
+                ->whereNull('c.deleted_at')
                 ->where('c.course_type', 2)
                 ->distinct('bu.monitor_id')
                 ->count('bu.monitor_id');
 
             $assignedGroupCourses = DB::table('booking_users as bu')
+                ->join('bookings as b', 'b.id', '=', 'bu.booking_id')
                 ->join('courses as c', 'c.id', '=', 'bu.course_id')
                 ->where('bu.school_id', $schoolId)
                 ->whereDate('bu.date', $today)
                 ->where('bu.status', 1)
                 ->whereNotNull('bu.monitor_id')
+                ->whereNull('bu.deleted_at')
+                ->whereNull('b.deleted_at')
+                ->where('b.status', '<>', 2)
+                ->whereNull('c.deleted_at')
                 ->where('c.course_type', 1)
                 ->whereNotNull('bu.course_subgroup_id')
                 ->distinct('bu.course_subgroup_id')
                 ->count('bu.course_subgroup_id');
 
             $assignedPrivateCourses = DB::table('booking_users as bu')
+                ->join('bookings as b', 'b.id', '=', 'bu.booking_id')
                 ->join('courses as c', 'c.id', '=', 'bu.course_id')
                 ->where('bu.school_id', $schoolId)
                 ->whereDate('bu.date', $today)
                 ->where('bu.status', 1)
                 ->whereNotNull('bu.monitor_id')
+                ->whereNull('bu.deleted_at')
+                ->whereNull('b.deleted_at')
+                ->where('b.status', '<>', 2)
+                ->whereNull('c.deleted_at')
                 ->where('c.course_type', 2)
                 ->selectRaw(
                     "COUNT(DISTINCT COALESCE(bu.group_id, CONCAT(bu.booking_id, '_', DATE(bu.date), '_', IFNULL(bu.hour_start,''), '_', IFNULL(bu.hour_end,'')))) as aggregate"
@@ -431,11 +554,16 @@ class DashboardController extends AppBaseController
 
             $assignedCourses = $assignedGroupCourses + $assignedPrivateCourses;
 
-            $busyMonitorIds = BookingUser::where('school_id', $schoolId)
-                ->whereDate('date', $today)
-                ->where('status', 1)
-                ->whereNotNull('monitor_id')
-                ->pluck('monitor_id')
+            $busyMonitorIds = DB::table('booking_users as bu')
+                ->join('bookings as b', 'b.id', '=', 'bu.booking_id')
+                ->where('bu.school_id', $schoolId)
+                ->whereDate('bu.date', $today)
+                ->where('bu.status', 1)
+                ->whereNotNull('bu.monitor_id')
+                ->whereNull('bu.deleted_at')
+                ->whereNull('b.deleted_at')
+                ->where('b.status', '<>', 2)
+                ->pluck('bu.monitor_id')
                 ->unique()
                 ->values();
 
@@ -468,6 +596,7 @@ class DashboardController extends AppBaseController
                     ->where('msd.school_id', $schoolId)
                     ->whereIn('msd.monitor_id', $freeMonitorIds)
                     ->groupBy('s.id', 's.name', 's.icon_selected')
+                    ->select('s.id')
                     ->selectRaw('s.id as sport_id, s.name as sport_name, s.icon_selected as icon_selected, COUNT(DISTINCT msd.monitor_id) as total')
                     ->orderByDesc('total')
                     ->get()
@@ -556,7 +685,7 @@ class DashboardController extends AppBaseController
         $perPage = (int)$request->get('per_page', 6);
         $perPage = $perPage > 0 ? min($perPage, 20) : 6;
 
-        $cacheKey = "dashboard_courses_capacity_{$schoolId}_{$today}";
+        $cacheKey = "dashboard_courses_capacity_v3_{$schoolId}_{$today}";
         $groupCourses = Cache::remember("{$cacheKey}_group", 60, fn () => $this->buildGroupCourseCollection($schoolId, $today));
         $privateCourses = Cache::remember("{$cacheKey}_private", 60, fn () => $this->buildPrivateCourseCollection($schoolId, $today));
         $groupSummary = Cache::remember("{$cacheKey}_group_summary", 60, fn () => $this->buildGroupSummary($schoolId, $today));
@@ -616,6 +745,7 @@ class DashboardController extends AppBaseController
                 ->whereBetween('bu.date', [$startDate->toDateString(), $endDate->toDateString()])
                 ->where('bu.status', 1)
                 ->groupBy('bu.date')
+                ->select('bu.date')
                 ->selectRaw('bu.date as date')
                 ->selectRaw('COUNT(*) as bookings')
                 ->selectRaw('COUNT(*) as participants')
@@ -710,10 +840,15 @@ class DashboardController extends AppBaseController
             $metrics = $this->metricsService->getMetrics($schoolId, $today);
             $school = School::find($schoolId);
 
-            $bookingsStat = BookingUser::where('school_id', $schoolId)
-                ->whereDate('date', $today)
-                ->where('status', 1)
-                ->selectRaw('COUNT(*) as total_bookings, COALESCE(SUM(price), 0) as total_price')
+            $bookingsStat = DB::table('booking_users as bu')
+                ->join('bookings as b', 'b.id', '=', 'bu.booking_id')
+                ->where('bu.school_id', $schoolId)
+                ->whereDate('bu.date', $today)
+                ->where('bu.status', 1)
+                ->whereNull('bu.deleted_at')
+                ->whereNull('b.deleted_at')
+                ->where('b.status', '<>', 2)
+                ->selectRaw('COUNT(DISTINCT bu.booking_id) as total_bookings, COALESCE(SUM(bu.price), 0) as total_price')
                 ->first();
 
             $expectedRevenue = round($bookingsStat?->total_price ?? 0, 2);
@@ -759,9 +894,16 @@ class DashboardController extends AppBaseController
                 'status',
             ])
             ->where('school_id', $schoolId)
-            ->whereDate('date', $date)
+            ->where(function ($query) use ($date) {
+                $query->whereDate('date', $date)
+                    ->orWhereHas('courseDate', fn($q) => $q->whereDate('date', $date));
+            })
             ->where('status', 1)
+            ->whereNull('deleted_at')
             ->whereHas('course', fn($q) => $q->where('course_type', 1))
+            ->whereHas('booking', function ($query) {
+                $query->whereNull('deleted_at')->where('status', '<>', 2);
+            })
             ->get();
 
         return $entries->groupBy('course_id')->map(function ($group) {
@@ -776,9 +918,10 @@ class DashboardController extends AppBaseController
 
             $courseIcon = null;
             if ($course?->sport) {
-                $courseIcon = $course->course_type === 1
-                    ? ($course->sport->icon_collective ?: $course->sport->icon_selected)
-                    : ($course->sport->icon_prive ?: $course->sport->icon_selected);
+                $courseIcon = $course->sport->icon_selected
+                    ?: ($course->course_type === 1
+                        ? ($course->sport->icon_collective ?: $course->sport->icon_prive)
+                        : ($course->sport->icon_prive ?: $course->sport->icon_collective));
             }
 
             return [
@@ -787,9 +930,7 @@ class DashboardController extends AppBaseController
                 'course_icon' => $courseIcon,
                 'groups_count' => $group->pluck('course_subgroup_id')->filter()->unique()->count(),
                 'assigned_monitors' => $group->pluck('monitor_id')->filter()->unique()->count(),
-                'participants' => $group->count(),
-                'pending_payments' => $pendingPayments,
-                'start_time' => $startTime,
+                'participants' => $group->count(),                'start_time' => $startTime,
                 'end_time' => $endTime,
                 'time_label' => $this->makeTimeLabel($startTime, $endTime),
                 'monitors' => $group->pluck('monitor')
@@ -830,7 +971,14 @@ class DashboardController extends AppBaseController
             ->where('school_id', $schoolId)
             ->whereDate('date', $date)
             ->where('status', 1)
+            ->whereNull('deleted_at')
             ->whereHas('course', fn($q) => $q->where('course_type', 2))
+            ->whereHas('booking', function ($query) {
+                $query->whereNull('deleted_at')->where('status', '<>', 2);
+            })
+            ->whereHas('booking', function ($query) {
+                $query->whereNull('deleted_at')->where('status', '<>', 2);
+            })
             ->orderBy('hour_start')
             ->limit(120)
             ->get();
@@ -839,17 +987,13 @@ class DashboardController extends AppBaseController
             ->groupBy(function ($bookingUser) {
                 $bookingId = $bookingUser->booking_id ?? 'no-booking';
                 $groupId = $bookingUser->group_id ?? 'no-group';
-                $courseId = $bookingUser->course_id ?? 'no-course';
-                $courseDateId = $bookingUser->course_date_id ?? 'no-date';
-                $date = $bookingUser->date?->toDateString() ?? 'no-day';
-                $start = $bookingUser->hour_start ?? 'no-start';
-                $end = $bookingUser->hour_end ?? 'no-end';
+                $date = $bookingUser->date?->toDateString() ?? $bookingUser->courseDate?->date?->toDateString() ?? 'no-day';
+                $start = $bookingUser->hour_start ?? $bookingUser->courseDate?->hour_start ?? 'no-start';
+                $end = $bookingUser->hour_end ?? $bookingUser->courseDate?->hour_end ?? 'no-end';
 
                 return implode('|', [
                     $bookingId,
                     $groupId,
-                    $courseId,
-                    $courseDateId,
                     $date,
                     $start,
                     $end,
@@ -897,11 +1041,12 @@ class DashboardController extends AppBaseController
                 $dateValue = $first?->date?->toDateString() ?? $first?->courseDate?->date?->toDateString();
 
                 $courseIcon = null;
-                if ($course?->sport) {
-                    $courseIcon = $course->course_type === 1
-                        ? ($course->sport->icon_collective ?: $course->sport->icon_selected)
-                        : ($course->sport->icon_prive ?: $course->sport->icon_selected);
-                }
+            if ($course?->sport) {
+                $courseIcon = $course->sport->icon_selected
+                    ?: ($course->course_type === 1
+                        ? ($course->sport->icon_collective ?: $course->sport->icon_prive)
+                        : ($course->sport->icon_prive ?: $course->sport->icon_collective));
+            }
 
                 return [
                     'id' => $first?->group_id ?? $first?->id,
@@ -940,10 +1085,13 @@ class DashboardController extends AppBaseController
 
         $groupBookings = DB::table('booking_users as bu')
             ->join('courses as c', 'c.id', '=', 'bu.course_id')
+            ->join('bookings as b', 'b.id', '=', 'bu.booking_id')
             ->where('bu.school_id', $schoolId)
             ->whereDate('bu.date', $today)
             ->where('bu.status', 1)
             ->whereNull('bu.deleted_at')
+            ->whereNull('b.deleted_at')
+            ->where('b.status', '<>', 2)
             ->where('c.course_type', 1)
             ->select('bu.course_id', 'c.is_flexible', 'bu.course_subgroup_id')
             ->get();
@@ -966,7 +1114,8 @@ class DashboardController extends AppBaseController
             ->whereNull('c.deleted_at')
             ->where('c.school_id', $schoolId)
             ->whereDate('cd.date', $today)
-            ->select('sg.course_id', 'sg.max_participants', 'c.is_flexible')
+            ->select('sg.course_id', 'c.is_flexible')
+            ->selectRaw($this->getSubgroupMaxParticipantsColumn() . ' as max_participants')
             ->get();
 
         $spotsAvailable = 0.0;
@@ -1000,6 +1149,9 @@ class DashboardController extends AppBaseController
             ->where('status', 1)
             ->whereNull('deleted_at')
             ->whereHas('course', fn($q) => $q->where('course_type', 2))
+            ->whereHas('booking', function ($query) {
+                $query->whereNull('deleted_at')->where('status', '<>', 2);
+            })
             ->select('booking_id', 'group_id', 'hour_start', 'hour_end', 'monitor_id')
             ->get();
 
@@ -1068,12 +1220,16 @@ class DashboardController extends AppBaseController
 
         $busyByMonitor = [];
         if ($monitorIds->isNotEmpty()) {
-            $bookingRows = DB::table('booking_users')
-                ->where('school_id', $schoolId)
-                ->whereDate('date', $today)
-                ->where('status', 1)
-                ->whereNotNull('monitor_id')
-                ->select('monitor_id', 'hour_start', 'hour_end')
+            $bookingRows = DB::table('booking_users as bu')
+                ->join('bookings as b', 'b.id', '=', 'bu.booking_id')
+                ->where('bu.school_id', $schoolId)
+                ->whereDate('bu.date', $today)
+                ->where('bu.status', 1)
+                ->whereNotNull('bu.monitor_id')
+                ->whereNull('bu.deleted_at')
+                ->whereNull('b.deleted_at')
+                ->where('b.status', '<>', 2)
+                ->select('bu.monitor_id', 'bu.hour_start', 'bu.hour_end')
                 ->get();
 
             foreach ($bookingRows as $row) {
@@ -1174,8 +1330,14 @@ class DashboardController extends AppBaseController
             ->where('bu.status', 1)
             ->where('b.status', '<>', 2)
             ->whereDate('bu.date', $today)
-            ->where(function ($query) {
-                $query->where('b.paid', 0)->orWhereNull('b.paid');
+            ->where(function ($query) use ($today) {
+                $query->whereRaw(
+                    '(SELECT COALESCE(SUM(bu2.price),0) FROM booking_users bu2 WHERE bu2.booking_id = b.id AND bu2.deleted_at IS NULL AND bu2.status = 1 AND DATE(bu2.date) = ?) - COALESCE(b.paid_total, 0) > 0.01',
+                    [$today]
+                )->orWhereRaw(
+                    '(SELECT COALESCE(SUM(bu2.price),0) FROM booking_users bu2 WHERE bu2.booking_id = b.id AND bu2.deleted_at IS NULL AND bu2.status = 1 AND DATE(bu2.date) = ?) = 0 AND (b.paid = 0 OR b.paid IS NULL)',
+                    [$today]
+                );
             })
             ->distinct('bu.booking_id')
             ->count('bu.booking_id');
@@ -1191,5 +1353,10 @@ class DashboardController extends AppBaseController
         $request->merge(['school_id' => $school->id]);
 
         return (int) $school->id;
+    }
+
+    private function getSubgroupMaxParticipantsColumn(): string
+    {
+        return Schema::hasColumn('course_subgroups', 'max_participants') ? 'sg.max_participants' : 'NULL';
     }
 }

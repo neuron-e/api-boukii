@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Mail;
 use App\Services\Payrexx\PayrexxService;
 use Payrexx\Models\Request\Gateway as GatewayRequest;
 use Payrexx\Models\Request\Invoice as InvoiceRequest;
+use Payrexx\Models\Request\PaymentMethod as PaymentMethodRequest;
 use Payrexx\Models\Request\Transaction as TransactionRequest;
 use Payrexx\Models\Response\Transaction as TransactionResponse;
 use Payrexx\Payrexx;
@@ -45,7 +46,7 @@ class PayrexxHelpers
      * @return string empty if something failed
      */
     public static function createGatewayLinkNew($schoolData, $bookingData,
-                                                $basketData, Client $buyerUser = null, $redirectTo = null)
+                                                $basketData, Client $buyerUser = null, $redirectTo = null, array $options = [])
     {
         $link = '';
 
@@ -271,14 +272,19 @@ class PayrexxHelpers
                 $ir->addField('country', $buyerUser->country);
             }
 
-            Log::channel('payrexx')->info('Link prepared amount: ' . $totalAmount);
-
             $payrexx = new Payrexx(
                 $schoolData->getPayrexxInstance(),
                 $schoolData->getPayrexxKey(),
                 '',
                 config('services.payrexx.base_domain', 'pay.boukii.com')
             );
+
+            $paymentMeans = self::resolvePayrexxPaymentMeans($schoolData, $bookingData, $options, $payrexx);
+            if (!empty($paymentMeans)) {
+                $ir->setPm($paymentMeans);
+            }
+
+            Log::channel('payrexx')->info('Link prepared amount: ' . $totalAmount);
 
             Log::channel('payrexx')->info('InvoiceRequest Amount after changes:', ['amount' => $ir->getAmount()]);
             $invoice = $payrexx->create($ir);
@@ -312,9 +318,119 @@ class PayrexxHelpers
      * Legacy alias used by older controllers expecting createGatewayLink.
      */
     public static function createGatewayLink($schoolData, $bookingData,
-                                             $basketData, Client $buyerUser = null, $redirectTo = null)
+                                             $basketData, Client $buyerUser = null, $redirectTo = null, array $options = [])
     {
-        return self::createGatewayLinkNew($schoolData, $bookingData, $basketData, $buyerUser, $redirectTo);
+        return self::createGatewayLinkNew($schoolData, $bookingData, $basketData, $buyerUser, $redirectTo, $options);
+    }
+
+    private static function resolvePayrexxPaymentMeans($schoolData, $bookingData, array $options, Payrexx $payrexx): array
+    {
+        if (empty($options['restrict_invoice'])) {
+            return [];
+        }
+
+        $paymentMeans = self::normalizePayrexxPaymentMeans($options['payrexx_pm'] ?? null);
+
+        if (empty($paymentMeans)) {
+            $paymentMeans = self::normalizePayrexxPaymentMeans(self::getPayrexxPaymentMeansFromSettings($schoolData));
+        }
+
+        if (empty($paymentMeans)) {
+            try {
+                $paymentMethodRequest = new PaymentMethodRequest();
+                if (!empty($bookingData->currency)) {
+                    $paymentMethodRequest->setFilterCurrency($bookingData->currency);
+                }
+                $paymentMeans = self::normalizePayrexxPaymentMeans($payrexx->getAll($paymentMethodRequest));
+            } catch (\Exception $e) {
+                Log::channel('payrexx')->warning('PayrexxHelpers payment means lookup failed', [
+                    'booking_id' => $bookingData->id ?? null,
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if (empty($paymentMeans)) {
+            Log::channel('payrexx')->warning('PayrexxHelpers payment means empty; invoice restriction skipped', [
+                'booking_id' => $bookingData->id ?? null,
+            ]);
+            return [];
+        }
+
+        $filtered = array_values(array_filter($paymentMeans, function ($method) {
+            return strtolower((string) $method) !== 'invoice';
+        }));
+
+        if (empty($filtered)) {
+            Log::channel('payrexx')->warning('PayrexxHelpers payment means only invoice; restriction skipped', [
+                'booking_id' => $bookingData->id ?? null,
+                'payment_means' => $paymentMeans,
+            ]);
+            return [];
+        }
+
+        return $filtered;
+    }
+
+    private static function normalizePayrexxPaymentMeans($paymentMeans): array
+    {
+        if (!$paymentMeans) {
+            return [];
+        }
+
+        if (is_string($paymentMeans)) {
+            $paymentMeans = array_filter(array_map('trim', explode(',', $paymentMeans)));
+            return array_values($paymentMeans);
+        }
+
+        if (is_array($paymentMeans)) {
+            $normalized = [];
+            foreach ($paymentMeans as $value) {
+                if (is_string($value)) {
+                    $normalized[] = $value;
+                    continue;
+                }
+                if (is_object($value) && method_exists($value, 'getId')) {
+                    $normalized[] = $value->getId();
+                } elseif (is_array($value) && isset($value['id'])) {
+                    $normalized[] = $value['id'];
+                }
+            }
+            return array_values(array_filter($normalized));
+        }
+
+        return [];
+    }
+
+    private static function getPayrexxPaymentMeansFromSettings($schoolData): array
+    {
+        $settings = $schoolData->settings ?? null;
+        if (is_string($settings)) {
+            $decoded = json_decode($settings, true);
+            $settings = is_array($decoded) ? $decoded : [];
+        }
+        if (!is_array($settings)) {
+            return [];
+        }
+
+        $candidates = [
+            $settings['payrexx_pm'] ?? null,
+            $settings['payrexx_payment_methods'] ?? null,
+            $settings['payment_methods_payrexx'] ?? null,
+            $settings['payment_methods']['payrexx'] ?? null,
+            $settings['booking']['payrexx_pm'] ?? null,
+            $settings['booking']['payrexx_payment_methods'] ?? null,
+            $settings['booking']['payment_methods_payrexx'] ?? null,
+        ];
+
+        foreach ($candidates as $candidate) {
+            $normalized = self::normalizePayrexxPaymentMeans($candidate);
+            if (!empty($normalized)) {
+                return $normalized;
+            }
+        }
+
+        return [];
     }
 
     public static function generatePaymentSummary($basketData)
@@ -2285,4 +2401,3 @@ class PayrexxHelpers
         return $analysis;
     }
 }
-

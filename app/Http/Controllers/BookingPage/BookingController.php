@@ -1102,7 +1102,8 @@ class BookingController extends SlugAuthController
             $booking,
             $request,
             $booking->clientMain,
-            $request->redirectUrl
+            $request->redirectUrl,
+            ['restrict_invoice' => true]
         );
 
         if ($payrexxLink) {
