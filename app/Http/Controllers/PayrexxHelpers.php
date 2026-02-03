@@ -246,32 +246,6 @@ class PayrexxHelpers
                 'source' => 'createPayLink'
             ]);
 
-            $ir = new InvoiceRequest();
-            $ir->setReferenceId($bookingData->getOrGeneratePayrexxReference());
-            $ir->setCurrency($bookingData->currency);
-            $ir->setVatRate($schoolData->bookings_comission_cash);
-            $ir->setAmount($totalAmount);
-            $ir->setName($bookingData->getOrGeneratePayrexxReference());
-            $ir->setTitle($paymentSummary['title']);
-            $ir->setPurpose('Booking: #' . $bookingData->id);
-            $ir->setDescription($paymentSummary['description']);
-            // Payrexx uses date-based expiry; Boukii computes precise 48h from sent_at.
-            $ir->setExpirationDate($expirationDate);
-            if ($schoolData->conditions_url) {
-                $ir->addField('terms', true, $schoolData->conditions_url);
-            }
-
-            if ($buyerUser) {
-                $ir->addField('forename', $buyerUser->first_name);
-                $ir->addField('surname', $buyerUser->last_name);
-                $ir->addField('phone', $buyerUser->phone);
-                $ir->addField('email', $buyerUser->email);
-                $ir->addField('street', $buyerUser->address);
-                $ir->addField('postcode', $buyerUser->cp);
-                $ir->addField('place', $buyerUser->province);
-                $ir->addField('country', $buyerUser->country);
-            }
-
             $payrexx = new Payrexx(
                 $schoolData->getPayrexxInstance(),
                 $schoolData->getPayrexxKey(),
@@ -280,16 +254,70 @@ class PayrexxHelpers
             );
 
             $paymentMeans = self::resolvePayrexxPaymentMeans($schoolData, $bookingData, $options, $payrexx);
-            if (!empty($paymentMeans)) {
-                $ir->setPm($paymentMeans);
-            }
 
-            Log::channel('payrexx')->info('Link prepared amount: ' . $totalAmount);
+            if (!empty($options['restrict_invoice'])) {
+                $gr->setAmount($totalAmount);
+                $gr->setBasket($basket);
+                $gr->setPurpose([1 => 'Booking: #' . $bookingData->id]);
+                $gr->setSuccessRedirectUrl(route('api.payrexx.finish', ['status' => 'success']));
+                $gr->setFailedRedirectUrl(route('api.payrexx.finish', ['status' => 'failed']));
+                $gr->setCancelRedirectUrl(route('api.payrexx.finish', ['status' => 'cancel']));
+                if ($buyerUser) {
+                    $gr->addField('forename', $buyerUser->first_name);
+                    $gr->addField('surname', $buyerUser->last_name);
+                    $gr->addField('phone', $buyerUser->phone);
+                    $gr->addField('email', $buyerUser->email);
+                    $gr->addField('street', $buyerUser->address);
+                    $gr->addField('postcode', $buyerUser->cp);
+                    $gr->addField('place', $buyerUser->province);
+                    $gr->addField('country', $buyerUser->country);
+                }
+                if (!empty($paymentMeans)) {
+                    $gr->setPm($paymentMeans);
+                }
 
-            Log::channel('payrexx')->info('InvoiceRequest Amount after changes:', ['amount' => $ir->getAmount()]);
-            $invoice = $payrexx->create($ir);
-            if ($invoice) {
-                $link = $invoice->getLink();
+                Log::channel('payrexx')->info('Link prepared amount: ' . $totalAmount);
+                $gateway = $payrexx->create($gr);
+                if ($gateway) {
+                    $link = $gateway->getLink();
+                }
+            } else {
+                $ir = new InvoiceRequest();
+                $ir->setReferenceId($bookingData->getOrGeneratePayrexxReference());
+                $ir->setCurrency($bookingData->currency);
+                $ir->setVatRate($schoolData->bookings_comission_cash);
+                $ir->setAmount($totalAmount);
+                $ir->setName($bookingData->getOrGeneratePayrexxReference());
+                $ir->setTitle($paymentSummary['title']);
+                $ir->setPurpose('Booking: #' . $bookingData->id);
+                $ir->setDescription($paymentSummary['description']);
+                // Payrexx uses date-based expiry; Boukii computes precise 48h from sent_at.
+                $ir->setExpirationDate($expirationDate);
+                if ($schoolData->conditions_url) {
+                    $ir->addField('terms', true, $schoolData->conditions_url);
+                }
+
+                if ($buyerUser) {
+                    $ir->addField('forename', $buyerUser->first_name);
+                    $ir->addField('surname', $buyerUser->last_name);
+                    $ir->addField('phone', $buyerUser->phone);
+                    $ir->addField('email', $buyerUser->email);
+                    $ir->addField('street', $buyerUser->address);
+                    $ir->addField('postcode', $buyerUser->cp);
+                    $ir->addField('place', $buyerUser->province);
+                    $ir->addField('country', $buyerUser->country);
+                }
+
+                if (!empty($paymentMeans)) {
+                    $ir->setPm($paymentMeans);
+                }
+
+                Log::channel('payrexx')->info('Link prepared amount: ' . $totalAmount);
+                Log::channel('payrexx')->info('InvoiceRequest Amount after changes:', ['amount' => $ir->getAmount()]);
+                $invoice = $payrexx->create($ir);
+                if ($invoice) {
+                    $link = $invoice->getLink();
+                }
             }
         } catch (\Exception $e) {
             Log::channel('payrexx')->error('PayrexxHelpers createPayLink failed', [
@@ -335,19 +363,21 @@ class PayrexxHelpers
             $paymentMeans = self::normalizePayrexxPaymentMeans(self::getPayrexxPaymentMeansFromSettings($schoolData));
         }
 
-        if (empty($paymentMeans)) {
-            try {
-                $paymentMethodRequest = new PaymentMethodRequest();
-                if (!empty($bookingData->currency)) {
-                    $paymentMethodRequest->setFilterCurrency($bookingData->currency);
-                }
-                $paymentMeans = self::normalizePayrexxPaymentMeans($payrexx->getAll($paymentMethodRequest));
-            } catch (\Exception $e) {
-                Log::channel('payrexx')->warning('PayrexxHelpers payment means lookup failed', [
-                    'booking_id' => $bookingData->id ?? null,
-                    'message' => $e->getMessage(),
-                ]);
+        $paymentMethodsCatalog = [];
+        try {
+            $paymentMethodRequest = new PaymentMethodRequest();
+            if (!empty($bookingData->currency)) {
+                $paymentMethodRequest->setFilterCurrency($bookingData->currency);
             }
+            $paymentMethodsCatalog = $payrexx->getAll($paymentMethodRequest);
+            if (empty($paymentMeans)) {
+                $paymentMeans = self::normalizePayrexxPaymentMeans($paymentMethodsCatalog);
+            }
+        } catch (\Exception $e) {
+            Log::channel('payrexx')->warning('PayrexxHelpers payment means lookup failed', [
+                'booking_id' => $bookingData->id ?? null,
+                'message' => $e->getMessage(),
+            ]);
         }
 
         if (empty($paymentMeans)) {
@@ -357,8 +387,32 @@ class PayrexxHelpers
             return [];
         }
 
-        $filtered = array_values(array_filter($paymentMeans, function ($method) {
-            return strtolower((string) $method) !== 'invoice';
+        $invoiceIds = [];
+        if (!empty($paymentMethodsCatalog)) {
+            foreach ($paymentMethodsCatalog as $method) {
+                if (!is_object($method)) {
+                    continue;
+                }
+                $id = method_exists($method, 'getId') ? (string) $method->getId() : null;
+                $name = method_exists($method, 'getName') ? (string) $method->getName() : '';
+                $label = method_exists($method, 'getLabel') ? (string) $method->getLabel() : '';
+                $type = method_exists($method, 'getType') ? (string) $method->getType() : '';
+                $haystack = strtolower(trim($name . ' ' . $label . ' ' . $type));
+                if ($id && str_contains($haystack, 'invoice')) {
+                    $invoiceIds[] = $id;
+                }
+            }
+        }
+
+        $filtered = array_values(array_filter($paymentMeans, function ($method) use ($invoiceIds) {
+            $methodStr = strtolower((string) $method);
+            if ($methodStr === 'invoice') {
+                return false;
+            }
+            if (!empty($invoiceIds) && in_array((string) $method, $invoiceIds, true)) {
+                return false;
+            }
+            return true;
         }));
 
         if (empty($filtered)) {
