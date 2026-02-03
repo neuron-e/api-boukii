@@ -290,8 +290,7 @@ class BookingController extends SlugAuthController
                 }
             }
 
-            $showUnpaidBooking = in_array((int) $paymentMethodId, [Booking::ID_BOUKIIPAY, Booking::ID_ONLINE], true);
-            $shouldSoftDelete = !$zeroTotalBooking && !$showUnpaidBooking;
+            $shouldSoftDelete = !$zeroTotalBooking;
 
             $meetingPointData = $this->resolveMeetingPointFromCourses($courseIds);
 

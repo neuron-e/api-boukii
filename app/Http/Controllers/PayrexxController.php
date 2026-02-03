@@ -63,9 +63,6 @@ class PayrexxController
 
                 if ($booking) {
                     if ($statusRaw !== TransactionResponse::CONFIRMED) {
-                        if ($this->shouldRestoreForPayrexxStatus($statusNormalized)) {
-                            $this->restoreBookingForPayrexx($booking);
-                        }
                         $this->logPayrexxBookingStatus($booking, $referenceID, $transactionID, $statusNormalized);
                         if ($this->shouldCreatePaymentLog($statusNormalized)) {
                             $this->createPayrexxPaymentLog($booking, $referenceID, $statusNormalized, $data);

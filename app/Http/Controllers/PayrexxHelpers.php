@@ -406,6 +406,7 @@ class PayrexxHelpers
         }
 
         $invoiceIds = [];
+        $invoiceKeywords = ['invoice', 'rechnung', 'facture', 'bill', 'pay by invoice'];
         if (!empty($paymentMethodsCatalog)) {
             foreach ($paymentMethodsCatalog as $method) {
                 if (!is_object($method)) {
@@ -425,13 +426,18 @@ class PayrexxHelpers
                     $type = implode(' ', $type);
                 }
                 $haystack = strtolower(trim((string) $name . ' ' . (string) $label . ' ' . (string) $type));
-                if ($id && str_contains($haystack, 'invoice')) {
-                    $invoiceIds[] = $id;
+                if ($id) {
+                    foreach ($invoiceKeywords as $keyword) {
+                        if ($keyword !== '' && str_contains($haystack, $keyword)) {
+                            $invoiceIds[] = $id;
+                            break;
+                        }
+                    }
                 }
             }
         }
 
-        $extractMethod = function ($method): array {
+        $extractMethod = function ($method) use ($invoiceKeywords): array {
             $id = null;
             $label = '';
             if (is_array($method)) {
@@ -451,7 +457,17 @@ class PayrexxHelpers
                 $id = $label !== '' ? $label : null;
             }
 
-            return [$id, strtolower(trim($label))];
+            $label = strtolower(trim($label));
+            if ($label !== '') {
+                foreach ($invoiceKeywords as $keyword) {
+                    if ($keyword !== '' && str_contains($label, $keyword)) {
+                        $label = 'invoice';
+                        break;
+                    }
+                }
+            }
+
+            return [$id, $label];
         };
 
         $filtered = array_values(array_filter($paymentMeans, function ($method) use ($invoiceIds, $extractMethod) {
