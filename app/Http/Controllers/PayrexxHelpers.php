@@ -412,10 +412,19 @@ class PayrexxHelpers
                     continue;
                 }
                 $id = method_exists($method, 'getId') ? (string) $method->getId() : null;
-                $name = method_exists($method, 'getName') ? (string) $method->getName() : '';
-                $label = method_exists($method, 'getLabel') ? (string) $method->getLabel() : '';
-                $type = method_exists($method, 'getType') ? (string) $method->getType() : '';
-                $haystack = strtolower(trim($name . ' ' . $label . ' ' . $type));
+                $name = method_exists($method, 'getName') ? $method->getName() : '';
+                $label = method_exists($method, 'getLabel') ? $method->getLabel() : '';
+                $type = method_exists($method, 'getType') ? $method->getType() : '';
+                if (is_array($name)) {
+                    $name = implode(' ', $name);
+                }
+                if (is_array($label)) {
+                    $label = implode(' ', $label);
+                }
+                if (is_array($type)) {
+                    $type = implode(' ', $type);
+                }
+                $haystack = strtolower(trim((string) $name . ' ' . (string) $label . ' ' . (string) $type));
                 if ($id && str_contains($haystack, 'invoice')) {
                     $invoiceIds[] = $id;
                 }
