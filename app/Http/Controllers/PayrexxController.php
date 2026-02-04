@@ -414,13 +414,13 @@ class PayrexxController
         return $normalized ?: 'pending';
     }
 
-    private function shouldRestoreForPayrexxStatus(string $status): bool
-    {
-        return in_array($status, ['waiting', 'authorized', 'pending', 'reserved'], true);
-    }
-
     private function shouldCreatePaymentLog(string $status): bool
     {
-        return $this->shouldRestoreForPayrexxStatus($status);
+        return $this->shouldLogPaymentStatus($status);
+    }
+
+    private function shouldLogPaymentStatus(string $status): bool
+    {
+        return in_array($status, ['waiting', 'authorized', 'pending', 'reserved'], true);
     }
 }
