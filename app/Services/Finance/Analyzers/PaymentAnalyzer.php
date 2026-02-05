@@ -93,6 +93,8 @@ class PaymentAnalyzer
         if ($payment->payrexx_reference) {
             if ($payment->booking->payment_method_id == Booking::ID_BOUKIIPAY) {
                 return 'boukii_direct';  // Pasarela directa en la plataforma
+            } elseif ($payment->booking->payment_method_id == Booking::ID_INVOICE) {
+                return 'invoice';
             } else {
                 return 'online_link';    // Vía link de email
             }
@@ -119,6 +121,8 @@ class PaymentAnalyzer
                 return 'boukii_offline';  // BoukiiPay sin payrexx = offline
             case Booking::ID_ONLINE:
                 return 'online_link';
+            case Booking::ID_INVOICE:
+                return 'invoice';
             default:
                 return 'other';
         }
@@ -231,4 +235,3 @@ class PaymentAnalyzer
         ];
     }
 }
-

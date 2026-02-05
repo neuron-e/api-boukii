@@ -105,7 +105,7 @@ class PaymentAPIController extends AppBaseController
         $bookingId = $input['booking_id'] ?? null;
         if ($bookingId) {
             $booking = Booking::find($bookingId);
-            if ($booking && (int) $booking->payment_method_id === Booking::ID_ONLINE) {
+            if ($booking && ((int) $booking->payment_method_id === Booking::ID_ONLINE || (int) $booking->payment_method_id === Booking::ID_INVOICE)) {
                 $payrexxReference = trim((string) ($input['payrexx_reference'] ?? ''));
                 if ($payrexxReference === '') {
                     return $this->sendError('Payrexx reference required for online link payments');
@@ -218,7 +218,7 @@ class PaymentAPIController extends AppBaseController
         }
 
         $booking = $payment->booking;
-        if ($booking && (int) $booking->payment_method_id === Booking::ID_ONLINE) {
+        if ($booking && ((int) $booking->payment_method_id === Booking::ID_ONLINE || (int) $booking->payment_method_id === Booking::ID_INVOICE)) {
             $payrexxReference = array_key_exists('payrexx_reference', $input)
                 ? trim((string) $input['payrexx_reference'])
                 : trim((string) ($payment->payrexx_reference ?? ''));

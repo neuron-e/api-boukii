@@ -263,8 +263,9 @@ class PayrexxHelpers
             );
 
             $paymentMeans = self::resolvePayrexxPaymentMeans($schoolData, $bookingData, $options, $payrexx);
+            $useGateway = !empty($options['restrict_invoice']) || !empty($options['force_gateway']);
 
-            if (!empty($options['restrict_invoice'])) {
+            if ($useGateway) {
                 $gatewayBasket = [[
                     'name' => [1 => $bookingData->getOrGeneratePayrexxReference()],
                     'quantity' => 1,
@@ -367,7 +368,7 @@ class PayrexxHelpers
 
     private static function resolvePayrexxPaymentMeans($schoolData, $bookingData, array $options, Payrexx $payrexx): array
     {
-        if (empty($options['restrict_invoice'])) {
+        if (empty($options['restrict_invoice']) && empty($options['allow_invoice'])) {
             return [];
         }
 
@@ -403,6 +404,10 @@ class PayrexxHelpers
                 'booking_id' => $bookingData->id ?? null,
             ]);
             return [];
+        }
+
+        if (!empty($options['allow_invoice'])) {
+            return $paymentMeans;
         }
 
         $invoiceIds = [];

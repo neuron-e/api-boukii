@@ -438,6 +438,9 @@ class AnalyticsAggregateService
             if ($bookingPaymentMethodId == Booking::ID_BOUKIIPAY) {
                 return 'boukii_direct';
             }
+            if ($bookingPaymentMethodId == Booking::ID_INVOICE) {
+                return 'invoice';
+            }
             return 'online_link';
         }
 
@@ -496,6 +499,8 @@ class AnalyticsAggregateService
                 return 'online_link';
             case Booking::ID_OTHER:
                 return 'card_offline';
+            case Booking::ID_INVOICE:
+                return 'invoice';
             default:
                 return 'other';
         }

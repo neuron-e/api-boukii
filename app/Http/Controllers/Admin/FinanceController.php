@@ -729,6 +729,9 @@ class FinanceController extends AppBaseController
             if ($paymentMethodId == Booking::ID_BOUKIIPAY) {
                 return 'boukii_direct';
             }
+            if ($paymentMethodId == Booking::ID_INVOICE) {
+                return 'invoice';
+            }
             return 'online_link';
         }
 
@@ -789,6 +792,8 @@ class FinanceController extends AppBaseController
                 return 'online_link';
             case Booking::ID_OTHER:
                 return 'card_offline';
+            case Booking::ID_INVOICE:
+                return 'invoice';
             default:
                 return 'other';
         }
@@ -973,12 +978,14 @@ class FinanceController extends AppBaseController
             ->selectRaw("
                 CASE
                     WHEN p.payrexx_reference IS NOT NULL AND b.payment_method_id = " . Booking::ID_BOUKIIPAY . " THEN 'boukii_direct'
+                    WHEN p.payrexx_reference IS NOT NULL AND b.payment_method_id = " . Booking::ID_INVOICE . " THEN 'invoice'
                     WHEN p.payrexx_reference IS NOT NULL THEN 'online_link'
                     WHEN b.payment_method_id = " . Booking::ID_CASH . " THEN 'cash'
                     WHEN b.payment_method_id = " . Booking::ID_ONLINE . " THEN 'online_link'
                     WHEN b.payment_method_id = " . Booking::ID_BOUKIIPAY . " THEN 'boukii_offline'
                     WHEN b.payment_method_id = " . Booking::ID_NOPAYMENT . " THEN 'no_payment'
                     WHEN b.payment_method_id = " . Booking::ID_OTHER . " THEN 'card_offline'
+                    WHEN b.payment_method_id = " . Booking::ID_INVOICE . " THEN 'invoice'
                     WHEN LOWER(p.notes) LIKE '%boukii pay%' OR LOWER(p.notes) LIKE '%boukiipay%' THEN 'boukii_direct'
                     WHEN LOWER(p.notes) LIKE '%cash%' OR LOWER(p.notes) LIKE '%efectivo%' THEN 'cash'
                     WHEN LOWER(p.notes) LIKE '%kasse%' OR LOWER(p.notes) LIKE '%caja%' THEN 'cash'
@@ -10467,6 +10474,8 @@ class FinanceController extends AppBaseController
                 return 'boukii_offline';  // BoukiiPay sin payrexx = offline
             case Booking::ID_ONLINE:
                 return 'online_link';
+            case Booking::ID_INVOICE:
+                return 'invoice';
             default:
                 return 'other';
         }
@@ -11144,6 +11153,3 @@ class FinanceController extends AppBaseController
         return array_values($courses);
     }
 }
-
-
-

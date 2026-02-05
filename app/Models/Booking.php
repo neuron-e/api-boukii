@@ -1124,16 +1124,18 @@ class Booking extends Model
         }
 
         // Si la reserva no está pagada, devolver diferentes estados según el `payment_method_id`
-        if (!$this->paid) {
-            switch ($this->payment_method_id) {
-                case 3:
-                    return $this->isPayLinkExpired() ? 'link_expired' : 'link_send';
-                case 5:
-                    return 'confirmed_without_payment';
-                default:
-                    return 'unpaid';
-            }
-        }
+          if (!$this->paid) {
+              switch ($this->payment_method_id) {
+                  case 3:
+                      return $this->isPayLinkExpired() ? 'link_expired' : 'link_send';
+                  case self::ID_INVOICE:
+                      return $this->isPayLinkExpired() ? 'invoice_overdue' : 'invoice_pending';
+                  case 5:
+                      return 'confirmed_without_payment';
+                  default:
+                      return 'unpaid';
+              }
+          }
     }
 
     private function isPayLinkExpired(): bool
@@ -1158,14 +1160,15 @@ class Booking extends Model
             return Carbon::parse($storedTimestamp);
         }
 
+        $actions = ['send_pay_link', 'send_invoice_link'];
         if ($this->relationLoaded('bookingLogs')) {
             $log = $this->bookingLogs
-                ->where('action', 'send_pay_link')
+                ->whereIn('action', $actions)
                 ->sortByDesc('created_at')
                 ->first();
         } else {
             $log = $this->bookingLogs()
-                ->where('action', 'send_pay_link')
+                ->whereIn('action', $actions)
                 ->latest('created_at')
                 ->first();
         }
@@ -2131,9 +2134,9 @@ class Booking extends Model
     const ID_OTHER = 4;
     /** PaymentMethod for 'No payment' */
     const ID_NOPAYMENT = 5;
+    /** PaymentMethod for 'Invoice' */
+    const ID_INVOICE = 7;
 
 }
-
-
 
 

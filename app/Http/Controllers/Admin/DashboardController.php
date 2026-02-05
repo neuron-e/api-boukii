@@ -144,7 +144,7 @@ class DashboardController extends AppBaseController
             $overbookedGroupBy[] = 'sg.max_participants';
         }
 
-        $allowed = ['pending_payments', 'overbooked_groups', 'unassigned_groups', 'unassigned_private'];
+        $allowed = ['pending_payments', 'overbooked_groups', 'unassigned_groups', 'unassigned_private', 'free_monitors'];
         if (!in_array($type, $allowed, true)) {
             return $this->sendError('Invalid type', [], 400);
         }
@@ -154,6 +154,7 @@ class DashboardController extends AppBaseController
                 $rows = DB::table('booking_users as bu')
                     ->join('bookings as b', 'b.id', '=', 'bu.booking_id')
                     ->leftJoin('clients as c', 'c.id', '=', 'b.client_main_id')
+                    ->leftJoin('course_dates as cd', 'cd.id', '=', 'bu.course_date_id')
                     ->where('bu.school_id', $schoolId)
                     ->whereNull('bu.deleted_at')
                     ->whereNull('b.deleted_at')
@@ -374,6 +375,54 @@ class DashboardController extends AppBaseController
                         ];
                     })
                     ->values();
+                break;
+            case 'free_monitors':
+                $busyMonitorIds = DB::table('booking_users as bu')
+                    ->join('bookings as b', 'b.id', '=', 'bu.booking_id')
+                    ->where('bu.school_id', $schoolId)
+                    ->whereDate('bu.date', $date)
+                    ->where('bu.status', 1)
+                    ->whereNotNull('bu.monitor_id')
+                    ->whereNull('bu.deleted_at')
+                    ->whereNull('b.deleted_at')
+                    ->where('b.status', '<>', 2)
+                    ->pluck('bu.monitor_id')
+                    ->unique()
+                    ->values();
+
+                $nwdMonitorIds = DB::table('monitor_nwd')
+                    ->where('school_id', $schoolId)
+                    ->whereNull('deleted_at')
+                    ->whereDate('start_date', '<=', $date)
+                    ->whereDate('end_date', '>=', $date)
+                    ->pluck('monitor_id')
+                    ->unique()
+                    ->values();
+
+                $rows = DB::table('monitors as m')
+                    ->leftJoin('monitor_sports_degrees as msd', function ($join) use ($schoolId) {
+                        $join->on('msd.monitor_id', '=', 'm.id')
+                            ->where('msd.school_id', '=', $schoolId);
+                    })
+                    ->leftJoin('sports as s', 's.id', '=', 'msd.sport_id')
+                    ->where('m.active_school', $schoolId)
+                    ->where('m.active', 1)
+                    ->whereNotIn('m.id', $busyMonitorIds)
+                    ->whereNotIn('m.id', $nwdMonitorIds)
+                    ->groupBy('m.id', 'm.first_name', 'm.last_name')
+                    ->select('m.id')
+                    ->selectRaw("CONCAT(COALESCE(m.first_name,''), ' ', COALESCE(m.last_name,'')) as monitor_name")
+                    ->selectRaw("GROUP_CONCAT(DISTINCT s.name ORDER BY s.name SEPARATOR ', ') as sports")
+                    ->orderBy('m.last_name')
+                    ->orderBy('m.first_name')
+                    ->limit(300)
+                    ->get()
+                    ->map(function ($row) {
+                        return [
+                            'monitor_name' => trim($row->monitor_name) ?: null,
+                            'course_name' => $row->sports ?: null,
+                        ];
+                    });
                 break;
             default:
                 $rows = collect();
@@ -1428,8 +1477,12 @@ class DashboardController extends AppBaseController
     {
         $today = Carbon::parse($date)->toDateString();
 
-        $entries = BookingUser::where('school_id', $schoolId)
-            ->whereDate('date', $today)
+        $entries = BookingUser::with('courseDate')
+            ->where('school_id', $schoolId)
+            ->where(function ($query) use ($today) {
+                $query->whereDate('date', $today)
+                    ->orWhereHas('courseDate', fn($q) => $q->whereDate('date', $today));
+            })
             ->where('status', 1)
             ->whereNull('deleted_at')
             ->whereHas('course', fn($q) => $q->where('course_type', 2))
@@ -1443,7 +1496,8 @@ class DashboardController extends AppBaseController
         foreach ($entries as $entry) {
             $start = $entry->hour_start ?? '';
             $end = $entry->hour_end ?? '';
-            $groupKey = $entry->group_id ? 'g_' . $entry->group_id : ('b_' . $entry->booking_id . '_' . $start . '_' . $end);
+            $dateKey = $entry->date?->format('Y-m-d') ?? $entry->courseDate?->date?->format('Y-m-d') ?? $today;
+            $groupKey = 'b_' . $entry->booking_id . '_' . ($entry->group_id ?? 'no-group') . '_' . ($entry->course_id ?? 'no-course') . '_' . ($entry->course_date_id ?? 'no-date') . '_' . $dateKey . '_' . $start . '_' . $end;
             if (!isset($groups[$groupKey])) {
                 $groups[$groupKey] = [
                     'start' => $start,

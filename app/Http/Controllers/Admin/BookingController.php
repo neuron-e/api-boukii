@@ -209,11 +209,14 @@ class BookingController extends AppBaseController
         $with = $this->buildAdminBookingTableWiths(Arr::wrap($request->input('with', [])));
 
         $courseTypes = array_values(array_filter((array)$request->input('course_types', []), fn($value) => $value !== ''));
+        if (empty($courseTypes) && $request->filled('course_type')) {
+            $courseTypes = [(int) $request->input('course_type')];
+        }
         $statusFilter = $this->parseCsvInts($request->input('status'));
 
         $searchArray = array_filter(
             array_merge(
-                $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with', 'status', 'course_types']),
+                $request->except(['skip', 'limit', 'search', 'exclude', 'user', 'perPage', 'order', 'orderColumn', 'page', 'with', 'status', 'course_types', 'course_type', 'isMultiple']),
                 ['school_id' => $school->id]
             ),
             fn($value) => $value !== null && $value !== ''
@@ -257,12 +260,22 @@ class BookingController extends AppBaseController
             with: $with,
             order: $orderDirection,
             orderColumn: $orderColumn,
-            additionalConditions: function ($query) use ($statusFilter, $courseTypes, $courseFilter, $customOrderCallback, $orderDirection) {
+            additionalConditions: function ($query) use ($statusFilter, $courseTypes, $courseFilter, $customOrderCallback, $orderDirection, $request) {
                 if (!empty($statusFilter)) {
                     $query->whereIn('status', $statusFilter);
                 }
                 if (!empty($courseTypes)) {
-                    $query->whereIn('course_type', $courseTypes);
+                    $query->whereHas('bookingUsers.course', function ($subQuery) use ($courseTypes) {
+                        $subQuery->whereIn('course_type', $courseTypes);
+                    });
+                }
+                if ($request->has('isMultiple')) {
+                    $isMultiple = filter_var($request->get('isMultiple'), FILTER_VALIDATE_BOOLEAN);
+                    $query->whereHas('bookingUsers', function ($subQuery) use ($isMultiple) {
+                        $subQuery->select('booking_id')
+                            ->groupBy('booking_id')
+                            ->havingRaw($isMultiple ? 'COUNT(DISTINCT client_id) > 1' : 'COUNT(DISTINCT client_id) = 1');
+                    });
                 }
                 if ($courseFilter) {
                     $query->whereHas('bookingUsers', function ($subQuery) use ($courseFilter) {
@@ -1288,6 +1301,8 @@ class BookingController extends AppBaseController
                 return 'boukii_offline';
             case Booking::ID_ONLINE:
                 return 'online_link';
+            case Booking::ID_INVOICE:
+                return 'invoice';
             case Booking::ID_NOPAYMENT:
                 return 'no_payment';
             case Booking::ID_OTHER:
@@ -1918,7 +1933,7 @@ class BookingController extends AppBaseController
 
         // MEJORA CRTICA: Validacin de entrada
         $request->validate([
-            'payment_method_id' => 'sometimes|integer|in:1,2,3,4',
+            'payment_method_id' => 'sometimes|integer|in:1,2,3,4,7',
         ]);
 
         // MEJORA CRTICA: Validar que la reserva existe y pertenece a la escuela
@@ -2063,13 +2078,17 @@ class BookingController extends AppBaseController
             }
         }
 
-        if ($paymentMethod == 3) {
+        if ($paymentMethod == 3 || $paymentMethod == Booking::ID_INVOICE) {
 
-            $payrexxLink = PayrexxHelpers::createPayLink(
+            $payrexxLink = PayrexxHelpers::createGatewayLink(
                 $school,
                 $booking,
                 $basketData,
-                $booking->clientMain
+                $booking->clientMain,
+                'panel',
+                $paymentMethod == Booking::ID_INVOICE
+                    ? ['force_gateway' => true, 'allow_invoice' => true]
+                    : []
             );
 
             if (strlen($payrexxLink) > 1) {
@@ -2079,7 +2098,7 @@ class BookingController extends AppBaseController
                     $bookingData = $booking->fresh();   // To retrieve its generated PayrexxReference
                     $logData = [
                         'booking_id' => $booking->id,
-                        'action' => 'send_pay_link',
+                        'action' => $paymentMethod == Booking::ID_INVOICE ? 'send_invoice_link' : 'send_pay_link',
                         'user_id' => $booking->user_id,
                         'description' => 'Booking pay link sent',
                     ];

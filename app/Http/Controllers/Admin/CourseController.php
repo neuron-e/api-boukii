@@ -2233,6 +2233,7 @@ class CourseController extends AppBaseController
             'boukii' => 0,
             'boukii_web' => 0,
             'online' => 0,
+            'invoice' => 0,
             'vouchers' => 0,
             'no_paid' => 0,
             'web' => 0,
@@ -2295,6 +2296,12 @@ class CourseController extends AppBaseController
                             break;
                         case Booking::ID_ONLINE:
                             $payments['online'] += $bookingTotal;
+                            break;
+                        case Booking::ID_INVOICE:
+                            $payments['invoice'] += $bookingTotal;
+                            break;
+                        case Booking::ID_INVOICE:
+                            $payments['invoice'] += $bookingTotal;
                             break;
                     }
                 }
@@ -2508,6 +2515,7 @@ class CourseController extends AppBaseController
             'boukii' => 0,
             'boukii_web' => 0,
             'online' => 0,
+            'invoice' => 0,
             'vouchers' => 0,
             'no_paid' => 0,
             'web' => 0,
@@ -2654,4 +2662,3 @@ class CourseController extends AppBaseController
     }
 
 }
-

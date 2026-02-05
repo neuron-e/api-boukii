@@ -14,6 +14,7 @@ use App\Repositories\MonitorNwdRepository;
 use App\Services\MonitorNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use App\Support\Facades\NwdLog as Log;
 
 /**
@@ -404,6 +405,65 @@ class MonitorNwdAPIController extends AppBaseController
 
         return $this->sendSuccess('Monitor Nwd deleted successfully');
     }
+
+    /**
+     * @OA\Post(
+     *      path="/monitor-nwds/bulk-delete",
+     *      summary="bulkDeleteMonitorNwd",
+     *      tags={"MonitorNwd"},
+     *      description="Delete multiple MonitorNwd entries",
+     *      @OA\RequestBody(
+     *        required=true,
+     *        @OA\JsonContent(
+     *          type="object",
+     *          @OA\Property(
+     *              property="ids",
+     *              type="array",
+     *              @OA\Items(type="integer")
+     *          )
+     *        )
+     *      ),
+     *      @OA\Response(
+     *          response=200,
+     *          description="successful operation",
+     *          @OA\JsonContent(
+     *              type="object",
+     *              @OA\Property(property="success", type="boolean"),
+     *              @OA\Property(property="data", type="object"),
+     *              @OA\Property(property="message", type="string")
+     *          )
+     *      )
+     * )
+     */
+    public function bulkDestroy(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer']
+        ]);
+
+        $ids = array_values(array_unique($validated['ids']));
+
+        $nwds = MonitorNwd::whereIn('id', $ids)->get();
+        if ($nwds->isEmpty()) {
+            return $this->sendError('Monitor Nwd not found');
+        }
+
+        $deletedIds = [];
+        DB::transaction(function () use ($nwds, $request, &$deletedIds) {
+            foreach ($nwds as $monitorNwd) {
+                $payloadNwd = clone $monitorNwd;
+                $monitorNwd->delete();
+                $this->notifyMonitor($request, $payloadNwd, "nwd_deleted");
+                $deletedIds[] = $monitorNwd->id;
+            }
+        });
+
+        return $this->sendResponse(
+            ['deleted_ids' => $deletedIds, 'deleted_count' => count($deletedIds)],
+            'Monitor Nwds deleted successfully'
+        );
+    }
     private function notifyMonitor(Request $request, MonitorNwd $monitorNwd, string $type): void
     {
         $payload = $this->buildNwdPayload($monitorNwd);
@@ -456,5 +516,4 @@ class MonitorNwdAPIController extends AppBaseController
     }
 
 }
-
 

@@ -171,6 +171,8 @@ Route::middleware(['guest'])->group(function () {
     Route::resource('monitors', App\Http\Controllers\API\MonitorAPIController::class)
         ->except(['create', 'edit']);
 
+    Route::post('monitor-nwds/bulk-delete', [App\Http\Controllers\API\MonitorNwdAPIController::class, 'bulkDestroy'])
+        ->name('api.monitor-nwds.bulk-delete');
     Route::resource('monitor-nwds', App\Http\Controllers\API\MonitorNwdAPIController::class)
         ->except(['create', 'edit']);
 

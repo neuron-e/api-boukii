@@ -72,7 +72,7 @@ class PayrexxController
 
                     // Continue if still unpaid and user chose Payrexx (i.e. BoukiiPay or Online payment methods) - else ignore
                     if (!$booking->paid &&
-                        ($booking->payment_method_id == 2 || $booking->payment_method_id == 3)) {
+                        ($booking->payment_method_id == 2 || $booking->payment_method_id == 3 || $booking->payment_method_id == Booking::ID_INVOICE)) {
                         // 3. Pick its related School and its Payrexx credentials...
                         $schoolData = $booking->school;
                         if ($schoolData && $schoolData->getPayrexxInstance() && $schoolData->getPayrexxKey()) {
@@ -88,6 +88,9 @@ class PayrexxController
                             );
 
                             if ($data2 && $data2->getStatus() === TransactionResponse::CONFIRMED) {
+                                if ($this->isInvoiceTransaction($data, $data2) && (int) $booking->payment_method_id !== Booking::ID_INVOICE) {
+                                    $booking->payment_method_id = Booking::ID_INVOICE;
+                                }
                                 if ($booking->trashed()) {
                                     $booking->restore(); // Restaurar la reserva eliminada
                                     foreach($booking->bookingUsers as $bookinguser){
@@ -153,7 +156,7 @@ class PayrexxController
                                 $payment->school_id = $booking->school_id;
                                 $payment->amount = ($data2->getInvoice()['totalAmount'] ?? $data['amount']) / 100;
                                 $payment->status = 'paid';
-                                $payment->notes = 'Boukii Pay';
+                                $payment->notes = (int) $booking->payment_method_id === Booking::ID_INVOICE ? 'Invoice' : 'Boukii Pay';
                                 $payment->payrexx_reference = $referenceID;
                                 $payment->payrexx_transaction = $booking->payrexx_transaction;
                                 $payment->save();
@@ -368,7 +371,7 @@ class PayrexxController
             return;
         }
 
-        if (!in_array((int) $booking->payment_method_id, [2, 3], true)) {
+        if (!in_array((int) $booking->payment_method_id, [2, 3, Booking::ID_INVOICE], true)) {
             return;
         }
 
@@ -421,6 +424,42 @@ class PayrexxController
 
     private function shouldLogPaymentStatus(string $status): bool
     {
-        return in_array($status, ['waiting', 'authorized', 'pending', 'reserved'], true);
+        return in_array($status, ['waiting', 'authorized', 'pending', 'reserved', 'accepted'], true);
+    }
+
+    private function isInvoiceTransaction(array $payload, ?TransactionResponse $transaction): bool
+    {
+        $payment = $payload['payment'] ?? [];
+        $candidates = [
+            $payment['method'] ?? null,
+            $payment['brand'] ?? null,
+            $payment['type'] ?? null,
+            $payment['name'] ?? null,
+        ];
+
+        if ($transaction) {
+            $transactionPayment = $transaction->getPayment();
+            if (is_array($transactionPayment)) {
+                $candidates[] = $transactionPayment['brand'] ?? null;
+                $candidates[] = $transactionPayment['method'] ?? null;
+                $candidates[] = $transactionPayment['type'] ?? null;
+                $candidates[] = $transactionPayment['name'] ?? null;
+            }
+        }
+
+        foreach ($candidates as $candidate) {
+            if ($candidate === null) {
+                continue;
+            }
+            $value = strtolower((string) $candidate);
+            if ($value === '') {
+                continue;
+            }
+            if (str_contains($value, 'invoice') || str_contains($value, 'rechnung') || str_contains($value, 'facture')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

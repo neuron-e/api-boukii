@@ -128,7 +128,7 @@ class PlannerController extends AppBaseController
             'bookingUsers' => function ($query) {
                 $query->select('id', 'booking_id', 'client_id', 'course_id', 'course_date_id', 'course_subgroup_id',
                     'monitor_id', 'group_id', 'date', 'hour_start', 'hour_end', 'status', 'accepted',
-                    'degree_id', 'color', 'school_id')
+                    'degree_id', 'color', 'school_id', 'attended')
                     ->where('status', 1)
                     ->whereHas('booking')
                     ->with([
@@ -190,7 +190,7 @@ class PlannerController extends AppBaseController
         ])
             ->select('id', 'booking_id', 'client_id', 'course_id', 'course_date_id', 'course_subgroup_id',
                 'monitor_id', 'group_id', 'date', 'hour_start', 'hour_end', 'status', 'accepted',
-                'degree_id', 'color', 'school_id')
+                'degree_id', 'color', 'school_id', 'attended')
             ->whereHas('booking', function ($query) {
                 $query->where('status', '!=', 2); // La Booking no debe tener status 2
             })

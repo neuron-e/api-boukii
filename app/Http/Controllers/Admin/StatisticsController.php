@@ -1575,6 +1575,8 @@ class StatisticsController extends AppBaseController
                 return 'boukii';
             case Booking::ID_ONLINE:
                 return 'online';
+            case Booking::ID_INVOICE:
+                return 'invoice';
             default:
                 return 'other';
         }
@@ -4916,6 +4918,8 @@ class StatisticsController extends AppBaseController
                 return 'boukii';
             case Booking::ID_ONLINE:
                 return 'online';
+            case Booking::ID_INVOICE:
+                return 'invoice';
             default:
                 return 'other';
         }
@@ -5137,6 +5141,8 @@ class StatisticsController extends AppBaseController
                     } else {
                         $courseSummary['boukii'] += $amount;
                     }
+                } elseif ($booking->payment_method_id === Booking::ID_INVOICE) {
+                    $courseSummary['invoice'] += $amount;
                 } else {
                     $courseSummary['online'] += $amount;
                 }
@@ -5155,6 +5161,9 @@ class StatisticsController extends AppBaseController
                         break;
                     case Booking::ID_ONLINE:
                         $courseSummary['online'] += $amount;
+                        break;
+                    case Booking::ID_INVOICE:
+                        $courseSummary['invoice'] += $amount;
                         break;
                     case Booking::ID_OTHER:
                         $courseSummary['other'] += $amount;
@@ -5512,6 +5521,7 @@ class StatisticsController extends AppBaseController
             'boukii' => 0,
             'boukii_web' => 0,
             'online' => 0,
+            'invoice' => 0,
             'vouchers' => 0,
             'insurance' => 0,
             'refunds' => 0,

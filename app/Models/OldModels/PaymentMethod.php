@@ -48,4 +48,6 @@ protected $fillable = [
     const ID_OTHER = 4;
     /** PaymentMethod for 'No payment' */
     const ID_NOPAYMENT = 5;
+    /** PaymentMethod for 'Invoice' */
+    const ID_INVOICE = 7;
 }
