@@ -16,6 +16,7 @@ Route::middleware(['userRequired:superadmin'])->group(function () {
     Route::get('/schools', [SchoolController::class, 'index']);
     Route::post('/schools', [SchoolController::class, 'store']);
     Route::get('/schools/{id}', [SchoolController::class, 'show']);
+    Route::get('/schools/{id}/details', [SchoolController::class, 'details']);
     Route::put('/schools/{id}', [SchoolController::class, 'update']);
     Route::delete('/schools/{id}', [SchoolController::class, 'destroy']);
 

@@ -73,5 +73,6 @@ class Kernel extends HttpKernel
         'api.key' => \App\Http\Middleware\ApiKeyMiddleware::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'log.viewer.auth' => \App\Http\Middleware\LogViewerBasicAuth::class,
+        'userRequired' => \App\Http\Middleware\UserRequired::class,
     ];
 }

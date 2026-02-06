@@ -2028,6 +2028,7 @@ class BookingController extends AppBaseController
 
         if ($paymentMethod == 2) {
             try {
+                PayrexxHelpers::expirePayrexxLinksForBooking($school, $booking);
                 $payrexxLink = PayrexxHelpers::createGatewayLink(
                     $school,
                     $booking,
@@ -2079,6 +2080,8 @@ class BookingController extends AppBaseController
         }
 
         if ($paymentMethod == 3 || $paymentMethod == Booking::ID_INVOICE) {
+
+            PayrexxHelpers::expirePayrexxLinksForBooking($school, $booking);
 
             $payrexxLink = PayrexxHelpers::createGatewayLink(
                 $school,

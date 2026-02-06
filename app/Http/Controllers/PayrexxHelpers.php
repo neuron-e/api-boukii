@@ -34,6 +34,104 @@ use App\Models\School;
 class PayrexxHelpers
 {
     /**
+     * Expire/delete existing Payrexx gateway/invoice links for a booking.
+     * This is used when re-sending a payment link after a price change.
+     */
+    public static function expirePayrexxLinksForBooking(School $schoolData, Booking $bookingData): array
+    {
+        $result = [
+            'reference' => $bookingData->payrexx_reference ?? null,
+            'gateways_deleted' => 0,
+            'invoices_deleted' => 0,
+            'errors' => [],
+        ];
+
+        try {
+            if (!$schoolData->getPayrexxInstance() || !$schoolData->getPayrexxKey()) {
+                $result['errors'][] = 'missing_credentials';
+                return $result;
+            }
+
+            $reference = $bookingData->payrexx_reference ?: $bookingData->getOrGeneratePayrexxReference();
+            $result['reference'] = $reference;
+
+            $payrexx = new Payrexx(
+                $schoolData->getPayrexxInstance(),
+                $schoolData->getPayrexxKey(),
+                '',
+                config('services.payrexx.base_domain', 'pay.boukii.com')
+            );
+
+            // Try to delete matching Gateways (pay links)
+            try {
+                $gatewayRequest = new GatewayRequest();
+                if (!empty($reference)) {
+                    $gatewayRequest->setReferenceId($reference);
+                }
+                $gateways = $payrexx->getAll($gatewayRequest);
+                if (is_array($gateways)) {
+                    foreach ($gateways as $gateway) {
+                        if (!is_object($gateway) || !method_exists($gateway, 'getId')) {
+                            continue;
+                        }
+                        $gatewayReference = method_exists($gateway, 'getReferenceId')
+                            ? (string) $gateway->getReferenceId()
+                            : '';
+                        if ($reference && $gatewayReference !== $reference) {
+                            continue;
+                        }
+                        $gatewayDelete = new GatewayRequest();
+                        $gatewayDelete->setId($gateway->getId());
+                        $payrexx->delete($gatewayDelete);
+                        $result['gateways_deleted']++;
+                    }
+                }
+            } catch (\Exception $e) {
+                $result['errors'][] = 'gateway_delete_failed:' . $e->getMessage();
+            }
+
+            // Try to delete matching Invoices (email pay links)
+            try {
+                $invoiceRequest = new InvoiceRequest();
+                if (!empty($reference)) {
+                    $invoiceRequest->setReferenceId($reference);
+                }
+                $invoices = $payrexx->getAll($invoiceRequest);
+                if (is_array($invoices)) {
+                    foreach ($invoices as $invoice) {
+                        if (!is_object($invoice) || !method_exists($invoice, 'getId')) {
+                            continue;
+                        }
+                        $invoiceReference = method_exists($invoice, 'getReferenceId')
+                            ? (string) $invoice->getReferenceId()
+                            : '';
+                        if ($reference && $invoiceReference !== $reference) {
+                            continue;
+                        }
+                        $invoiceDelete = new InvoiceRequest();
+                        $invoiceDelete->setId($invoice->getId());
+                        $payrexx->delete($invoiceDelete);
+                        $result['invoices_deleted']++;
+                    }
+                }
+            } catch (\Exception $e) {
+                $result['errors'][] = 'invoice_delete_failed:' . $e->getMessage();
+            }
+        } catch (\Exception $e) {
+            $result['errors'][] = 'expire_failed:' . $e->getMessage();
+        }
+
+        Log::channel('payrexx')->info('Payrexx link cleanup', [
+            'booking_id' => $bookingData->id ?? null,
+            'reference' => $result['reference'],
+            'gateways_deleted' => $result['gateways_deleted'],
+            'invoices_deleted' => $result['invoices_deleted'],
+            'errors' => $result['errors'],
+        ]);
+
+        return $result;
+    }
+    /**
      * Prepare a Payrexx Gateway link to start a Transaction.
      * @see https://developers.payrexx.com/reference/create-a-gateway
      *

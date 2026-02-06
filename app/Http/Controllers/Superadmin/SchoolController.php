@@ -6,6 +6,9 @@ use App\Http\Controllers\AppBaseController;
 use App\Models\School;
 use App\Models\SchoolUser;
 use App\Models\User;
+use App\Models\Booking;
+use App\Models\ClientsSchool;
+use App\Models\Monitor;
 use App\Repositories\SchoolRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -83,6 +86,57 @@ class SchoolController extends AppBaseController
         return $this->sendResponse($school, 'School retrieved successfully');
     }
 
+    public function details($id): JsonResponse
+    {
+        $school = $this->schoolRepository->find($id, ['schoolUsers.user']);
+
+        if (empty($school)) {
+            return $this->sendError('School not found', 404);
+        }
+
+        $settings = $school->settings;
+        if (is_string($settings)) {
+            $decoded = json_decode($settings, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $settings = $decoded;
+            }
+        }
+
+        $instructorsCount = Monitor::where('active_school', $school->id)
+            ->where('active', 1)
+            ->count();
+        $studentsCount = ClientsSchool::where('school_id', $school->id)->count();
+        $revenueTotal = (float) Booking::where('school_id', $school->id)->sum('price_total');
+        $lastActivity = Booking::where('school_id', $school->id)->latest('updated_at')->value('updated_at');
+
+        $planName = null;
+        $planSince = null;
+        if (is_array($settings)) {
+            $planName = $settings['plan'] ?? $settings['subscription_plan'] ?? null;
+            $planSince = $settings['plan_since'] ?? $settings['subscription_since'] ?? null;
+        }
+
+        $schoolArray = $school->toArray();
+        $schoolArray['settings'] = $settings;
+        $schoolArray['payrexx_instance'] = $school->getPayrexxInstance();
+        $schoolArray['payrexx_key'] = $school->getPayrexxKey();
+
+        return $this->sendResponse([
+            'school' => $schoolArray,
+            'stats' => [
+                'instructors_count' => $instructorsCount,
+                'students_count' => $studentsCount,
+                'revenue_total' => $revenueTotal,
+                'last_activity' => $lastActivity,
+            ],
+            'plan' => [
+                'name' => $planName,
+                'since' => $planSince,
+            ],
+            'admins' => $school->schoolUsers ?? [],
+        ], 'School details retrieved successfully');
+    }
+
     public function update($id, Request $request): JsonResponse
     {
         $school = $this->schoolRepository->find($id);
@@ -98,6 +152,16 @@ class SchoolController extends AppBaseController
 
         if (!empty($data['name']) && empty($data['slug'])) {
             $data['slug'] = Str::slug($data['name']);
+        }
+
+        if (array_key_exists('payrexx_instance', $data) && $data['payrexx_instance'] !== null && $data['payrexx_instance'] !== '') {
+            $data['payrexx_instance'] = encrypt($data['payrexx_instance']);
+        }
+        if (array_key_exists('payrexx_key', $data) && $data['payrexx_key'] !== null && $data['payrexx_key'] !== '') {
+            $data['payrexx_key'] = encrypt($data['payrexx_key']);
+        }
+        if (array_key_exists('settings', $data) && is_array($data['settings'])) {
+            $data['settings'] = json_encode($data['settings']);
         }
 
         $school = $this->schoolRepository->update($data, $id);

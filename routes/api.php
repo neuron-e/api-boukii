@@ -1627,7 +1627,7 @@ Route::prefix('course-intervals')->group(function () {
     Route::post('/{id}/generate-dates', [App\Http\Controllers\API\CourseIntervalAPIController::class, 'generateDates']);
     Route::get('/{id}/discounts', [App\Http\Controllers\API\CourseIntervalDiscountAPIController::class, 'index']);
     Route::put('/{id}/discounts', [App\Http\Controllers\API\CourseIntervalDiscountAPIController::class, 'upsert']);
-    Route::post('/{id}/calculate-discount', [AppHttpControllersAPIBookingDiscountAPIController::class, 'calculateDiscount']);
+    Route::post('/{id}/calculate-discount', [App\Http\Controllers\API\BookingDiscountAPIController::class, 'calculateDiscount']);
 });
 /* COURSE INTERVALS API */
 
@@ -1673,4 +1673,3 @@ Route::get('/courses/{courseId}/intervals/{intervalId}/available-discounts', [Ap
 
 Route::middleware('auth:sanctum')->get('/admin/courses/{id}/structure', [CourseController::class, 'structure']);
 Route::middleware('auth:sanctum')->post('/admin/courses/{id}/translate', [TranslationAPIController::class, 'translateCourse']);
-

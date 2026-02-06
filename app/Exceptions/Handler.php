@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -46,7 +47,9 @@ class Handler extends ExceptionHandler
             $errors = null;
             $code = null;
 
-            if ($e instanceof ValidationException) {
+            if ($e instanceof HttpResponseException) {
+                return $e->getResponse();
+            } elseif ($e instanceof ValidationException) {
                 $status = 422;
                 $message = 'Validation failed';
                 $errors = $e->errors();
@@ -73,6 +76,7 @@ class Handler extends ExceptionHandler
                 $message = $e->getMessage() ?: 'HTTP error';
                 $code = 'http_error';
             } else {
+                \Log::error($e);
                 $message = $e->getMessage() ?: $message;
                 $code = 'server_error';
             }

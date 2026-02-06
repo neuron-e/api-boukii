@@ -184,6 +184,9 @@ abstract class BaseRepository
                         array $with = [],
         $order = 'desc', $orderColumn = 'id', $additionalConditions = null, $onlyTrashed = false): Builder|\Illuminate\Contracts\Pagination\Paginator
     {
+        if ($pagination === null || $pagination === '') {
+            $pagination = 10;
+        }
         $query = $this->allQuery($searchArray, $search, $skip, $limit, $order, $orderColumn, $with, $additionalConditions, $onlyTrashed);
 
         // OPTIMIZACIÓN: Paginación mejorada para admin Angular

@@ -26,13 +26,19 @@ class UserRequired
 
             if($validator->errors()->isEmpty()) {
 
-                if(!Auth::check()) {
+                $authUser = request()->user('sanctum') ?? Auth::user();
+                if (!$authUser) {
                     return $validator->errors()->add('auth', 'Unauthorized');
                 }
 
-                // Validate user
-                if(!Auth::user()->validate($validator, (is_null($user_type) ? [] : [$user_type]))->isEmpty()) {
-                    //Auth::logout();
+                // Validate user type
+                if (!is_null($user_type)) {
+                    $currentType = $authUser->type ?? null;
+                    $allowed = array_filter(array_map('trim', is_array($user_type) ? $user_type : explode(',', (string) $user_type)));
+                    $allowed = array_values(array_unique(array_merge($allowed, array_map('strval', $allowed))));
+                    if ($currentType === null || !in_array((string) $currentType, $allowed, true)) {
+                        return $validator->errors()->add('auth', 'Unauthorized');
+                    }
                 }
 
             }
@@ -40,7 +46,12 @@ class UserRequired
         });
 
         if($validator->fails()) {
-            return response()->api(null, $validator->errors()->first(), 401)->throwResponse();
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'errors' => null,
+                'code' => 'unauthorized'
+            ], 401)->throwResponse();
         }
 
         return $validator;
@@ -60,10 +71,14 @@ class UserRequired
 
         // Set current user's language for messages
         $defaultLocale = config('app.fallback_locale');
-        $myUser = \Auth::user();
-        $userLang = ($myUser->language1_id) ? Language::find( $myUser->language1_id ) : null;
-        $userLocale = $userLang ? $userLang->code : $defaultLocale;
-        \App::setLocale($userLocale);
+        $myUser = $request->user('sanctum') ?? Auth::user();
+        if ($myUser) {
+            $userLang = ($myUser->language1_id) ? Language::find($myUser->language1_id) : null;
+            $userLocale = $userLang ? $userLang->code : $defaultLocale;
+            \App::setLocale($userLocale);
+        } else {
+            \App::setLocale($defaultLocale);
+        }
 
         return $next($request);
     }

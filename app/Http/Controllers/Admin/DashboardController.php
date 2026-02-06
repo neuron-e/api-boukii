@@ -377,27 +377,8 @@ class DashboardController extends AppBaseController
                     ->values();
                 break;
             case 'free_monitors':
-                $busyMonitorIds = DB::table('booking_users as bu')
-                    ->join('bookings as b', 'b.id', '=', 'bu.booking_id')
-                    ->where('bu.school_id', $schoolId)
-                    ->whereDate('bu.date', $date)
-                    ->where('bu.status', 1)
-                    ->whereNotNull('bu.monitor_id')
-                    ->whereNull('bu.deleted_at')
-                    ->whereNull('b.deleted_at')
-                    ->where('b.status', '<>', 2)
-                    ->pluck('bu.monitor_id')
-                    ->unique()
-                    ->values();
-
-                $nwdMonitorIds = DB::table('monitor_nwd')
-                    ->where('school_id', $schoolId)
-                    ->whereNull('deleted_at')
-                    ->whereDate('start_date', '<=', $date)
-                    ->whereDate('end_date', '>=', $date)
-                    ->pluck('monitor_id')
-                    ->unique()
-                    ->values();
+                $freeData = $this->getFreeMonitorsData($schoolId, $date);
+                $freeMonitorIds = $freeData['ids'];
 
                 $rows = DB::table('monitors as m')
                     ->leftJoin('monitor_sports_degrees as msd', function ($join) use ($schoolId) {
@@ -405,10 +386,7 @@ class DashboardController extends AppBaseController
                             ->where('msd.school_id', '=', $schoolId);
                     })
                     ->leftJoin('sports as s', 's.id', '=', 'msd.sport_id')
-                    ->where('m.active_school', $schoolId)
-                    ->where('m.active', 1)
-                    ->whereNotIn('m.id', $busyMonitorIds)
-                    ->whereNotIn('m.id', $nwdMonitorIds)
+                    ->whereIn('m.id', $freeMonitorIds)
                     ->groupBy('m.id', 'm.first_name', 'm.last_name')
                     ->select('m.id')
                     ->selectRaw("CONCAT(COALESCE(m.first_name,''), ' ', COALESCE(m.last_name,'')) as monitor_name")
@@ -443,7 +421,7 @@ class DashboardController extends AppBaseController
         }
 
         $today = Carbon::parse($request->get('date') ?? Carbon::today()->toDateString());
-        $cacheKey = "dashboard_operations_v3_{$schoolId}_" . $today->toDateString();
+        $cacheKey = "dashboard_operations_v7_{$schoolId}_" . $today->toDateString();
 
         $payload = Cache::remember($cacheKey, 60, function () use ($schoolId, $today) {
             $coursesToday = Course::where('school_id', $schoolId)
@@ -659,108 +637,11 @@ class DashboardController extends AppBaseController
             $coursesToday = $groupCourses + $privateCourses;
             $coursesToday = $groupCourses + $privateCourses;
 
-            $busyMonitorIds = DB::table('booking_users as bu')
-                ->join('bookings as b', 'b.id', '=', 'bu.booking_id')
-                ->where('bu.school_id', $schoolId)
-                ->whereDate('bu.date', $today)
-                ->where('bu.status', 1)
-                ->whereNotNull('bu.monitor_id')
-                ->whereNull('bu.deleted_at')
-                ->whereNull('b.deleted_at')
-                ->where('b.status', '<>', 2)
-                ->pluck('bu.monitor_id')
-                ->unique()
-                ->values();
-
-            $nwdMonitorIds = DB::table('monitor_nwd')
-                ->where('school_id', $schoolId)
-                ->whereNull('deleted_at')
-                ->whereDate('start_date', '<=', $today)
-                ->whereDate('end_date', '>=', $today)
-                ->pluck('monitor_id')
-                ->unique()
-                ->values();
-
-            $freeMonitorIds = DB::table('monitor_sports_degrees as msd')
-                ->join('monitors as m', 'm.id', '=', 'msd.monitor_id')
-                ->where('msd.school_id', $schoolId)
-                ->where('m.active_school', $schoolId)
-                ->where('m.active', 1)
-                ->whereNotIn('m.id', $busyMonitorIds)
-                ->whereNotIn('m.id', $nwdMonitorIds)
-                ->pluck('m.id')
-                ->unique()
-                ->values();
-
-            $freeMonitors = $freeMonitorIds->count();
-
-            $freeMonitorsBySport = collect();
-            if ($freeMonitors > 0) {
-                $freeMonitorsBySport = DB::table('monitor_sports_degrees as msd')
-                    ->join('sports as s', 's.id', '=', 'msd.sport_id')
-                    ->where('msd.school_id', $schoolId)
-                    ->whereIn('msd.monitor_id', $freeMonitorIds)
-                    ->groupBy('s.id', 's.name', 's.icon_selected')
-                    ->select('s.id')
-                    ->selectRaw('s.id as sport_id, s.name as sport_name, s.icon_selected as icon_selected, COUNT(DISTINCT msd.monitor_id) as total')
-                    ->orderByDesc('total')
-                    ->get()
-                    ->map(fn($row) => [
-                        'sport_id' => (int) $row->sport_id,
-                        'sport_name' => $row->sport_name,
-                        'icon' => $row->icon_selected,
-                        'count' => (int) $row->total,
-                    ])
-                    ->values();
-            }
-
-            $freeMonitorSportsCatalog = DB::table('monitor_sports_degrees as msd')
-                ->join('monitors as m', 'm.id', '=', 'msd.monitor_id')
-                ->join('sports as s', 's.id', '=', 'msd.sport_id')
-                ->where('msd.school_id', $schoolId)
-                ->where('m.active', 1)
-                ->where('m.active_school', $schoolId)
-                ->select('s.id', 's.name', 's.icon_selected')
-                ->distinct()
-                ->get()
-                ->map(fn($row) => [
-                    'sport_id' => (int) $row->id,
-                    'sport_name' => $row->name,
-                    'icon' => $row->icon_selected,
-                ]);
-
-            if ($freeMonitorSportsCatalog->isNotEmpty()) {
-                $freeMonitorsById = $freeMonitorsBySport->keyBy('sport_id');
-                $freeMonitorsBySport = $freeMonitorSportsCatalog
-                    ->map(fn($row) => [
-                        'sport_id' => $row['sport_id'],
-                        'sport_name' => $row['sport_name'],
-                        'icon' => $row['icon'],
-                        'count' => (int) ($freeMonitorsById[$row['sport_id']]['count'] ?? 0),
-                    ])
-                    ->values();
-            }
-
-            $dayHours = DB::table('courses')
-                ->where('school_id', $schoolId)
-                ->whereNotNull('hour_min')
-                ->whereNotNull('hour_max')
-                ->selectRaw('MIN(hour_min) as min_hour, MAX(hour_max) as max_hour')
-                ->first();
-
-            $hoursAvailable = 8.0;
-            if ($dayHours && $dayHours->min_hour && $dayHours->max_hour) {
-                try {
-                    $start = Carbon::createFromFormat('H:i', $dayHours->min_hour);
-                    $end = Carbon::createFromFormat('H:i', $dayHours->max_hour);
-                    $diff = $start->diffInMinutes($end) / 60;
-                    $hoursAvailable = $diff > 0 ? $diff : 8.0;
-                } catch (\Exception $e) {
-                    $hoursAvailable = 8.0;
-                }
-            }
-
-            $freeMonitorsHours = round($freeMonitors * $hoursAvailable, 1);
+            $freeData = $this->getFreeMonitorsData($schoolId, $today);
+            $freeMonitorIds = $freeData['ids'];
+            $freeMonitors = $freeData['count'];
+            $freeMonitorsBySport = $freeData['sports'];
+            $freeMonitorsHours = $freeData['hours'];
 
             $occupancy = $this->getDailyOccupancyPercent($schoolId, Carbon::parse($today));
 
@@ -1608,6 +1489,129 @@ class DashboardController extends AppBaseController
             'participants' => $totalParticipants,
             'courses_today' => $totalCourses,
             'window_hours' => $totalWindowHours,
+        ];
+    }
+
+    private function getFreeMonitorsData(int $schoolId, string $date): array
+    {
+        $busyMonitorIds = DB::table('booking_users as bu')
+            ->join('bookings as b', 'b.id', '=', 'bu.booking_id')
+            ->leftJoin('course_dates as cd', 'cd.id', '=', 'bu.course_date_id')
+            ->where('bu.school_id', $schoolId)
+            ->where(function ($query) use ($date) {
+                $query->whereDate('bu.date', $date)
+                    ->orWhereDate('cd.date', $date);
+            })
+            ->where('bu.status', 1)
+            ->whereNotNull('bu.monitor_id')
+            ->whereNull('bu.deleted_at')
+            ->whereNull('b.deleted_at')
+            ->where('b.status', '<>', 2)
+            ->pluck('bu.monitor_id')
+            ->unique()
+            ->values();
+
+        $nwdMonitorIds = DB::table('monitor_nwd')
+            ->where('school_id', $schoolId)
+            ->whereNull('deleted_at')
+            ->whereDate('start_date', '<=', $date)
+            ->whereDate('end_date', '>=', $date)
+            ->pluck('monitor_id')
+            ->unique()
+            ->values();
+
+        $freeMonitorIds = DB::table('monitors_schools as ms')
+            ->join('monitors as m', 'm.id', '=', 'ms.monitor_id')
+            ->join('monitor_sports_degrees as msd', function ($join) use ($schoolId) {
+                $join->on('msd.monitor_id', '=', 'm.id')
+                    ->where('msd.school_id', '=', $schoolId);
+            })
+            ->where('ms.school_id', $schoolId)
+            ->where('ms.active_school', 1)
+            ->whereNotIn('m.id', $busyMonitorIds)
+            ->whereNotIn('m.id', $nwdMonitorIds)
+            ->pluck('m.id')
+            ->unique()
+            ->values();
+
+        $freeMonitors = $freeMonitorIds->count();
+
+        $freeMonitorsBySport = collect();
+        if ($freeMonitors > 0) {
+            $freeMonitorsBySport = DB::table('monitor_sports_degrees as msd')
+                ->join('sports as s', 's.id', '=', 'msd.sport_id')
+                ->where('msd.school_id', $schoolId)
+                ->whereIn('msd.monitor_id', $freeMonitorIds)
+                ->groupBy('s.id', 's.name', 's.icon_selected')
+                ->select('s.id')
+                ->selectRaw('s.id as sport_id, s.name as sport_name, s.icon_selected as icon_selected, COUNT(DISTINCT msd.monitor_id) as total')
+                ->orderByDesc('total')
+                ->get()
+                ->map(fn($row) => [
+                    'sport_id' => (int) $row->sport_id,
+                    'sport_name' => $row->sport_name,
+                    'icon' => $row->icon_selected,
+                    'count' => (int) $row->total,
+                ])
+                ->values();
+        }
+
+        $freeMonitorSportsCatalog = DB::table('monitor_sports_degrees as msd')
+            ->join('monitors as m', 'm.id', '=', 'msd.monitor_id')
+            ->join('monitors_schools as ms', function ($join) use ($schoolId) {
+                $join->on('ms.monitor_id', '=', 'm.id')
+                    ->where('ms.school_id', '=', $schoolId)
+                    ->where('ms.active_school', '=', 1);
+            })
+            ->join('sports as s', 's.id', '=', 'msd.sport_id')
+            ->where('msd.school_id', $schoolId)
+            ->select('s.id', 's.name', 's.icon_selected')
+            ->distinct()
+            ->get()
+            ->map(fn($row) => [
+                'sport_id' => (int) $row->id,
+                'sport_name' => $row->name,
+                'icon' => $row->icon_selected,
+            ]);
+
+        if ($freeMonitorSportsCatalog->isNotEmpty()) {
+            $freeMonitorsById = $freeMonitorsBySport->keyBy('sport_id');
+            $freeMonitorsBySport = $freeMonitorSportsCatalog
+                ->map(fn($row) => [
+                    'sport_id' => $row['sport_id'],
+                    'sport_name' => $row['sport_name'],
+                    'icon' => $row['icon'],
+                    'count' => (int) ($freeMonitorsById[$row['sport_id']]['count'] ?? 0),
+                ])
+                ->values();
+        }
+
+        $dayHours = DB::table('courses')
+            ->where('school_id', $schoolId)
+            ->whereNotNull('hour_min')
+            ->whereNotNull('hour_max')
+            ->selectRaw('MIN(hour_min) as min_hour, MAX(hour_max) as max_hour')
+            ->first();
+
+        $hoursAvailable = 8.0;
+        if ($dayHours && $dayHours->min_hour && $dayHours->max_hour) {
+            try {
+                $start = Carbon::createFromFormat('H:i', $dayHours->min_hour);
+                $end = Carbon::createFromFormat('H:i', $dayHours->max_hour);
+                $diff = $start->diffInMinutes($end) / 60;
+                $hoursAvailable = $diff > 0 ? $diff : 8.0;
+            } catch (\Exception $e) {
+                $hoursAvailable = 8.0;
+            }
+        }
+
+        $freeMonitorsHours = round($freeMonitors * $hoursAvailable, 1);
+
+        return [
+            'ids' => $freeMonitorIds,
+            'count' => $freeMonitors,
+            'sports' => $freeMonitorsBySport,
+            'hours' => $freeMonitorsHours,
         ];
     }
 
