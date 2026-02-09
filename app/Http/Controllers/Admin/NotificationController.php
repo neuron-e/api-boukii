@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Teach;
+namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\AppBaseController;
 use App\Models\AppNotification;
@@ -11,15 +11,15 @@ class NotificationController extends AppBaseController
 {
     public function index(Request $request): JsonResponse
     {
-        $monitorId = $this->resolveMonitorId($request);
-        if (!$monitorId) {
-            return $this->sendError('Monitor not found for user', [], 404);
+        $school = $this->getSchool($request);
+        if (!$school) {
+            return $this->sendError('School not found for user', [], 404);
         }
 
         $perPage = max(1, (int) $request->input('perPage', 20));
         $query = AppNotification::query()
-            ->where('recipient_type', 'monitor')
-            ->where('recipient_id', $monitorId)
+            ->where('recipient_type', 'school')
+            ->where('recipient_id', $school->id)
             ->where(function ($q) {
                 $q->whereNull('scheduled_at')
                     ->orWhere('scheduled_at', '<=', now());
@@ -44,14 +44,14 @@ class NotificationController extends AppBaseController
 
     public function unreadCount(Request $request): JsonResponse
     {
-        $monitorId = $this->resolveMonitorId($request);
-        if (!$monitorId) {
-            return $this->sendError('Monitor not found for user', [], 404);
+        $school = $this->getSchool($request);
+        if (!$school) {
+            return $this->sendError('School not found for user', [], 404);
         }
 
         $count = AppNotification::query()
-            ->where('recipient_type', 'monitor')
-            ->where('recipient_id', $monitorId)
+            ->where('recipient_type', 'school')
+            ->where('recipient_id', $school->id)
             ->where(function ($q) {
                 $q->whereNull('scheduled_at')
                     ->orWhere('scheduled_at', '<=', now());
@@ -64,14 +64,14 @@ class NotificationController extends AppBaseController
 
     public function markRead(Request $request, int $id): JsonResponse
     {
-        $monitorId = $this->resolveMonitorId($request);
-        if (!$monitorId) {
-            return $this->sendError('Monitor not found for user', [], 404);
+        $school = $this->getSchool($request);
+        if (!$school) {
+            return $this->sendError('School not found for user', [], 404);
         }
 
         $notification = AppNotification::query()
-            ->where('recipient_type', 'monitor')
-            ->where('recipient_id', $monitorId)
+            ->where('recipient_type', 'school')
+            ->where('recipient_id', $school->id)
             ->where('id', $id)
             ->first();
 
@@ -89,14 +89,14 @@ class NotificationController extends AppBaseController
 
     public function markAllRead(Request $request): JsonResponse
     {
-        $monitorId = $this->resolveMonitorId($request);
-        if (!$monitorId) {
-            return $this->sendError('Monitor not found for user', [], 404);
+        $school = $this->getSchool($request);
+        if (!$school) {
+            return $this->sendError('School not found for user', [], 404);
         }
 
         $updated = AppNotification::query()
-            ->where('recipient_type', 'monitor')
-            ->where('recipient_id', $monitorId)
+            ->where('recipient_type', 'school')
+            ->where('recipient_id', $school->id)
             ->where(function ($q) {
                 $q->whereNull('scheduled_at')
                     ->orWhere('scheduled_at', '<=', now());
@@ -105,22 +105,5 @@ class NotificationController extends AppBaseController
             ->update(['read_at' => now()]);
 
         return $this->sendResponse(['updated' => $updated], 'Notifications marked as read');
-    }
-
-    private function resolveMonitorId(Request $request): ?int
-    {
-        $user = $request->user();
-        if (!$user) {
-            return null;
-        }
-
-        $monitorId = $request->input('monitor_id');
-        $query = \App\Models\Monitor::where('user_id', $user->id);
-
-        if ($monitorId) {
-            return $query->where('id', $monitorId)->value('id');
-        }
-
-        return $query->value('id');
     }
 }

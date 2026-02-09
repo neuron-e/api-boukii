@@ -16,6 +16,10 @@ class MonitorNotificationController extends AppBaseController
         $query = AppNotification::query()
             ->where('recipient_type', 'monitor')
             ->where('recipient_id', $monitorId)
+            ->where(function ($q) {
+                $q->whereNull('scheduled_at')
+                    ->orWhere('scheduled_at', '<=', now());
+            })
             ->orderByDesc('id');
 
         if ($request->boolean('unread')) {

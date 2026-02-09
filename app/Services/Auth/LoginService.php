@@ -96,18 +96,19 @@ class LoginService
                 case 'superadmin':
                 case '4':
                     Log::channel('auth')->info('LOGIN_TOKEN_CREATING_SUPERADMIN', ['user_id' => $user->id]);
+                    $user->load('roles', 'permissions');
                     $token = $user->createToken('Boukii', ['permissions:all'])->plainTextToken;
                     break;
                 case 'admin':
                 case '1':
                     Log::channel('auth')->info('LOGIN_TOKEN_CREATING_ADMIN', ['user_id' => $user->id]);
-                    $user->load('schools');
+                    $user->load('schools', 'roles', 'permissions');
                     $token = $user->createToken('Boukii', ['admin:all'])->plainTextToken;
                     break;
                 case 'monitor':
                 case '3':
                     Log::channel('auth')->info('LOGIN_TOKEN_CREATING_MONITOR', ['user_id' => $user->id]);
-                    $user->load('monitors');
+                    $user->load('monitors', 'roles', 'permissions');
                     $token = $user->createToken('Boukii', ['teach:all'])->plainTextToken;
                     break;
                 case 'client':
@@ -121,6 +122,7 @@ class LoginService
                             if (\Illuminate\Support\Facades\Schema::hasTable('clients_utilizers')) {
                                 $user->load('clients.utilizers.sports', 'clients.sports');
                             }
+                            $user->load('roles', 'permissions');
                             Log::channel('auth')->info('LOGIN_TOKEN_CREATING_CLIENT', ['user_id' => $user->id, 'school_id' => $school->id]);
                             $token = $user->createToken('Boukii', ['client:all'])->plainTextToken;
                             break 2;
@@ -140,9 +142,16 @@ class LoginService
                 'token_prefix' => substr($token, 0, 10) . '...',
             ]);
 
+            $permissions = $user->getAllPermissions()->pluck('name')->values();
+            $roles = $user->roles->pluck('name')->values();
+            $user->permissions = $permissions;
+            $user->role_names = $roles;
+
             return [
                 'token' => $token,
                 'user' => $user,
+                'permissions' => $permissions,
+                'roles' => $roles,
             ];
         }
 
@@ -154,4 +163,3 @@ class LoginService
         return null;
     }
 }
-

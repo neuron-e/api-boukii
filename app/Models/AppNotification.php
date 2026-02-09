@@ -21,12 +21,16 @@ class AppNotification extends Model
         'body',
         'payload',
         'event_date',
+        'scheduled_at',
+        'sent_at',
         'read_at',
     ];
 
     protected $casts = [
         'payload' => 'array',
         'event_date' => 'date',
+        'scheduled_at' => 'datetime',
+        'sent_at' => 'datetime',
         'read_at' => 'datetime',
     ];
 }

@@ -451,6 +451,11 @@ class School extends Model
         return $this->belongsToMany(Sport::class, 'school_sports', 'school_id');
     }
 
+    public function stations()
+    {
+        return $this->belongsToMany(Station::class, 'stations_schools', 'school_id', 'station_id');
+    }
+
     public function monitorNwds(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\App\Models\MonitorNwd::class, 'school_id');

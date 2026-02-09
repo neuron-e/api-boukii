@@ -63,6 +63,11 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->runInBackground();
 
+        $schedule->command('notifications:dispatch-scheduled')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->runInBackground();
+
 
         // Mantener integridad de datos de cursos (migrar booking_users huérfanos)
         // Se ejecuta diariamente a las 3 AM

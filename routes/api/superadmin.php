@@ -3,6 +3,8 @@
 use App\Http\Controllers\Superadmin\AdminController;
 use App\Http\Controllers\Superadmin\AuthController;
 use App\Http\Controllers\Superadmin\ImpersonationController;
+use App\Http\Controllers\Superadmin\MonitorController;
+use App\Http\Controllers\Superadmin\NotificationController;
 use App\Http\Controllers\Superadmin\RoleController;
 use App\Http\Controllers\Superadmin\SchoolController;
 use App\Http\Controllers\Superadmin\StatsController;
@@ -27,6 +29,15 @@ Route::middleware(['userRequired:superadmin'])->group(function () {
 
     Route::get('/admins', [AdminController::class, 'index']);
     Route::post('/admins', [AdminController::class, 'store']);
+    Route::put('/admins/{id}', [AdminController::class, 'update']);
+    Route::post('/admins/{id}/reset-password', [AdminController::class, 'resetPassword']);
+    Route::delete('/admins/{id}', [AdminController::class, 'destroy']);
+
+    Route::get('/monitors', [MonitorController::class, 'index']);
+
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/stats', [NotificationController::class, 'stats']);
+    Route::post('/notifications', [NotificationController::class, 'store']);
 
     Route::post('/impersonate', [ImpersonationController::class, 'impersonate']);
 });

@@ -54,6 +54,37 @@ class MonitorNotificationService
         // Email fallback disabled for now (too noisy).
     }
 
+    public function sendCustom(
+        int $monitorId,
+        array $notification,
+        array $payload = [],
+        ?int $actorId = null,
+        ?int $notificationId = null
+    ): void {
+        if (!$monitorId) {
+            return;
+        }
+
+        $monitor = Monitor::find($monitorId);
+        if (!$monitor) {
+            return;
+        }
+
+        $normalizedPayload = $this->buildPayload($payload, $monitorId, $monitor->active_school, $actorId);
+        $eventPayload = [
+            'type' => 'custom_message',
+            'monitor_id' => $monitorId,
+            'payload' => $normalizedPayload,
+            'notification' => $notification,
+        ];
+
+        if ($notificationId) {
+            $eventPayload['notification_id'] = $notificationId;
+        }
+
+        $this->sendPushNotification('custom_message', $monitorId, $eventPayload);
+    }
+
     private function normalizeSettings(array|string $settings): array
     {
         if (is_string($settings)) {

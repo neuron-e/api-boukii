@@ -1932,8 +1932,9 @@ class BookingController extends AppBaseController
         $school = $this->getSchool($request);
 
         // MEJORA CRTICA: Validacin de entrada
+        // Nota: Invoice (7) se detecta automáticamente via webhook de Payrexx, no se puede seleccionar manualmente
         $request->validate([
-            'payment_method_id' => 'sometimes|integer|in:1,2,3,4,7',
+            'payment_method_id' => 'sometimes|integer|in:1,2,3,4',
         ]);
 
         // MEJORA CRTICA: Validar que la reserva existe y pertenece a la escuela
@@ -2079,7 +2080,9 @@ class BookingController extends AppBaseController
             }
         }
 
-        if ($paymentMethod == 3 || $paymentMethod == Booking::ID_INVOICE) {
+        // Nota: Invoice (7) se detecta automáticamente via webhook cuando el cliente elige factura en Payrexx
+        // No se puede enviar manualmente un link de factura - solo link de pago online (3)
+        if ($paymentMethod == 3) {
 
             PayrexxHelpers::expirePayrexxLinksForBooking($school, $booking);
 
@@ -2089,9 +2092,7 @@ class BookingController extends AppBaseController
                 $basketData,
                 $booking->clientMain,
                 'panel',
-                $paymentMethod == Booking::ID_INVOICE
-                    ? ['force_gateway' => true, 'allow_invoice' => true]
-                    : []
+                [] // Sin opciones especiales - el cliente puede elegir factura en Payrexx si está habilitado
             );
 
             if (strlen($payrexxLink) > 1) {
@@ -2101,7 +2102,7 @@ class BookingController extends AppBaseController
                     $bookingData = $booking->fresh();   // To retrieve its generated PayrexxReference
                     $logData = [
                         'booking_id' => $booking->id,
-                        'action' => $paymentMethod == Booking::ID_INVOICE ? 'send_invoice_link' : 'send_pay_link',
+                        'action' => 'send_pay_link',
                         'user_id' => $booking->user_id,
                         'description' => 'Booking pay link sent',
                     ];

@@ -9,6 +9,8 @@ use App\Models\User;
 use App\Models\Booking;
 use App\Models\ClientsSchool;
 use App\Models\Monitor;
+use App\Models\Sport;
+use App\Models\Station;
 use App\Repositories\SchoolRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -88,7 +90,7 @@ class SchoolController extends AppBaseController
 
     public function details($id): JsonResponse
     {
-        $school = $this->schoolRepository->find($id, ['schoolUsers.user']);
+        $school = $this->schoolRepository->find($id, ['schoolUsers.user.roles']);
 
         if (empty($school)) {
             return $this->sendError('School not found', 404);
@@ -121,6 +123,27 @@ class SchoolController extends AppBaseController
         $schoolArray['payrexx_instance'] = $school->getPayrexxInstance();
         $schoolArray['payrexx_key'] = $school->getPayrexxKey();
 
+        $schoolSports = $school->sports()->get();
+        $schoolStations = $school->stations()->get();
+        $allSports = Sport::orderBy('name')->get([
+            'id',
+            'name',
+            'icon_collective',
+            'icon_prive',
+            'icon_activity',
+            'icon_selected',
+            'icon_unselected',
+            'sport_type'
+        ]);
+        $allStations = Station::orderBy('name')->get([
+            'id',
+            'name',
+            'city',
+            'country',
+            'province',
+            'active'
+        ]);
+
         return $this->sendResponse([
             'school' => $schoolArray,
             'stats' => [
@@ -134,6 +157,14 @@ class SchoolController extends AppBaseController
                 'since' => $planSince,
             ],
             'admins' => $school->schoolUsers ?? [],
+            'school_sports' => $schoolSports,
+            'school_stations' => $schoolStations,
+            'school_sport_ids' => $schoolSports->pluck('id')->values(),
+            'school_station_ids' => $schoolStations->pluck('id')->values(),
+            'lookups' => [
+                'sports' => $allSports,
+                'stations' => $allStations,
+            ],
         ], 'School details retrieved successfully');
     }
 
@@ -152,6 +183,17 @@ class SchoolController extends AppBaseController
 
         if (!empty($data['name']) && empty($data['slug'])) {
             $data['slug'] = Str::slug($data['name']);
+        }
+
+        if (array_key_exists('sport_ids', $data)) {
+            $sportIds = is_array($data['sport_ids']) ? $data['sport_ids'] : [];
+            $school->sports()->sync($sportIds);
+            unset($data['sport_ids']);
+        }
+        if (array_key_exists('station_ids', $data)) {
+            $stationIds = is_array($data['station_ids']) ? $data['station_ids'] : [];
+            $school->stations()->sync($stationIds);
+            unset($data['station_ids']);
         }
 
         if (array_key_exists('payrexx_instance', $data) && $data['payrexx_instance'] !== null && $data['payrexx_instance'] !== '') {

@@ -151,12 +151,13 @@ class PayrexxController
                                 $booking->paid_total = $booking->paid_total +
                                     ($data2->getInvoice()['totalAmount'] ?? $data['amount']) / 100;
 
+                                $isInvoicePayment = (int) $booking->payment_method_id === Booking::ID_INVOICE;
                                 $payment = new Payment();
                                 $payment->booking_id = $booking->id;
                                 $payment->school_id = $booking->school_id;
                                 $payment->amount = ($data2->getInvoice()['totalAmount'] ?? $data['amount']) / 100;
-                                $payment->status = 'paid';
-                                $payment->notes = (int) $booking->payment_method_id === Booking::ID_INVOICE ? 'Invoice' : 'Boukii Pay';
+                                $payment->status = $isInvoicePayment ? 'invoice_paid' : 'paid';
+                                $payment->notes = $isInvoicePayment ? 'Invoice paid via Payrexx' : 'Boukii Pay';
                                 $payment->payrexx_reference = $referenceID;
                                 $payment->payrexx_transaction = $booking->payrexx_transaction;
                                 $payment->save();
@@ -375,7 +376,23 @@ class PayrexxController
             return;
         }
 
-        $mappedStatus = $this->mapPayrexxStatusToPaymentStatus($status);
+        // Detect invoice transaction from payload for pending/waiting statuses
+        $isInvoice = $this->isInvoiceTransactionFromPayload($payload);
+
+        // If it's an invoice transaction, update the booking's payment method
+        if ($isInvoice && (int) $booking->payment_method_id !== Booking::ID_INVOICE) {
+            $booking->payment_method_id = Booking::ID_INVOICE;
+            $booking->save();
+
+            Log::channel('webhooks')->info('Invoice payment detected, updated payment_method_id', [
+                'booking_id' => $booking->id,
+                'reference' => $referenceID,
+                'status' => $status,
+            ]);
+        }
+
+        // For invoice transactions, use 'invoice_sent' status instead of generic pending
+        $mappedStatus = $isInvoice ? 'invoice_sent' : $this->mapPayrexxStatusToPaymentStatus($status);
         $amount = isset($payload['amount']) ? ((float) $payload['amount']) / 100 : null;
 
         $existing = Payment::where('booking_id', $booking->id)
@@ -396,7 +413,7 @@ class PayrexxController
         $payment->school_id = $booking->school_id;
         $payment->amount = $amount ?? 0;
         $payment->status = $mappedStatus;
-        $payment->notes = 'Payrexx ' . ($status ?: 'unknown');
+        $payment->notes = $isInvoice ? 'Invoice sent via Payrexx' : ('Payrexx ' . ($status ?: 'unknown'));
         $payment->payrexx_reference = $referenceID;
         $payment->payrexx_transaction = $booking->payrexx_transaction;
         $payment->save();
@@ -455,6 +472,36 @@ class PayrexxController
             if ($value === '') {
                 continue;
             }
+            if (str_contains($value, 'invoice') || str_contains($value, 'rechnung') || str_contains($value, 'facture')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Detect invoice transaction from payload only (for pending/waiting status webhooks)
+     */
+    private function isInvoiceTransactionFromPayload(array $payload): bool
+    {
+        $payment = $payload['payment'] ?? [];
+        $candidates = [
+            $payment['method'] ?? null,
+            $payment['brand'] ?? null,
+            $payment['type'] ?? null,
+            $payment['name'] ?? null,
+        ];
+
+        foreach ($candidates as $candidate) {
+            if ($candidate === null) {
+                continue;
+            }
+            $value = strtolower((string) $candidate);
+            if ($value === '') {
+                continue;
+            }
+            // Invoice, Rechnung (German), Facture (French)
             if (str_contains($value, 'invoice') || str_contains($value, 'rechnung') || str_contains($value, 'facture')) {
                 return true;
             }
