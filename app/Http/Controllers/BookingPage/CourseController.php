@@ -315,12 +315,14 @@ class CourseController extends SlugAuthController
         $today = now(); // Obtener la fecha actual
         // Comprueba si el cliente principal tiene booking_users asociados con el ID del monitor
         $course = Course::with([
-            'bookingUsers.client.sports',
             'courseExtras',
-            'courseDates.courseGroups' => function ($query) {
-                $query->with(['courseSubgroups' => function ($subQuery) {
-                    $subQuery->withCount('bookingUsers')->with('degree');
-                }]);
+            'courseDates' => function ($query) use ($today) {
+                $query->whereDate('date', '>=', $today->format('Y-m-d'))
+                    ->with(['courseGroups' => function ($groupQuery) {
+                        $groupQuery->with(['courseSubgroups' => function ($subQuery) {
+                            $subQuery->withCount('bookingUsers')->with('degree');
+                        }]);
+                    }]);
             },
             'courseIntervals' => function ($query) {
                 $query->ordered();
@@ -459,10 +461,15 @@ class CourseController extends SlugAuthController
                 return $item['degree_id'] . '-' . $item['recommended_age'];
             });
 
-            $availableDegrees = $uniqueDegrees->map(function ($item) {
-                $degree = Degree::find($item['degree_id']);
+            $degreeIds = $uniqueDegrees->pluck('degree_id')->unique()->filter()->values();
+            $degreesById = Degree::with('degreesSchoolSportGoals')
+                ->whereIn('id', $degreeIds)
+                ->get()
+                ->keyBy('id');
+
+            $availableDegrees = $uniqueDegrees->map(function ($item) use ($degreesById) {
+                $degree = $degreesById->get($item['degree_id']);
                 if ($degree) {
-                    $degree->load('degreesSchoolSportGoals');
                     $degree->recommended_age = $item['recommended_age'];
                     $degree->age_max = $item['age_max'];
                     $degree->age_min = $item['age_min'];
@@ -829,86 +836,283 @@ class CourseController extends SlugAuthController
             ? $courseDate->date->format('Y-m-d')
             : (string) $courseDate->date;
 
-        if ($this->isHoliday($courseDate->school_id, $dateString)) {
-            return false;
-        }
+        $cacheKey = sprintf('private_availability_%s_%s_%s', $this->school->id, $course->id, $courseDate->id);
 
-        $startSource = $courseDate->hour_start ?: ($course->hour_min ?? null);
-        $endSource = $courseDate->hour_end ?: ($course->hour_max ?? null);
-        if (!$startSource || !$endSource) {
-            return false;
-        }
-
-        $minDurationSeconds = 0;
-        if ($course->is_flexible) {
-            $durations = [];
-            $priceRange = $course->price_range;
-            if (is_string($priceRange)) {
-                $decoded = json_decode($priceRange, true);
-                $priceRange = is_array($decoded) ? $decoded : [];
+        return Cache::remember($cacheKey, 60, function () use ($course, $courseDate, $dateString) {
+            if ($this->isHoliday($courseDate->school_id, $dateString)) {
+                return false;
             }
-            foreach ($priceRange ?? [] as $price) {
-                $interval = $price['intervalo'] ?? null;
-                if ($interval) {
-                    $seconds = $this->convertDurationRangeToSeconds($interval);
-                    if ($seconds > 0) {
-                        $durations[] = $seconds;
+
+            $startSource = $courseDate->hour_start ?: ($course->hour_min ?? null);
+            $endSource = $courseDate->hour_end ?: ($course->hour_max ?? null);
+            if (!$startSource || !$endSource) {
+                return false;
+            }
+
+            $minDurationSeconds = 0;
+            if ($course->is_flexible) {
+                $durations = [];
+                $priceRange = $course->price_range;
+                if (is_string($priceRange)) {
+                    $decoded = json_decode($priceRange, true);
+                    $priceRange = is_array($decoded) ? $decoded : [];
+                }
+                foreach ($priceRange ?? [] as $price) {
+                    $interval = $price['intervalo'] ?? null;
+                    if ($interval) {
+                        $seconds = $this->convertDurationRangeToSeconds($interval);
+                        if ($seconds > 0) {
+                            $durations[] = $seconds;
+                        }
+                    }
+                }
+                if (!empty($durations)) {
+                    $minDurationSeconds = min($durations);
+                }
+            } else {
+                $minDurationSeconds = $this->convertDurationToSeconds($course->duration);
+            }
+
+            if ($minDurationSeconds <= 0) {
+                return false;
+            }
+
+            $startMinutes = $this->timeToMinutes($startSource);
+            $endMinutes = $this->timeToMinutes($endSource);
+            $durationMinutes = (int) ceil($minDurationSeconds / 60);
+            if ($endMinutes <= $startMinutes || $durationMinutes <= 0) {
+                return false;
+            }
+
+            $stepMinutes = $course->is_flexible ? 5 : 15;
+            $minStartMinutes = 0;
+            if ($dateString === now()->format('Y-m-d')) {
+                $minStart = Carbon::now()->addMinutes($this->getPrivateLeadMinutes());
+                $minStartMinutes = $minStart->hour * 60 + $minStart->minute;
+            }
+
+            $eligibleMonitorIds = $this->getEligibleMonitorIdsForPrivateCourse($course);
+            $overbookingLimit = $this->getPrivateOverbookingLimit();
+
+            if (empty($eligibleMonitorIds) && $overbookingLimit <= 0) {
+                return false;
+            }
+
+            $busyData = $this->getBusyIntervalsForDate($dateString, $this->school->id);
+            $busyByMonitor = $busyData['by_monitor'] ?? [];
+            $bookingIntervals = $busyData['booking_intervals'] ?? [];
+
+            foreach ($eligibleMonitorIds as $monitorId) {
+                $busyIntervals = $busyByMonitor[$monitorId] ?? [];
+                $freeIntervals = $this->invertIntervals($busyIntervals, $startMinutes, $endMinutes);
+
+                foreach ($freeIntervals as $free) {
+                    $freeStart = max($free[0], $minStartMinutes);
+                    $alignedStart = $this->alignToStep($freeStart, $stepMinutes);
+                    if ($alignedStart + $durationMinutes <= $free[1]) {
+                        return true;
                     }
                 }
             }
-            if (!empty($durations)) {
-                $minDurationSeconds = min($durations);
+
+            if ($overbookingLimit <= 0) {
+                return false;
             }
-        } else {
-            $minDurationSeconds = $this->convertDurationToSeconds($course->duration);
-        }
 
-        if ($minDurationSeconds <= 0) {
+            $startCandidate = max($startMinutes, $minStartMinutes);
+            $startCandidate = $this->alignToStep($startCandidate, $stepMinutes);
+            for ($minute = $startCandidate; $minute <= $endMinutes - $durationMinutes; $minute += $stepMinutes) {
+                $overlaps = $this->countOverlappingIntervals($bookingIntervals, $minute, $minute + $durationMinutes);
+                if ($overlaps < $overbookingLimit) {
+                    return true;
+                }
+            }
+
             return false;
+        });
+    }
+
+    private function getEligibleMonitorIdsForPrivateCourse(Course $course): array
+    {
+        $schoolId = $this->school->id;
+        $sportId = $course->sport_id ?? null;
+        if (!$sportId) {
+            return [];
         }
 
-        $startParsed = Carbon::parse('1970-01-01 ' . $startSource);
-        $endParsed = Carbon::parse('1970-01-01 ' . $endSource);
-        $hourStartMinutes = $startParsed->hour * 60 + $startParsed->minute;
-        $hourEndMinutes = $endParsed->hour * 60 + $endParsed->minute;
-        $durationMinutes = (int) ceil($minDurationSeconds / 60);
-        if ($hourEndMinutes <= $hourStartMinutes || $durationMinutes <= 0) {
-            return false;
-        }
+        $cacheKey = sprintf('eligible_monitors_%s_%s', $schoolId, $sportId);
 
-        $stepMinutes = $course->is_flexible ? 5 : 15;
-        $minStart = Carbon::now()->addMinutes($this->getPrivateLeadMinutes());
-        $overbookingLimit = $this->getPrivateOverbookingLimit();
+        return Cache::remember($cacheKey, 300, function () use ($schoolId, $sportId) {
+            return MonitorSportsDegree::whereHas('monitorSportAuthorizedDegrees', function ($query) use ($schoolId) {
+                $query->where('school_id', $schoolId);
+            })
+                ->where('sport_id', $sportId)
+                ->whereHas('monitor.monitorsSchools', function ($query) use ($schoolId) {
+                    $query->where('school_id', $schoolId)
+                        ->where('active_school', 1);
+                })
+                ->distinct()
+                ->pluck('monitor_id')
+                ->filter()
+                ->values()
+                ->toArray();
+        });
+    }
 
-        for ($minute = $hourStartMinutes; $minute <= $hourEndMinutes - $durationMinutes; $minute += $stepMinutes) {
-            $startTime = sprintf('%02d:%02d', intdiv($minute, 60), $minute % 60);
-            $endTimestamp = $minute + $durationMinutes;
-            $endTime = sprintf('%02d:%02d', intdiv($endTimestamp, 60), $endTimestamp % 60);
+    private function getBusyIntervalsForDate(string $date, int $schoolId): array
+    {
+        $byMonitor = [];
+        $bookingIntervals = [];
 
-            $startDateTime = Carbon::parse($dateString . ' ' . $startTime);
-            if ($startDateTime->lt($minStart)) {
+        $bookingUsers = BookingUser::query()
+            ->select(['monitor_id', 'hour_start', 'hour_end'])
+            ->where('school_id', $schoolId)
+            ->whereDate('date', $date)
+            ->where('status', 1)
+            ->whereNotNull('monitor_id')
+            ->whereHas('booking', function ($query) {
+                $query->where('status', '!=', 2);
+            })
+            ->get();
+
+        foreach ($bookingUsers as $booking) {
+            $start = $this->timeToMinutes($booking->hour_start);
+            $end = $this->timeToMinutes($booking->hour_end);
+            if ($start === null || $end === null) {
                 continue;
             }
+            $bookingIntervals[] = [$start, $end];
+            $byMonitor[$booking->monitor_id][] = [$start, $end];
+        }
 
-            $monitorRequest = new Request([
-                'date' => $dateString,
-                'startTime' => $startTime,
-                'endTime' => $endTime,
-                'clientIds' => [],
-                'sportId' => $course->sport_id ?? null,
-                'minimumDegreeId' => null,
-            ]);
+        $nwds = MonitorNwd::query()
+            ->select(['monitor_id', 'start_time', 'end_time', 'full_day'])
+            ->where('school_id', $schoolId)
+            ->whereDate('start_date', '<=', $date)
+            ->whereDate('end_date', '>=', $date)
+            ->get();
 
-            $availableMonitors = $this->getMonitorsAvailable($monitorRequest);
-            $availableCount = is_array($availableMonitors) ? count($availableMonitors) : 0;
-            $concurrentBookings = $this->getConcurrentPrivateBookings($dateString, $startTime, $endTime);
+        foreach ($nwds as $nwd) {
+            $start = $nwd->full_day ? 0 : $this->timeToMinutes($nwd->start_time);
+            $end = $nwd->full_day ? 1440 : $this->timeToMinutes($nwd->end_time);
+            if ($start === null || $end === null) {
+                continue;
+            }
+            $byMonitor[$nwd->monitor_id][] = [$start, $end];
+        }
 
-            if ($availableCount + $overbookingLimit > $concurrentBookings) {
-                return true;
+        $subgroups = CourseSubgroup::query()
+            ->select(['monitor_id', 'course_date_id'])
+            ->whereNotNull('monitor_id')
+            ->whereHas('courseDate', function ($query) use ($date, $schoolId) {
+                $query->whereDate('date', $date)
+                    ->whereHas('course', function ($inner) use ($schoolId) {
+                        $inner->where('school_id', $schoolId);
+                    });
+            })
+            ->with(['courseDate:id,hour_start,hour_end'])
+            ->get();
+
+        foreach ($subgroups as $subgroup) {
+            if (!$subgroup->courseDate) {
+                continue;
+            }
+            $start = $this->timeToMinutes($subgroup->courseDate->hour_start);
+            $end = $this->timeToMinutes($subgroup->courseDate->hour_end);
+            if ($start === null || $end === null) {
+                continue;
+            }
+            $byMonitor[$subgroup->monitor_id][] = [$start, $end];
+        }
+
+        return [
+            'by_monitor' => $byMonitor,
+            'booking_intervals' => $bookingIntervals,
+        ];
+    }
+
+    private function timeToMinutes(?string $time): ?int
+    {
+        if (!$time) {
+            return null;
+        }
+        [$hour, $minute] = array_pad(explode(':', $time), 2, 0);
+        return ((int) $hour) * 60 + (int) $minute;
+    }
+
+    private function alignToStep(int $minute, int $step): int
+    {
+        if ($step <= 1) {
+            return $minute;
+        }
+        $remainder = $minute % $step;
+        if ($remainder === 0) {
+            return $minute;
+        }
+        return $minute + ($step - $remainder);
+    }
+
+    private function invertIntervals(array $intervals, int $rangeStart, int $rangeEnd): array
+    {
+        if (empty($intervals)) {
+            return [[$rangeStart, $rangeEnd]];
+        }
+
+        $merged = $this->mergeIntervals($intervals);
+        $free = [];
+        $cursor = $rangeStart;
+
+        foreach ($merged as $interval) {
+            $start = max($rangeStart, $interval[0]);
+            $end = min($rangeEnd, $interval[1]);
+            if ($start > $cursor) {
+                $free[] = [$cursor, $start];
+            }
+            $cursor = max($cursor, $end);
+            if ($cursor >= $rangeEnd) {
+                break;
             }
         }
 
-        return false;
+        if ($cursor < $rangeEnd) {
+            $free[] = [$cursor, $rangeEnd];
+        }
+
+        return $free;
+    }
+
+    private function mergeIntervals(array $intervals): array
+    {
+        usort($intervals, function ($a, $b) {
+            return $a[0] <=> $b[0];
+        });
+
+        $merged = [];
+        foreach ($intervals as $interval) {
+            if (empty($merged)) {
+                $merged[] = $interval;
+                continue;
+            }
+            $lastIndex = count($merged) - 1;
+            if ($interval[0] <= $merged[$lastIndex][1]) {
+                $merged[$lastIndex][1] = max($merged[$lastIndex][1], $interval[1]);
+            } else {
+                $merged[] = $interval;
+            }
+        }
+
+        return $merged;
+    }
+
+    private function countOverlappingIntervals(array $intervals, int $start, int $end): int
+    {
+        $count = 0;
+        foreach ($intervals as $interval) {
+            if ($interval[0] < $end && $interval[1] > $start) {
+                $count++;
+            }
+        }
+        return $count;
     }
 
     private function isPrivateLeadTimeViolated($date, ?string $startTime): bool
