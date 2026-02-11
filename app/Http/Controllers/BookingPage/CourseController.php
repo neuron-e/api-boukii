@@ -330,24 +330,6 @@ class CourseController extends SlugAuthController
         ])->where('school_id', $this->school->id)
             ->where('online', 1)
             ->where('active', 1)
-            ->where(function($query) use ($today) {
-                $query->where(function($subquery) use ($today) {
-                    $subquery->whereNull('date_start_res')
-                        ->whereNull('date_end_res');
-                })
-                    ->orWhere(function($subquery) use ($today) {
-                        $subquery->whereDate('date_start_res', '<=', $today)
-                            ->whereDate('date_end_res', '>=', $today);
-                    })
-                    ->orWhere(function($subquery) use ($today) {
-                        $subquery->whereDate('date_start_res', '=', $today)
-                            ->whereNotNull('date_end_res');
-                    })
-                    ->orWhere(function($subquery) use ($today) {
-                        $subquery->whereNotNull('date_start_res')
-                            ->whereDate('date_end_res', '=', $today);
-                    });
-            })
         ->find($id);
 
         if (empty($course)) {
