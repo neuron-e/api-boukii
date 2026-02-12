@@ -27,6 +27,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Response;
 use Validator;
@@ -695,9 +696,11 @@ class CourseController extends AppBaseController
                         'date_end' => $date['date_end'],
                         'hour_start' => $date['hour_start'],
                         'hour_end' => $date['hour_end'],
+                        'weekDays' => $date['weekDays'] ?? $date['week_days'] ?? null,
                     ];
                 }
                 $settings['periods'] = $periods;
+                $courseData['settings'] = $settings;
 
                 $courseDates = $this->generateCourseDates($courseData['course_dates'], $weekDays);
                 $course->courseDates()->createMany($courseDates);
@@ -898,6 +901,10 @@ class CourseController extends AppBaseController
                     'hour_max'    => $allHourEnds[0],    // Mayor hora de fin
                     'settings'    => $settings
                 ]);
+
+                Cache::increment('courses_cache_version_' . $course->school_id);
+
+                Cache::increment('courses_cache_version_' . $course->school_id);
             }
 
             DB::commit();
@@ -969,13 +976,19 @@ class CourseController extends AppBaseController
             $endDate = new Carbon($dateInfo['date_end']);
             $hourStart = $dateInfo['hour_start'];
             $hourEnd = $dateInfo['hour_end'];
-            $applyWeekdayFilter = is_array($weekDays) && count(array_filter($weekDays)) > 0;
+            $entryWeekDays = $dateInfo['weekDays'] ?? $dateInfo['week_days'] ?? null;
+            if (is_string($entryWeekDays)) {
+                $decodedEntry = json_decode($entryWeekDays, true);
+                $entryWeekDays = is_array($decodedEntry) ? $decodedEntry : null;
+            }
+            $effectiveWeekDays = is_array($entryWeekDays) ? $entryWeekDays : $weekDays;
+            $applyWeekdayFilter = is_array($effectiveWeekDays) && count(array_filter($effectiveWeekDays)) > 0;
 
             while ($startDate->lte($endDate)) {
                 $dayOfWeek = $startDate->dayOfWeekIso; // 1 (Lunes) - 7 (Domingo)
 
                 if ($applyWeekdayFilter) {
-                    foreach ($weekDays as $day => $isActive) {
+                    foreach ($effectiveWeekDays as $day => $isActive) {
                         if ($isActive && ($weekDaysMap[$day] ?? null) == $dayOfWeek) {
                             $generatedDates[] = [
                                 'date' => $startDate->toDateString(),
@@ -1260,6 +1273,7 @@ class CourseController extends AppBaseController
                         'date_end' => $date['date_end'],
                         'hour_start' => $date['hour_start'],
                         'hour_end' => $date['hour_end'],
+                        'weekDays' => $date['weekDays'] ?? $date['week_days'] ?? null,
                     ];
                 }
                 $settings['periods'] = $periods;
@@ -1270,15 +1284,26 @@ class CourseController extends AppBaseController
                 // Fechas candidatas a eliminar (existen en la BD pero no en las nuevas)
                 $datesToDelete = array_diff($existingDates, $newDatesList);
 
-                // Filtrar fechas que NO tengan bookingUsersActive antes de eliminarlas
-                $datesToDelete = $course->courseDates()
+                // Fechas con reservas activas: no eliminar, pero desactivar para bloquear nuevas reservas
+                $datesWithBookings = $course->courseDates()
                     ->whereIn('date', $datesToDelete)
-                    ->whereDoesntHave('bookingUsersActive') // Solo elimina si no hay reservas activas
+                    ->whereHas('bookingUsersActive')
                     ->pluck('date')
                     ->toArray();
 
+                if (!empty($datesWithBookings)) {
+                    $course->courseDates()->whereIn('date', $datesWithBookings)->update(['active' => 0]);
+                }
+
+                // Fechas sin reservas activas: eliminar
+                $datesToDelete = array_values(array_diff($datesToDelete, $datesWithBookings));
                 if (!empty($datesToDelete)) {
                     $course->courseDates()->whereIn('date', $datesToDelete)->delete();
+                }
+
+                // Asegurar activas las fechas vigentes
+                if (!empty($newDatesList)) {
+                    $course->courseDates()->whereIn('date', $newDatesList)->update(['active' => 1]);
                 }
 
                 // Fechas a insertar (no existen en la BD)
@@ -1287,6 +1312,9 @@ class CourseController extends AppBaseController
                 });
 
                 $course->courseDates()->createMany($datesToInsert);
+
+                // Persistir settings actualizados (incluye weekDays por periodo)
+                $course->update(['settings' => $settings]);
             }
 
             /* if ($course->course_type !== 1 ) {

@@ -92,6 +92,7 @@ class CourseController extends SlugAuthController
 
         try {
             // Create cache key based on request parameters
+            $cacheVersion = Cache::get('courses_cache_version_' . $this->school->id, 1);
             $cacheKey = sprintf(
                 'courses_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s',
                 $this->school->id,
@@ -104,7 +105,7 @@ class CourseController extends SlugAuthController
                 $minAge ?? 'null',
                 $maxAge ?? 'null',
                 implode(',', $degreeOrderArray),
-                $today->format('Y-m-d')
+                $today->format('Y-m-d') . '_' . $cacheVersion
             );
 
             // Cache for 5 minutes (300 seconds) for course listings
@@ -347,10 +348,50 @@ class CourseController extends SlugAuthController
                 } elseif (!empty($courseDate->date)) {
                     $dateString = Carbon::parse($courseDate->date)->format('Y-m-d');
                 }
+
+                // Build degree-level totals to cap availability if total bookings exceed total capacity
+                $degreeTotals = [];
+                $subgroupCapacityMap = [];
                 foreach ($courseDate->courseGroups as $group) {
-                    $group->courseSubgroups = $group->courseSubgroups->filter(function ($subgroup) use ($availableDegreeIds, $unAvailableDegreeIds, $group, $course, $dateString, $availabilityService, $courseDate, &$dateAvailabilityMap) {
+                    foreach ($group->courseSubgroups as $subgroup) {
                         $capacity = $this->buildSubgroupCapacitySnapshot($course, $subgroup, $dateString, $availabilityService);
-                        $hasAvailability = $capacity['has_availability'];
+                        $subgroupCapacityMap[$subgroup->id] = $capacity;
+
+                        $degreeId = $group->degree_id;
+                        if (!isset($degreeTotals[$degreeId])) {
+                            $degreeTotals[$degreeId] = [
+                                'max_participants' => 0,
+                                'current_bookings' => 0,
+                                'has_unlimited' => false,
+                            ];
+                        }
+
+                        if ($capacity['max_participants'] === null) {
+                            $degreeTotals[$degreeId]['has_unlimited'] = true;
+                        } else {
+                            $degreeTotals[$degreeId]['max_participants'] += (int) $capacity['max_participants'];
+                        }
+
+                        $degreeTotals[$degreeId]['current_bookings'] += (int) ($capacity['current_bookings'] ?? 0);
+                    }
+                }
+
+                foreach ($courseDate->courseGroups as $group) {
+                    $degreeInfo = $degreeTotals[$group->degree_id] ?? null;
+                    $degreeHasCapacity = true;
+                    if ($degreeInfo) {
+                        $degreeHasCapacity = $degreeInfo['has_unlimited']
+                            ? true
+                            : ($degreeInfo['current_bookings'] < $degreeInfo['max_participants']);
+                    }
+
+                    $group->courseSubgroups = $group->courseSubgroups->filter(function ($subgroup) use ($availableDegreeIds, $unAvailableDegreeIds, $group, $courseDate, &$dateAvailabilityMap, $subgroupCapacityMap, $degreeHasCapacity) {
+                        $capacity = $subgroupCapacityMap[$subgroup->id] ?? null;
+                        if (!$capacity) {
+                            return false;
+                        }
+
+                        $hasAvailability = $capacity['has_availability'] && $degreeHasCapacity;
 
                         // Crear la estructura de datos del degree
                         $availableDegree = [
@@ -480,6 +521,10 @@ class CourseController extends SlugAuthController
 
         if (!$startTime || !strtotime($startTime)) {
             return $this->sendError('Invalid start time.');
+        }
+
+        if ((int) $course->course_type === 2 && !$this->isPrivateDateAllowedByPeriods($course, $courseDate->date)) {
+            return $this->sendResponse([], 'No availability: date not allowed.');
         }
 
         if ((int) $course->course_type === 2 && $this->isPrivateLeadTimeViolated($courseDate->date, $startTime)) {
@@ -821,6 +866,10 @@ class CourseController extends SlugAuthController
         $cacheKey = sprintf('private_availability_%s_%s_%s', $this->school->id, $course->id, $courseDate->id);
 
         return Cache::remember($cacheKey, 60, function () use ($course, $courseDate, $dateString) {
+            if ((int) $course->course_type === 2 && !$this->isPrivateDateAllowedByPeriods($course, $dateString)) {
+                return false;
+            }
+
             if ($this->isHoliday($courseDate->school_id, $dateString)) {
                 return false;
             }
@@ -912,6 +961,58 @@ class CourseController extends SlugAuthController
 
             return false;
         });
+    }
+
+    private function isPrivateDateAllowedByPeriods(Course $course, string $dateString): bool
+    {
+        if ((int) $course->course_type !== 2) {
+            return true;
+        }
+
+        $settings = $course->settings ?? [];
+        if (is_string($settings)) {
+            $decoded = json_decode($settings, true);
+            $settings = is_array($decoded) ? $decoded : [];
+        }
+
+        $periods = $settings['periods'] ?? [];
+        if (!is_array($periods) || empty($periods)) {
+            return true;
+        }
+
+        $date = Carbon::parse($dateString);
+        $dayKey = strtolower($date->format('l'));
+
+        foreach ($periods as $period) {
+            $start = $period['date'] ?? null;
+            $end = $period['date_end'] ?? null;
+            if (!$start || !$end) {
+                continue;
+            }
+
+            $startDate = Carbon::parse($start);
+            $endDate = Carbon::parse($end);
+
+            if ($date->lt($startDate) || $date->gt($endDate)) {
+                continue;
+            }
+
+            $weekDays = $period['weekDays'] ?? $period['week_days'] ?? null;
+            if (is_string($weekDays)) {
+                $decoded = json_decode($weekDays, true);
+                $weekDays = is_array($decoded) ? $decoded : null;
+            }
+
+            if (!is_array($weekDays) || count(array_filter($weekDays)) === 0) {
+                return true;
+            }
+
+            if (!empty($weekDays[$dayKey])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function getEligibleMonitorIdsForPrivateCourse(Course $course): array
