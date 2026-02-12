@@ -291,8 +291,7 @@ class CourseAvailabilityService
             ->where('bookings.status', '!=', 2) // Booking no cancelada
             ->whereNull('booking_users.deleted_at')
             ->whereNull('bookings.deleted_at')
-            // Opcional: filtrar solo reservas para esta fecha específica si hay campo date
-            // ->where('booking_users.date', $date)
+            ->whereDate('booking_users.date', $date)
             ->count();
     }
 
