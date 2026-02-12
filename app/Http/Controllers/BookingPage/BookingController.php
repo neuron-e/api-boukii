@@ -415,31 +415,54 @@ class BookingController extends SlugAuthController
                         $availableSlots = $availabilityService->getAvailableSlots($courseSubgroup, $normalizedDate);
 
                         if ($availableSlots <= 0) {
-                            Log::channel('bookings')->warning('BOOKING_PAGE_COLLECTIVE_FULL', [
-                                'course_id' => $detail['course_id'] ?? null,
-                                'course_date_id' => $detail['course_date_id'] ?? null,
-                                'course_subgroup_id' => $courseSubgroupId,
-                                'degree_id' => $degreeId,
-                                'date' => $normalizedDate,
-                            ]);
+                            $alternativeSubgroup = null;
+                            if ($courseGroup) {
+                                $candidateSubgroups = $courseGroup->courseSubgroups()->get();
+                                foreach ($candidateSubgroups as $candidate) {
+                                    if ((int) $candidate->id === (int) $courseSubgroupId) {
+                                        continue;
+                                    }
+                                    $candidateSlots = $availabilityService->getAvailableSlots($candidate, $normalizedDate);
+                                    if ($candidateSlots > 0) {
+                                        $alternativeSubgroup = $candidate;
+                                        break;
+                                    }
+                                }
+                            }
 
-                            DB::rollBack();
-                            $this->logBookingError('booking.errors.subgroup_full', [
-                                'course_id' => $detail['course_id'] ?? null,
-                                'course_date_id' => $detail['course_date_id'] ?? null,
-                                'course_subgroup_id' => $courseSubgroupId,
-                                'degree_id' => $degreeId,
-                                'date' => $normalizedDate,
-                                'school_id' => Arr::get($data, 'school_id'),
-                            ]);
-                            return response()->json([
-                                'message' => 'booking.errors.subgroup_full',
-                                'errors' => [
-                                    'course_subgroup_id' => [
-                                        "booking.errors.subgroup_full"
+                            if ($alternativeSubgroup) {
+                                $courseSubgroup = $alternativeSubgroup;
+                                $courseSubgroupId = $alternativeSubgroup->id;
+                                $monitorId = $alternativeSubgroup->monitor_id ?? $monitorId;
+                                $degreeId = $alternativeSubgroup->degree_id ?? $degreeId;
+                                $courseGroupId = $alternativeSubgroup->course_group_id ?? $courseGroupId;
+                            } else {
+                                Log::channel('bookings')->warning('BOOKING_PAGE_COLLECTIVE_FULL', [
+                                    'course_id' => $detail['course_id'] ?? null,
+                                    'course_date_id' => $detail['course_date_id'] ?? null,
+                                    'course_subgroup_id' => $courseSubgroupId,
+                                    'degree_id' => $degreeId,
+                                    'date' => $normalizedDate,
+                                ]);
+
+                                DB::rollBack();
+                                $this->logBookingError('booking.errors.subgroup_full', [
+                                    'course_id' => $detail['course_id'] ?? null,
+                                    'course_date_id' => $detail['course_date_id'] ?? null,
+                                    'course_subgroup_id' => $courseSubgroupId,
+                                    'degree_id' => $degreeId,
+                                    'date' => $normalizedDate,
+                                    'school_id' => Arr::get($data, 'school_id'),
+                                ]);
+                                return response()->json([
+                                    'message' => 'booking.errors.subgroup_full',
+                                    'errors' => [
+                                        'course_subgroup_id' => [
+                                            "booking.errors.subgroup_full"
+                                        ],
                                     ],
-                                ],
-                            ], 422);
+                                ], 422);
+                            }
                         }
                     }
 
@@ -1469,7 +1492,6 @@ class BookingController extends SlugAuthController
     }
 
 }
-
 
 
 

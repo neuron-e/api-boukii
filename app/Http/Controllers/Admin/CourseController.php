@@ -1681,7 +1681,7 @@ class CourseController extends AppBaseController
                             // CRITICAL FIX: Solo buscar subgrupos de esta course_date_id Y degree_id específicos
                             // FIX: Solo eliminar subgrupos del MISMO NIVEL (degree_id) para no afectar otros niveles
                             // FIX 2: Solo eliminar si hay subgrupos actualizados (si updatedSubgroups está vacío, significa que no se modificó este grupo)
-                            $shouldDeleteMissing = !empty($updatedSubgroups);
+                            $shouldDeleteMissing = !empty($updatedSubgroups) && $request->boolean('sync_subgroups', false);
 
                             $subgroupsToDelete = collect();
                             if ($shouldDeleteMissing) {
