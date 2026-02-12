@@ -48,17 +48,18 @@ class CourseAvailabilityService
     {
         // 1. Buscar intervalo activo para la fecha
         $interval = $this->getIntervalForDate($subgroup->course_id, $date);
+        $course = Course::find($subgroup->course_id);
+        $baseMax = $subgroup->max_participants ?? ($course?->max_participants ?? null);
 
         if (!$interval) {
             // No hay intervalo configurado, usar valor base del subgrupo
-            return $subgroup->max_participants;
+            return $baseMax;
         }
 
         // 2. Verificar si el curso usa configuración independiente por intervalo
-        $course = Course::find($subgroup->course_id);
         if ($course && $course->intervals_config_mode !== 'independent') {
             // Modo 'unified' - usar valor base del subgrupo
-            return $subgroup->max_participants;
+            return $baseMax;
         }
 
         // 3. Buscar configuración de grupo para este intervalo
@@ -69,7 +70,7 @@ class CourseAvailabilityService
 
         if (!$intervalGroup) {
             // No hay config de grupo para este intervalo, usar valor base
-            return $subgroup->max_participants;
+            return $baseMax;
         }
 
         // 4. Buscar configuración de subgrupo para este intervalo
@@ -101,7 +102,7 @@ class CourseAvailabilityService
         }
 
         // 6. Fallback final al valor base
-        return $subgroup->max_participants;
+        return $baseMax;
     }
 
     /**

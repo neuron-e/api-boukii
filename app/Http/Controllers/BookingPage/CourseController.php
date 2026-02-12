@@ -1231,7 +1231,7 @@ class CourseController extends SlugAuthController
             return $service->getMaxParticipants($subgroup, $dateForCalc);
         }
 
-        return $subgroup->max_participants;
+        return $subgroup->max_participants ?? $course->max_participants;
     }
 
     /**
