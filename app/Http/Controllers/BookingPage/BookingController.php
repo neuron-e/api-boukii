@@ -35,6 +35,7 @@ use App\Services\CriticalErrorNotifier;
 use App\Services\DiscountCodeService;
 use App\Services\MonitorNotificationService;
 use Illuminate\Support\Arr;
+use Laravel\Sanctum\PersonalAccessToken;
 use Validator;
 
 ;
@@ -137,7 +138,7 @@ class BookingController extends SlugAuthController
                             "date" => $detail["date"] ?? null,
                             "hour_start" => $detail["hour_start"] ?? null,
                             "hour_end" => $detail["hour_end"] ?? null,
-                        ]);
+                        ], $request);
                         if ($timingError) {
                             DB::rollBack();
                             $this->logBookingError($timingError, [
@@ -747,7 +748,7 @@ class BookingController extends SlugAuthController
         // Obtiene informaciÃ³n comÃºn para todos los bookingUsers
         foreach ($request->bookingUsers as $bookingUser) {
             if ($bookingUser['course']['course_type'] == 2) {
-                $timingError = $this->validatePrivateTiming($bookingUser);
+                $timingError = $this->validatePrivateTiming($bookingUser, $request);
                 if ($timingError) {
                     return $this->sendError($timingError, [], 422);
                 }
@@ -981,6 +982,48 @@ class BookingController extends SlugAuthController
         return 30;
     }
 
+    private function shouldEnforceOnlinePrivateRules(?Request $request = null): bool
+    {
+        return !$this->isAdminContext($request);
+    }
+
+    private function isAdminContext(?Request $request = null): bool
+    {
+        if (!$request) {
+            return false;
+        }
+
+        $user = $request->user();
+
+        if (!$user && $request->bearerToken()) {
+            try {
+                $token = PersonalAccessToken::findToken($request->bearerToken());
+                $user = $token?->tokenable;
+            } catch (\Throwable $e) {
+                $user = null;
+            }
+        }
+
+        if (!$user) {
+            return false;
+        }
+
+        $type = strtolower((string) ($user->type ?? ''));
+        if (in_array($type, ['1', 'admin', 'superadmin'], true)) {
+            return true;
+        }
+
+        if (method_exists($user, 'hasAnyRole')) {
+            try {
+                return $user->hasAnyRole(['admin', 'superadmin']);
+            } catch (\Throwable $e) {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
     private function getPrivateOverbookingLimit(): int
     {
         $settings = $this->getSchoolSettings();
@@ -1036,7 +1079,7 @@ class BookingController extends SlugAuthController
             ->count();
     }
 
-    private function validatePrivateTiming(array $bookingUser): ?string
+    private function validatePrivateTiming(array $bookingUser, ?Request $request = null): ?string
     {
         $courseDateId = $bookingUser['course_date_id'] ?? null;
         $date = $bookingUser['date'] ?? null;
@@ -1067,9 +1110,11 @@ class BookingController extends SlugAuthController
             return 'booking.errors.private_outside_schedule';
         }
 
-        $minStart = Carbon::now()->addMinutes($this->getPrivateLeadMinutes());
-        if ($start->lt($minStart)) {
-            return 'booking.errors.private_lead_minutes';
+        if ($this->shouldEnforceOnlinePrivateRules($request)) {
+            $minStart = Carbon::now()->addMinutes($this->getPrivateLeadMinutes());
+            if ($start->lt($minStart)) {
+                return 'booking.errors.private_lead_minutes';
+            }
         }
 
         return null;
@@ -1492,9 +1537,6 @@ class BookingController extends SlugAuthController
     }
 
 }
-
-
-
 
 
 

@@ -20,6 +20,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use Laravel\Sanctum\PersonalAccessToken;
 use Response;
 use Validator;
 
@@ -440,7 +441,7 @@ class CourseController extends SlugAuthController
                         continue;
                     }
 
-                    $dateAvailabilityMap[$courseDate->id] = $this->hasPrivateAvailabilityForDate($course, $courseDate);
+                    $dateAvailabilityMap[$courseDate->id] = $this->hasPrivateAvailabilityForDate($course, $courseDate, $request);
                 }
             }
 
@@ -523,11 +524,19 @@ class CourseController extends SlugAuthController
             return $this->sendError('Invalid start time.');
         }
 
-        if ((int) $course->course_type === 2 && !$this->isPrivateDateAllowedByPeriods($course, $courseDate->date)) {
+        if (
+            (int) $course->course_type === 2
+            && $this->shouldEnforceOnlinePrivateRules($request)
+            && !$this->isPrivateDateAllowedByPeriods($course, $courseDate->date)
+        ) {
             return $this->sendResponse([], 'No availability: date not allowed.');
         }
 
-        if ((int) $course->course_type === 2 && $this->isPrivateLeadTimeViolated($courseDate->date, $startTime)) {
+        if (
+            (int) $course->course_type === 2
+            && $this->shouldEnforceOnlinePrivateRules($request)
+            && $this->isPrivateLeadTimeViolated($courseDate->date, $startTime)
+        ) {
             return $this->sendResponse([], 'No availability: private lead time.');
         }
 
@@ -882,7 +891,7 @@ class CourseController extends SlugAuthController
         return ($availableCount + $overbookingLimit) > $concurrentBookings;
     }
 
-    private function hasPrivateAvailabilityForDate($course, $courseDate): bool
+    private function hasPrivateAvailabilityForDate($course, $courseDate, ?Request $request = null): bool
     {
         if (!$course || !$courseDate) {
             return false;
@@ -892,10 +901,21 @@ class CourseController extends SlugAuthController
             ? $courseDate->date->format('Y-m-d')
             : (string) $courseDate->date;
 
-        $cacheKey = sprintf('private_availability_%s_%s_%s', $this->school->id, $course->id, $courseDate->id);
+        $contextSuffix = $this->shouldEnforceOnlinePrivateRules($request) ? 'online' : 'admin';
+        $cacheKey = sprintf(
+            'private_availability_%s_%s_%s_%s',
+            $this->school->id,
+            $course->id,
+            $courseDate->id,
+            $contextSuffix
+        );
 
-        return Cache::remember($cacheKey, 60, function () use ($course, $courseDate, $dateString) {
-            if ((int) $course->course_type === 2 && !$this->isPrivateDateAllowedByPeriods($course, $dateString)) {
+        return Cache::remember($cacheKey, 60, function () use ($course, $courseDate, $dateString, $request) {
+            if (
+                (int) $course->course_type === 2
+                && $this->shouldEnforceOnlinePrivateRules($request)
+                && !$this->isPrivateDateAllowedByPeriods($course, $dateString)
+            ) {
                 return false;
             }
 
@@ -1238,6 +1258,48 @@ class CourseController extends SlugAuthController
         $minStart = Carbon::now()->addMinutes($this->getPrivateLeadMinutes());
 
         return $start->lt($minStart);
+    }
+
+    private function shouldEnforceOnlinePrivateRules(?Request $request = null): bool
+    {
+        return !$this->isAdminContext($request);
+    }
+
+    private function isAdminContext(?Request $request = null): bool
+    {
+        if (!$request) {
+            return false;
+        }
+
+        $user = $request->user();
+
+        if (!$user && $request->bearerToken()) {
+            try {
+                $token = PersonalAccessToken::findToken($request->bearerToken());
+                $user = $token?->tokenable;
+            } catch (\Throwable $e) {
+                $user = null;
+            }
+        }
+
+        if (!$user) {
+            return false;
+        }
+
+        $type = strtolower((string) ($user->type ?? ''));
+        if (in_array($type, ['1', 'admin', 'superadmin'], true)) {
+            return true;
+        }
+
+        if (method_exists($user, 'hasAnyRole')) {
+            try {
+                return $user->hasAnyRole(['admin', 'superadmin']);
+            } catch (\Throwable $e) {
+                return false;
+            }
+        }
+
+        return false;
     }
 
 
