@@ -33,6 +33,14 @@ use App\Models\School;
  */
 class PayrexxHelpers
 {
+    public const INVOICE_SENT = 'invoice_sent';
+    public const INVOICE_PENDING = 'invoice_pending';
+    public const INVOICE_OVERDUE = 'invoice_overdue';
+    public const INVOICE_PAID = 'invoice_paid';
+    public const INVOICE_CANCELLED = 'invoice_cancelled';
+    public const INVOICE_FAILED = 'invoice_failed';
+    public const INVOICE_UNKNOWN = 'invoice_unknown';
+
     /**
      * Expire/delete existing Payrexx gateway/invoice links for a booking.
      * This is used when re-sending a payment link after a price change.
@@ -130,6 +138,116 @@ class PayrexxHelpers
         ]);
 
         return $result;
+    }
+
+    public static function findInvoicesByReference(School $schoolData, string $reference): array
+    {
+        if (!$reference) {
+            return [];
+        }
+
+        try {
+            $payrexx = self::buildPayrexxClient($schoolData);
+            $invoiceRequest = new InvoiceRequest();
+            $invoiceRequest->setReferenceId($reference);
+            $invoices = $payrexx->getAll($invoiceRequest);
+            return is_array($invoices) ? $invoices : [];
+        } catch (\Exception $e) {
+            Log::channel('payrexx')->warning('Unable to fetch invoice by reference', [
+                'reference' => $reference,
+                'school_id' => $schoolData->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
+            return [];
+        }
+    }
+
+    public static function extractInvoicePayload($invoice): array
+    {
+        if (!is_object($invoice)) {
+            return [];
+        }
+
+        $get = static function ($obj, string $method, $default = null) {
+            return method_exists($obj, $method) ? $obj->{$method}() : $default;
+        };
+
+        $statusRaw = (string) $get($invoice, 'getStatus', '');
+        $dueAt = $get($invoice, 'getExpirationDate');
+        if (!$dueAt) {
+            $dueAt = $get($invoice, 'getDueDate');
+        }
+        $link = $get($invoice, 'getLink');
+        $pdfLink = $get($invoice, 'getPdf');
+        if (!$pdfLink) {
+            $pdfLink = $get($invoice, 'getPdfUrl');
+        }
+
+        return [
+            'invoice_id' => (string) $get($invoice, 'getId', ''),
+            'reference_id' => (string) $get($invoice, 'getReferenceId', ''),
+            'number' => (string) $get($invoice, 'getNumber', ''),
+            'status_raw' => $statusRaw,
+            'invoice_status' => self::mapPayrexxInvoiceStatus($statusRaw, $dueAt),
+            'currency' => (string) $get($invoice, 'getCurrency', ''),
+            'amount' => $get($invoice, 'getAmount'),
+            'due_at' => $dueAt ?: null,
+            'link' => $link ?: null,
+            'pdf_link' => $pdfLink ?: null,
+        ];
+    }
+
+    public static function mapPayrexxInvoiceStatus(?string $statusRaw, ?string $dueAt = null): string
+    {
+        $status = strtolower(trim((string) $statusRaw));
+
+        if (in_array($status, ['paid', 'confirmed', 'captured', 'settled'], true)) {
+            return self::INVOICE_PAID;
+        }
+        if (in_array($status, ['cancelled', 'canceled', 'void'], true)) {
+            return self::INVOICE_CANCELLED;
+        }
+        if (in_array($status, ['failed', 'declined', 'chargeback'], true)) {
+            return self::INVOICE_FAILED;
+        }
+        if (in_array($status, ['pending', 'waiting', 'authorized', 'reserved', 'open', 'sent'], true)) {
+            if ($dueAt) {
+                try {
+                    if (Carbon::parse($dueAt)->isPast()) {
+                        return self::INVOICE_OVERDUE;
+                    }
+                } catch (\Exception $e) {
+                    // Ignore parse error and fallback to pending
+                }
+            }
+            return self::INVOICE_PENDING;
+        }
+
+        if ($dueAt) {
+            try {
+                if (Carbon::parse($dueAt)->isPast()) {
+                    return self::INVOICE_OVERDUE;
+                }
+            } catch (\Exception $e) {
+                // Ignore parse error
+            }
+        }
+
+        return self::INVOICE_UNKNOWN;
+    }
+
+    public static function buildPayrexxClient(School $schoolData): Payrexx
+    {
+        if (!$schoolData->getPayrexxInstance() || !$schoolData->getPayrexxKey()) {
+            throw new \Exception('No credentials for School ID=' . $schoolData->id);
+        }
+
+        return new Payrexx(
+            $schoolData->getPayrexxInstance(),
+            $schoolData->getPayrexxKey(),
+            '',
+            config('services.payrexx.base_domain', 'pay.boukii.com')
+        );
     }
     /**
      * Prepare a Payrexx Gateway link to start a Transaction.

@@ -2436,6 +2436,11 @@ class BookingController extends AppBaseController
                   $booking->save();
               }
 
+            $invoiceCancellationMeta = null;
+            if ((int) $booking->payment_method_id === Booking::ID_INVOICE && !$booking->paid) {
+                $invoiceCancellationMeta = $this->handlePendingInvoiceAfterCancellation($booking);
+            }
+
             $cancelSource = $booking->status === 2 ? 'cancel_full' : 'cancel_partial';
             $cancelNote = sprintf(
                 'Cancelacion %s: %s booking_users. Motivo: %s',
@@ -2462,7 +2467,8 @@ class BookingController extends AppBaseController
                     'previous_status' => $previousStatus,
                     'new_status' => $booking->status,
                     'cancel_reason' => $request->input('cancelReason', 'No especificado'),
-                    'send_emails' => $request->input('sendEmails', true)
+                    'send_emails' => $request->input('sendEmails', true),
+                    'invoice' => $invoiceCancellationMeta,
                 ])
             ]);
 
@@ -2549,6 +2555,488 @@ class BookingController extends AppBaseController
         }
 
         return $this->sendResponse($booking, 'Cancel completed successfully');
+    }
+
+    public function sendInvoice(Request $request, $id): JsonResponse
+    {
+        $booking = $this->resolveSchoolBooking($request, (int) $id);
+        if (!$booking) {
+            return $this->sendError('Booking not found or access denied', [], 404);
+        }
+
+        if ((int) $booking->status === 2) {
+            return $this->sendError('Cannot send invoice for cancelled booking');
+        }
+
+        $pendingAmount = $this->getBookingPendingAmount($booking);
+        if ($pendingAmount <= 0) {
+            return $this->sendError('Booking has no pending amount');
+        }
+
+        try {
+            $this->ensurePayrexxReference($booking);
+            $booking->payment_method_id = Booking::ID_INVOICE;
+            $booking->save();
+
+            PayrexxHelpers::expirePayrexxLinksForBooking($booking->school, $booking);
+
+            $invoiceLink = PayrexxHelpers::createGatewayLink(
+                $booking->school,
+                $booking,
+                $this->extractBookingBasket($booking),
+                $booking->clientMain,
+                'panel',
+                ['allow_invoice' => true]
+            );
+
+            if (!$invoiceLink) {
+                return $this->sendError('Invoice link could not be created');
+            }
+
+            $invoiceDueAt = now()->addHours((int) $booking->school->getPaymentLinkValidityHours());
+            $payment = Payment::create([
+                'booking_id' => $booking->id,
+                'school_id' => $booking->school_id,
+                'amount' => $pendingAmount,
+                'status' => 'pending',
+                'notes' => 'invoice_link_sent',
+                'payrexx_reference' => $booking->payrexx_reference,
+                'payrexx_transaction' => null,
+                'invoice_status' => PayrexxHelpers::INVOICE_SENT,
+                'invoice_due_at' => $invoiceDueAt,
+                'invoice_url' => $invoiceLink,
+                'invoice_pdf_url' => null,
+                'invoice_meta' => [
+                    'source' => 'admin_send_invoice',
+                    'sent_by' => auth()->id(),
+                ],
+            ]);
+
+            BookingLog::create([
+                'booking_id' => $booking->id,
+                'action' => 'send_invoice_link',
+                'user_id' => auth()->id(),
+                'description' => 'Invoice link sent',
+                'metadata' => json_encode([
+                    'payment_id' => $payment->id,
+                    'invoice_status' => $payment->invoice_status,
+                    'invoice_due_at' => $invoiceDueAt,
+                ]),
+            ]);
+
+            try {
+                Mail::to($booking->clientMain->email)->send(
+                    new BookingPayMailer($booking->school, $booking, $booking->clientMain, $invoiceLink)
+                );
+            } catch (\Exception $e) {
+                Log::channel('payrexx')->warning('Invoice mail send failed after link creation', [
+                    'booking_id' => $booking->id,
+                    'payment_id' => $payment->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            return $this->sendResponse([
+                'booking_id' => $booking->id,
+                'payment_id' => $payment->id,
+                'invoice_link' => $invoiceLink,
+                'invoice_status' => $payment->invoice_status,
+                'invoice_due_at' => $payment->invoice_due_at,
+            ], 'Invoice sent successfully');
+        } catch (\Exception $e) {
+            Log::channel('payrexx')->error('Admin sendInvoice failed', [
+                'booking_id' => $booking->id,
+                'error' => $e->getMessage(),
+            ]);
+            return $this->sendError('Error sending invoice: ' . $e->getMessage(), [], 500);
+        }
+    }
+
+    public function getInvoiceStatus(Request $request, $id): JsonResponse
+    {
+        $booking = $this->resolveSchoolBooking($request, (int) $id);
+        if (!$booking) {
+            return $this->sendError('Booking not found or access denied', [], 404);
+        }
+
+        $payment = $this->latestInvoicePayment($booking->id);
+
+        return $this->sendResponse([
+            'booking_id' => $booking->id,
+            'payment_method_id' => (int) $booking->payment_method_id,
+            'payment_id' => $payment?->id,
+            'invoice_status' => $payment?->invoice_status,
+            'invoice_due_at' => $payment?->invoice_due_at,
+            'invoice_url' => $payment?->invoice_url,
+            'invoice_pdf_url' => $payment?->invoice_pdf_url,
+            'invoice_meta' => $payment?->invoice_meta,
+            'paid' => (bool) $booking->paid,
+            'pending_amount' => $this->getBookingPendingAmount($booking),
+        ], 'Invoice status retrieved successfully');
+    }
+
+    public function syncInvoiceStatus(Request $request, $id): JsonResponse
+    {
+        $booking = $this->resolveSchoolBooking($request, (int) $id);
+        if (!$booking) {
+            return $this->sendError('Booking not found or access denied', [], 404);
+        }
+
+        try {
+            $synced = $this->syncInvoiceFromPayrexx($booking);
+            if (!$synced) {
+                return $this->sendError('Invoice not found in Payrexx', [], 404);
+            }
+
+            return $this->sendResponse($synced, 'Invoice synchronized successfully');
+        } catch (\Exception $e) {
+            Log::channel('payrexx')->error('Admin syncInvoiceStatus failed', [
+                'booking_id' => $booking->id,
+                'error' => $e->getMessage(),
+            ]);
+            return $this->sendError('Error synchronizing invoice: ' . $e->getMessage(), [], 500);
+        }
+    }
+
+    public function cancelInvoice(Request $request, $id): JsonResponse
+    {
+        $booking = $this->resolveSchoolBooking($request, (int) $id);
+        if (!$booking) {
+            return $this->sendError('Booking not found or access denied', [], 404);
+        }
+
+        if ((bool) $booking->paid) {
+            return $this->sendError('Paid invoice cannot be cancelled. Process a refund or voucher adjustment instead.');
+        }
+
+        try {
+            $this->ensurePayrexxReference($booking);
+            $cleanup = PayrexxHelpers::expirePayrexxLinksForBooking($booking->school, $booking);
+
+            $affected = Payment::where('booking_id', $booking->id)
+                ->whereIn('invoice_status', [
+                    PayrexxHelpers::INVOICE_SENT,
+                    PayrexxHelpers::INVOICE_PENDING,
+                    PayrexxHelpers::INVOICE_OVERDUE,
+                    PayrexxHelpers::INVOICE_UNKNOWN,
+                ])
+                ->update([
+                    'invoice_status' => PayrexxHelpers::INVOICE_CANCELLED,
+                    'status' => 'cancelled',
+                    'notes' => 'invoice_cancelled_by_admin',
+                ]);
+
+            BookingLog::create([
+                'booking_id' => $booking->id,
+                'action' => 'cancel_invoice_link',
+                'user_id' => auth()->id(),
+                'description' => 'Invoice cancelled from admin',
+                'metadata' => json_encode([
+                    'affected_payments' => $affected,
+                    'cleanup' => $cleanup,
+                ]),
+            ]);
+
+            return $this->sendResponse([
+                'booking_id' => $booking->id,
+                'affected_payments' => $affected,
+                'cleanup' => $cleanup,
+            ], 'Invoice cancelled successfully');
+        } catch (\Exception $e) {
+            Log::channel('payrexx')->error('Admin cancelInvoice failed', [
+                'booking_id' => $booking->id,
+                'error' => $e->getMessage(),
+            ]);
+            return $this->sendError('Error cancelling invoice: ' . $e->getMessage(), [], 500);
+        }
+    }
+
+    public function markInvoicePaid(Request $request, $id): JsonResponse
+    {
+        $booking = $this->resolveSchoolBooking($request, (int) $id);
+        if (!$booking) {
+            return $this->sendError('Booking not found or access denied', [], 404);
+        }
+
+        $request->validate([
+            'amount' => 'nullable|numeric|min:0.01',
+            'notes' => 'nullable|string|max:255',
+        ]);
+
+        if ((bool) $booking->paid) {
+            return $this->sendResponse([
+                'booking_id' => $booking->id,
+                'already_paid' => true,
+            ], 'Booking is already marked as paid');
+        }
+
+        try {
+            $this->ensurePayrexxReference($booking);
+            $booking->payment_method_id = Booking::ID_INVOICE;
+            $booking->save();
+
+            $amount = (float) ($request->input('amount') ?: $this->getBookingPendingAmount($booking));
+            $amount = round(max(0, $amount), 2);
+            if ($amount <= 0) {
+                return $this->sendError('Invalid amount to mark invoice as paid');
+            }
+
+            $payment = Payment::create([
+                'booking_id' => $booking->id,
+                'school_id' => $booking->school_id,
+                'amount' => $amount,
+                'status' => 'paid',
+                'notes' => $request->input('notes', 'invoice_marked_paid_manually'),
+                'payrexx_reference' => $booking->payrexx_reference,
+                'payrexx_transaction' => null,
+                'invoice_status' => PayrexxHelpers::INVOICE_PAID,
+                'invoice_due_at' => null,
+                'invoice_url' => null,
+                'invoice_pdf_url' => null,
+                'invoice_meta' => [
+                    'source' => 'manual_admin_mark_paid',
+                    'marked_by' => auth()->id(),
+                ],
+            ]);
+
+            $booking->refreshPaymentTotalsFromPayments();
+
+            BookingLog::create([
+                'booking_id' => $booking->id,
+                'action' => 'invoice_marked_paid',
+                'user_id' => auth()->id(),
+                'description' => 'Invoice marked as paid from admin',
+                'metadata' => json_encode([
+                    'payment_id' => $payment->id,
+                    'amount' => $amount,
+                ]),
+            ]);
+
+            return $this->sendResponse([
+                'booking_id' => $booking->id,
+                'payment_id' => $payment->id,
+                'amount' => $payment->amount,
+                'invoice_status' => $payment->invoice_status,
+                'paid' => (bool) $booking->fresh()->paid,
+            ], 'Invoice marked as paid successfully');
+        } catch (\Exception $e) {
+            Log::channel('payrexx')->error('Admin markInvoicePaid failed', [
+                'booking_id' => $booking->id,
+                'error' => $e->getMessage(),
+            ]);
+            return $this->sendError('Error marking invoice as paid: ' . $e->getMessage(), [], 500);
+        }
+    }
+
+    private function resolveSchoolBooking(Request $request, int $bookingId): ?Booking
+    {
+        $school = $this->getSchool($request);
+        if (!$school) {
+            return null;
+        }
+
+        return Booking::where('id', $bookingId)
+            ->where('school_id', $school->id)
+            ->with(['school', 'clientMain', 'payments', 'bookingLogs'])
+            ->first();
+    }
+
+    private function latestInvoicePayment(int $bookingId): ?Payment
+    {
+        return Payment::where('booking_id', $bookingId)
+            ->where(function ($query) {
+                $query->whereNotNull('invoice_status')
+                    ->orWhereNotNull('payrexx_invoice_id');
+            })
+            ->latest('id')
+            ->first();
+    }
+
+    private function extractBookingBasket(Booking $booking): array
+    {
+        $basket = json_decode($booking->basket ?? '[]', true);
+        return is_array($basket) ? $basket : [];
+    }
+
+    private function getBookingPendingAmount(Booking $booking): float
+    {
+        $pending = (float) ($booking->pending_amount ?? 0);
+        if ($pending <= 0) {
+            $pending = max(0, (float) $booking->price_total - (float) $booking->paid_total);
+        }
+        return round($pending, 2);
+    }
+
+    private function ensurePayrexxReference(Booking $booking): void
+    {
+        if (!empty($booking->payrexx_reference)) {
+            return;
+        }
+
+        $reference = 'Boukii #' . $booking->id;
+        if (env('APP_ENV') !== 'production') {
+            $reference = 'TEST ' . $reference;
+        }
+
+        $booking->payrexx_reference = $reference;
+        $booking->save();
+    }
+
+    private function handlePendingInvoiceAfterCancellation(Booking $booking): array
+    {
+        $result = [
+            'cleanup' => null,
+            'cancelled_payments' => 0,
+            'reissued' => false,
+            'new_invoice_payment_id' => null,
+            'new_invoice_link' => null,
+        ];
+
+        try {
+            $this->ensurePayrexxReference($booking);
+            $result['cleanup'] = PayrexxHelpers::expirePayrexxLinksForBooking($booking->school, $booking);
+        } catch (\Exception $e) {
+            Log::channel('payrexx')->warning('Invoice cleanup after cancellation failed', [
+                'booking_id' => $booking->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        $result['cancelled_payments'] = Payment::where('booking_id', $booking->id)
+            ->whereIn('invoice_status', [
+                PayrexxHelpers::INVOICE_SENT,
+                PayrexxHelpers::INVOICE_PENDING,
+                PayrexxHelpers::INVOICE_OVERDUE,
+                PayrexxHelpers::INVOICE_UNKNOWN,
+            ])
+            ->update([
+                'invoice_status' => PayrexxHelpers::INVOICE_CANCELLED,
+                'status' => 'cancelled',
+                'notes' => 'invoice_cancelled_by_booking_cancellation',
+            ]);
+
+        $pendingAmount = $this->getBookingPendingAmount($booking->fresh(['school', 'clientMain']));
+        if ((int) $booking->status !== 2 && $pendingAmount > 0) {
+            try {
+                $booking->updateCart();
+                $booking->refresh();
+                $newLink = PayrexxHelpers::createGatewayLink(
+                    $booking->school,
+                    $booking,
+                    $this->extractBookingBasket($booking),
+                    $booking->clientMain,
+                    'panel',
+                    ['allow_invoice' => true]
+                );
+
+                if ($newLink) {
+                    $invoiceDueAt = now()->addHours((int) $booking->school->getPaymentLinkValidityHours());
+                    $payment = Payment::create([
+                        'booking_id' => $booking->id,
+                        'school_id' => $booking->school_id,
+                        'amount' => $pendingAmount,
+                        'status' => 'pending',
+                        'notes' => 'invoice_reissued_after_partial_cancellation',
+                        'payrexx_reference' => $booking->payrexx_reference,
+                        'payrexx_transaction' => null,
+                        'invoice_status' => PayrexxHelpers::INVOICE_SENT,
+                        'invoice_due_at' => $invoiceDueAt,
+                        'invoice_url' => $newLink,
+                        'invoice_pdf_url' => null,
+                        'invoice_meta' => [
+                            'source' => 'booking_cancellation_reissue',
+                            'reissued_by' => auth()->id(),
+                        ],
+                    ]);
+
+                    BookingLog::create([
+                        'booking_id' => $booking->id,
+                        'action' => 'send_invoice_link',
+                        'user_id' => auth()->id(),
+                        'description' => 'Invoice link reissued after partial cancellation',
+                        'metadata' => json_encode([
+                            'payment_id' => $payment->id,
+                            'invoice_due_at' => $invoiceDueAt,
+                        ]),
+                    ]);
+
+                    $result['reissued'] = true;
+                    $result['new_invoice_payment_id'] = $payment->id;
+                    $result['new_invoice_link'] = $newLink;
+                }
+            } catch (\Exception $e) {
+                Log::channel('payrexx')->error('Invoice reissue after cancellation failed', [
+                    'booking_id' => $booking->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $result;
+    }
+
+    private function syncInvoiceFromPayrexx(Booking $booking): ?array
+    {
+        $this->ensurePayrexxReference($booking);
+        $invoices = PayrexxHelpers::findInvoicesByReference($booking->school, $booking->payrexx_reference);
+        if (empty($invoices)) {
+            return null;
+        }
+
+        $invoice = $invoices[0];
+        $payload = PayrexxHelpers::extractInvoicePayload($invoice);
+        if (empty($payload)) {
+            return null;
+        }
+
+        $payment = $this->latestInvoicePayment($booking->id);
+        if (!$payment) {
+            $payment = new Payment();
+            $payment->booking_id = $booking->id;
+            $payment->school_id = $booking->school_id;
+            $payment->amount = max(0, $this->getBookingPendingAmount($booking));
+            $payment->status = 'pending';
+            $payment->payrexx_reference = $booking->payrexx_reference;
+        }
+
+        $payment->invoice_status = $payload['invoice_status'] ?? PayrexxHelpers::INVOICE_UNKNOWN;
+        $payment->invoice_due_at = $payload['due_at'] ?? null;
+        $payment->invoice_url = $payload['link'] ?? null;
+        $payment->invoice_pdf_url = $payload['pdf_link'] ?? null;
+        $payment->payrexx_invoice_id = $payload['invoice_id'] ?? null;
+        $payment->invoice_meta = $payload;
+        $payment->notes = 'invoice_synced';
+
+        if (($payload['invoice_status'] ?? null) === PayrexxHelpers::INVOICE_PAID) {
+            $payment->status = 'paid';
+        } elseif (in_array(($payload['invoice_status'] ?? null), [PayrexxHelpers::INVOICE_CANCELLED, PayrexxHelpers::INVOICE_FAILED], true)) {
+            $payment->status = 'cancelled';
+        } else {
+            $payment->status = 'pending';
+        }
+
+        $payment->save();
+
+        if ((int) $booking->payment_method_id !== Booking::ID_INVOICE) {
+            $booking->payment_method_id = Booking::ID_INVOICE;
+            $booking->save();
+        }
+
+        if ($payment->status === 'paid') {
+            $booking->refreshPaymentTotalsFromPayments();
+        }
+
+        return [
+            'booking_id' => $booking->id,
+            'payment_id' => $payment->id,
+            'invoice_id' => $payment->payrexx_invoice_id,
+            'invoice_status' => $payment->invoice_status,
+            'invoice_due_at' => $payment->invoice_due_at,
+            'invoice_url' => $payment->invoice_url,
+            'invoice_pdf_url' => $payment->invoice_pdf_url,
+            'payment_status' => $payment->status,
+            'paid' => (bool) $booking->fresh()->paid,
+        ];
     }
 
     private function resolveMeetingPointFromCourses(array $courseIds): array

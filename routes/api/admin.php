@@ -117,6 +117,57 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
     Route::post('notifications/read-all', [\App\Http\Controllers\Admin\NotificationController::class, 'markAllRead'])
         ->name('api.admin.notifications.read-all');
 
+    Route::prefix('rentals')->group(function () {
+        Route::get('categories', [\App\Http\Controllers\Admin\RentalCategoryController::class, 'index']);
+        Route::post('categories', [\App\Http\Controllers\Admin\RentalCategoryController::class, 'store']);
+        Route::get('categories/{id}', [\App\Http\Controllers\Admin\RentalCategoryController::class, 'show']);
+        Route::put('categories/{id}', [\App\Http\Controllers\Admin\RentalCategoryController::class, 'update']);
+        Route::delete('categories/{id}', [\App\Http\Controllers\Admin\RentalCategoryController::class, 'destroy']);
+
+        Route::get('items', [\App\Http\Controllers\Admin\RentalItemController::class, 'index']);
+        Route::post('items', [\App\Http\Controllers\Admin\RentalItemController::class, 'store']);
+        Route::get('items/{id}', [\App\Http\Controllers\Admin\RentalItemController::class, 'show']);
+        Route::put('items/{id}', [\App\Http\Controllers\Admin\RentalItemController::class, 'update']);
+        Route::delete('items/{id}', [\App\Http\Controllers\Admin\RentalItemController::class, 'destroy']);
+
+        Route::get('variants', [\App\Http\Controllers\Admin\RentalVariantController::class, 'index']);
+        Route::post('variants', [\App\Http\Controllers\Admin\RentalVariantController::class, 'store']);
+        Route::get('variants/{id}', [\App\Http\Controllers\Admin\RentalVariantController::class, 'show']);
+        Route::put('variants/{id}', [\App\Http\Controllers\Admin\RentalVariantController::class, 'update']);
+        Route::delete('variants/{id}', [\App\Http\Controllers\Admin\RentalVariantController::class, 'destroy']);
+
+        Route::get('warehouses', [\App\Http\Controllers\Admin\RentalWarehouseController::class, 'index']);
+        Route::post('warehouses', [\App\Http\Controllers\Admin\RentalWarehouseController::class, 'store']);
+        Route::put('warehouses/{id}', [\App\Http\Controllers\Admin\RentalWarehouseController::class, 'update']);
+        Route::delete('warehouses/{id}', [\App\Http\Controllers\Admin\RentalWarehouseController::class, 'destroy']);
+
+        Route::get('pickup-points', [\App\Http\Controllers\Admin\RentalPickupPointController::class, 'index']);
+        Route::post('pickup-points', [\App\Http\Controllers\Admin\RentalPickupPointController::class, 'store']);
+        Route::put('pickup-points/{id}', [\App\Http\Controllers\Admin\RentalPickupPointController::class, 'update']);
+        Route::delete('pickup-points/{id}', [\App\Http\Controllers\Admin\RentalPickupPointController::class, 'destroy']);
+
+        Route::get('units', [\App\Http\Controllers\Admin\RentalUnitController::class, 'index']);
+        Route::post('units', [\App\Http\Controllers\Admin\RentalUnitController::class, 'store']);
+        Route::put('units/{id}', [\App\Http\Controllers\Admin\RentalUnitController::class, 'update']);
+        Route::delete('units/{id}', [\App\Http\Controllers\Admin\RentalUnitController::class, 'destroy']);
+
+        Route::get('pricing-rules', [\App\Http\Controllers\Admin\RentalPricingRuleController::class, 'index']);
+        Route::post('pricing-rules', [\App\Http\Controllers\Admin\RentalPricingRuleController::class, 'store']);
+        Route::put('pricing-rules/{id}', [\App\Http\Controllers\Admin\RentalPricingRuleController::class, 'update']);
+        Route::delete('pricing-rules/{id}', [\App\Http\Controllers\Admin\RentalPricingRuleController::class, 'destroy']);
+
+        Route::get('policy', [\App\Http\Controllers\Admin\RentalPolicyController::class, 'show']);
+        Route::post('policy', [\App\Http\Controllers\Admin\RentalPolicyController::class, 'update']);
+
+        Route::get('reservations', [\App\Http\Controllers\Admin\RentalReservationController::class, 'index']);
+        Route::get('reservations/{id}', [\App\Http\Controllers\Admin\RentalReservationController::class, 'show']);
+        Route::put('reservations/{id}', [\App\Http\Controllers\Admin\RentalReservationController::class, 'update']);
+        Route::post('reservations/{id}/assign-units', [\App\Http\Controllers\Admin\RentalReservationController::class, 'assignUnits']);
+        Route::post('reservations/{id}/return-units', [\App\Http\Controllers\Admin\RentalReservationController::class, 'returnUnits']);
+        Route::post('reservations/{id}/auto-assign', [\App\Http\Controllers\Admin\RentalReservationController::class, 'autoAssignUnits']);
+        Route::post('reservations/{id}/damage', [\App\Http\Controllers\Admin\RentalReservationController::class, 'registerDamage']);
+    });
+
     Route::get('getPlanner', [\App\Http\Controllers\Admin\PlannerController::class, 'getPlanner'])
         ->name('api.admin.planner');
 
@@ -190,6 +241,26 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
     Route::post('bookings/payments/{id}',
         [\App\Http\Controllers\Admin\BookingController::class, 'payBooking'])
         ->name('api.admin.bookings.pay');
+
+    Route::post('bookings/payments/{id}/invoice/send',
+        [\App\Http\Controllers\Admin\BookingController::class, 'sendInvoice'])
+        ->name('api.admin.bookings.invoice.send');
+
+    Route::get('bookings/payments/{id}/invoice',
+        [\App\Http\Controllers\Admin\BookingController::class, 'getInvoiceStatus'])
+        ->name('api.admin.bookings.invoice.status');
+
+    Route::post('bookings/payments/{id}/invoice/sync',
+        [\App\Http\Controllers\Admin\BookingController::class, 'syncInvoiceStatus'])
+        ->name('api.admin.bookings.invoice.sync');
+
+    Route::post('bookings/payments/{id}/invoice/cancel',
+        [\App\Http\Controllers\Admin\BookingController::class, 'cancelInvoice'])
+        ->name('api.admin.bookings.invoice.cancel');
+
+    Route::post('bookings/payments/{id}/invoice/mark-paid',
+        [\App\Http\Controllers\Admin\BookingController::class, 'markInvoicePaid'])
+        ->name('api.admin.bookings.invoice.mark-paid');
 
     Route::post('bookings/mail/{id}',
         [\App\Http\Controllers\Admin\BookingController::class, 'mailBooking'])

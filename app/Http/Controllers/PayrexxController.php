@@ -152,13 +152,26 @@ class PayrexxController
                                     ($data2->getInvoice()['totalAmount'] ?? $data['amount']) / 100;
 
                                 $isInvoicePayment = (int) $booking->payment_method_id === Booking::ID_INVOICE;
+                                $invoicePayload = [];
+                                if ($isInvoicePayment) {
+                                    $invoices = PayrexxHelpers::findInvoicesByReference($schoolData, $referenceID);
+                                    if (!empty($invoices)) {
+                                        $invoicePayload = PayrexxHelpers::extractInvoicePayload($invoices[0]);
+                                    }
+                                }
                                 $payment = new Payment();
                                 $payment->booking_id = $booking->id;
                                 $payment->school_id = $booking->school_id;
                                 $payment->amount = ($data2->getInvoice()['totalAmount'] ?? $data['amount']) / 100;
                                 $payment->status = $isInvoicePayment ? 'invoice_paid' : 'paid';
+                                $payment->invoice_status = $isInvoicePayment ? PayrexxHelpers::INVOICE_PAID : null;
                                 $payment->notes = $isInvoicePayment ? 'Invoice paid via Payrexx' : 'Boukii Pay';
                                 $payment->payrexx_reference = $referenceID;
+                                $payment->payrexx_invoice_id = $invoicePayload['invoice_id'] ?? null;
+                                $payment->invoice_due_at = $invoicePayload['due_at'] ?? null;
+                                $payment->invoice_url = $invoicePayload['link'] ?? null;
+                                $payment->invoice_pdf_url = $invoicePayload['pdf_link'] ?? null;
+                                $payment->invoice_meta = $isInvoicePayment ? $invoicePayload : null;
                                 $payment->payrexx_transaction = $booking->payrexx_transaction;
                                 $payment->save();
 
@@ -391,9 +404,25 @@ class PayrexxController
             ]);
         }
 
-        // For invoice transactions, use 'invoice_sent' status instead of generic pending
-        $mappedStatus = $isInvoice ? 'invoice_sent' : $this->mapPayrexxStatusToPaymentStatus($status);
+        // For invoice transactions, use invoice-specific status mapping
+        $mappedStatus = $isInvoice
+            ? PayrexxHelpers::mapPayrexxInvoiceStatus($status)
+            : $this->mapPayrexxStatusToPaymentStatus($status);
         $amount = isset($payload['amount']) ? ((float) $payload['amount']) / 100 : null;
+
+        $invoicePayload = [];
+        if ($isInvoice) {
+            $schoolData = $booking->school;
+            if ($schoolData && $referenceID) {
+                $invoices = PayrexxHelpers::findInvoicesByReference($schoolData, $referenceID);
+                if (!empty($invoices)) {
+                    $invoicePayload = PayrexxHelpers::extractInvoicePayload($invoices[0]);
+                    if (!empty($invoicePayload['invoice_status'])) {
+                        $mappedStatus = $invoicePayload['invoice_status'];
+                    }
+                }
+            }
+        }
 
         $existing = Payment::where('booking_id', $booking->id)
             ->where('payrexx_reference', $referenceID)
@@ -413,8 +442,14 @@ class PayrexxController
         $payment->school_id = $booking->school_id;
         $payment->amount = $amount ?? 0;
         $payment->status = $mappedStatus;
+        $payment->invoice_status = $isInvoice ? $mappedStatus : null;
         $payment->notes = $isInvoice ? 'Invoice sent via Payrexx' : ('Payrexx ' . ($status ?: 'unknown'));
         $payment->payrexx_reference = $referenceID;
+        $payment->payrexx_invoice_id = $invoicePayload['invoice_id'] ?? null;
+        $payment->invoice_due_at = $invoicePayload['due_at'] ?? null;
+        $payment->invoice_url = $invoicePayload['link'] ?? null;
+        $payment->invoice_pdf_url = $invoicePayload['pdf_link'] ?? null;
+        $payment->invoice_meta = $isInvoice ? $invoicePayload : null;
         $payment->payrexx_transaction = $booking->payrexx_transaction;
         $payment->save();
     }

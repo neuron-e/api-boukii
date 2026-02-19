@@ -83,16 +83,28 @@ class Payment extends Model
         'school_id',
         'amount',
         'status',
+        'invoice_status',
+        'invoice_due_at',
+        'invoice_url',
+        'invoice_pdf_url',
+        'invoice_meta',
         'notes',
         'payrexx_reference',
+        'payrexx_invoice_id',
         'payrexx_transaction'
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
         'status' => 'string',
+        'invoice_status' => 'string',
+        'invoice_due_at' => 'datetime',
+        'invoice_url' => 'string',
+        'invoice_pdf_url' => 'string',
+        'invoice_meta' => 'array',
         'notes' => 'string',
         'payrexx_reference' => 'string',
+        'payrexx_invoice_id' => 'string',
         'payrexx_transaction' => 'string'
     ];
 
@@ -101,8 +113,14 @@ class Payment extends Model
         'school_id' => 'required',
         'amount' => 'required|numeric',
         'status' => 'required|string|max:255',
+        'invoice_status' => 'nullable|string|max:255',
+        'invoice_due_at' => 'nullable|date',
+        'invoice_url' => 'nullable|string|max:65535',
+        'invoice_pdf_url' => 'nullable|string|max:65535',
+        'invoice_meta' => 'nullable|array',
         'notes' => 'nullable|string|max:65535',
         'payrexx_reference' => 'nullable|string|max:65535',
+        'payrexx_invoice_id' => 'nullable|string|max:255',
         'payrexx_transaction' => 'nullable|string|max:65535',
         'created_at' => 'nullable',
         'updated_at' => 'nullable',
