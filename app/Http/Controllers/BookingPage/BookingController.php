@@ -157,7 +157,9 @@ class BookingController extends SlugAuthController
                             $detail["date"] ?? null,
                             $detail["hour_start"] ?? null,
                             $detail["hour_end"] ?? null,
-                            $detail["course"]["sport_id"] ?? $detail["course_sport_id"] ?? null
+                            $detail["course"]["sport_id"] ?? $detail["course_sport_id"] ?? null,
+                            $detail["course_date_id"] ?? null,
+                            $detail["course_id"] ?? $detail["course"]["id"] ?? null
                         );
                         if ($overbookingError) {
                             DB::rollBack();
@@ -756,7 +758,9 @@ class BookingController extends SlugAuthController
                     $date,
                     $startTime,
                     $endTime,
-                    $bookingUser['course']['sport_id'] ?? null
+                    $bookingUser['course']['sport_id'] ?? null,
+                    $bookingUser['course_date_id'] ?? null,
+                    $bookingUser['course_id'] ?? $bookingUser['course']['id'] ?? null
                 );
                 if ($overbookingError) {
                     return $this->sendError($overbookingError, [], 422);
@@ -1036,24 +1040,34 @@ class BookingController extends SlugAuthController
         return 0;
     }
 
-    private function validatePrivateOverbooking(?string $date, ?string $startTime, ?string $endTime, $sportId = null): ?string
+    private function validatePrivateOverbooking(?string $date, ?string $startTime, ?string $endTime, $sportId = null, $courseDateId = null, $courseId = null): ?string
     {
         if (!$date || !$startTime || !$endTime) {
             return null;
+        }
+
+        $resolvedSportId = $sportId;
+        if (!$resolvedSportId && $courseDateId) {
+            $resolvedSportId = CourseDate::whereKey($courseDateId)
+                ->join('courses', 'course_dates.course_id', '=', 'courses.id')
+                ->value('courses.sport_id');
+        }
+        if (!$resolvedSportId && $courseId) {
+            $resolvedSportId = Course::whereKey($courseId)->value('sport_id');
         }
 
         $availableMonitors = $this->getMonitorsAvailable(new Request([
             'date' => $date,
             'startTime' => $startTime,
             'endTime' => $endTime,
-            'sportId' => $sportId,
+            'sportId' => $resolvedSportId,
             'clientIds' => [],
             'minimumDegreeId' => null,
         ]));
 
         $availableCount = is_array($availableMonitors) ? count($availableMonitors) : 0;
         $overbookingLimit = $this->getPrivateOverbookingLimit();
-        $concurrentBookings = $this->getConcurrentPrivateBookings($date, $startTime, $endTime);
+        $concurrentBookings = $this->getConcurrentPrivateBookings($date, $startTime, $endTime, $resolvedSportId);
 
         if ($availableCount + $overbookingLimit <= $concurrentBookings) {
             return 'booking.errors.private_overbooking';
@@ -1062,7 +1076,7 @@ class BookingController extends SlugAuthController
         return null;
     }
 
-    private function getConcurrentPrivateBookings(string $date, string $startTime, string $endTime): int
+    private function getConcurrentPrivateBookings(string $date, string $startTime, string $endTime, $sportId = null): int
     {
         return BookingUser::whereDate('date', $date)
             ->where(function ($query) use ($startTime, $endTime) {
@@ -1073,8 +1087,11 @@ class BookingController extends SlugAuthController
             ->whereHas('booking', function ($query) {
                 $query->where('status', '!=', 2);
             })
-            ->whereHas('course', function ($query) {
+            ->whereHas('course', function ($query) use ($sportId) {
                 $query->where('course_type', 2);
+                if (!empty($sportId)) {
+                    $query->where('sport_id', $sportId);
+                }
             })
             ->count();
     }
@@ -1537,7 +1554,6 @@ class BookingController extends SlugAuthController
     }
 
 }
-
 
 
 
