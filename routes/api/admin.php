@@ -132,6 +132,7 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
 
         Route::get('items', [\App\Http\Controllers\Admin\RentalItemController::class, 'index']);
         Route::post('items', [\App\Http\Controllers\Admin\RentalItemController::class, 'store']);
+        Route::get('items/{id}/detail', [\App\Http\Controllers\Admin\RentalItemController::class, 'detail']);
         Route::get('items/{id}', [\App\Http\Controllers\Admin\RentalItemController::class, 'show']);
         Route::put('items/{id}', [\App\Http\Controllers\Admin\RentalItemController::class, 'update']);
         Route::delete('items/{id}', [\App\Http\Controllers\Admin\RentalItemController::class, 'destroy']);
