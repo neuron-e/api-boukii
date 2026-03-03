@@ -124,6 +124,12 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
         Route::put('categories/{id}', [\App\Http\Controllers\Admin\RentalCategoryController::class, 'update']);
         Route::delete('categories/{id}', [\App\Http\Controllers\Admin\RentalCategoryController::class, 'destroy']);
 
+        Route::get('subcategories', [\App\Http\Controllers\Admin\RentalSubcategoryController::class, 'index']);
+        Route::post('subcategories', [\App\Http\Controllers\Admin\RentalSubcategoryController::class, 'store']);
+        Route::get('subcategories/{id}', [\App\Http\Controllers\Admin\RentalSubcategoryController::class, 'show']);
+        Route::put('subcategories/{id}', [\App\Http\Controllers\Admin\RentalSubcategoryController::class, 'update']);
+        Route::delete('subcategories/{id}', [\App\Http\Controllers\Admin\RentalSubcategoryController::class, 'destroy']);
+
         Route::get('items', [\App\Http\Controllers\Admin\RentalItemController::class, 'index']);
         Route::post('items', [\App\Http\Controllers\Admin\RentalItemController::class, 'store']);
         Route::get('items/{id}', [\App\Http\Controllers\Admin\RentalItemController::class, 'show']);
@@ -156,10 +162,17 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
         Route::put('pricing-rules/{id}', [\App\Http\Controllers\Admin\RentalPricingRuleController::class, 'update']);
         Route::delete('pricing-rules/{id}', [\App\Http\Controllers\Admin\RentalPricingRuleController::class, 'destroy']);
 
+        Route::get('variant-services', [\App\Http\Controllers\Admin\RentalVariantServiceController::class, 'index']);
+        Route::post('variant-services', [\App\Http\Controllers\Admin\RentalVariantServiceController::class, 'store']);
+        Route::get('variant-services/{id}', [\App\Http\Controllers\Admin\RentalVariantServiceController::class, 'show']);
+        Route::put('variant-services/{id}', [\App\Http\Controllers\Admin\RentalVariantServiceController::class, 'update']);
+        Route::delete('variant-services/{id}', [\App\Http\Controllers\Admin\RentalVariantServiceController::class, 'destroy']);
+
         Route::get('policy', [\App\Http\Controllers\Admin\RentalPolicyController::class, 'show']);
         Route::post('policy', [\App\Http\Controllers\Admin\RentalPolicyController::class, 'update']);
 
         Route::get('reservations', [\App\Http\Controllers\Admin\RentalReservationController::class, 'index']);
+        Route::post('reservations', [\App\Http\Controllers\Admin\RentalReservationController::class, 'store']);
         Route::get('reservations/{id}', [\App\Http\Controllers\Admin\RentalReservationController::class, 'show']);
         Route::put('reservations/{id}', [\App\Http\Controllers\Admin\RentalReservationController::class, 'update']);
         Route::post('reservations/{id}/assign-units', [\App\Http\Controllers\Admin\RentalReservationController::class, 'assignUnits']);
