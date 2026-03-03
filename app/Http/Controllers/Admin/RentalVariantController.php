@@ -161,7 +161,7 @@ class RentalVariantController extends RentalBaseController
         $historyByVariant = $history->groupBy('variant_id');
         $servicesByVariant = $services->groupBy('variant_id');
 
-        $variants = $variants->map(function ($row) use ($unitsByVariant, $pricingByVariant, $historyByVariant) {
+        $variants = $variants->map(function ($row) use ($unitsByVariant, $pricingByVariant, $historyByVariant, $servicesByVariant) {
             $variantUnits = $unitsByVariant->get($row->id, collect());
             $variantPrices = $pricingByVariant->get($row->id, collect());
             $variantHistory = $historyByVariant->get($row->id, collect());
