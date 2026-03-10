@@ -24,15 +24,6 @@ return new class extends Migration
             }
 
             Schema::table('payments', function (Blueprint $table) {
-                // Re-add FK with SET NULL on delete
-                try {
-                    $table->foreign('booking_id')
-                        ->references('id')->on('bookings')
-                        ->onDelete('set null');
-                } catch (\Throwable $e) {
-                    // FK may already exist — ignore
-                }
-
                 // Add rental_reservation_id column
                 if (!Schema::hasColumn('payments', 'rental_reservation_id')) {
                     $table->unsignedBigInteger('rental_reservation_id')
@@ -50,17 +41,26 @@ return new class extends Migration
                 }
             });
 
+            // Re-add booking FK only if the live schema accepts it.
+            $this->tryAddForeignKey(
+                'payments',
+                'booking_id',
+                'bookings',
+                'id',
+                'set null',
+                'payments_booking_id_foreign'
+            );
+
             // Add FK for rental_reservation_id (separate call for safety)
             if (Schema::hasTable('rental_reservations')) {
-                try {
-                    Schema::table('payments', function (Blueprint $table) {
-                        $table->foreign('rental_reservation_id')
-                            ->references('id')->on('rental_reservations')
-                            ->onDelete('set null');
-                    });
-                } catch (\Throwable $e) {
-                    // FK may already exist — ignore
-                }
+                $this->tryAddForeignKey(
+                    'payments',
+                    'rental_reservation_id',
+                    'rental_reservations',
+                    'id',
+                    'set null',
+                    'payments_rental_reservation_id_foreign'
+                );
             }
         }
 
@@ -151,8 +151,48 @@ return new class extends Migration
         }
 
         DB::statement(sprintf(
-            'ALTER TABLE `payments` MODIFY `booking_id` %s NULL',
+            'ALTER TABLE `payments` MODIFY `booking_id` %s NULL DEFAULT NULL',
             $columnType
         ));
+    }
+
+    private function tryAddForeignKey(
+        string $table,
+        string $column,
+        string $referencedTable,
+        string $referencedColumn,
+        string $onDelete,
+        string $constraintName
+    ): void {
+        if (!Schema::hasTable($table) || !Schema::hasColumn($table, $column) || !Schema::hasTable($referencedTable)) {
+            return;
+        }
+
+        $database = DB::getDatabaseName();
+        $exists = DB::table('information_schema.KEY_COLUMN_USAGE')
+            ->where('TABLE_SCHEMA', $database)
+            ->where('TABLE_NAME', $table)
+            ->where('COLUMN_NAME', $column)
+            ->where('CONSTRAINT_NAME', $constraintName)
+            ->whereNotNull('REFERENCED_TABLE_NAME')
+            ->exists();
+
+        if ($exists) {
+            return;
+        }
+
+        try {
+            DB::statement(sprintf(
+                'ALTER TABLE `%s` ADD CONSTRAINT `%s` FOREIGN KEY (`%s`) REFERENCES `%s` (`%s`) ON DELETE %s',
+                $table,
+                $constraintName,
+                $column,
+                $referencedTable,
+                $referencedColumn,
+                strtoupper($onDelete)
+            ));
+        } catch (\Throwable $e) {
+            // Live schemas may have historical type differences. Continue safely without recreating the FK.
+        }
     }
 };
