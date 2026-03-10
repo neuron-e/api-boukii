@@ -19,12 +19,11 @@ return new class extends Migration
         if (Schema::hasTable('payments')) {
             $this->dropBookingForeignKeys();
 
-            Schema::table('payments', function (Blueprint $table) {
-                // Make booking_id nullable (was NOT NULL)
-                if (Schema::hasColumn('payments', 'booking_id')) {
-                    $table->unsignedBigInteger('booking_id')->nullable()->change();
-                }
+            if (Schema::hasColumn('payments', 'booking_id')) {
+                $this->makeBookingIdNullablePreservingType();
+            }
 
+            Schema::table('payments', function (Blueprint $table) {
                 // Re-add FK with SET NULL on delete
                 try {
                     $table->foreign('booking_id')
@@ -134,5 +133,26 @@ return new class extends Migration
                 // Ignore if already removed or managed under a different engine-specific state
             }
         }
+    }
+
+    private function makeBookingIdNullablePreservingType(): void
+    {
+        $database = DB::getDatabaseName();
+        $column = DB::table('information_schema.COLUMNS')
+            ->select('COLUMN_TYPE')
+            ->where('TABLE_SCHEMA', $database)
+            ->where('TABLE_NAME', 'payments')
+            ->where('COLUMN_NAME', 'booking_id')
+            ->first();
+
+        $columnType = $column->COLUMN_TYPE ?? null;
+        if (!$columnType) {
+            return;
+        }
+
+        DB::statement(sprintf(
+            'ALTER TABLE `payments` MODIFY `booking_id` %s NULL',
+            $columnType
+        ));
     }
 };
