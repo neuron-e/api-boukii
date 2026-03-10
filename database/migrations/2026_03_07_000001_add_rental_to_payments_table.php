@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -16,14 +17,9 @@ return new class extends Migration
     {
         // 1. payments table — make booking_id nullable and add rental_reservation_id
         if (Schema::hasTable('payments')) {
-            Schema::table('payments', function (Blueprint $table) {
-                // Drop the existing FK so we can change nullability
-                try {
-                    $table->dropForeign(['booking_id']);
-                } catch (\Throwable $e) {
-                    // FK may not exist under this exact name — ignore
-                }
+            $this->dropBookingForeignKeys();
 
+            Schema::table('payments', function (Blueprint $table) {
                 // Make booking_id nullable (was NOT NULL)
                 if (Schema::hasColumn('payments', 'booking_id')) {
                     $table->unsignedBigInteger('booking_id')->nullable()->change();
@@ -92,6 +88,8 @@ return new class extends Migration
     public function down(): void
     {
         if (Schema::hasTable('payments')) {
+            $this->dropBookingForeignKeys();
+
             Schema::table('payments', function (Blueprint $table) {
                 try { $table->dropForeign(['rental_reservation_id']); } catch (\Throwable $e) {}
                 try { $table->dropIndex('payments_rental_res_id_idx'); } catch (\Throwable $e) {}
@@ -108,6 +106,33 @@ return new class extends Migration
             Schema::table('rental_reservations', function (Blueprint $table) {
                 $table->dropColumn('booking_id');
             });
+        }
+    }
+
+    private function dropBookingForeignKeys(): void
+    {
+        if (!Schema::hasTable('payments') || !Schema::hasColumn('payments', 'booking_id')) {
+            return;
+        }
+
+        $database = DB::getDatabaseName();
+        $foreignKeys = DB::table('information_schema.KEY_COLUMN_USAGE')
+            ->select('CONSTRAINT_NAME')
+            ->where('TABLE_SCHEMA', $database)
+            ->where('TABLE_NAME', 'payments')
+            ->where('COLUMN_NAME', 'booking_id')
+            ->whereNotNull('REFERENCED_TABLE_NAME')
+            ->pluck('CONSTRAINT_NAME');
+
+        foreach ($foreignKeys as $constraint) {
+            try {
+                DB::statement(sprintf(
+                    'ALTER TABLE `payments` DROP FOREIGN KEY `%s`',
+                    str_replace('`', '``', $constraint)
+                ));
+            } catch (\Throwable $e) {
+                // Ignore if already removed or managed under a different engine-specific state
+            }
         }
     }
 };
