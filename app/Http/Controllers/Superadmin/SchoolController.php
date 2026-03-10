@@ -144,6 +144,22 @@ class SchoolController extends AppBaseController
             'active'
         ]);
 
+        $rentalPolicyRow = \Illuminate\Support\Facades\DB::table('rental_policies')
+            ->where('school_id', $id)
+            ->first();
+
+        $rentalPolicy = null;
+        if ($rentalPolicyRow) {
+            $policySettings = is_string($rentalPolicyRow->settings)
+                ? (json_decode($rentalPolicyRow->settings, true) ?? [])
+                : (array) ($rentalPolicyRow->settings ?? []);
+            $rentalPolicy = [
+                'enabled'               => (bool) $rentalPolicyRow->enabled,
+                'mode'                  => $policySettings['mode'] ?? 'standalone',
+                'reminder_hours_before' => (int) ($policySettings['reminder_hours_before'] ?? 24),
+            ];
+        }
+
         return $this->sendResponse([
             'school' => $schoolArray,
             'stats' => [
@@ -165,6 +181,7 @@ class SchoolController extends AppBaseController
                 'sports' => $allSports,
                 'stations' => $allStations,
             ],
+            'rental_policy' => $rentalPolicy,
         ], 'School details retrieved successfully');
     }
 
@@ -209,6 +226,35 @@ class SchoolController extends AppBaseController
         $school = $this->schoolRepository->update($data, $id);
 
         return $this->sendResponse($school, 'School updated successfully');
+    }
+
+    public function updateRentalPolicy($id, Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'enabled'               => 'required|boolean',
+            'mode'                  => 'in:standalone,integrated',
+            'reminder_hours_before' => 'integer|min:1|max:72',
+        ]);
+
+        $settings = [
+            'mode'                  => $validated['mode'] ?? 'standalone',
+            'reminder_hours_before' => (int) ($validated['reminder_hours_before'] ?? 24),
+        ];
+
+        \Illuminate\Support\Facades\DB::table('rental_policies')->updateOrInsert(
+            ['school_id' => $id],
+            [
+                'enabled'    => $validated['enabled'] ? 1 : 0,
+                'settings'   => json_encode($settings),
+                'updated_at' => now(),
+            ]
+        );
+
+        return $this->sendResponse([
+            'enabled'               => (bool) $validated['enabled'],
+            'mode'                  => $settings['mode'],
+            'reminder_hours_before' => $settings['reminder_hours_before'],
+        ], 'Rental policy updated successfully');
     }
 
     public function destroy($id): JsonResponse

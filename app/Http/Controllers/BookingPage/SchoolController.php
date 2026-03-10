@@ -5,6 +5,10 @@ namespace App\Http\Controllers\BookingPage;
 use App\Http\Controllers\AppBaseController;
 use App\Models\Course;
 use App\Models\Degree;
+use App\Models\RentalItem;
+use App\Models\RentalPickupPoint;
+use App\Models\RentalPolicy;
+use App\Models\RentalVariant;
 use App\Models\Sport;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -83,6 +87,26 @@ class SchoolController extends SlugAuthController
             } catch (\Throwable $e) {
                 // noop
             }
+
+            $rentalPolicy = RentalPolicy::forSchool((int) $school->id);
+            $pickupPointsCount = RentalPickupPoint::query()
+                ->where('school_id', $school->id)
+                ->when(\Illuminate\Support\Facades\Schema::hasColumn('rental_pickup_points', 'active'), fn ($query) => $query->where('active', true))
+                ->count();
+            $variantsCount = RentalVariant::query()
+                ->where('school_id', $school->id)
+                ->when(\Illuminate\Support\Facades\Schema::hasColumn('rental_variants', 'active'), fn ($query) => $query->where('active', true))
+                ->count();
+            $itemsCount = RentalItem::query()
+                ->where('school_id', $school->id)
+                ->when(\Illuminate\Support\Facades\Schema::hasColumn('rental_items', 'active'), fn ($query) => $query->where('active', true))
+                ->count();
+
+            $school->setAttribute('rental_enabled', (bool) $rentalPolicy->enabled);
+            $school->setAttribute(
+                'rental_public_available',
+                (bool) $rentalPolicy->enabled && $pickupPointsCount > 0 && $itemsCount > 0 && $variantsCount > 0
+            );
 
             return $this->sendResponse($school, 'School retrieved successfully');
         } catch (\Exception $e) {

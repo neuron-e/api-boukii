@@ -20,6 +20,7 @@ Route::middleware(['userRequired:superadmin'])->group(function () {
     Route::get('/schools/{id}', [SchoolController::class, 'show']);
     Route::get('/schools/{id}/details', [SchoolController::class, 'details']);
     Route::put('/schools/{id}', [SchoolController::class, 'update']);
+    Route::post('/schools/{id}/rental-policy', [SchoolController::class, 'updateRentalPolicy']);
     Route::delete('/schools/{id}', [SchoolController::class, 'destroy']);
 
     Route::get('/roles', [RoleController::class, 'index']);

@@ -45,6 +45,7 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
         Route::get('/courses', 'coursesCapacity');
         Route::get('/forecast', 'forecast');
         Route::get('/commercial', 'commercialPerformance');
+        Route::get('/rental-summary', 'rentalSummary');
     });
 
     Route::resource('courses', App\Http\Controllers\Admin\CourseController::class)
@@ -173,13 +174,28 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
         Route::post('policy', [\App\Http\Controllers\Admin\RentalPolicyController::class, 'update']);
 
         Route::get('reservations', [\App\Http\Controllers\Admin\RentalReservationController::class, 'index']);
+        Route::post('reservations/quote', [\App\Http\Controllers\Admin\RentalReservationController::class, 'quote']);
         Route::post('reservations', [\App\Http\Controllers\Admin\RentalReservationController::class, 'store']);
         Route::get('reservations/{id}', [\App\Http\Controllers\Admin\RentalReservationController::class, 'show']);
         Route::put('reservations/{id}', [\App\Http\Controllers\Admin\RentalReservationController::class, 'update']);
+        Route::post('reservations/{id}/link-booking', [\App\Http\Controllers\Admin\RentalReservationController::class, 'linkBooking']);
+        Route::delete('reservations/{id}/unlink-booking', [\App\Http\Controllers\Admin\RentalReservationController::class, 'unlinkBooking']);
         Route::post('reservations/{id}/assign-units', [\App\Http\Controllers\Admin\RentalReservationController::class, 'assignUnits']);
         Route::post('reservations/{id}/return-units', [\App\Http\Controllers\Admin\RentalReservationController::class, 'returnUnits']);
         Route::post('reservations/{id}/auto-assign', [\App\Http\Controllers\Admin\RentalReservationController::class, 'autoAssignUnits']);
         Route::post('reservations/{id}/damage', [\App\Http\Controllers\Admin\RentalReservationController::class, 'registerDamage']);
+        Route::post('reservations/{id}/cancel', [\App\Http\Controllers\Admin\RentalReservationController::class, 'cancel']);
+        Route::get('reservations/{id}/events', [\App\Http\Controllers\Admin\RentalReservationController::class, 'events']);
+
+        // Payment routes (Phase 4)
+        Route::get('reservations/{id}/payment', [\App\Http\Controllers\Admin\RentalPaymentController::class, 'show']);
+        Route::post('reservations/{id}/payment', [\App\Http\Controllers\Admin\RentalPaymentController::class, 'store']);
+        Route::post('reservations/{id}/paylink', [\App\Http\Controllers\Admin\RentalPaymentController::class, 'createPaylink']);
+        Route::post('reservations/{id}/deposit', [\App\Http\Controllers\Admin\RentalPaymentController::class, 'manageDeposit']);
+        Route::post('reservations/{id}/refund', [\App\Http\Controllers\Admin\RentalPaymentController::class, 'refund']);
+
+        Route::get('analytics', [\App\Http\Controllers\Admin\RentalAnalyticsController::class, 'summary']);
+        Route::get('analytics/export', [\App\Http\Controllers\Admin\RentalAnalyticsController::class, 'exportCsv']);
     });
 
     Route::get('getPlanner', [\App\Http\Controllers\Admin\PlannerController::class, 'getPlanner'])
@@ -202,6 +218,9 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
             'update' => 'api.admin.clients.update',
             'destroy' => 'api.admin.clients.destroy',
         ]);
+
+    Route::get('clients/{id}/rentals', [\App\Http\Controllers\Admin\ClientsController::class, 'rentals'])
+        ->name('api.admin.clients.rentals');
 
     Route::get('evaluations/{id}/activity', [EvaluationLogController::class, 'index'])
         ->name('api.admin.evaluations.activity');
@@ -235,6 +254,10 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
         ->name('api.admin.planner.transfer.preview');
 
     /** Booking **/
+    Route::get('bookings/unified',
+        [\App\Http\Controllers\Admin\BookingController::class, 'unifiedList'])
+        ->name('api.admin.bookings.unified');
+
     Route::post('bookings',
         [\App\Http\Controllers\Admin\BookingController::class, 'store'])
         ->name('api.admin.bookings.store');

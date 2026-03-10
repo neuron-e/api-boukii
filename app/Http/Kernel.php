@@ -42,7 +42,7 @@ class Kernel extends HttpKernel
         ],
 
         'api' => [
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+            // First-party SPA-CSRF flow is not needed for token-based admin API calls in local.
             'throttle:5000,1',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],

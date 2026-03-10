@@ -80,9 +80,11 @@ class Payment extends Model
 
     public $fillable = [
         'booking_id',
+        'rental_reservation_id',
         'school_id',
         'amount',
         'status',
+        'payment_method',
         'invoice_status',
         'invoice_due_at',
         'invoice_url',
@@ -91,7 +93,8 @@ class Payment extends Model
         'notes',
         'payrexx_reference',
         'payrexx_invoice_id',
-        'payrexx_transaction'
+        'payrexx_transaction',
+        'payment_type',
     ];
 
     protected $casts = [

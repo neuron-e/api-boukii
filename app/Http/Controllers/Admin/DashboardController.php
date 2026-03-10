@@ -1701,4 +1701,63 @@ class DashboardController extends AppBaseController
     {
         return Schema::hasColumn('course_subgroups', 'max_participants') ? 'sg.max_participants' : 'NULL';
     }
+
+    public function rentalSummary(Request $request): JsonResponse
+    {
+        $schoolId = $this->resolveSchoolId($request);
+        if (!$schoolId) {
+            return $this->sendError('school_id is required', [], 400);
+        }
+
+        if (!Schema::hasTable('rental_reservations')) {
+            return $this->sendResponse([
+                'active_today' => 0,
+                'pending_pickup' => 0,
+                'overdue' => 0,
+                'revenue_today' => 0,
+                'completed_today' => 0,
+            ], 'Rental tables not yet migrated');
+        }
+
+        $today = now()->toDateString();
+
+        $base = DB::table('rental_reservations')
+            ->where('school_id', $schoolId)
+            ->whereNull('deleted_at');
+
+        $activeToday = (clone $base)
+            ->whereIn('status', ['active', 'assigned', 'checked_out', 'partial_return'])
+            ->where('start_date', '<=', $today)
+            ->where('end_date', '>=', $today)
+            ->count();
+
+        $pendingPickup = (clone $base)
+            ->where('status', 'pending')
+            ->where('start_date', $today)
+            ->count();
+
+        $overdueStatuses = ['active', 'assigned', 'checked_out', 'partial_return', 'pending'];
+        $overdue = (clone $base)
+            ->whereIn('status', $overdueStatuses)
+            ->where('end_date', '<', $today)
+            ->count();
+
+        $revenueToday = (clone $base)
+            ->whereIn('status', ['returned', 'completed'])
+            ->where('end_date', $today)
+            ->sum('total');
+
+        $completedToday = (clone $base)
+            ->whereIn('status', ['returned', 'completed'])
+            ->where('end_date', $today)
+            ->count();
+
+        return $this->sendResponse([
+            'active_today' => (int) $activeToday,
+            'pending_pickup' => (int) $pendingPickup,
+            'overdue' => (int) $overdue,
+            'revenue_today' => (float) $revenueToday,
+            'completed_today' => (int) $completedToday,
+        ], 'Rental summary retrieved successfully');
+    }
 }

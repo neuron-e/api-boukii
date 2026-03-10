@@ -17,27 +17,39 @@ abstract class RentalBaseController extends AppBaseController
             $schoolId = $school ? (int) $school->id : 0;
         }
 
-        if ($schoolId > 0 && !$this->isFeatureEnabledForSchool($schoolId)) {
+        if ($schoolId > 0 && $this->shouldEnforceFeatureEnabled($request) && !$this->isFeatureEnabledForSchool($schoolId)) {
             abort(403, 'Rental feature is disabled for this school');
         }
 
         return $schoolId > 0 ? $schoolId : null;
     }
 
+    protected function shouldEnforceFeatureEnabled(Request $request): bool
+    {
+        return true;
+    }
+
     protected function isFeatureEnabledForSchool(int $schoolId): bool
     {
-        $raw = (string) env('RENTAL_FEATURE_SCHOOL_IDS', '15');
-        $ids = collect(explode(',', $raw))
-            ->map(fn ($id) => (int) trim($id))
-            ->filter(fn ($id) => $id > 0)
-            ->values()
-            ->all();
+        if (!Schema::hasTable('rental_policies')) {
+            return true;
+        }
 
-        if (empty($ids)) {
+        if (!Schema::hasColumn('rental_policies', 'school_id') || !Schema::hasColumn('rental_policies', 'enabled')) {
+            return true;
+        }
+
+        $policy = DB::table('rental_policies')
+            ->select('enabled')
+            ->where('school_id', $schoolId)
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$policy) {
             return false;
         }
 
-        return in_array($schoolId, $ids, true);
+        return (bool) ($policy->enabled ?? false);
     }
 
     protected function tableMissingResponse(string $table)

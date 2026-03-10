@@ -23,6 +23,7 @@ use App\Models\CourseDate;
 use App\Models\CourseExtra;
 use App\Models\CourseSubgroup;
 use App\Models\Payment;
+use App\Models\RentalReservation;
 use App\Models\Voucher;
 use App\Models\VouchersLog;
 use App\Repositories\BookingRepository;
@@ -360,6 +361,7 @@ class BookingController extends AppBaseController
         $booking->computed_paid_total = round((float) ($balance['current_balance'] ?? 0), 2);
         $booking->computed_pending_amount = round(max(0, $booking->getPendingAmount()), 2);
         $booking->append('payment_method_status');
+        $this->appendLinkedRentalsPreviewData($booking);
 
         $queries = DB::getQueryLog();
         DB::disableQueryLog();
@@ -420,6 +422,75 @@ class BookingController extends AppBaseController
         ];
 
         return $relations;
+    }
+
+    private function appendLinkedRentalsPreviewData(Booking $booking): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('rental_reservations')
+            || !\Illuminate\Support\Facades\Schema::hasColumn('rental_reservations', 'booking_id')
+        ) {
+            $booking->linked_rentals = [];
+            $booking->rental_total = 0.0;
+            $booking->grand_total = round($this->resolveBookingPreviewBaseTotal($booking), 2);
+            return;
+        }
+
+        $reservations = RentalReservation::query()
+            ->where('booking_id', $booking->id)
+            ->where('school_id', $booking->school_id)
+            ->with([
+                'lines.variant.item',
+                'lines.item',
+            ])
+            ->orderByDesc('id')
+            ->get();
+
+        $linkedRentals = $reservations->map(function (RentalReservation $reservation) {
+            $items = $reservation->lines->map(function ($line) {
+                $variant = $line->variant;
+                $item = $line->item ?: $variant?->item;
+                $variantName = trim((string) ($variant?->name ?: ''));
+                if ($variantName === '') {
+                    $itemName = trim((string) ($item?->name ?: ''));
+                    $sizeLabel = trim((string) ($variant?->size_label ?: ''));
+                    $variantName = trim($itemName . ($sizeLabel !== '' ? ' ' . $sizeLabel : ''));
+                }
+
+                return [
+                    'variant_name' => $variantName !== '' ? $variantName : ('#' . (int) $line->id),
+                    'quantity' => (int) ($line->quantity ?? 0),
+                    'unit_price' => round((float) ($line->unit_price ?? 0), 2),
+                ];
+            })->values();
+
+            return [
+                'id' => (int) $reservation->id,
+                'reference' => $reservation->reference,
+                'booking_id' => (int) ($reservation->booking_id ?? 0),
+                'status' => $reservation->status,
+                'start_date' => optional($reservation->start_date)->format('Y-m-d') ?: $reservation->start_date,
+                'end_date' => optional($reservation->end_date)->format('Y-m-d') ?: $reservation->end_date,
+                'total' => round((float) ($reservation->total ?? 0), 2),
+                'currency' => $reservation->currency ?: $booking->currency,
+                'items_count' => (int) $items->sum('quantity'),
+                'items' => $items->all(),
+            ];
+        })->values();
+
+        $rentalTotal = round((float) $linkedRentals->sum('total'), 2);
+        $booking->linked_rentals = $linkedRentals->all();
+        $booking->rental_total = $rentalTotal;
+        $booking->grand_total = round($this->resolveBookingPreviewBaseTotal($booking) + $rentalTotal, 2);
+    }
+
+    private function resolveBookingPreviewBaseTotal(Booking $booking): float
+    {
+        $storedTotal = $booking->price_total;
+        if ($storedTotal !== null && $storedTotal !== '') {
+            return max(0, round((float) $storedTotal, 2));
+        }
+
+        return max(0, round((float) ($booking->computed_total ?? 0), 2));
     }
 
     private function loadBookingDetail(Booking $booking, bool $includeEdit = false): Booking
@@ -3086,5 +3157,149 @@ class BookingController extends AppBaseController
         });
 
         return $allSame ? $first : $defaults;
+    }
+
+    /**
+     * GET /admin/bookings/unified
+     * Returns a unified list of course bookings + rental reservations as UnifiedBookingDTO.
+     */
+    public function unifiedList(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $schoolId = null;
+        if (method_exists($this, 'getSchool')) {
+            $school = $this->getSchool($request);
+            $schoolId = $school ? (int) $school->id : null;
+        }
+        if (!$schoolId) {
+            $schoolId = (int) $request->input('school_id', 0) ?: null;
+        }
+
+        $typeFilter = $request->input('type', 'all'); // 'all' | 'course' | 'rental'
+        $perPage = max(1, min(500, (int) $request->input('per_page', 50)));
+        $page = max(1, (int) $request->input('page', 1));
+        $search = $request->input('search', '');
+        $statusFilter = $request->input('status', '');
+        $startDate = $request->input('start_date', '');
+        $endDate = $request->input('end_date', '');
+
+        $results = [];
+
+        // ---- Course bookings ----
+        if (in_array($typeFilter, ['all', 'course'], true)) {
+            $query = DB::table('bookings as b')
+                ->select([
+                    DB::raw("CONCAT('b-', b.id) as id"),
+                    DB::raw("'course' as type"),
+                    DB::raw("COALESCE(c.first_name, '') as client_first_name"),
+                    DB::raw("COALESCE(c.last_name, '') as client_last_name"),
+                    'b.status',
+                    'b.start_date',
+                    'b.end_date',
+                    DB::raw('b.price_total as total'),
+                    DB::raw('b.id as source_id'),
+                    DB::raw("b.reference as reference"),
+                    DB::raw("(SELECT COUNT(*) FROM payments p WHERE p.booking_id = b.id AND p.status = 'completed' LIMIT 1) > 0 as paid"),
+                    'b.created_at',
+                ])
+                ->leftJoin('clients as c', 'c.id', '=', 'b.client_id')
+                ->where('b.school_id', $schoolId)
+                ->whereNull('b.deleted_at')
+                ->where('b.status', '<>', 2);
+
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->whereRaw("CONCAT(c.first_name, ' ', c.last_name) LIKE ?", ["%{$search}%"])
+                      ->orWhere('b.reference', 'LIKE', "%{$search}%");
+                });
+            }
+            if ($statusFilter) {
+                $query->where('b.status', $statusFilter);
+            }
+            if ($startDate) {
+                $query->where('b.start_date', '>=', $startDate);
+            }
+            if ($endDate) {
+                $query->where('b.end_date', '<=', $endDate);
+            }
+
+            foreach ($query->orderByDesc('b.id')->get() as $row) {
+                $results[] = (array) $row;
+            }
+        }
+
+        // ---- Rental reservations ----
+        if (in_array($typeFilter, ['all', 'rental'], true) && Schema::hasTable('rental_reservations')) {
+            $query = DB::table('rental_reservations as rr')
+                ->select([
+                    DB::raw("CONCAT('r-', rr.id) as id"),
+                    DB::raw("'rental' as type"),
+                    DB::raw("COALESCE(c.first_name, '') as client_first_name"),
+                    DB::raw("COALESCE(c.last_name, '') as client_last_name"),
+                    'rr.status',
+                    'rr.start_date',
+                    'rr.end_date',
+                    'rr.total',
+                    DB::raw('rr.id as source_id'),
+                    DB::raw("rr.reference as reference"),
+                    DB::raw('0 as paid'),
+                    'rr.created_at',
+                ])
+                ->leftJoin('clients as c', 'c.id', '=', 'rr.client_id')
+                ->where('rr.school_id', $schoolId)
+                ->whereNull('rr.deleted_at')
+                ->where('rr.status', '<>', 'cancelled');
+
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->whereRaw("CONCAT(c.first_name, ' ', c.last_name) LIKE ?", ["%{$search}%"])
+                      ->orWhere('rr.reference', 'LIKE', "%{$search}%");
+                });
+            }
+            if ($statusFilter) {
+                // Map UI canonical statuses to backend statuses for rental
+                $rentalStatuses = match($statusFilter) {
+                    'active' => ['active', 'assigned', 'checked_out', 'partial_return'],
+                    'completed' => ['returned', 'completed'],
+                    'pending' => ['pending'],
+                    default => [$statusFilter],
+                };
+                $query->whereIn('rr.status', $rentalStatuses);
+            }
+            if ($startDate) {
+                $query->where('rr.start_date', '>=', $startDate);
+            }
+            if ($endDate) {
+                $query->where('rr.end_date', '<=', $endDate);
+            }
+
+            foreach ($query->orderByDesc('rr.id')->get() as $row) {
+                $results[] = (array) $row;
+            }
+        }
+
+        // Sort by created_at desc
+        usort($results, fn($a, $b) => strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? '')));
+
+        // Manual pagination
+        $total = count($results);
+        $offset = ($page - 1) * $perPage;
+        $paged = array_slice($results, $offset, $perPage);
+
+        // Normalize client name
+        $paged = array_map(function (array $row) {
+            $row['client_name'] = trim(($row['client_first_name'] ?? '') . ' ' . ($row['client_last_name'] ?? ''));
+            unset($row['client_first_name'], $row['client_last_name']);
+            return $row;
+        }, $paged);
+
+        return $this->sendResponse([
+            'data' => $paged,
+            'meta' => [
+                'total' => $total,
+                'per_page' => $perPage,
+                'current_page' => $page,
+                'last_page' => max(1, (int) ceil($total / $perPage)),
+            ],
+        ], 'Unified bookings retrieved successfully');
     }
 }

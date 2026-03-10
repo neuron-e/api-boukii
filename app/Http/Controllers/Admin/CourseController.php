@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Exports\CourseDetailsExport;
 use App\Exports\CoursesBySeasonExport;
+use App\Exports\CoursesBySeasonLegacyExport;
 use App\Http\Controllers\AppBaseController;
 use App\Mail\BookingInfoUpdateMailer;
 use App\Models\Booking;
@@ -473,6 +474,7 @@ class CourseController extends AppBaseController
 
         $seasonId = $request->input('season_id');
         $includeArchived = $request->boolean('include_archived', false);
+        $legacy = $request->boolean('legacy', false);
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
         $lang = $request->input('lang', 'fr');
@@ -499,7 +501,17 @@ class CourseController extends AppBaseController
 
         $seasonPart = $season ? 'season-' . ($season->name ?? $season->id) : "{$dateFrom}_to_{$dateTo}";
         $safeSeasonPart = str_replace([' ', '/'], '-', $seasonPart);
-        $filename = "courses_{$school->id}_{$safeSeasonPart}.xlsx";
+        $filenamePrefix = $legacy ? 'courses_legacy' : 'courses';
+        $filename = "{$filenamePrefix}_{$school->id}_{$safeSeasonPart}.xlsx";
+
+        if ($legacy) {
+            return (new CoursesBySeasonLegacyExport(
+                $school->id,
+                $dateFrom,
+                $dateTo,
+                $includeArchived
+            ))->download($filename);
+        }
 
         return (new CoursesBySeasonExport(
             $school->id,

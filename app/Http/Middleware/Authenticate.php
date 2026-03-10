@@ -12,6 +12,7 @@ class Authenticate extends Middleware
      */
     protected function redirectTo(Request $request): ?string
     {
-        return $request->expectsJson() ? null : route('login');
+        // API logins don't rely on a web route; always return null so Sanctum can respond with JSON.
+        return null;
     }
 }

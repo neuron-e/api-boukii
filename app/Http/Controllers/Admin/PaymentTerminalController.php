@@ -4,11 +4,16 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Mail\BlankMailer;
+use App\Models\Payment;
+use App\Models\RentalEvent;
+use App\Models\RentalReservation;
 use App\Services\Payrexx\PayrexxService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Payrexx\Models\Request\Gateway as GatewayRequest;
 use Payrexx\Payrexx;
@@ -87,11 +92,12 @@ class PaymentTerminalController extends Controller
     public function create(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'amount' => 'required|numeric|min:0.01',
-            'description' => 'nullable|string|max:255',
-            'subject' => 'nullable|string|max:255',
-            'client_email' => 'nullable|email',
-            'client_name' => 'nullable|string|max:255',
+            'amount'                => 'required|numeric|min:0.01',
+            'description'           => 'nullable|string|max:255',
+            'subject'               => 'nullable|string|max:255',
+            'client_email'          => 'nullable|email',
+            'client_name'           => 'nullable|string|max:255',
+            'rental_reservation_id' => 'nullable|integer|min:1',
         ]);
 
         if ($validator->fails()) {
@@ -218,11 +224,59 @@ class PaymentTerminalController extends Controller
                 })->afterResponse();
             }
 
+            // ── Link to rental reservation if provided ──────────────────────
+            $rentalReservationId = $request->input('rental_reservation_id');
+            $rentalPaymentId     = null;
+
+            if ($rentalReservationId && Schema::hasTable('rental_reservations')) {
+                $reservation = RentalReservation::find((int) $rentalReservationId);
+                if ($reservation && $reservation->school_id === $school->id) {
+                    DB::beginTransaction();
+                    try {
+                        $payment = Payment::create([
+                            'rental_reservation_id' => $reservation->id,
+                            'booking_id'            => null,
+                            'school_id'             => $reservation->school_id,
+                            'amount'                => $amount,
+                            'status'                => 'pending',
+                            'payment_method'        => 'payrexx_link',
+                            'notes'                 => $description ?: null,
+                            'payrexx_reference'     => $createdGateway->getId(),
+                        ]);
+
+                        $reservation->update(['payment_id' => $payment->id]);
+
+                        RentalEvent::log($reservation->id, $reservation->school_id, 'payment_link_generated', [
+                            'payment_id' => $payment->id,
+                            'amount'     => $amount,
+                            'source'     => 'payment_terminal',
+                        ]);
+
+                        DB::commit();
+                        $rentalPaymentId = $payment->id;
+
+                        Log::channel('payments')->info('TERMINAL_RENTAL_PAYMENT_LINKED', [
+                            'reservation_id' => $reservation->id,
+                            'payment_id'     => $payment->id,
+                            'amount'         => $amount,
+                        ]);
+                    } catch (\Exception $linkEx) {
+                        DB::rollBack();
+                        Log::channel('payments')->error('TERMINAL_RENTAL_LINK_FAILED', [
+                            'reservation_id' => $rentalReservationId,
+                            'error'          => $linkEx->getMessage(),
+                        ]);
+                    }
+                }
+            }
+
             return response()->json([
-                'success' => true,
-                'payment_link' => $paymentLink,
-                'amount' => $amount,
-                'currency' => 'CHF'
+                'success'               => true,
+                'payment_link'          => $paymentLink,
+                'amount'                => $amount,
+                'currency'              => 'CHF',
+                'rental_reservation_id' => $rentalReservationId,
+                'rental_payment_id'     => $rentalPaymentId,
             ]);
 
         } catch (\Exception $e) {

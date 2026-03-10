@@ -7,6 +7,7 @@
 namespace App\Mail;
 
 use App\Models\Mail;
+use App\Models\RentalReservation;
 use Illuminate\Mail\Mailable;
 use App\Support\LocaleHelper;
 
@@ -59,6 +60,46 @@ class BookingCreateMailer extends Mailable
         $groupedActivities = $this->bookingData->buildGroupedActivitiesFromBookingUsers(
             $this->bookingData->bookingUsers
         );
+        $linkedRentals = RentalReservation::query()
+            ->where('booking_id', $this->bookingData->id)
+            ->where('school_id', $this->schoolData->id)
+            ->with(['pickupPoint:id,name,address', 'lines.variant.item', 'lines.item'])
+            ->orderBy('start_date')
+            ->orderBy('id')
+            ->get()
+            ->map(function (RentalReservation $reservation) {
+                $items = $reservation->lines->map(function ($line) {
+                    $variant = $line->variant;
+                    $item = $line->item ?: $variant?->item;
+                    $variantName = trim((string) ($variant?->name ?: ''));
+
+                    if ($variantName === '') {
+                        $itemName = trim((string) ($item?->name ?: ''));
+                        $sizeLabel = trim((string) ($variant?->size_label ?: ''));
+                        $variantName = trim($itemName . ($sizeLabel !== '' ? ' ' . $sizeLabel : ''));
+                    }
+
+                    return [
+                        'variant_name' => $variantName !== '' ? $variantName : ('#' . (int) $line->id),
+                        'quantity' => (int) ($line->quantity ?? 0),
+                        'line_total' => round((float) ($line->line_total ?? 0), 2),
+                    ];
+                })->values()->all();
+
+                return [
+                    'id' => (int) $reservation->id,
+                    'reference' => $reservation->reference ?: ('#' . (int) $reservation->id),
+                    'start_date' => optional($reservation->start_date)->format('Y-m-d'),
+                    'end_date' => optional($reservation->end_date)->format('Y-m-d'),
+                    'total' => round((float) ($reservation->total ?? 0), 2),
+                    'currency' => $reservation->currency ?: ($this->bookingData->currency ?: 'CHF'),
+                    'pickup_point_name' => $reservation->pickupPoint?->name,
+                    'pickup_point_address' => $reservation->pickupPoint?->address,
+                    'items' => $items,
+                ];
+            })
+            ->values()
+            ->all();
         $voucherBalance = $this->bookingData->getCurrentBalance();
         $voucherUsed = (float) ($voucherBalance['total_vouchers_used'] ?? 0);
         if ($voucherUsed <= 0) {
@@ -106,7 +147,8 @@ class BookingCreateMailer extends Mailable
             'voucherUsed' => $voucherUsed,
             'voucherIncludedInPrice' => $voucherIncludedInPrice,
             'displayTotal' => number_format($displayTotal, 2, '.', ''),
-            'displaySubtotal' => number_format($displaySubtotal, 2, '.', '')
+            'displaySubtotal' => number_format($displaySubtotal, 2, '.', ''),
+            'linkedRentals' => $linkedRentals,
         ];
 
         $subject = __('emails.bookingCreate.subject');

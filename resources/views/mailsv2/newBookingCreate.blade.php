@@ -40,6 +40,80 @@
             @include('mailsv2.partials.activity-card', ['activity' => $activity, 'loopIndex' => $loop->index, 'booking' => $booking])
         @endforeach
     </center>
+    @if(!empty($linkedRentals) && count($linkedRentals) > 0)
+        <center style="width: 100%;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" class="center-on-narrow">
+                <tr>
+                    <td valign="top" align="center" style="padding-top:20px; padding-bottom:20px;">
+                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="580" style="margin: auto; width:580px"
+                               class="email-container">
+                            <tr>
+                                <td align="center" valign="top" style="padding:15px 20px 15px 20px;" bgcolor="#f4f4f4">
+                                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                        <tr>
+                                            <td align="left" style="font-size:20px; line-height:25px; padding:0px 0px 15px 0px;">
+                                                <font face="Arial, Helvetica, sans-serif" style="font-size:20px; line-height:25px; color:#ed1b66; font-weight: bold;">
+                                                    {{ __('emails.bookingCreate.rental_section_title') }}</font>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    @foreach($linkedRentals as $rental)
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 14px;">
+                                            <tr>
+                                                <td align="left" style="font-size:14px; line-height:19px; padding:0px 0px 6px 0px;">
+                                                    <font face="Arial, Helvetica, sans-serif" style="font-size:14px; line-height:19px; color:#222222; font-weight:bold;">
+                                                        {{ $rental['reference'] ?? ('#' . ($rental['id'] ?? '')) }}
+                                                    </font>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td align="left" style="font-size:13px; line-height:18px; padding:0px 0px 8px 0px;">
+                                                    <font face="Arial, Helvetica, sans-serif" style="font-size:13px; line-height:18px; color:#555555;">
+                                                        {{ __('emails.bookingCreate.rental_dates') }}:
+                                                        {{ $rental['start_date'] ?? '-' }} - {{ $rental['end_date'] ?? '-' }}
+                                                    </font>
+                                                </td>
+                                            </tr>
+                                            @foreach(($rental['items'] ?? []) as $item)
+                                                <tr>
+                                                    <td align="left" style="font-size:13px; line-height:18px; padding:0px 0px 2px 0px;">
+                                                        <font face="Arial, Helvetica, sans-serif" style="font-size:13px; line-height:18px; color:#222222;">
+                                                            {{ $item['variant_name'] ?? '-' }} x{{ $item['quantity'] ?? 0 }}
+                                                        </font>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                            @if(!empty($rental['pickup_point_name']))
+                                                <tr>
+                                                    <td align="left" style="font-size:13px; line-height:18px; padding:6px 0px 0px 0px;">
+                                                        <font face="Arial, Helvetica, sans-serif" style="font-size:13px; line-height:18px; color:#222222;">
+                                                            {{ __('emails.bookingCreate.rental_pickup') }}: {{ $rental['pickup_point_name'] }}
+                                                            @if(!empty($rental['pickup_point_address']))
+                                                                ({{ $rental['pickup_point_address'] }})
+                                                            @endif
+                                                        </font>
+                                                    </td>
+                                                </tr>
+                                            @endif
+                                            <tr>
+                                                <td align="left" style="font-size:13px; line-height:18px; padding:6px 0px 0px 0px;">
+                                                    <font face="Arial, Helvetica, sans-serif" style="font-size:13px; line-height:18px; color:#222222; font-weight:bold;">
+                                                        {{ __('emails.bookingCreate.rental_total') }}:
+                                                        {{ number_format((float) ($rental['total'] ?? 0), 2, '.', '') }} {{ $rental['currency'] ?? $booking->currency }}
+                                                    </font>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    @endforeach
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </center>
+    @endif
     <center style="width: 100%;">
         <table width="100%" cellpadding="0" cellspacing="0" border="0" class="center-on-narrow">
             <tr>

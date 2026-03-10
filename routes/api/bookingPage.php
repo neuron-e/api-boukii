@@ -18,6 +18,13 @@ Route::middleware(['bookingPage'])->group(function () {
     Route::get('school', [\App\Http\Controllers\BookingPage\SchoolController::class, 'show'])
         ->name('api.bookings.school.show');
 
+    Route::get('rentals/store', [\App\Http\Controllers\BookingPage\RentalStoreController::class, 'bootstrap'])
+        ->name('api.bookings.rentals.store');
+    Route::post('rentals/quote', [\App\Http\Controllers\BookingPage\RentalStoreController::class, 'quote'])
+        ->name('api.bookings.rentals.quote');
+    Route::post('rentals/reservations', [\App\Http\Controllers\BookingPage\RentalStoreController::class, 'store'])
+        ->name('api.bookings.rentals.reservations.store');
+
     Route::get('degrees', [\App\Http\Controllers\BookingPage\SchoolController::class, 'getDegrees'])
         ->name('api.bookings.degrees.index');
 
@@ -98,4 +105,3 @@ Route::middleware(['bookingPage'])->group(function () {
         ->name('api.bookings.monitor.availability');
 
 });
-

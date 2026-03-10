@@ -8,6 +8,8 @@ use App\Models\Client;
 use App\Repositories\ClientRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Response;
 use Validator;
 
@@ -347,4 +349,64 @@ class ClientsController extends AppBaseController
         return $this->sendResponse($uniqueClients, 'Clients retrieved successfully for the course');
     }
 
+    /**
+     * GET /admin/clients/{id}/rentals
+     * Returns rental reservation history for a given client.
+     */
+    public function rentals(Request $request, int $id): JsonResponse
+    {
+        if (!Schema::hasTable('rental_reservations')) {
+            return $this->sendResponse([], 'Rental module not yet available');
+        }
+
+        $schoolId = (int) $request->input('school_id', 0) ?: null;
+
+        $query = DB::table('rental_reservations as rr')
+            ->select([
+                'rr.id',
+                'rr.reference',
+                'rr.status',
+                'rr.start_date',
+                'rr.end_date',
+                'rr.total',
+                'rr.deposit_status',
+                'rr.damage_total',
+                'rr.cancelled_at',
+                'rr.created_at',
+            ])
+            ->where('rr.client_id', $id)
+            ->whereNull('rr.deleted_at');
+
+        if ($schoolId) {
+            $query->where('rr.school_id', $schoolId);
+        }
+
+        // Aggregate lines
+        if (Schema::hasTable('rental_reservation_lines')) {
+            $lineAgg = DB::table('rental_reservation_lines')
+                ->select([
+                    'rental_reservation_id',
+                    DB::raw('COUNT(*) as lines_count'),
+                    DB::raw('COALESCE(SUM(quantity), 0) as items_count'),
+                ])
+                ->groupBy('rental_reservation_id');
+
+            $query->leftJoinSub($lineAgg, 'agg', 'agg.rental_reservation_id', '=', 'rr.id')
+                ->addSelect([
+                    DB::raw('COALESCE(agg.lines_count, 0) as lines_count'),
+                    DB::raw('COALESCE(agg.items_count, 0) as items_count'),
+                ]);
+        }
+
+        // Pickup point name
+        if (Schema::hasTable('rental_pickup_points')) {
+            $query->leftJoin('rental_pickup_points as pp', 'pp.id', '=', 'rr.pickup_point_id')
+                ->addSelect(DB::raw('pp.name as pickup_point_name'));
+        }
+
+        $perPage = max(1, min(200, (int) $request->input('per_page', 50)));
+        $reservations = $query->orderByDesc('rr.id')->paginate($perPage);
+
+        return $this->sendResponse($reservations, 'Client rental history retrieved successfully');
+    }
 }

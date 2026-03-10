@@ -12,20 +12,21 @@ class RentalPricingRuleController extends RentalBaseController
             'item_id' => $request->input('item_id'),
             'variant_id' => $request->input('variant_id'),
             'period_type' => $request->input('period_type'),
+            'pricing_mode' => $request->input('pricing_mode'),
         ]);
     }
 
     public function store(Request $request)
     {
         return $this->storeByTable($request, 'rental_pricing_rules', [
-            'school_id', 'item_id', 'variant_id', 'period_type', 'price', 'currency', 'active',
+            'school_id', 'item_id', 'variant_id', 'period_type', 'pricing_mode', 'min_days', 'max_days', 'priority', 'price', 'currency', 'active',
         ]);
     }
 
     public function update(Request $request, int $id)
     {
         return $this->updateByTable($request, 'rental_pricing_rules', $id, [
-            'item_id', 'variant_id', 'period_type', 'price', 'currency', 'active',
+            'item_id', 'variant_id', 'period_type', 'pricing_mode', 'min_days', 'max_days', 'priority', 'price', 'currency', 'active',
         ]);
     }
 
@@ -34,4 +35,3 @@ class RentalPricingRuleController extends RentalBaseController
         return $this->destroyByTable($request, 'rental_pricing_rules', $id);
     }
 }
-
