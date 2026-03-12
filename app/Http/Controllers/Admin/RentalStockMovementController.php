@@ -43,6 +43,22 @@ class RentalStockMovementController extends RentalBaseController
         $this->applyEqualityFilter($query, $request, 'warehouse_id_to');
         $this->applyEqualityFilter($query, $request, 'rental_reservation_id');
         $this->applyEqualityFilter($query, $request, 'rental_unit_id');
+        $this->applyWarehouseFilter($query, $request);
+
+        $search = trim((string) $request->input('search', ''));
+        if ($search !== '') {
+            $query->where(function ($nested) use ($search) {
+                $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search) . '%';
+                $nested->where('rsm.movement_type', 'like', $like)
+                    ->orWhere('rsm.reason', 'like', $like)
+                    ->orWhere('rv.name', 'like', $like)
+                    ->orWhere('rv.sku', 'like', $like)
+                    ->orWhere('ri.name', 'like', $like)
+                    ->orWhere('u.name', 'like', $like)
+                    ->orWhere('wf.name', 'like', $like)
+                    ->orWhere('wt.name', 'like', $like);
+            });
+        }
 
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
@@ -53,7 +69,18 @@ class RentalStockMovementController extends RentalBaseController
             $query->whereDate('rsm.occurred_at', '<=', $dateTo);
         }
 
-        $query->orderByDesc('rsm.occurred_at')->orderByDesc('rsm.id');
+        $sortBy = (string) $request->input('sort_by', 'occurred_at');
+        $sortDir = strtolower((string) $request->input('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $allowedSort = [
+            'occurred_at' => 'rsm.occurred_at',
+            'movement_type' => 'rsm.movement_type',
+            'quantity' => 'rsm.quantity',
+            'variant_name' => 'rv.name',
+            'warehouse_from_name' => 'wf.name',
+            'warehouse_to_name' => 'wt.name',
+        ];
+        $sortColumn = $allowedSort[$sortBy] ?? 'rsm.occurred_at';
+        $query->orderBy($sortColumn, $sortDir)->orderByDesc('rsm.id');
         $perPage = (int) $request->input('per_page', 100);
         $data = $query->paginate(max(1, min(1000, $perPage)));
 
@@ -68,5 +95,16 @@ class RentalStockMovementController extends RentalBaseController
         }
         $query->where("rsm.$column", $value);
     }
-}
 
+    private function applyWarehouseFilter($query, Request $request): void
+    {
+        $warehouseId = (int) $request->input('warehouse_id', 0);
+        if ($warehouseId <= 0) {
+            return;
+        }
+        $query->where(function ($nested) use ($warehouseId) {
+            $nested->where('rsm.warehouse_id_from', $warehouseId)
+                ->orWhere('rsm.warehouse_id_to', $warehouseId);
+        });
+    }
+}
