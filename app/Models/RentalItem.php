@@ -19,6 +19,7 @@ class RentalItem extends Model
         'brand',
         'model',
         'description',
+        'image',
         'active',
     ];
 

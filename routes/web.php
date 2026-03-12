@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 use Faker\Factory as Faker;
 use App\Http\Controllers\UnsubscribeController;
 /*
@@ -17,6 +18,20 @@ use App\Http\Controllers\UnsubscribeController;
 Route::get('/', function () {
     return view('welcome');
 });
+
+// Fallback for public storage assets when symlink/static serving is unavailable in local environments.
+Route::get('/storage/{path}', function (string $path) {
+    if (str_contains($path, '..')) {
+        abort(404);
+    }
+
+    $disk = Storage::disk('public');
+    if (!$disk->exists($path)) {
+        abort(404);
+    }
+
+    return response()->file($disk->path($path));
+})->where('path', '.*');
 
 // Desuscripción newsletter
 Route::get('/unsubscribe', UnsubscribeController::class)->name('newsletter.unsubscribe');

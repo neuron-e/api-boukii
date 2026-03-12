@@ -8,7 +8,9 @@ use App\Models\RentalReservation;
 use App\Models\RentalReservationLine;
 use App\Models\RentalReservationUnitAssignment;
 use App\Models\RentalUnit;
+use App\Models\RentalVariant;
 use App\Models\Booking;
+use App\Models\Payment;
 use App\Services\RentalReservationCreateService;
 use App\Services\RentalNotificationService;
 use App\Services\RentalPricingService;
@@ -151,8 +153,72 @@ class RentalReservationController extends RentalBaseController
         $perPage = (int) $request->input('per_page', 100);
         $data = $query->paginate(max(1, min(1000, $perPage)));
 
+        $linesPreviewByReservationId = [];
+        if (Schema::hasTable('rental_reservation_lines')) {
+            $reservationIds = collect($data->items())
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => $id > 0)
+                ->values()
+                ->all();
+
+            if (!empty($reservationIds)) {
+                $linePreviewSelect = [
+                    'rrl.id',
+                    'rrl.rental_reservation_id',
+                    'rrl.item_id',
+                    'rrl.variant_id',
+                    'rrl.quantity',
+                    DB::raw('rv.name as variant_name'),
+                    DB::raw('rv.size_label as variant_size_label'),
+                    DB::raw('rv.sku as variant_sku'),
+                    DB::raw('ri.name as item_name'),
+                    DB::raw('ri.brand as item_brand'),
+                    DB::raw('ri.model as item_model'),
+                ];
+
+                if (Schema::hasColumn('rental_reservation_lines', 'status')) {
+                    $linePreviewSelect[] = 'rrl.status';
+                } else {
+                    $linePreviewSelect[] = DB::raw('NULL as status');
+                }
+
+                if (Schema::hasColumn('rental_reservation_lines', 'start_date')) {
+                    $linePreviewSelect[] = 'rrl.start_date';
+                } else {
+                    $linePreviewSelect[] = DB::raw('NULL as start_date');
+                }
+
+                if (Schema::hasColumn('rental_reservation_lines', 'end_date')) {
+                    $linePreviewSelect[] = 'rrl.end_date';
+                } else {
+                    $linePreviewSelect[] = DB::raw('NULL as end_date');
+                }
+
+                $linePreviewQuery = DB::table('rental_reservation_lines as rrl')
+                    ->select($linePreviewSelect)
+                    ->leftJoin('rental_variants as rv', 'rv.id', '=', 'rrl.variant_id')
+                    ->leftJoin('rental_items as ri', 'ri.id', '=', 'rrl.item_id')
+                    ->whereIn('rrl.rental_reservation_id', $reservationIds)
+                    ->orderBy('rrl.rental_reservation_id')
+                    ->orderBy('rrl.id');
+
+                if ($schoolId && Schema::hasColumn('rental_reservation_lines', 'school_id')) {
+                    $linePreviewQuery->where('rrl.school_id', $schoolId);
+                }
+
+                $linePreviews = $linePreviewQuery->get();
+                $linesPreviewByReservationId = $linePreviews
+                    ->groupBy('rental_reservation_id')
+                    ->map(function ($group) {
+                        return collect($group)->take(4)->values()->all();
+                    })
+                    ->toArray();
+            }
+        }
+
         $data->setCollection(
-            $data->getCollection()->map(function ($row) {
+            $data->getCollection()->map(function ($row) use ($linesPreviewByReservationId) {
                 $clientId = (int) ($row->_client_id ?? 0);
                 $row->client = $clientId > 0 ? [
                     'id' => $clientId,
@@ -170,6 +236,8 @@ class RentalReservationController extends RentalBaseController
                     $row->_client_phone,
                     $row->_client_mobile
                 );
+                $reservationId = (int) ($row->id ?? 0);
+                $row->lines_preview = $linesPreviewByReservationId[$reservationId] ?? [];
                 return $row;
             })
         );
@@ -177,7 +245,7 @@ class RentalReservationController extends RentalBaseController
         return $this->sendResponse($data, 'Data retrieved successfully');
     }
 
-    public function show(Request $request, int $id)
+    public function show(Request $request, int $id, ?float $oldTotalForReconciliation = null)
     {
         if (!Schema::hasTable('rental_reservations')) {
             return $this->tableMissingResponse('rental_reservations');
@@ -196,9 +264,22 @@ class RentalReservationController extends RentalBaseController
         }
 
         if (Schema::hasTable('rental_reservation_lines')) {
-            $reservation['lines'] = DB::table('rental_reservation_lines')
-                ->where('rental_reservation_id', $reservationId)
-                ->orderBy('id')
+            $lineSelect = [
+                'rrl.*',
+                DB::raw('rv.name as variant_name'),
+                DB::raw('rv.size_label as variant_size_label'),
+                DB::raw('rv.sku as variant_sku'),
+                DB::raw('ri.name as item_name'),
+                DB::raw('ri.brand as item_brand'),
+                DB::raw('ri.model as item_model'),
+            ];
+
+            $reservation['lines'] = DB::table('rental_reservation_lines as rrl')
+                ->select($lineSelect)
+                ->leftJoin('rental_variants as rv', 'rv.id', '=', 'rrl.variant_id')
+                ->leftJoin('rental_items as ri', 'ri.id', '=', 'rrl.item_id')
+                ->where('rrl.rental_reservation_id', $reservationId)
+                ->orderBy('rrl.id')
                 ->get();
         } else {
             $reservation['lines'] = [];
@@ -238,6 +319,8 @@ class RentalReservationController extends RentalBaseController
         } else {
             $reservation['client'] = null;
         }
+
+        $reservation['financial_reconciliation'] = $this->buildFinancialReconciliation($reservationId, $oldTotalForReconciliation);
 
         return $this->sendResponse($reservation, 'Data retrieved successfully');
     }
@@ -286,6 +369,9 @@ class RentalReservationController extends RentalBaseController
 
     public function update(Request $request, int $id)
     {
+        $oldTotal = (float) (RentalReservation::where('id', $id)->value('total') ?? 0);
+        $linePayload = $request->input('lines');
+
         if ($request->has('pickup_point_id')) {
             $pickupPointId = (int) $request->input('pickup_point_id', 0);
             if ($pickupPointId <= 0) {
@@ -298,6 +384,7 @@ class RentalReservationController extends RentalBaseController
         }
 
         $response = $this->updateByTable($request, 'rental_reservations', $id, [
+            'client_id',
             'pickup_point_id',
             'return_point_id',
             'warehouse_id',
@@ -317,6 +404,13 @@ class RentalReservationController extends RentalBaseController
 
         $payload = $response->getData(true);
         if (!empty($payload['success']) && !empty($payload['data']['id'])) {
+            if (is_array($linePayload)) {
+                $lineApply = $this->applyLineChanges((int) $id, $linePayload, $this->getSchoolId($request));
+                if ($lineApply !== true) {
+                    return $lineApply;
+                }
+            }
+
             $requestedStatus = strtolower((string) $request->input('status', ''));
             if (in_array($requestedStatus, ['active', self::STATUS_CHECKED_OUT], true)) {
                 $ready = $this->hasEnoughAssignedUnits((int) $id);
@@ -327,10 +421,267 @@ class RentalReservationController extends RentalBaseController
             }
 
             $this->syncReservationTotalsAndStatus((int) $id);
-            return $this->show($request, (int) $id);
+            return $this->show($request, (int) $id, $oldTotal);
         }
 
         return $response;
+    }
+
+    private function applyLineChanges(int $reservationId, array $linePayload, ?int $schoolId)
+    {
+        if (!Schema::hasTable('rental_reservation_lines')) {
+            return $this->tableMissingResponse('rental_reservation_lines');
+        }
+
+        if (!$schoolId) {
+            $schoolId = (int) RentalReservation::where('id', $reservationId)->value('school_id');
+        }
+        if ($schoolId <= 0) {
+            return $this->sendError('school_id is required', [], 422);
+        }
+
+        $reservation = RentalReservation::find($reservationId);
+        if (!$reservation) {
+            return $this->sendError('Reservation not found', [], 404);
+        }
+
+        $existingLines = RentalReservationLine::where('rental_reservation_id', $reservationId)
+            ->when($schoolId, fn($query) => $query->where('school_id', $schoolId))
+            ->get()
+            ->keyBy('id');
+
+        $requested = collect($linePayload)
+            ->filter(fn($line) => is_array($line))
+            ->map(function (array $line) {
+                return [
+                    'id' => (int) ($line['id'] ?? 0),
+                    'item_id' => (int) ($line['item_id'] ?? 0),
+                    'variant_id' => (int) ($line['variant_id'] ?? 0),
+                    'quantity' => max(1, (int) ($line['quantity'] ?? 1)),
+                    'period_type' => (string) ($line['period_type'] ?? ''),
+                    'start_date' => (string) ($line['start_date'] ?? ''),
+                    'end_date' => (string) ($line['end_date'] ?? ''),
+                    'start_time' => (string) ($line['start_time'] ?? ''),
+                    'end_time' => (string) ($line['end_time'] ?? ''),
+                ];
+            })
+            ->filter(fn(array $line) => $line['variant_id'] > 0 || $line['item_id'] > 0)
+            ->values();
+
+        $variantIds = $requested
+            ->pluck('variant_id')
+            ->filter(fn($id) => (int) $id > 0)
+            ->map(fn($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $variantMap = empty($variantIds)
+            ? collect()
+            : RentalVariant::query()
+                ->select(['id', 'item_id', 'school_id'])
+                ->whereIn('id', $variantIds)
+                ->when($schoolId, fn($query) => $query->where('school_id', $schoolId))
+                ->get()
+                ->keyBy('id');
+
+        try {
+            $this->assertNoOverallocationForEdit($schoolId, $reservationId, $requested);
+        } catch (InvalidArgumentException $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+
+        $quoteRequestLines = $requested->map(function (array $row) use ($reservation) {
+            return [
+                'variant_id' => $row['variant_id'],
+                'item_id' => $row['item_id'],
+                'quantity' => $row['quantity'],
+                'period_type' => $row['period_type'] ?: null,
+                'start_date' => $row['start_date'] ?: null,
+                'end_date' => $row['end_date'] ?: null,
+                'start_time' => $row['start_time'] ?: null,
+                'end_time' => $row['end_time'] ?: null,
+            ];
+        })->values()->all();
+
+        try {
+            $quote = $this->rentalPricingService->quote($schoolId, [
+                'currency' => (string) ($reservation->currency ?? 'CHF'),
+                'start_date' => (string) ($reservation->start_date ?? ''),
+                'end_date' => (string) ($reservation->end_date ?? ''),
+                'start_time' => (string) ($reservation->start_time ?? '09:00'),
+                'end_time' => (string) ($reservation->end_time ?? '17:00'),
+                'period_type' => 'full_day',
+                'lines' => $quoteRequestLines,
+            ]);
+        } catch (InvalidArgumentException $e) {
+            return $this->sendError($e->getMessage(), [], 422);
+        }
+
+        $quotedLines = collect($quote['lines'] ?? [])->values();
+        if ($quotedLines->count() !== $requested->count()) {
+            return $this->sendError('Could not price all reservation lines', [], 422);
+        }
+
+        $lineColumnSet = array_flip(Schema::getColumnListing('rental_reservation_lines'));
+
+        DB::beginTransaction();
+        try {
+            $keepLineIds = [];
+
+            foreach ($requested as $index => $row) {
+                $variant = $row['variant_id'] > 0 ? $variantMap->get($row['variant_id']) : null;
+                if ($row['variant_id'] > 0 && !$variant) {
+                    continue;
+                }
+
+                $quoted = (array) ($quotedLines->get($index) ?? []);
+                $resolvedItemId = $row['item_id'] > 0
+                    ? $row['item_id']
+                    : (int) ($variant->item_id ?? 0);
+
+                $lineData = [
+                    'item_id' => $resolvedItemId > 0 ? $resolvedItemId : null,
+                    'variant_id' => $row['variant_id'] > 0 ? $row['variant_id'] : null,
+                    'quantity' => $row['quantity'],
+                    'unit_price' => (float) ($quoted['unit_price'] ?? 0),
+                    'line_total' => (float) ($quoted['line_total'] ?? 0),
+                ];
+                if (isset($lineColumnSet['period_type'])) {
+                    $lineData['period_type'] = $quoted['period_type'] ?? ($row['period_type'] ?: 'full_day');
+                }
+                if (isset($lineColumnSet['start_date'])) {
+                    $lineData['start_date'] = $quoted['start_date'] ?? ($row['start_date'] ?: $reservation->start_date);
+                }
+                if (isset($lineColumnSet['end_date'])) {
+                    $lineData['end_date'] = $quoted['end_date'] ?? ($row['end_date'] ?: $reservation->end_date);
+                }
+                if (isset($lineColumnSet['start_time'])) {
+                    $lineData['start_time'] = $quoted['start_time'] ?? ($row['start_time'] ?: $reservation->start_time);
+                }
+                if (isset($lineColumnSet['end_time'])) {
+                    $lineData['end_time'] = $quoted['end_time'] ?? ($row['end_time'] ?: $reservation->end_time);
+                }
+                if (isset($lineColumnSet['meta'])) {
+                    $lineData['meta'] = json_encode([
+                        'pricing' => [
+                            'pricing_rule_id' => $quoted['pricing_rule_id'] ?? null,
+                            'pricing_mode' => $quoted['pricing_mode'] ?? null,
+                            'pricing_basis_key' => $quoted['pricing_basis_key'] ?? null,
+                            'pricing_source' => $quoted['pricing_source'] ?? null,
+                            'rental_days' => $quoted['rental_days'] ?? null,
+                            'unit_price' => $quoted['unit_price'] ?? null,
+                            'line_total' => $quoted['line_total'] ?? null,
+                        ],
+                    ]);
+                }
+
+                if ($row['id'] > 0 && $existingLines->has($row['id'])) {
+                    $line = $existingLines->get($row['id']);
+                    $line->update($lineData);
+                    $keepLineIds[] = (int) $line->id;
+                    continue;
+                }
+
+                $createPayload = [
+                    'school_id' => $schoolId,
+                    'rental_reservation_id' => $reservationId,
+                    'item_id' => $lineData['item_id'],
+                    'variant_id' => $lineData['variant_id'],
+                    'quantity' => $lineData['quantity'],
+                    'unit_price' => $lineData['unit_price'],
+                    'line_total' => $lineData['line_total'],
+                ];
+                foreach (['period_type', 'start_date', 'end_date', 'start_time', 'end_time', 'meta'] as $optionalColumn) {
+                    if (isset($lineColumnSet[$optionalColumn])) {
+                        $createPayload[$optionalColumn] = $lineData[$optionalColumn] ?? null;
+                    }
+                }
+
+                $line = RentalReservationLine::create($createPayload);
+                $keepLineIds[] = (int) $line->id;
+            }
+
+            $removeQuery = RentalReservationLine::where('rental_reservation_id', $reservationId)
+                ->when($schoolId, fn($query) => $query->where('school_id', $schoolId));
+
+            if (!empty($keepLineIds)) {
+                $removeQuery->whereNotIn('id', $keepLineIds);
+            }
+
+            $removeLineIds = $removeQuery->pluck('id')->map(fn($id) => (int) $id)->all();
+            if (!empty($removeLineIds) && Schema::hasTable('rental_reservation_unit_assignments')) {
+                RentalReservationUnitAssignment::whereIn('rental_reservation_line_id', $removeLineIds)->delete();
+            }
+            if (!empty($removeLineIds)) {
+                RentalReservationLine::whereIn('id', $removeLineIds)->delete();
+            }
+
+            DB::commit();
+        } catch (Throwable $e) {
+            DB::rollBack();
+            return $this->sendError('Could not apply reservation items: ' . $e->getMessage(), [], 422);
+        }
+
+        return true;
+    }
+
+    private function assertNoOverallocationForEdit(int $schoolId, int $reservationId, \Illuminate\Support\Collection $requested): void
+    {
+        if (!Schema::hasTable('rental_units')) {
+            return;
+        }
+
+        $requestedQtyByVariant = $requested
+            ->filter(fn (array $row) => (int) ($row['variant_id'] ?? 0) > 0)
+            ->groupBy(fn (array $row) => (int) $row['variant_id'])
+            ->map(fn ($rows) => (int) collect($rows)->sum('quantity'));
+
+        if ($requestedQtyByVariant->isEmpty()) {
+            return;
+        }
+
+        $variantIds = $requestedQtyByVariant->keys()->map(fn ($id) => (int) $id)->all();
+        $variantMap = RentalVariant::query()
+            ->whereIn('id', $variantIds)
+            ->where('school_id', $schoolId)
+            ->get(['id', 'name', 'size_label'])
+            ->keyBy('id');
+
+        $currentQtyByVariant = RentalReservationLine::query()
+            ->where('rental_reservation_id', $reservationId)
+            ->whereIn('variant_id', $variantIds)
+            ->select('variant_id', DB::raw('COALESCE(SUM(quantity),0) as qty'))
+            ->groupBy('variant_id')
+            ->pluck('qty', 'variant_id');
+
+        foreach ($requestedQtyByVariant as $variantId => $requestedQty) {
+            $variantId = (int) $variantId;
+
+            if (!$variantMap->has($variantId)) {
+                throw new InvalidArgumentException("variant_id {$variantId} is invalid");
+            }
+
+            $availableQty = (int) RentalUnit::query()
+                ->where('school_id', $schoolId)
+                ->where('variant_id', $variantId)
+                ->where('status', 'available')
+                ->when(Schema::hasColumn('rental_units', 'deleted_at'), fn ($query) => $query->whereNull('deleted_at'))
+                ->count();
+
+            $currentReservationQty = (int) ($currentQtyByVariant[$variantId] ?? 0);
+            $maxEditableQty = $availableQty + $currentReservationQty;
+
+            if ((int) $requestedQty > $maxEditableQty) {
+                $variant = $variantMap->get($variantId);
+                $variantLabel = trim((string) ($variant->name ?? '') . ' ' . (string) ($variant->size_label ?? ''));
+                $variantLabel = $variantLabel !== '' ? $variantLabel : ('#' . $variantId);
+
+                throw new InvalidArgumentException(
+                    "Insufficient stock for variant {$variantLabel}: requested {$requestedQty}, available {$availableQty}"
+                );
+            }
+        }
     }
 
     public function assignUnits(Request $request, int $id)
@@ -880,5 +1231,68 @@ class RentalReservationController extends RentalBaseController
         return RentalPickupPoint::where('id', $pickupPointId)
             ->when($schoolId, fn($q) => $q->where('school_id', $schoolId))
             ->exists();
+    }
+
+    private function buildFinancialReconciliation(int $reservationId, ?float $oldTotal = null): array
+    {
+        $reservation = RentalReservation::find($reservationId);
+        if (!$reservation) {
+            return [
+                'old_total' => 0.0,
+                'new_total' => 0.0,
+                'delta_total' => 0.0,
+                'paid_total' => 0.0,
+                'balance_due' => 0.0,
+                'overpaid_amount' => 0.0,
+                'deposit_amount' => 0.0,
+                'deposit_status' => 'none',
+                'action_required' => 'none',
+                'allowed_actions' => [],
+            ];
+        }
+
+        $newTotal = (float) ($reservation->total ?? 0);
+        $oldTotalValue = $oldTotal === null ? $newTotal : (float) $oldTotal;
+        $deltaTotal = round($newTotal - $oldTotalValue, 2);
+
+        $paymentQuery = Payment::query()
+            ->where('rental_reservation_id', $reservationId)
+            ->whereNull('deleted_at');
+
+        $paidTotal = (float) (clone $paymentQuery)
+            ->where('status', 'paid')
+            ->where(function ($query) {
+                $query->whereNull('payment_type')
+                    ->orWhere('payment_type', '!=', 'deposit');
+            })
+            ->sum('amount');
+
+        $depositAmount = (float) ($reservation->deposit_amount ?? 0);
+        $depositStatus = (string) ($reservation->deposit_status ?? 'none');
+        $balanceDue = round(max(0, $newTotal - $paidTotal), 2);
+        $overpaidAmount = round(max(0, $paidTotal - $newTotal), 2);
+
+        $actionRequired = 'none';
+        $allowedActions = [];
+        if ($balanceDue > 0.0) {
+            $actionRequired = 'collect_additional_payment';
+            $allowedActions = ['add_payment', 'create_paylink'];
+        } elseif ($overpaidAmount > 0.0) {
+            $actionRequired = 'resolve_overpayment';
+            $allowedActions = ['refund', 'keep_credit'];
+        }
+
+        return [
+            'old_total' => round($oldTotalValue, 2),
+            'new_total' => round($newTotal, 2),
+            'delta_total' => $deltaTotal,
+            'paid_total' => round($paidTotal, 2),
+            'balance_due' => $balanceDue,
+            'overpaid_amount' => $overpaidAmount,
+            'deposit_amount' => round($depositAmount, 2),
+            'deposit_status' => $depositStatus,
+            'action_required' => $actionRequired,
+            'allowed_actions' => $allowedActions,
+        ];
     }
 }

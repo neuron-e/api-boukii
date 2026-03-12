@@ -15,6 +15,7 @@ class RentalSubcategory extends Model
     public $fillable = [
         'school_id',
         'category_id',
+        'parent_id',
         'name',
         'slug',
         'active',
@@ -22,6 +23,7 @@ class RentalSubcategory extends Model
     ];
 
     protected $casts = [
+        'parent_id'  => 'integer',
         'active'     => 'boolean',
         'sort_order' => 'integer',
     ];
@@ -34,6 +36,16 @@ class RentalSubcategory extends Model
     public function category(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(RentalCategory::class, 'category_id');
+    }
+
+    public function parent(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+
+    public function children(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(self::class, 'parent_id');
     }
 
     public function variants(): \Illuminate\Database\Eloquent\Relations\HasMany

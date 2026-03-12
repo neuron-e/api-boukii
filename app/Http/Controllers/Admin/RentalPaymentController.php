@@ -7,6 +7,7 @@ use App\Mail\BlankMailer;
 use App\Models\Payment;
 use App\Models\RentalEvent;
 use App\Models\RentalReservation;
+use App\Models\Voucher;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Payrexx\Models\Request\Gateway as GatewayRequest;
 use Payrexx\Payrexx;
 
@@ -427,6 +429,16 @@ class RentalPaymentController extends AppBaseController
     // ─────────────────────────────────────────────────────────────────────────
     public function refund(int $id, Request $request): JsonResponse
     {
+        $validator = Validator::make($request->all(), [
+            'amount' => 'nullable|numeric|min:0.01',
+            'refund_method' => 'nullable|in:cash,card,payrexx,voucher',
+            'notes' => 'nullable|string|max:500',
+            'voucher_name' => 'nullable|string|max:255',
+        ]);
+        if ($validator->fails()) {
+            return $this->sendError('Validation failed', $validator->errors()->toArray(), 422);
+        }
+
         $reservation = RentalReservation::find($id);
         if (!$reservation) {
             return $this->sendError('Rental reservation not found', [], 404);
@@ -441,11 +453,43 @@ class RentalPaymentController extends AppBaseController
             return $this->sendError('Payment record not found', [], 404);
         }
 
+        $paidTotal = (float) Payment::query()
+            ->where('rental_reservation_id', $id)
+            ->whereNull('deleted_at')
+            ->where('status', 'paid')
+            ->where(function ($query) {
+                $query->whereNull('payment_type')
+                    ->orWhereNotIn('payment_type', ['deposit', 'refund']);
+            })
+            ->sum('amount');
+
+        $alreadyRefunded = (float) Payment::query()
+            ->where('rental_reservation_id', $id)
+            ->whereNull('deleted_at')
+            ->where('payment_type', 'refund')
+            ->sum('amount');
+
+        $maxRefundable = max(0, $paidTotal - $alreadyRefunded);
+        $requestedAmount = (float) ($request->input('amount') ?? 0);
+        $refundAmount = $requestedAmount > 0 ? $requestedAmount : min((float) ($payment->amount ?? 0), $maxRefundable);
+        if ($refundAmount <= 0) {
+            return $this->sendError('No refundable amount available', [], 422);
+        }
+        if ($refundAmount > $maxRefundable) {
+            return $this->sendError('Refund amount exceeds refundable balance', [
+                'max_refundable' => round($maxRefundable, 2),
+            ], 422);
+        }
+
+        $refundMethod = (string) ($request->input('refund_method') ?: (!empty($payment->payrexx_reference) ? 'payrexx' : 'cash'));
+        $notes = trim((string) $request->input('notes', ''));
+        $voucherId = null;
+
         $payrexxRefunded = false;
         $payrexxError    = null;
 
         // Attempt Payrexx gateway refund if we have a reference
-        if (!empty($payment->payrexx_reference)) {
+        if ($refundMethod === 'payrexx' && !empty($payment->payrexx_reference)) {
             try {
                 $school = $this->getSchoolModel($reservation->school_id);
                 if ($school && !empty($school->getPayrexxInstance()) && !empty($school->getPayrexxKey())) {
@@ -472,28 +516,70 @@ class RentalPaymentController extends AppBaseController
                     'error'            => $payrexxError,
                 ]);
             }
+        } elseif ($refundMethod === 'payrexx' && empty($payment->payrexx_reference)) {
+            return $this->sendError('Original payment has no Payrexx reference', [], 422);
         }
 
-        // Always mark payment as refunded locally
-        $payment->status = 'refunded';
-        $payment->notes  = trim(($payment->notes ?? '') . "\nRefunded: " . now()->toDateTimeString());
-        $payment->save();
+        if ($refundMethod === 'voucher') {
+            $voucher = Voucher::create([
+                'code' => $this->generateVoucherCode(),
+                'name' => $request->input('voucher_name') ?: ('Rental credit #' . $id),
+                'description' => 'Voucher generated from rental refund',
+                'quantity' => $refundAmount,
+                'remaining_balance' => $refundAmount,
+                'payed' => true,
+                'is_gift' => false,
+                'is_transferable' => true,
+                'client_id' => $reservation->client_id ?: null,
+                'buyer_name' => $reservation->client_name,
+                'buyer_email' => $reservation->email,
+                'buyer_phone' => $reservation->phone,
+                'school_id' => $reservation->school_id,
+                'origin_type' => 'refund_credit',
+                'notes' => 'Created from rental reservation refund #' . $id,
+            ]);
+            $voucherId = (int) $voucher->id;
+        }
+
+        $refundPayment = Payment::create([
+            'booking_id' => null,
+            'rental_reservation_id' => $id,
+            'school_id' => $reservation->school_id,
+            'amount' => $refundAmount,
+            'status' => 'refunded',
+            'payment_method' => $refundMethod,
+            'payment_type' => 'refund',
+            'notes' => trim(($notes ? $notes . "\n" : '') . 'Refund generated from payment #' . $payment->id . ($voucherId ? (' · voucher #' . $voucherId) : '')),
+            'payrexx_reference' => $refundMethod === 'payrexx' ? ($payment->payrexx_reference ?? null) : null,
+        ]);
 
         RentalEvent::log($id, $reservation->school_id, 'refunded', [
             'payment_id'       => $payment->id,
-            'amount'           => $payment->amount,
+            'refund_payment_id' => $refundPayment->id,
+            'amount'           => $refundAmount,
+            'refund_method'    => $refundMethod,
+            'voucher_id'       => $voucherId,
             'payrexx_refunded' => $payrexxRefunded,
             'payrexx_error'    => $payrexxError,
         ]);
 
         return $this->sendResponse([
             'payment_id'       => $payment->id,
+            'refund_payment_id' => $refundPayment->id,
             'status'           => 'refunded',
+            'amount'           => round($refundAmount, 2),
+            'refund_method'    => $refundMethod,
+            'voucher_id'       => $voucherId,
             'payrexx_refunded' => $payrexxRefunded,
-            'manual_action_needed' => !$payrexxRefunded,
+            'manual_action_needed' => $refundMethod === 'payrexx' && !$payrexxRefunded,
             'message' => $payrexxRefunded
                 ? 'Payrexx refund processed successfully.'
-                : 'Payment marked as refunded locally. Manual refund may be required in Payrexx.',
+                : ($refundMethod === 'payrexx'
+                    ? 'Refund registered locally. Manual refund may be required in Payrexx.'
+                    : ($refundMethod === 'voucher'
+                        ? 'Refund converted to voucher successfully.'
+                        : 'Refund registered successfully.')
+                ),
         ], 'Refund processed');
     }
 
@@ -513,6 +599,13 @@ class RentalPaymentController extends AppBaseController
         $payment        = $reservation->payment_id        ? Payment::select($cols)->find($reservation->payment_id)        : null;
         $depositPayment = $reservation->deposit_payment_id ? Payment::select($cols)->find($reservation->deposit_payment_id) : null;
 
+        $refunds = Payment::select($cols)
+            ->where('rental_reservation_id', $id)
+            ->where('payment_type', 'refund')
+            ->whereNull('deleted_at')
+            ->orderByDesc('id')
+            ->get();
+
         return $this->sendResponse([
             'reservation_id'     => $id,
             'total'              => $reservation->total,
@@ -521,6 +614,7 @@ class RentalPaymentController extends AppBaseController
             'deposit_payment_id' => $reservation->deposit_payment_id,
             'payment'            => $payment,
             'deposit_payment'    => $depositPayment,
+            'refunds'            => $refunds,
         ], 'Payment info retrieved');
     }
 
@@ -555,5 +649,14 @@ class RentalPaymentController extends AppBaseController
                 'error'          => $e->getMessage(),
             ]);
         }
+    }
+
+    private function generateVoucherCode(): string
+    {
+        do {
+            $code = 'RVF-' . Str::upper(Str::random(8));
+        } while (Voucher::where('code', $code)->exists());
+
+        return $code;
     }
 }

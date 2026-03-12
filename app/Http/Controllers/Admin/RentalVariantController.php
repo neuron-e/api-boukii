@@ -210,19 +210,33 @@ class RentalVariantController extends RentalBaseController
     public function store(Request $request)
     {
         return $this->storeByTable($request, 'rental_variants', [
-            'school_id', 'item_id', 'subcategory_id', 'name', 'size_group', 'size_label', 'sku', 'barcode', 'active',
+            'school_id', 'item_id', 'subcategory_id', 'name', 'size_group', 'size_label', 'sku', 'barcode', 'serial_prefix', 'purchase_date', 'last_maintenance_date', 'notes', 'active',
         ]);
     }
 
     public function update(Request $request, int $id)
     {
         return $this->updateByTable($request, 'rental_variants', $id, [
-            'item_id', 'subcategory_id', 'name', 'size_group', 'size_label', 'sku', 'barcode', 'active',
+            'item_id', 'subcategory_id', 'name', 'size_group', 'size_label', 'sku', 'barcode', 'serial_prefix', 'purchase_date', 'last_maintenance_date', 'notes', 'active',
         ]);
     }
 
     public function destroy(Request $request, int $id)
     {
+        if (Schema::hasTable('rental_reservation_lines') && Schema::hasTable('rental_reservations')) {
+            $activeStatuses = ['pending', 'active', 'overdue', 'assigned', 'checked_out', 'partial_return'];
+
+            $activeLinked = DB::table('rental_reservation_lines as line')
+                ->join('rental_reservations as reservation', 'reservation.id', '=', 'line.rental_reservation_id')
+                ->where('line.variant_id', $id)
+                ->whereIn('reservation.status', $activeStatuses)
+                ->exists();
+
+            if ($activeLinked) {
+                return $this->sendError('No se puede eliminar este material porque tiene reservas activas asociadas.', [], 422);
+            }
+        }
+
         return $this->destroyByTable($request, 'rental_variants', $id);
     }
 }

@@ -22,14 +22,14 @@ class RentalVariantServiceController extends RentalBaseController
     public function store(Request $request)
     {
         return $this->storeByTable($request, 'rental_variant_services', [
-            'school_id', 'variant_id', 'name', 'description', 'price', 'currency', 'active', 'sort_order',
+            'school_id', 'variant_id', 'name', 'description', 'price', 'currency', 'duration_minutes', 'is_required', 'active', 'sort_order',
         ]);
     }
 
     public function update(Request $request, int $id)
     {
         return $this->updateByTable($request, 'rental_variant_services', $id, [
-            'variant_id', 'name', 'description', 'price', 'currency', 'active', 'sort_order',
+            'variant_id', 'name', 'description', 'price', 'currency', 'duration_minutes', 'is_required', 'active', 'sort_order',
         ]);
     }
 
@@ -38,4 +38,3 @@ class RentalVariantServiceController extends RentalBaseController
         return $this->destroyByTable($request, 'rental_variant_services', $id);
     }
 }
-

@@ -134,9 +134,17 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
         Route::get('items', [\App\Http\Controllers\Admin\RentalItemController::class, 'index']);
         Route::post('items', [\App\Http\Controllers\Admin\RentalItemController::class, 'store']);
         Route::get('items/{id}/detail', [\App\Http\Controllers\Admin\RentalItemController::class, 'detail']);
+        Route::get('items/{id}/images', [\App\Http\Controllers\Admin\RentalItemImageController::class, 'index']);
+        Route::post('items/{id}/images', [\App\Http\Controllers\Admin\RentalItemImageController::class, 'store']);
+        Route::put('items/{id}/images/{imageId}/primary', [\App\Http\Controllers\Admin\RentalItemImageController::class, 'setPrimary']);
+        Route::delete('items/{id}/images/{imageId}', [\App\Http\Controllers\Admin\RentalItemImageController::class, 'destroy']);
+        Route::put('items/{id}/tags', [\App\Http\Controllers\Admin\RentalItemController::class, 'syncTags']);
         Route::get('items/{id}', [\App\Http\Controllers\Admin\RentalItemController::class, 'show']);
         Route::put('items/{id}', [\App\Http\Controllers\Admin\RentalItemController::class, 'update']);
         Route::delete('items/{id}', [\App\Http\Controllers\Admin\RentalItemController::class, 'destroy']);
+
+        Route::get('tags', [\App\Http\Controllers\Admin\RentalTagController::class, 'index']);
+        Route::post('tags', [\App\Http\Controllers\Admin\RentalTagController::class, 'store']);
 
         Route::get('variants', [\App\Http\Controllers\Admin\RentalVariantController::class, 'index']);
         Route::post('variants', [\App\Http\Controllers\Admin\RentalVariantController::class, 'store']);

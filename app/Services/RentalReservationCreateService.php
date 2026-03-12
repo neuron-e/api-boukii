@@ -8,6 +8,7 @@ use App\Models\RentalReservation;
 use App\Models\RentalReservationLine;
 use App\Models\RentalReservationUnitAssignment;
 use App\Models\RentalUnit;
+use App\Models\RentalVariant;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -46,6 +47,8 @@ class RentalReservationCreateService
         if (empty($inputLines)) {
             throw new InvalidArgumentException('lines is required');
         }
+
+        $this->assertNoOverallocation($schoolId, $inputLines);
 
         DB::beginTransaction();
         try {
@@ -199,6 +202,61 @@ class RentalReservationCreateService
         }
 
         return is_array($inputLines) ? $inputLines : [];
+    }
+
+    private function assertNoOverallocation(int $schoolId, array $lines): void
+    {
+        if (!Schema::hasTable('rental_units')) {
+            return;
+        }
+
+        $groupedQtyByVariant = collect($lines)
+            ->filter(fn ($line) => is_array($line))
+            ->map(function (array $line) {
+                return [
+                    'variant_id' => (int) ($line['variant_id'] ?? 0),
+                    'quantity' => max(1, (int) ($line['quantity'] ?? 1)),
+                ];
+            })
+            ->filter(fn (array $line) => $line['variant_id'] > 0)
+            ->groupBy('variant_id')
+            ->map(fn ($group) => (int) $group->sum('quantity'));
+
+        if ($groupedQtyByVariant->isEmpty()) {
+            return;
+        }
+
+        $variantIds = $groupedQtyByVariant->keys()->map(fn ($id) => (int) $id)->all();
+        $variantMap = RentalVariant::query()
+            ->whereIn('id', $variantIds)
+            ->where('school_id', $schoolId)
+            ->get(['id', 'name', 'size_label'])
+            ->keyBy('id');
+
+        foreach ($groupedQtyByVariant as $variantId => $requestedQty) {
+            $variantId = (int) $variantId;
+
+            if (!$variantMap->has($variantId)) {
+                throw new InvalidArgumentException("variant_id {$variantId} is invalid");
+            }
+
+            $availableQty = (int) RentalUnit::query()
+                ->where('school_id', $schoolId)
+                ->where('variant_id', $variantId)
+                ->where('status', 'available')
+                ->when(Schema::hasColumn('rental_units', 'deleted_at'), fn ($q) => $q->whereNull('deleted_at'))
+                ->count();
+
+            if ($requestedQty > $availableQty) {
+                $variant = $variantMap->get($variantId);
+                $variantLabel = trim((string) ($variant->name ?? '') . ' ' . (string) ($variant->size_label ?? ''));
+                $variantLabel = $variantLabel !== '' ? $variantLabel : ('#' . $variantId);
+
+                throw new InvalidArgumentException(
+                    "Insufficient stock for variant {$variantLabel}: requested {$requestedQty}, available {$availableQty}"
+                );
+            }
+        }
     }
 
     private function pickupPointExistsForSchool(int $pickupPointId, int $schoolId): bool
