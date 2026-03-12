@@ -165,7 +165,12 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
         Route::get('units', [\App\Http\Controllers\Admin\RentalUnitController::class, 'index']);
         Route::post('units', [\App\Http\Controllers\Admin\RentalUnitController::class, 'store']);
         Route::put('units/{id}', [\App\Http\Controllers\Admin\RentalUnitController::class, 'update']);
+        Route::post('units/{id}/maintenance', [\App\Http\Controllers\Admin\RentalUnitController::class, 'setMaintenance']);
+        Route::post('units/{id}/maintenance/release', [\App\Http\Controllers\Admin\RentalUnitController::class, 'releaseMaintenance']);
+        Route::get('units/{id}/maintenance-history', [\App\Http\Controllers\Admin\RentalUnitController::class, 'maintenanceHistory']);
         Route::delete('units/{id}', [\App\Http\Controllers\Admin\RentalUnitController::class, 'destroy']);
+
+        Route::get('stock-movements', [\App\Http\Controllers\Admin\RentalStockMovementController::class, 'index']);
 
         Route::get('pricing-rules', [\App\Http\Controllers\Admin\RentalPricingRuleController::class, 'index']);
         Route::post('pricing-rules', [\App\Http\Controllers\Admin\RentalPricingRuleController::class, 'store']);

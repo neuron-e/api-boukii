@@ -14,6 +14,7 @@ use App\Models\Payment;
 use App\Services\RentalReservationCreateService;
 use App\Services\RentalNotificationService;
 use App\Services\RentalPricingService;
+use App\Services\RentalStockMovementService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -32,7 +33,8 @@ class RentalReservationController extends RentalBaseController
 
     public function __construct(
         private readonly RentalPricingService $rentalPricingService,
-        private readonly RentalReservationCreateService $rentalReservationCreateService
+        private readonly RentalReservationCreateService $rentalReservationCreateService,
+        private readonly RentalStockMovementService $stockMovementService
     )
     {
     }
@@ -741,6 +743,18 @@ class RentalReservationController extends RentalBaseController
                     ]);
 
                     $unit->update(['status' => 'assigned']);
+                    $this->stockMovementService->log([
+                        'school_id' => (int) ($schoolId ?? $unit->school_id),
+                        'rental_reservation_id' => $id,
+                        'rental_reservation_line_id' => (int) $line->id,
+                        'rental_unit_id' => (int) $unit->id,
+                        'variant_id' => (int) ($line->variant_id ?? $unit->variant_id),
+                        'item_id' => (int) ($line->item_id ?? 0),
+                        'warehouse_id_from' => (int) ($unit->warehouse_id ?? 0),
+                        'movement_type' => 'assign',
+                        'reason' => 'auto_assign',
+                        'payload' => ['source' => 'auto_assign'],
+                    ]);
                     $processed++;
                 }
             }
@@ -791,6 +805,30 @@ class RentalReservationController extends RentalBaseController
         $lineId = (int) $request->input('line_id', 0);
         if ($lineId > 0) {
             RentalReservationLine::where('id', $lineId)->update(['damage_notes' => $request->input('notes')]);
+        }
+
+        $assignment = RentalReservationUnitAssignment::query()
+            ->where('id', $assignmentId)
+            ->where('rental_reservation_id', $id)
+            ->first();
+        if ($assignment && (int) ($assignment->rental_unit_id ?? 0) > 0) {
+            $unit = RentalUnit::query()->find((int) $assignment->rental_unit_id);
+            $this->stockMovementService->log([
+                'school_id' => (int) ($schoolId ?? $reservation->school_id),
+                'rental_reservation_id' => $id,
+                'rental_reservation_line_id' => (int) ($assignment->rental_reservation_line_id ?? 0),
+                'rental_unit_id' => (int) $assignment->rental_unit_id,
+                'variant_id' => (int) ($unit->variant_id ?? 0),
+                'item_id' => (int) ($lineId > 0 ? RentalReservationLine::where('id', $lineId)->value('item_id') : 0),
+                'warehouse_id_from' => (int) ($unit->warehouse_id ?? 0),
+                'movement_type' => 'damage',
+                'reason' => (string) $request->input('notes', 'damage_registered'),
+                'payload' => [
+                    'assignment_id' => $assignmentId,
+                    'damage_cost' => $damageCost,
+                    'condition' => $request->input('condition', 'damaged'),
+                ],
+            ]);
         }
 
         RentalEvent::log($id, $schoolId ?? $reservation->school_id, 'damage_registered', [
@@ -1019,7 +1057,29 @@ class RentalReservationController extends RentalBaseController
 
                 $unitId = (int) ($row['unit_id'] ?? 0);
                 if ($unitId > 0) {
-                    RentalUnit::where('id', $unitId)->update(['status' => $event === 'returned' ? 'available' : 'assigned']);
+                    $unit = RentalUnit::query()->find($unitId);
+                    if ($unit) {
+                        $variantId = (int) ($row['variant_id'] ?? $unit->variant_id ?? 0);
+                        $itemId = (int) ($row['item_id'] ?? 0);
+                        if ($itemId <= 0 && (int) $variantId > 0) {
+                            $itemId = (int) (RentalVariant::query()->where('id', $variantId)->value('item_id') ?? 0);
+                        }
+
+                        RentalUnit::where('id', $unitId)->update(['status' => $event === 'returned' ? 'available' : 'assigned']);
+                        $this->stockMovementService->log([
+                            'school_id' => (int) ($schoolId ?? $unit->school_id),
+                            'rental_reservation_id' => $reservationId,
+                            'rental_reservation_line_id' => (int) ($row['line_id'] ?? 0),
+                            'rental_unit_id' => $unitId,
+                            'variant_id' => $variantId,
+                            'item_id' => $itemId,
+                            'warehouse_id_from' => (int) ($unit->warehouse_id ?? 0),
+                            'warehouse_id_to' => (int) ($unit->warehouse_id ?? 0),
+                            'movement_type' => $event === 'returned' ? 'return' : 'assign',
+                            'reason' => $row['notes'] ?? ($event === 'returned' ? 'manual_return' : 'manual_assign'),
+                            'payload' => ['assignment_type' => $event],
+                        ]);
+                    }
                 }
             }
 
