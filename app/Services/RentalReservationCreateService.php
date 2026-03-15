@@ -48,7 +48,7 @@ class RentalReservationCreateService
             throw new InvalidArgumentException('lines is required');
         }
 
-        $this->assertNoOverallocation($schoolId, $inputLines);
+        $this->assertAvailabilityForLines($schoolId, $inputLines);
 
         DB::beginTransaction();
         try {
@@ -204,59 +204,143 @@ class RentalReservationCreateService
         return is_array($inputLines) ? $inputLines : [];
     }
 
-    private function assertNoOverallocation(int $schoolId, array $lines): void
+    public function assertAvailabilityForLines(int $schoolId, array $lines, ?int $excludeReservationId = null): void
     {
         if (!Schema::hasTable('rental_units')) {
             return;
         }
 
-        $groupedQtyByVariant = collect($lines)
+        $groupedRequests = collect($lines)
             ->filter(fn ($line) => is_array($line))
             ->map(function (array $line) {
+                $startDate = trim((string) ($line['start_date'] ?? ''));
+                $endDate = trim((string) ($line['end_date'] ?? ''));
+
                 return [
                     'variant_id' => (int) ($line['variant_id'] ?? 0),
                     'quantity' => max(1, (int) ($line['quantity'] ?? 1)),
+                    'start_date' => $startDate !== '' ? $startDate : null,
+                    'end_date' => $endDate !== '' ? $endDate : null,
                 ];
             })
-            ->filter(fn (array $line) => $line['variant_id'] > 0)
-            ->groupBy('variant_id')
-            ->map(fn ($group) => (int) $group->sum('quantity'));
+            ->filter(fn (array $line) => $line['variant_id'] > 0 && !empty($line['start_date']) && !empty($line['end_date']))
+            ->groupBy(fn (array $line) => implode('|', [
+                $line['variant_id'],
+                $line['start_date'],
+                $line['end_date'],
+            ]))
+            ->map(function ($group) {
+                $first = $group->first();
+                return [
+                    'variant_id' => (int) $first['variant_id'],
+                    'start_date' => $first['start_date'],
+                    'end_date' => $first['end_date'],
+                    'quantity' => (int) collect($group)->sum('quantity'),
+                ];
+            })
+            ->values();
 
-        if ($groupedQtyByVariant->isEmpty()) {
+        if ($groupedRequests->isEmpty()) {
             return;
         }
 
-        $variantIds = $groupedQtyByVariant->keys()->map(fn ($id) => (int) $id)->all();
+        $variantIds = $groupedRequests->pluck('variant_id')->map(fn ($id) => (int) $id)->unique()->all();
         $variantMap = RentalVariant::query()
             ->whereIn('id', $variantIds)
             ->where('school_id', $schoolId)
             ->get(['id', 'name', 'size_label'])
             ->keyBy('id');
 
-        foreach ($groupedQtyByVariant as $variantId => $requestedQty) {
-            $variantId = (int) $variantId;
+        foreach ($groupedRequests as $requestGroup) {
+            $variantId = (int) $requestGroup['variant_id'];
+            $requestedQty = (int) $requestGroup['quantity'];
+            $startDate = (string) $requestGroup['start_date'];
+            $endDate = (string) $requestGroup['end_date'];
 
             if (!$variantMap->has($variantId)) {
                 throw new InvalidArgumentException("variant_id {$variantId} is invalid");
             }
 
-            $availableQty = (int) RentalUnit::query()
+            $capacityQuery = RentalUnit::query()
                 ->where('school_id', $schoolId)
                 ->where('variant_id', $variantId)
-                ->where('status', 'available')
-                ->when(Schema::hasColumn('rental_units', 'deleted_at'), fn ($q) => $q->whereNull('deleted_at'))
-                ->count();
+                ->when(Schema::hasColumn('rental_units', 'deleted_at'), fn ($q) => $q->whereNull('deleted_at'));
 
-            if ($requestedQty > $availableQty) {
+            if (Schema::hasColumn('rental_units', 'status')) {
+                $capacityQuery->where('status', '!=', RentalUnit::STATUS_MAINTENANCE);
+            }
+            if (Schema::hasColumn('rental_units', 'blocked_until')) {
+                $capacityQuery->where(function ($query) use ($startDate) {
+                    $query->whereNull('blocked_until')
+                        ->orWhereDate('blocked_until', '<', $startDate);
+                });
+            }
+
+            $variantCapacity = (int) $capacityQuery->count();
+            $overlappingReservedQty = $this->overlappingReservedQuantity(
+                $schoolId,
+                $variantId,
+                $startDate,
+                $endDate,
+                $excludeReservationId
+            );
+            $maxBookableQty = max(0, $variantCapacity - $overlappingReservedQty);
+
+            if ($requestedQty > $maxBookableQty) {
                 $variant = $variantMap->get($variantId);
                 $variantLabel = trim((string) ($variant->name ?? '') . ' ' . (string) ($variant->size_label ?? ''));
                 $variantLabel = $variantLabel !== '' ? $variantLabel : ('#' . $variantId);
 
                 throw new InvalidArgumentException(
-                    "Insufficient stock for variant {$variantLabel}: requested {$requestedQty}, available {$availableQty}"
+                    "Insufficient stock for variant {$variantLabel}: requested {$requestedQty}, available {$maxBookableQty} for {$startDate} to {$endDate}"
                 );
             }
         }
+    }
+
+    private function overlappingReservedQuantity(
+        int $schoolId,
+        int $variantId,
+        string $startDate,
+        string $endDate,
+        ?int $excludeReservationId = null
+    ): int {
+        if (!Schema::hasTable('rental_reservation_lines') || !Schema::hasTable('rental_reservations')) {
+            return 0;
+        }
+
+        $blockingStatuses = [
+            self::STATUS_PENDING,
+            self::STATUS_ASSIGNED,
+            self::STATUS_CHECKED_OUT,
+            self::STATUS_PARTIAL_RETURN,
+            'active',
+            'overdue',
+        ];
+
+        $query = RentalReservationLine::query()
+            ->from('rental_reservation_lines as rrl')
+            ->join('rental_reservations as rr', 'rr.id', '=', 'rrl.rental_reservation_id')
+            ->where('rr.school_id', $schoolId)
+            ->where('rrl.variant_id', $variantId)
+            ->whereIn('rr.status', $blockingStatuses)
+            ->whereDate('rr.start_date', '<=', $endDate)
+            ->whereDate('rr.end_date', '>=', $startDate);
+
+        if (Schema::hasColumn('rental_reservation_lines', 'school_id')) {
+            $query->where('rrl.school_id', $schoolId);
+        }
+        if (Schema::hasColumn('rental_reservations', 'deleted_at')) {
+            $query->whereNull('rr.deleted_at');
+        }
+        if (Schema::hasColumn('rental_reservation_lines', 'deleted_at')) {
+            $query->whereNull('rrl.deleted_at');
+        }
+        if ($excludeReservationId && $excludeReservationId > 0) {
+            $query->where('rr.id', '!=', $excludeReservationId);
+        }
+
+        return (int) $query->sum('rrl.quantity');
     }
 
     private function pickupPointExistsForSchool(int $pickupPointId, int $schoolId): bool

@@ -18,6 +18,16 @@ class RentalItemController extends RentalBaseController
 
         $schoolId = $this->getSchoolId($request);
         $query = DB::table('rental_items as i');
+        $hasNormalizedBrandModel = Schema::hasTable('rental_brands')
+            && Schema::hasTable('rental_models')
+            && Schema::hasColumn('rental_items', 'brand_id')
+            && Schema::hasColumn('rental_items', 'model_id');
+
+        if ($hasNormalizedBrandModel) {
+            $query
+                ->leftJoin('rental_brands as rb', 'rb.id', '=', 'i.brand_id')
+                ->leftJoin('rental_models as rm', 'rm.id', '=', 'i.model_id');
+        }
 
         if ($schoolId && Schema::hasColumn('rental_items', 'school_id')) {
             $query->where('i.school_id', $schoolId);
@@ -54,11 +64,18 @@ class RentalItemController extends RentalBaseController
             $query->select('i.*');
         }
 
+        if ($hasNormalizedBrandModel) {
+            $query->addSelect([
+                DB::raw("COALESCE(NULLIF(rb.name, ''), NULLIF(i.brand, '')) as normalized_brand"),
+                DB::raw("COALESCE(NULLIF(rm.name, ''), NULLIF(i.model, '')) as normalized_model"),
+            ]);
+        }
+
         $query->orderByDesc('i.id');
         $perPage = (int) $request->input('per_page', 100);
         $rows = $query->paginate(max(1, min(1000, $perPage)));
 
-        $rows->setCollection($this->attachTagsToCollection($rows->getCollection(), $schoolId));
+        $rows->setCollection($this->decorateBrandModelFields($this->attachTagsToCollection($rows->getCollection(), $schoolId)));
         return $this->sendResponse($rows, 'Data retrieved successfully');
     }
 
@@ -69,12 +86,28 @@ class RentalItemController extends RentalBaseController
         }
 
         $schoolId = $this->getSchoolId($request);
-        $query = DB::table('rental_items')->where('id', $id);
+        $query = DB::table('rental_items as i')->where('i.id', $id);
+        $hasNormalizedBrandModel = Schema::hasTable('rental_brands')
+            && Schema::hasTable('rental_models')
+            && Schema::hasColumn('rental_items', 'brand_id')
+            && Schema::hasColumn('rental_items', 'model_id');
+        if ($hasNormalizedBrandModel) {
+            $query
+                ->leftJoin('rental_brands as rb', 'rb.id', '=', 'i.brand_id')
+                ->leftJoin('rental_models as rm', 'rm.id', '=', 'i.model_id');
+        }
+        $query->select('i.*');
+        if ($hasNormalizedBrandModel) {
+            $query->addSelect([
+                DB::raw("COALESCE(NULLIF(rb.name, ''), NULLIF(i.brand, '')) as normalized_brand"),
+                DB::raw("COALESCE(NULLIF(rm.name, ''), NULLIF(i.model, '')) as normalized_model"),
+            ]);
+        }
         if ($schoolId && Schema::hasColumn('rental_items', 'school_id')) {
-            $query->where('school_id', $schoolId);
+            $query->where('i.school_id', $schoolId);
         }
         if (Schema::hasColumn('rental_items', 'deleted_at')) {
-            $query->whereNull('deleted_at');
+            $query->whereNull('i.deleted_at');
         }
 
         $item = $query->first();
@@ -82,6 +115,7 @@ class RentalItemController extends RentalBaseController
             return $this->sendError('Not found', [], 404);
         }
 
+        $item = $this->decorateBrandModelRow($item);
         $item->tags = $this->itemTags((int) $item->id, $schoolId);
         return $this->sendResponse($item, 'Data retrieved successfully');
     }
@@ -100,6 +134,20 @@ class RentalItemController extends RentalBaseController
             ->select('i.*', 'c.name as category_name', 'c.icon as category_icon')
             ->where('i.id', $id);
 
+        $hasNormalizedBrandModel = Schema::hasTable('rental_brands')
+            && Schema::hasTable('rental_models')
+            && Schema::hasColumn('rental_items', 'brand_id')
+            && Schema::hasColumn('rental_items', 'model_id');
+        if ($hasNormalizedBrandModel) {
+            $itemQuery
+                ->leftJoin('rental_brands as rb', 'rb.id', '=', 'i.brand_id')
+                ->leftJoin('rental_models as rm', 'rm.id', '=', 'i.model_id')
+                ->addSelect([
+                    DB::raw("COALESCE(NULLIF(rb.name, ''), NULLIF(i.brand, '')) as normalized_brand"),
+                    DB::raw("COALESCE(NULLIF(rm.name, ''), NULLIF(i.model, '')) as normalized_model"),
+                ]);
+        }
+
         if ($schoolId && Schema::hasColumn('rental_items', 'school_id')) {
             $itemQuery->where('i.school_id', $schoolId);
         }
@@ -111,6 +159,7 @@ class RentalItemController extends RentalBaseController
         if (!$item) {
             return $this->sendError('Not found', [], 404);
         }
+        $item = $this->decorateBrandModelRow($item);
         $item->tags = $this->itemTags((int) $item->id, $schoolId);
 
         $variants = collect();
@@ -264,11 +313,14 @@ class RentalItemController extends RentalBaseController
             return $this->tableMissingResponse('rental_items');
         }
 
-        $payload = $request->only(['school_id', 'category_id', 'name', 'brand', 'model', 'description', 'image', 'active']);
+        $payload = $request->only(['school_id', 'category_id', 'name', 'brand', 'model', 'brand_id', 'model_id', 'description', 'image', 'active']);
         $schoolId = $this->getSchoolId($request);
         if ($schoolId && Schema::hasColumn('rental_items', 'school_id') && !isset($payload['school_id'])) {
             $payload['school_id'] = $schoolId;
         }
+
+        $payload = $this->normalizeBrandModelPayload($payload, $schoolId);
+
         if (Schema::hasColumn('rental_items', 'created_at')) {
             $payload['created_at'] = now();
         }
@@ -280,6 +332,7 @@ class RentalItemController extends RentalBaseController
         $this->syncItemTags($id, $schoolId, $this->normalizeTags($request->input('tags')));
 
         $row = DB::table('rental_items')->where('id', $id)->first();
+        $row = $this->decorateBrandModelRow($row);
         $row->tags = $this->itemTags($id, $schoolId);
         return $this->sendResponse($row, 'Created successfully');
     }
@@ -290,13 +343,14 @@ class RentalItemController extends RentalBaseController
             return $this->tableMissingResponse('rental_items');
         }
 
-        $payload = $request->only(['category_id', 'name', 'brand', 'model', 'description', 'image', 'active']);
+        $schoolId = $this->getSchoolId($request);
+        $payload = $request->only(['category_id', 'name', 'brand', 'model', 'brand_id', 'model_id', 'description', 'image', 'active']);
+        $payload = $this->normalizeBrandModelPayload($payload, $schoolId);
         if (Schema::hasColumn('rental_items', 'updated_at')) {
             $payload['updated_at'] = now();
         }
 
         $query = DB::table('rental_items')->where('id', $id);
-        $schoolId = $this->getSchoolId($request);
         if ($schoolId && Schema::hasColumn('rental_items', 'school_id')) {
             $query->where('school_id', $schoolId);
         }
@@ -320,8 +374,151 @@ class RentalItemController extends RentalBaseController
             return $this->sendError('Not found', [], 404);
         }
 
+        $row = $this->decorateBrandModelRow($row);
         $row->tags = $this->itemTags($id, $schoolId);
         return $this->sendResponse($row, 'Updated successfully');
+    }
+
+    public function updateDetail(Request $request, int $id)
+    {
+        if (!Schema::hasTable('rental_items') || !Schema::hasTable('rental_variants')) {
+            return $this->sendError('Rental detail tables are not available', [], 422);
+        }
+
+        $schoolId = $this->getSchoolId($request);
+        $variantId = (int) $request->input('variant_id', 0);
+        if ($variantId <= 0) {
+            return $this->sendError('variant_id is required', [], 422);
+        }
+
+        $item = DB::table('rental_items')
+            ->where('id', $id)
+            ->when($schoolId && Schema::hasColumn('rental_items', 'school_id'), function ($query) use ($schoolId) {
+                $query->where('school_id', $schoolId);
+            })
+            ->when(Schema::hasColumn('rental_items', 'deleted_at'), function ($query) {
+                $query->whereNull('deleted_at');
+            })
+            ->first();
+        if (!$item) {
+            return $this->sendError('Not found', [], 404);
+        }
+
+        $variant = DB::table('rental_variants')
+            ->where('id', $variantId)
+            ->where('item_id', $id)
+            ->when($schoolId && Schema::hasColumn('rental_variants', 'school_id'), function ($query) use ($schoolId) {
+                $query->where('school_id', $schoolId);
+            })
+            ->when(Schema::hasColumn('rental_variants', 'deleted_at'), function ($query) {
+                $query->whereNull('deleted_at');
+            })
+            ->first();
+        if (!$variant) {
+            return $this->sendError('Variant not found', [], 404);
+        }
+
+        DB::transaction(function () use ($request, $id, $variantId, $schoolId) {
+            $itemPayload = $request->only([
+                'category_id', 'name', 'brand', 'model', 'brand_id', 'model_id', 'description', 'active'
+            ]);
+            $itemPayload = $this->normalizeBrandModelPayload($itemPayload, $schoolId);
+            if (Schema::hasColumn('rental_items', 'updated_at')) {
+                $itemPayload['updated_at'] = now();
+            }
+            if (!empty($itemPayload)) {
+                DB::table('rental_items')->where('id', $id)->update($itemPayload);
+            }
+            if ($request->has('tags')) {
+                $this->syncItemTags($id, $schoolId, $this->normalizeTags($request->input('tags')));
+            }
+
+            $variantPayload = $request->only([
+                'subcategory_id', 'name', 'size_group', 'size_label', 'sku', 'barcode',
+                'serial_prefix', 'purchase_date', 'last_maintenance_date', 'notes', 'active'
+            ]);
+            if (Schema::hasColumn('rental_variants', 'updated_at')) {
+                $variantPayload['updated_at'] = now();
+            }
+            if (!empty($variantPayload)) {
+                DB::table('rental_variants')->where('id', $variantId)->update($variantPayload);
+            }
+
+            $pricing = $request->input('pricing', []);
+            if (!is_array($pricing)) {
+                $pricing = [];
+            }
+            $legacyPriceMap = [
+                'half_day' => (float) $request->input('half_day_price', 0),
+                'full_day' => (float) $request->input('full_day_price', 0),
+                'week' => (float) $request->input('week_price', 0),
+            ];
+            foreach ($legacyPriceMap as $period => $price) {
+                if (!array_key_exists($period, $pricing)) {
+                    $pricing[$period] = ['price' => $price];
+                }
+            }
+
+            if (Schema::hasTable('rental_pricing_rules')) {
+                foreach (['half_day', 'full_day', 'week'] as $period) {
+                    $line = $pricing[$period] ?? null;
+                    $price = is_array($line) ? (float) ($line['price'] ?? 0) : (float) $line;
+                    $currency = is_array($line) ? trim((string) ($line['currency'] ?? '')) : '';
+                    $existing = DB::table('rental_pricing_rules')
+                        ->where('variant_id', $variantId)
+                        ->where('period_type', $period)
+                        ->when($schoolId && Schema::hasColumn('rental_pricing_rules', 'school_id'), function ($query) use ($schoolId) {
+                            $query->where('school_id', $schoolId);
+                        })
+                        ->when(Schema::hasColumn('rental_pricing_rules', 'deleted_at'), function ($query) {
+                            $query->whereNull('deleted_at');
+                        })
+                        ->orderByDesc('id')
+                        ->first();
+
+                    if ($existing) {
+                        $updatePayload = [
+                            'price' => max(0, $price),
+                            'active' => $price > 0,
+                        ];
+                        if ($currency !== '' && Schema::hasColumn('rental_pricing_rules', 'currency')) {
+                            $updatePayload['currency'] = $currency;
+                        }
+                        if (Schema::hasColumn('rental_pricing_rules', 'updated_at')) {
+                            $updatePayload['updated_at'] = now();
+                        }
+                        DB::table('rental_pricing_rules')->where('id', $existing->id)->update($updatePayload);
+                        continue;
+                    }
+
+                    if ($price <= 0) {
+                        continue;
+                    }
+
+                    $insertPayload = [
+                        'variant_id' => $variantId,
+                        'period_type' => $period,
+                        'price' => $price,
+                        'active' => true,
+                    ];
+                    if ($schoolId && Schema::hasColumn('rental_pricing_rules', 'school_id')) {
+                        $insertPayload['school_id'] = $schoolId;
+                    }
+                    if (Schema::hasColumn('rental_pricing_rules', 'currency')) {
+                        $insertPayload['currency'] = $currency !== '' ? $currency : 'CHF';
+                    }
+                    if (Schema::hasColumn('rental_pricing_rules', 'created_at')) {
+                        $insertPayload['created_at'] = now();
+                    }
+                    if (Schema::hasColumn('rental_pricing_rules', 'updated_at')) {
+                        $insertPayload['updated_at'] = now();
+                    }
+                    DB::table('rental_pricing_rules')->insert($insertPayload);
+                }
+            }
+        });
+
+        return $this->detail($request, $id);
     }
 
     public function destroy(Request $request, int $id)
@@ -412,6 +609,213 @@ class RentalItemController extends RentalBaseController
                 ->all();
             return $row;
         });
+    }
+
+    private function decorateBrandModelFields(Collection $rows): Collection
+    {
+        return $rows->map(function ($row) {
+            return $this->decorateBrandModelRow($row);
+        });
+    }
+
+    private function decorateBrandModelRow($row)
+    {
+        if (!$row) {
+            return $row;
+        }
+
+        $normalizedBrand = trim((string) ($row->normalized_brand ?? ''));
+        $normalizedModel = trim((string) ($row->normalized_model ?? ''));
+
+        if ($normalizedBrand !== '') {
+            $row->brand = $normalizedBrand;
+        }
+        if ($normalizedModel !== '') {
+            $row->model = $normalizedModel;
+        }
+
+        if (!isset($row->brand_name)) {
+            $row->brand_name = trim((string) ($row->brand ?? ''));
+        }
+        if (!isset($row->model_name)) {
+            $row->model_name = trim((string) ($row->model ?? ''));
+        }
+
+        unset($row->normalized_brand, $row->normalized_model);
+        return $row;
+    }
+
+    private function normalizeBrandModelPayload(array $payload, ?int $schoolId): array
+    {
+        $hasBrandTable = Schema::hasTable('rental_brands');
+        $hasModelTable = Schema::hasTable('rental_models');
+        $hasBrandIdColumn = Schema::hasColumn('rental_items', 'brand_id');
+        $hasModelIdColumn = Schema::hasColumn('rental_items', 'model_id');
+
+        $brandId = isset($payload['brand_id']) ? (int) $payload['brand_id'] : 0;
+        $modelId = isset($payload['model_id']) ? (int) $payload['model_id'] : 0;
+        $brand = trim((string) ($payload['brand'] ?? ''));
+        $model = trim((string) ($payload['model'] ?? ''));
+
+        if ($hasBrandTable && $hasBrandIdColumn) {
+            if ($brandId <= 0 && $brand !== '') {
+                $brandId = $this->resolveBrandId($schoolId, $brand);
+            }
+            if ($brandId > 0) {
+                $payload['brand_id'] = $brandId;
+                if ($brand === '') {
+                    $brand = $this->brandNameById($brandId);
+                }
+            } elseif (array_key_exists('brand_id', $payload)) {
+                $payload['brand_id'] = null;
+            }
+        } else {
+            unset($payload['brand_id']);
+        }
+
+        if ($hasModelTable && $hasModelIdColumn) {
+            if ($modelId <= 0 && $model !== '') {
+                $modelId = $this->resolveModelId($schoolId, $brandId > 0 ? $brandId : null, $model);
+            }
+            if ($modelId > 0) {
+                $payload['model_id'] = $modelId;
+                if ($model === '') {
+                    $model = $this->modelNameById($modelId);
+                }
+            } elseif (array_key_exists('model_id', $payload)) {
+                $payload['model_id'] = null;
+            }
+        } else {
+            unset($payload['model_id']);
+        }
+
+        // Keep legacy text fields in sync while old consumers still rely on them.
+        if (array_key_exists('brand', $payload) || $brand !== '') {
+            $payload['brand'] = $brand;
+        }
+        if (array_key_exists('model', $payload) || $model !== '') {
+            $payload['model'] = $model;
+        }
+
+        return $payload;
+    }
+
+    private function resolveBrandId(?int $schoolId, string $name): int
+    {
+        $normalizedName = trim($name);
+        if ($normalizedName === '') {
+            return 0;
+        }
+
+        $query = DB::table('rental_brands')
+            ->whereRaw('LOWER(name) = ?', [mb_strtolower($normalizedName)]);
+        if (Schema::hasColumn('rental_brands', 'school_id')) {
+            if ($schoolId && $schoolId > 0) {
+                $query->where('school_id', $schoolId);
+            } else {
+                $query->whereNull('school_id');
+            }
+        }
+
+        $existing = $query->first();
+        if ($existing) {
+            if (Schema::hasColumn('rental_brands', 'deleted_at') && !empty($existing->deleted_at)) {
+                DB::table('rental_brands')->where('id', $existing->id)->update([
+                    'deleted_at' => null,
+                    'active' => true,
+                    'updated_at' => now(),
+                ]);
+            }
+            return (int) $existing->id;
+        }
+
+        $payload = [
+            'name' => $normalizedName,
+            'slug' => Str::slug($normalizedName) ?: null,
+            'active' => true,
+        ];
+        if (Schema::hasColumn('rental_brands', 'school_id')) {
+            $payload['school_id'] = ($schoolId && $schoolId > 0) ? $schoolId : null;
+        }
+        if (Schema::hasColumn('rental_brands', 'created_at')) {
+            $payload['created_at'] = now();
+        }
+        if (Schema::hasColumn('rental_brands', 'updated_at')) {
+            $payload['updated_at'] = now();
+        }
+
+        return (int) DB::table('rental_brands')->insertGetId($payload);
+    }
+
+    private function resolveModelId(?int $schoolId, ?int $brandId, string $name): int
+    {
+        $normalizedName = trim($name);
+        if ($normalizedName === '') {
+            return 0;
+        }
+
+        $query = DB::table('rental_models')
+            ->whereRaw('LOWER(name) = ?', [mb_strtolower($normalizedName)]);
+        if (Schema::hasColumn('rental_models', 'brand_id')) {
+            if ($brandId && $brandId > 0) {
+                $query->where('brand_id', $brandId);
+            } else {
+                $query->whereNull('brand_id');
+            }
+        }
+        if (Schema::hasColumn('rental_models', 'school_id')) {
+            if ($schoolId && $schoolId > 0) {
+                $query->where('school_id', $schoolId);
+            } else {
+                $query->whereNull('school_id');
+            }
+        }
+
+        $existing = $query->first();
+        if ($existing) {
+            if (Schema::hasColumn('rental_models', 'deleted_at') && !empty($existing->deleted_at)) {
+                DB::table('rental_models')->where('id', $existing->id)->update([
+                    'deleted_at' => null,
+                    'active' => true,
+                    'updated_at' => now(),
+                ]);
+            }
+            return (int) $existing->id;
+        }
+
+        $payload = [
+            'brand_id' => ($brandId && $brandId > 0) ? $brandId : null,
+            'name' => $normalizedName,
+            'slug' => Str::slug($normalizedName) ?: null,
+            'active' => true,
+        ];
+        if (Schema::hasColumn('rental_models', 'school_id')) {
+            $payload['school_id'] = ($schoolId && $schoolId > 0) ? $schoolId : null;
+        }
+        if (Schema::hasColumn('rental_models', 'created_at')) {
+            $payload['created_at'] = now();
+        }
+        if (Schema::hasColumn('rental_models', 'updated_at')) {
+            $payload['updated_at'] = now();
+        }
+
+        return (int) DB::table('rental_models')->insertGetId($payload);
+    }
+
+    private function brandNameById(int $brandId): string
+    {
+        if ($brandId <= 0 || !Schema::hasTable('rental_brands')) {
+            return '';
+        }
+        return trim((string) (DB::table('rental_brands')->where('id', $brandId)->value('name') ?? ''));
+    }
+
+    private function modelNameById(int $modelId): string
+    {
+        if ($modelId <= 0 || !Schema::hasTable('rental_models')) {
+            return '';
+        }
+        return trim((string) (DB::table('rental_models')->where('id', $modelId)->value('name') ?? ''));
     }
 
     private function itemTags(int $itemId, ?int $schoolId): array

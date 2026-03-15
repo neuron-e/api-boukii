@@ -29,5 +29,9 @@ class RentalPickupPointController extends RentalBaseController
     {
         return $this->destroyByTable($request, 'rental_pickup_points', $id);
     }
-}
 
+    public function restore(Request $request, int $id)
+    {
+        return $this->restoreByTable($request, 'rental_pickup_points', $id);
+    }
+}

@@ -205,10 +205,11 @@ class RentalUnitController extends RentalBaseController
         }
 
         $schoolId = $this->getSchoolId($request);
+        $actorNameSql = "COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''), NULLIF(u.username, ''), NULLIF(u.email, ''), CONCAT('User #', u.id))";
         $history = DB::table('rental_stock_movements as rsm')
             ->select([
                 'rsm.*',
-                DB::raw('u.name as actor_name'),
+                DB::raw("$actorNameSql as actor_name"),
             ])
             ->leftJoin('users as u', 'u.id', '=', 'rsm.user_id')
             ->where('rsm.rental_unit_id', $id)

@@ -119,6 +119,18 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
         ->name('api.admin.notifications.read-all');
 
     Route::prefix('rentals')->group(function () {
+        Route::get('brands', [\App\Http\Controllers\Admin\RentalBrandController::class, 'index']);
+        Route::post('brands', [\App\Http\Controllers\Admin\RentalBrandController::class, 'store']);
+        Route::get('brands/{id}', [\App\Http\Controllers\Admin\RentalBrandController::class, 'show']);
+        Route::put('brands/{id}', [\App\Http\Controllers\Admin\RentalBrandController::class, 'update']);
+        Route::delete('brands/{id}', [\App\Http\Controllers\Admin\RentalBrandController::class, 'destroy']);
+
+        Route::get('models', [\App\Http\Controllers\Admin\RentalModelController::class, 'index']);
+        Route::post('models', [\App\Http\Controllers\Admin\RentalModelController::class, 'store']);
+        Route::get('models/{id}', [\App\Http\Controllers\Admin\RentalModelController::class, 'show']);
+        Route::put('models/{id}', [\App\Http\Controllers\Admin\RentalModelController::class, 'update']);
+        Route::delete('models/{id}', [\App\Http\Controllers\Admin\RentalModelController::class, 'destroy']);
+
         Route::get('categories', [\App\Http\Controllers\Admin\RentalCategoryController::class, 'index']);
         Route::post('categories', [\App\Http\Controllers\Admin\RentalCategoryController::class, 'store']);
         Route::get('categories/{id}', [\App\Http\Controllers\Admin\RentalCategoryController::class, 'show']);
@@ -134,6 +146,7 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
         Route::get('items', [\App\Http\Controllers\Admin\RentalItemController::class, 'index']);
         Route::post('items', [\App\Http\Controllers\Admin\RentalItemController::class, 'store']);
         Route::get('items/{id}/detail', [\App\Http\Controllers\Admin\RentalItemController::class, 'detail']);
+        Route::put('items/{id}/detail', [\App\Http\Controllers\Admin\RentalItemController::class, 'updateDetail']);
         Route::get('items/{id}/images', [\App\Http\Controllers\Admin\RentalItemImageController::class, 'index']);
         Route::post('items/{id}/images', [\App\Http\Controllers\Admin\RentalItemImageController::class, 'store']);
         Route::put('items/{id}/images/{imageId}/primary', [\App\Http\Controllers\Admin\RentalItemImageController::class, 'setPrimary']);
@@ -156,11 +169,13 @@ Route::middleware(['auth:sanctum', 'ability:admin:all', 'admin.rate.limit'])->gr
         Route::post('warehouses', [\App\Http\Controllers\Admin\RentalWarehouseController::class, 'store']);
         Route::put('warehouses/{id}', [\App\Http\Controllers\Admin\RentalWarehouseController::class, 'update']);
         Route::delete('warehouses/{id}', [\App\Http\Controllers\Admin\RentalWarehouseController::class, 'destroy']);
+        Route::post('warehouses/{id}/restore', [\App\Http\Controllers\Admin\RentalWarehouseController::class, 'restore']);
 
         Route::get('pickup-points', [\App\Http\Controllers\Admin\RentalPickupPointController::class, 'index']);
         Route::post('pickup-points', [\App\Http\Controllers\Admin\RentalPickupPointController::class, 'store']);
         Route::put('pickup-points/{id}', [\App\Http\Controllers\Admin\RentalPickupPointController::class, 'update']);
         Route::delete('pickup-points/{id}', [\App\Http\Controllers\Admin\RentalPickupPointController::class, 'destroy']);
+        Route::post('pickup-points/{id}/restore', [\App\Http\Controllers\Admin\RentalPickupPointController::class, 'restore']);
 
         Route::get('units', [\App\Http\Controllers\Admin\RentalUnitController::class, 'index']);
         Route::post('units', [\App\Http\Controllers\Admin\RentalUnitController::class, 'store']);

@@ -487,8 +487,21 @@ class RentalReservationController extends RentalBaseController
                 ->get()
                 ->keyBy('id');
 
+        $availabilityLines = $requested->map(function (array $row) use ($reservation) {
+            return [
+                'variant_id' => $row['variant_id'],
+                'quantity' => $row['quantity'],
+                'start_date' => $row['start_date'] ?: (string) $reservation->start_date,
+                'end_date' => $row['end_date'] ?: (string) $reservation->end_date,
+            ];
+        })->values()->all();
+
         try {
-            $this->assertNoOverallocationForEdit($schoolId, $reservationId, $requested);
+            $this->rentalReservationCreateService->assertAvailabilityForLines(
+                $schoolId,
+                $availabilityLines,
+                $reservationId
+            );
         } catch (InvalidArgumentException $e) {
             return $this->sendError($e->getMessage(), [], 422);
         }
@@ -628,64 +641,6 @@ class RentalReservationController extends RentalBaseController
         return true;
     }
 
-    private function assertNoOverallocationForEdit(int $schoolId, int $reservationId, \Illuminate\Support\Collection $requested): void
-    {
-        if (!Schema::hasTable('rental_units')) {
-            return;
-        }
-
-        $requestedQtyByVariant = $requested
-            ->filter(fn (array $row) => (int) ($row['variant_id'] ?? 0) > 0)
-            ->groupBy(fn (array $row) => (int) $row['variant_id'])
-            ->map(fn ($rows) => (int) collect($rows)->sum('quantity'));
-
-        if ($requestedQtyByVariant->isEmpty()) {
-            return;
-        }
-
-        $variantIds = $requestedQtyByVariant->keys()->map(fn ($id) => (int) $id)->all();
-        $variantMap = RentalVariant::query()
-            ->whereIn('id', $variantIds)
-            ->where('school_id', $schoolId)
-            ->get(['id', 'name', 'size_label'])
-            ->keyBy('id');
-
-        $currentQtyByVariant = RentalReservationLine::query()
-            ->where('rental_reservation_id', $reservationId)
-            ->whereIn('variant_id', $variantIds)
-            ->select('variant_id', DB::raw('COALESCE(SUM(quantity),0) as qty'))
-            ->groupBy('variant_id')
-            ->pluck('qty', 'variant_id');
-
-        foreach ($requestedQtyByVariant as $variantId => $requestedQty) {
-            $variantId = (int) $variantId;
-
-            if (!$variantMap->has($variantId)) {
-                throw new InvalidArgumentException("variant_id {$variantId} is invalid");
-            }
-
-            $availableQty = (int) RentalUnit::query()
-                ->where('school_id', $schoolId)
-                ->where('variant_id', $variantId)
-                ->where('status', 'available')
-                ->when(Schema::hasColumn('rental_units', 'deleted_at'), fn ($query) => $query->whereNull('deleted_at'))
-                ->count();
-
-            $currentReservationQty = (int) ($currentQtyByVariant[$variantId] ?? 0);
-            $maxEditableQty = $availableQty + $currentReservationQty;
-
-            if ((int) $requestedQty > $maxEditableQty) {
-                $variant = $variantMap->get($variantId);
-                $variantLabel = trim((string) ($variant->name ?? '') . ' ' . (string) ($variant->size_label ?? ''));
-                $variantLabel = $variantLabel !== '' ? $variantLabel : ('#' . $variantId);
-
-                throw new InvalidArgumentException(
-                    "Insufficient stock for variant {$variantLabel}: requested {$requestedQty}, available {$availableQty}"
-                );
-            }
-        }
-    }
-
     public function assignUnits(Request $request, int $id)
     {
         return $this->storeAssignments($request, $id, 'assigned');
@@ -727,6 +682,7 @@ class RentalReservationController extends RentalBaseController
                 $units = RentalUnit::where('variant_id', $line->variant_id)
                     ->where('status', 'available')
                     ->when($schoolId, fn($q) => $q->where('school_id', $schoolId))
+                    ->lockForUpdate()
                     ->orderBy('id')
                     ->limit($needed)
                     ->get();
@@ -1052,18 +1008,27 @@ class RentalReservationController extends RentalBaseController
                 'notes'                      => $row['notes'] ?? null,
             ];
 
-                RentalReservationUnitAssignment::create($payload);
-                $inserted++;
-
                 $unitId = (int) ($row['unit_id'] ?? 0);
                 if ($unitId > 0) {
-                    $unit = RentalUnit::query()->find($unitId);
+                    $unit = RentalUnit::query()
+                        ->lockForUpdate()
+                        ->find($unitId);
                     if ($unit) {
+                        if ($event === 'assigned' && !$this->unitCanBeAssigned($unit)) {
+                            throw new \RuntimeException("Unit {$unitId} is no longer available for assignment");
+                        }
+                        if ($event === 'assigned' && $this->unitHasActiveAssignment($unitId)) {
+                            throw new \RuntimeException("Unit {$unitId} is already actively assigned");
+                        }
+
                         $variantId = (int) ($row['variant_id'] ?? $unit->variant_id ?? 0);
                         $itemId = (int) ($row['item_id'] ?? 0);
                         if ($itemId <= 0 && (int) $variantId > 0) {
                             $itemId = (int) (RentalVariant::query()->where('id', $variantId)->value('item_id') ?? 0);
                         }
+
+                        RentalReservationUnitAssignment::create($payload);
+                        $inserted++;
 
                         RentalUnit::where('id', $unitId)->update(['status' => $event === 'returned' ? 'available' : 'assigned']);
                         $this->stockMovementService->log([
@@ -1080,6 +1045,9 @@ class RentalReservationController extends RentalBaseController
                             'payload' => ['assignment_type' => $event],
                         ]);
                     }
+                } else {
+                    RentalReservationUnitAssignment::create($payload);
+                    $inserted++;
                 }
             }
 
@@ -1110,6 +1078,31 @@ class RentalReservationController extends RentalBaseController
             'processed' => $inserted,
             'event' => $event,
         ], 'Assignments processed');
+    }
+
+    private function unitCanBeAssigned(RentalUnit $unit): bool
+    {
+        if ((string) ($unit->status ?? '') !== 'available') {
+            return false;
+        }
+
+        if (Schema::hasColumn('rental_units', 'blocked_until') && !empty($unit->blocked_until)) {
+            try {
+                return \Carbon\Carbon::parse($unit->blocked_until)->isPast();
+            } catch (\Throwable $e) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function unitHasActiveAssignment(int $unitId): bool
+    {
+        return RentalReservationUnitAssignment::query()
+            ->where('rental_unit_id', $unitId)
+            ->whereNull('returned_at')
+            ->exists();
     }
 
     private function buildReturnAssignmentsFromCurrent(int $reservationId): array

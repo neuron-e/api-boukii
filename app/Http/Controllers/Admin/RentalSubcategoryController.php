@@ -191,10 +191,21 @@ class RentalSubcategoryController extends RentalBaseController
 
         if ($currentId) {
             $cursor = $parent;
+            $visited = [(int) $currentId => true];
             $guard = 0;
-            while ($cursor && $cursor->parent_id && $guard < 100) {
+            while ($cursor && $guard < 100) {
+                $cursorId = (int) ($cursor->id ?? 0);
+                if ($cursorId > 0 && isset($visited[$cursorId])) {
+                    return $this->sendError('Circular hierarchy is not allowed', [], 422);
+                }
+                if ($cursorId > 0) {
+                    $visited[$cursorId] = true;
+                }
                 if ((int) $cursor->parent_id === (int) $currentId) {
                     return $this->sendError('Circular hierarchy is not allowed', [], 422);
+                }
+                if (!$cursor->parent_id) {
+                    break;
                 }
                 $cursor = DB::table('rental_subcategories')
                     ->select('id', 'parent_id')

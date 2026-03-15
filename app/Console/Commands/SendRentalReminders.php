@@ -53,28 +53,42 @@ class SendRentalReminders extends Command
 
         foreach ($schools as $school) {
             $hoursWindow = $this->getReminderHours($school);
-            $targetStart = $now->copy()->addHours($hoursWindow);
+            $windowStart = $now->copy()->addHours($hoursWindow);
+            $windowEnd = $windowStart->copy()->addHour();
 
-            // Window: reservations whose start_date falls within [now, now+hours]
-            // Using date only (rental is full-day), so we look for start_date == target date
-            $targetDate = $targetStart->toDateString();
-
-            $reservations = DB::table('rental_reservations')
+            $candidateReservations = DB::table('rental_reservations')
                 ->where('school_id', $school->school_id)
                 ->whereIn('status', ['pending', 'assigned'])
-                ->where('start_date', $targetDate)
+                ->whereBetween('start_date', [
+                    $windowStart->toDateString(),
+                    $windowEnd->toDateString(),
+                ])
                 ->whereNull('deleted_at')
-                ->select('id', 'client_id', 'start_date', 'status')
+                ->select('id', 'client_id', 'start_date', 'start_time', 'status')
                 ->get();
+
+            $reservations = $candidateReservations
+                ->filter(function ($reservation) use ($windowStart, $windowEnd) {
+                    $pickupAt = $this->reservationPickupAt($reservation);
+                    if (!$pickupAt) {
+                        return false;
+                    }
+
+                    return $pickupAt->greaterThanOrEqualTo($windowStart)
+                        && $pickupAt->lessThan($windowEnd);
+                })
+                ->values();
 
             if ($reservations->isEmpty()) {
                 continue;
             }
 
-            $this->line("School #{$school->school_id}: {$reservations->count()} reminder(s) to send (window: {$hoursWindow}h, target date: {$targetDate})");
+            $this->line("School #{$school->school_id}: {$reservations->count()} reminder(s) to send (window: {$hoursWindow}h, target: {$windowStart->toDateTimeString()} -> {$windowEnd->toDateTimeString()})");
 
             foreach ($reservations as $reservation) {
-                $this->line("  → Reservation #{$reservation->id} (start: {$reservation->start_date})");
+                $pickupAt = $this->reservationPickupAt($reservation);
+                $pickupLabel = $pickupAt ? $pickupAt->toDateTimeString() : ($reservation->start_date . ' ' . ($reservation->start_time ?? '09:00'));
+                $this->line("  → Reservation #{$reservation->id} (pickup: {$pickupLabel})");
 
                 if ($isDryRun) continue;
 
@@ -127,5 +141,29 @@ class SendRentalReminders extends Command
 
         $hours = (int) ($settings['reminder_hours_before'] ?? 24);
         return max(1, min(72, $hours)); // Clamp between 1h and 72h
+    }
+
+    private function reservationPickupAt(object $reservation): ?Carbon
+    {
+        if (empty($reservation->start_date)) {
+            return null;
+        }
+
+        $pickupTime = !empty($reservation->start_time)
+            ? substr((string) $reservation->start_time, 0, 8)
+            : '09:00:00';
+
+        try {
+            return Carbon::parse(trim($reservation->start_date . ' ' . $pickupTime));
+        } catch (\Throwable $e) {
+            Log::warning('RENTAL_REMINDER_INVALID_PICKUP_AT', [
+                'reservation_id' => $reservation->id ?? null,
+                'start_date' => $reservation->start_date ?? null,
+                'start_time' => $reservation->start_time ?? null,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 }

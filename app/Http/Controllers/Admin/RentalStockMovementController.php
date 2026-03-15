@@ -15,10 +15,11 @@ class RentalStockMovementController extends RentalBaseController
         }
 
         $schoolId = $this->getSchoolId($request);
+        $actorNameSql = "COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''), NULLIF(u.username, ''), NULLIF(u.email, ''), CONCAT('User #', u.id))";
         $query = DB::table('rental_stock_movements as rsm')
             ->select([
                 'rsm.*',
-                DB::raw('u.name as actor_name'),
+                DB::raw("$actorNameSql as actor_name"),
                 DB::raw('rv.name as variant_name'),
                 DB::raw('rv.size_label as variant_size_label'),
                 DB::raw('ri.name as item_name'),
@@ -54,7 +55,7 @@ class RentalStockMovementController extends RentalBaseController
                     ->orWhere('rv.name', 'like', $like)
                     ->orWhere('rv.sku', 'like', $like)
                     ->orWhere('ri.name', 'like', $like)
-                    ->orWhere('u.name', 'like', $like)
+                    ->orWhereRaw("$actorNameSql like ?", [$like])
                     ->orWhere('wf.name', 'like', $like)
                     ->orWhere('wt.name', 'like', $like);
             });

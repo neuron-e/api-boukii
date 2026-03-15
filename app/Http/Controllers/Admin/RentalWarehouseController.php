@@ -29,5 +29,9 @@ class RentalWarehouseController extends RentalBaseController
     {
         return $this->destroyByTable($request, 'rental_warehouses', $id);
     }
-}
 
+    public function restore(Request $request, int $id)
+    {
+        return $this->restoreByTable($request, 'rental_warehouses', $id);
+    }
+}

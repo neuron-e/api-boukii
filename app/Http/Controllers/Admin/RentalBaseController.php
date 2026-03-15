@@ -69,7 +69,13 @@ abstract class RentalBaseController extends AppBaseController
             $query->where('school_id', $schoolId);
         }
         if (Schema::hasColumn($table, 'deleted_at')) {
-            $query->whereNull('deleted_at');
+            $includeArchived = filter_var($request->input('include_archived', false), FILTER_VALIDATE_BOOL);
+            $onlyArchived = filter_var($request->input('only_archived', false), FILTER_VALIDATE_BOOL);
+            if ($onlyArchived) {
+                $query->whereNotNull('deleted_at');
+            } elseif (!$includeArchived) {
+                $query->whereNull('deleted_at');
+            }
         }
 
         foreach ($filters as $column => $value) {
@@ -176,13 +182,42 @@ abstract class RentalBaseController extends AppBaseController
 
         if (Schema::hasColumn($table, 'deleted_at')) {
             $deleted = $query->update(['deleted_at' => now(), 'updated_at' => now()]);
+            $message = 'Archived successfully';
         } else {
             $deleted = $query->delete();
+            $message = 'Deleted successfully';
         }
 
         if (!$deleted) {
             return $this->sendError('Not found', [], 404);
         }
-        return $this->sendSuccess('Deleted successfully');
+        return $this->sendSuccess($message);
+    }
+
+    protected function restoreByTable(Request $request, string $table, int $id)
+    {
+        if (!Schema::hasTable($table)) {
+            return $this->tableMissingResponse($table);
+        }
+        if (!Schema::hasColumn($table, 'deleted_at')) {
+            return $this->sendError('Restore is not available for this table', [], 422);
+        }
+
+        $query = DB::table($table)->where('id', $id);
+        $schoolId = $this->getSchoolId($request);
+        if ($schoolId && Schema::hasColumn($table, 'school_id')) {
+            $query->where('school_id', $schoolId);
+        }
+
+        $restored = $query->whereNotNull('deleted_at')->update([
+            'deleted_at' => null,
+            'updated_at' => now(),
+        ]);
+        if (!$restored) {
+            return $this->sendError('Not found or already active', [], 404);
+        }
+
+        $row = DB::table($table)->where('id', $id)->first();
+        return $this->sendResponse($row, 'Restored successfully');
     }
 }
