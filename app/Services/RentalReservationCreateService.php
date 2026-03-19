@@ -74,6 +74,8 @@ class RentalReservationCreateService
                 'total',
                 'notes',
                 'meta',
+                'payment_method',
+                'deposit_amount',
             ])->all();
 
             $reservationPayload['school_id'] = $schoolId;
@@ -86,6 +88,9 @@ class RentalReservationCreateService
             $reservationPayload['subtotal'] = $pricingQuote['subtotal'] ?? 0;
             $reservationPayload['total'] = $pricingQuote['total'] ?? ($pricingQuote['subtotal'] ?? 0);
             $reservationPayload['return_point_id'] = $reservationPayload['return_point_id'] ?? $pickupPointId;
+            if (!empty($reservationPayload['deposit_amount']) && (float) $reservationPayload['deposit_amount'] > 0) {
+                $reservationPayload['deposit_status'] = 'pending';
+            }
 
             $reservation = RentalReservation::create($reservationPayload);
             $reservationId = (int) $reservation->id;

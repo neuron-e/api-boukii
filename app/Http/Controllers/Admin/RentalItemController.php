@@ -232,6 +232,7 @@ class RentalItemController extends RentalBaseController
                     'line.variant_id',
                     'line.quantity',
                     'line.line_total',
+                    DB::raw("COALESCE(NULLIF(r.currency,''), 'CHF') as currency"),
                     'r.id as reservation_id',
                     'r.reference',
                     'r.status',

@@ -39,6 +39,7 @@ class RentalReservation extends Model
         'deposit_payment_id',
         'damage_total',
         'payment_id',
+        'payment_method',
     ];
 
     protected $casts = [
