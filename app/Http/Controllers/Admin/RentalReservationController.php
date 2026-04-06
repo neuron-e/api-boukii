@@ -791,7 +791,7 @@ class RentalReservationController extends RentalBaseController
             'assignment_id' => $assignmentId,
             'damage_cost' => $damageCost,
             'condition' => $request->input('condition', 'damaged'),
-        ], $request);
+        ]);
 
         // Notify school admin via email
         if ($damageCost > 0) {
@@ -843,7 +843,7 @@ class RentalReservationController extends RentalBaseController
         RentalEvent::log($id, $schoolId ?? $reservation->school_id, 'cancelled', [
             'reason' => $reason,
             'previous_status' => $status,
-        ], $request);
+        ]);
 
         try {
             app(RentalNotificationService::class)->sendCancellation($id, $reason);
